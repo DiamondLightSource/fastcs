@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 
 from fastcs.controllers import ControllerAPI
@@ -14,11 +13,7 @@ class GraphQLTransport(Transport):
 
     graphql: GraphQLServerOptions = field(default_factory=GraphQLServerOptions)
 
-    def connect(
-        self,
-        controller_api: ControllerAPI,
-        loop: asyncio.AbstractEventLoop,
-    ):
+    def connect(self, controller_api: ControllerAPI):
         self._server = GraphQLServer(controller_api)
 
     async def serve(self) -> None:

@@ -1,4 +1,3 @@
-import asyncio
 import enum
 
 import numpy as np
@@ -32,7 +31,7 @@ def rest_controller_api(class_mocker: MockerFixture):
 
 def create_test_client(rest_controller_api: ControllerAPI) -> TestClient:
     rest_transport = RestTransport()
-    rest_transport.connect(rest_controller_api, asyncio.AbstractEventLoop())
+    rest_transport.connect(rest_controller_api)
     return TestClient(rest_transport._server._app)
 
 

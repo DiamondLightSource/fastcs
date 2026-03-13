@@ -216,7 +216,8 @@ def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
     )
 
 
-def test_read_signal_set():
+@pytest.mark.asyncio
+async def test_read_signal_set():
     class SomeController(Controller):
         a: AttrRW = AttrRW(Int(max=400_000, max_alarm=40_000))
         b: AttrR = AttrR(Float(min=-1, min_alarm=-0.5, prec=2))
@@ -240,12 +241,10 @@ def test_read_signal_set():
     a_values, b_values = [], []
     a_monitor = ctxt.monitor(f"{pv_prefix}:A_RBV", a_values.append)
     b_monitor = ctxt.monitor(f"{pv_prefix}:B", b_values.append)
-    serve = asyncio.ensure_future(fastcs.serve(interactive=False))
-    wait_and_set_attr_r = asyncio.ensure_future(_wait_and_set_attr_r())
+    serve = asyncio.create_task(fastcs.serve(interactive=False))
+    wait_and_set_attr_r = asyncio.create_task(_wait_and_set_attr_r())
     try:
-        asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(asyncio.gather(serve, wait_and_set_attr_r), timeout=0.2)
-        )
+        await asyncio.wait_for(asyncio.gather(serve, wait_and_set_attr_r), timeout=0.2)
     except TimeoutError:
         ...
     finally:
@@ -257,7 +256,8 @@ def test_read_signal_set():
         assert b_values == [0.0, -0.99, -0.91]  # Last is -0.91 because of prec
 
 
-def test_pvi_grouping():
+@pytest.mark.asyncio
+async def test_pvi_grouping():
     class ChildChildController(Controller):
         attr_e: AttrRW = AttrRW(Int())
         attr_f: AttrR = AttrR(String())
@@ -321,12 +321,10 @@ def test_pvi_grouping():
     child_child_child_controller_monitor = ctxt.monitor(
         f"{pv_prefix}Child:0:ChildChild:PVI", child_child_child_controller_pvi.append
     )
-    serve = asyncio.ensure_future(fastcs.serve(interactive=False))
+    serve = asyncio.create_task(fastcs.serve(interactive=False))
 
     try:
-        asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(serve, timeout=0.2)
-        )
+        await asyncio.wait_for(serve, timeout=0.2)
     except TimeoutError:
         ...
     finally:
@@ -525,7 +523,8 @@ async def test_more_exotic_datatypes():
         )
 
 
-def test_command_method_put_twice(caplog):
+@pytest.mark.asyncio
+async def test_command_method_put_twice(caplog):
     class SomeController(Controller):
         command_runs_for_a_while_times = []
         command_spawns_a_task_times = []
@@ -572,11 +571,9 @@ def test_command_method_put_twice(caplog):
         )
         assert expected_error_string in caplog.text
 
-    serve = asyncio.ensure_future(fastcs.serve(interactive=False))
+    serve = asyncio.create_task(fastcs.serve(interactive=False))
     try:
-        asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(asyncio.gather(serve, put_pvs()), timeout=1)
-        )
+        await asyncio.wait_for(asyncio.gather(serve, put_pvs()), timeout=1)
     except TimeoutError:
         ...
     serve.cancel()
@@ -613,7 +610,8 @@ def test_command_method_put_twice(caplog):
     )
 
 
-def test_block_flag_waits_for_callback_completion():
+@pytest.mark.asyncio
+async def test_block_flag_waits_for_callback_completion():
     class SomeController(Controller):
         @command()
         async def command_runs_for_a_while(self):
@@ -635,14 +633,9 @@ def test_block_flag_waits_for_callback_completion():
             )
             command_runs_for_a_while_times.append((start_time, datetime.now()))
 
-    serve = asyncio.ensure_future(fastcs.serve(interactive=False))
+    serve = asyncio.create_task(fastcs.serve(interactive=False))
     try:
-        asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(
-                asyncio.gather(serve, put_pvs()),
-                timeout=0.5,
-            )
-        )
+        await asyncio.wait_for(asyncio.gather(serve, put_pvs()), timeout=0.5)
     except TimeoutError:
         ...
     serve.cancel()

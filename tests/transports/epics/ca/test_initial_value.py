@@ -51,12 +51,10 @@ class InitialValuesController(Controller):
 async def test_initial_values_set_in_ca(mocker):
     pv_prefix = "SOFTIOC_INITIAL_DEVICE"
 
-    loop = asyncio.get_event_loop()
     controller = InitialValuesController()
     fastcs = FastCS(
         controller,
         [EpicsCATransport(epicsca=EpicsIOCOptions(pv_prefix=pv_prefix))],
-        loop,
     )
 
     record_spy = mocker.spy(ca_ioc, "_make_in_record")

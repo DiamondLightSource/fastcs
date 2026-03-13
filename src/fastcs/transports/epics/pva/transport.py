@@ -1,13 +1,8 @@
-import asyncio
 from dataclasses import dataclass, field
 
 from fastcs.controllers import ControllerAPI
 from fastcs.logging import logger
-from fastcs.transports.epics import (
-    EpicsDocsOptions,
-    EpicsGUIOptions,
-    EpicsIOCOptions,
-)
+from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions, EpicsIOCOptions
 from fastcs.transports.epics.docs import EpicsDocs
 from fastcs.transports.epics.pva.gui import PvaEpicsGUI
 from fastcs.transports.transport import Transport
@@ -23,11 +18,7 @@ class EpicsPVATransport(Transport):
     docs: EpicsDocsOptions | None = None
     gui: EpicsGUIOptions | None = None
 
-    def connect(
-        self,
-        controller_api: ControllerAPI,
-        loop: asyncio.AbstractEventLoop,
-    ) -> None:
+    def connect(self, controller_api: ControllerAPI) -> None:
         self._controller_api = controller_api
         self._pv_prefix = self.epicspva.pv_prefix
         self._ioc = P4PIOC(self.epicspva.pv_prefix, controller_api)

@@ -28,15 +28,9 @@ class FastCS:
         loop: Optional event loop to run the control system in
     """
 
-    def __init__(
-        self,
-        controller: Controller,
-        transports: Sequence[Transport],
-        loop: asyncio.AbstractEventLoop | None = None,
-    ):
+    def __init__(self, controller: Controller, transports: Sequence[Transport]):
         self._controller = controller
         self._transports = transports
-        self._loop = loop or asyncio.get_event_loop()
 
         self._scan_coros: list[ScanCallback] = []
         self._initial_coros: list[ScanCallback] = []
@@ -47,36 +41,25 @@ class FastCS:
         """Run the application
 
         This is a convenience method to call `serve` in a synchronous context.
+        To use in an async context, call `serve` directly.
 
         Args:
             interactive: Whether to create an interactive IPython shell
 
         """
-        serve = asyncio.ensure_future(self.serve(interactive=interactive))
 
-        if os.name != "nt":
-            self._loop.add_signal_handler(signal.SIGINT, serve.cancel)
-            self._loop.add_signal_handler(signal.SIGTERM, serve.cancel)
-        self._loop.run_until_complete(serve)
+        async def _serve():
+            """Wrapper to add signal handlers and call `serve`"""
+            loop = asyncio.get_running_loop()
+            task = asyncio.current_task()
 
-    async def _run_initial_coros(self):
-        for coro in self._initial_coros:
-            await coro()
+            if os.name != "nt" and task is not None:
+                loop.add_signal_handler(signal.SIGINT, task.cancel)
+                loop.add_signal_handler(signal.SIGTERM, task.cancel)
 
-    async def _start_scan_tasks(self):
-        self._scan_tasks = {self._loop.create_task(coro()) for coro in self._scan_coros}
+            await self.serve(interactive=interactive)
 
-    def _stop_scan_tasks(self):
-        for task in self._scan_tasks:
-            if not task.done():
-                try:
-                    task.cancel()
-                except (asyncio.CancelledError, RuntimeError):
-                    pass
-                except Exception as e:
-                    raise RuntimeError("Unhandled exception in stop scan tasks") from e
-
-        self._scan_tasks.clear()
+        asyncio.run(_serve())
 
     async def serve(self, interactive: bool = True) -> None:
         """Serve the control system over the given transports on the current event loop
@@ -110,7 +93,7 @@ class FastCS:
 
         coros: list[Coroutine] = []
         for transport in self._transports:
-            transport.connect(controller_api=self.controller_api, loop=self._loop)
+            transport.connect(controller_api=self.controller_api)
             coros.append(transport.serve())
             common_context = context.keys() & transport.context.keys()
             if common_context:
@@ -153,16 +136,30 @@ class FastCS:
             self._stop_scan_tasks()
             await self._controller.disconnect()
 
+    async def _run_initial_coros(self):
+        for coro in self._initial_coros:
+            await coro()
+
+    async def _start_scan_tasks(self):
+        self._scan_tasks = {asyncio.create_task(coro()) for coro in self._scan_coros}
+
     async def _interactive_shell(self, context: dict[str, Any]):
         """Spawn interactive shell in another thread and wait for it to complete."""
+        loop = asyncio.get_running_loop()
 
         def run(coro: Coroutine[None, None, None]):
             """Run coroutine on FastCS event loop from IPython thread."""
 
             def wrapper():
-                asyncio.create_task(coro)
+                task = asyncio.create_task(coro)
 
-            self._loop.call_soon_threadsafe(wrapper)
+                def _log_exception(t: asyncio.Task):
+                    if not t.cancelled() and (exc := t.exception()):
+                        logger.exception("`run` task raised exception", exc_info=exc)
+
+                task.add_done_callback(_log_exception)
+
+            loop.call_soon_threadsafe(wrapper)
 
         async def interactive_shell(
             context: dict[str, object], stop_event: asyncio.Event
@@ -176,8 +173,24 @@ class FastCS:
         context["run"] = run
 
         stop_event = asyncio.Event()
-        self._loop.create_task(interactive_shell(context, stop_event))
+        shell_task = asyncio.create_task(interactive_shell(context, stop_event))
+
         await stop_event.wait()
+
+        if not shell_task.cancelled() and (exc := shell_task.exception()):
+            logger.exception("Interactive shell raised exception", exc_info=exc)
+
+    def _stop_scan_tasks(self):
+        for task in self._scan_tasks:
+            if not task.done():
+                try:
+                    task.cancel()
+                except (asyncio.CancelledError, RuntimeError):
+                    pass
+                except Exception as e:
+                    raise RuntimeError("Unhandled exception in stop scan tasks") from e
+
+        self._scan_tasks.clear()
 
     def __del__(self):
         self._stop_scan_tasks()
