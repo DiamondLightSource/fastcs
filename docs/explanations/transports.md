@@ -80,7 +80,17 @@ for controller_api in root_controller_api.walk_api():
 
 Transports use attribute callbacks to keep their protocol-specific representations synchronized with attribute values:
 
-![Transport Data Flow](../images/attribute-dataflow.excalidraw.png)
+---
+
+<div style="text-align: center">
+
+```{raw} html
+:file: ../images/data-flow.excalidraw.svg
+```
+
+</div>
+
+---
 
 The diagram above shows the data flow between users, transports, attributes, and
 hardware. The following table gives an overview of the data flow for the transport
