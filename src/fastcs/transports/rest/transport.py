@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 
 from fastcs.controllers import ControllerAPI
@@ -14,11 +13,7 @@ class RestTransport(Transport):
 
     rest: RestServerOptions = field(default_factory=RestServerOptions)
 
-    def connect(
-        self,
-        controller_api: ControllerAPI,
-        loop: asyncio.AbstractEventLoop,
-    ):
+    def connect(self, controller_api: ControllerAPI):
         self._server = RestServer(controller_api)
 
     async def serve(self) -> None:

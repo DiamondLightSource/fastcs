@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import gc
 
 import numpy as np
 import pytest
@@ -13,7 +14,7 @@ from tests.assertable_controller import (
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
-from fastcs.transports.tango.transport import TangoTransport
+from fastcs.transports.tango.dsr import TangoDSR
 
 
 async def patch_run_threadsafe_blocking(coro, loop):
@@ -47,17 +48,24 @@ def tango_controller_api(class_mocker: MockerFixture) -> AssertableControllerAPI
 
 
 def create_test_context(tango_controller_api: AssertableControllerAPI):
-    tango_transport = TangoTransport()
-    tango_transport.connect(
-        tango_controller_api,
-        asyncio.get_event_loop(),
-    )
-    device = tango_transport._dsr._device
+    loop = asyncio.new_event_loop()
+    dsr = TangoDSR(tango_controller_api, loop)
+
     # https://tango-controls.readthedocs.io/projects/pytango/en/v9.5.1/testing/test_context.html
-    with DeviceTestContext(device, debug=0) as proxy:
+    with DeviceTestContext(dsr._device, debug=0) as proxy:
         yield proxy
 
+    loop.close()
 
+    # Force GC now so that any ResourceWarnings from DeviceTestContext (unclosed
+    # sockets/event loop leaked by Tango at the C level) are raised here, within
+    # the scope of the filterwarnings markers on TestTangoDevice, rather than
+    # after teardown where they cannot be suppressed per-test.
+    gc.collect()
+
+
+@pytest.mark.filterwarnings("ignore:unclosed <socket\\.socket:ResourceWarning")
+@pytest.mark.filterwarnings("ignore:unclosed event loop:ResourceWarning")
 class TestTangoDevice:
     @pytest.fixture(scope="class")
     def tango_context(

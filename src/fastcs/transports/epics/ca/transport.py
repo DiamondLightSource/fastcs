@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,13 +27,8 @@ class EpicsCATransport(Transport):
     gui: EpicsGUIOptions | None = None
     """Options for the GUI. If not set, no GUI will be created."""
 
-    def connect(
-        self,
-        controller_api: ControllerAPI,
-        loop: asyncio.AbstractEventLoop,
-    ) -> None:
+    def connect(self, controller_api: ControllerAPI) -> None:
         self._controller_api = controller_api
-        self._loop = loop
         self._pv_prefix = self.epicsca.pv_prefix
         self._ioc = EpicsCAIOC(self.epicsca.pv_prefix, controller_api)
 
@@ -47,7 +41,7 @@ class EpicsCATransport(Transport):
     async def serve(self) -> None:
         """Serve `ControllerAPI` over EPICS Channel Access"""
         logger.info("Running IOC", pv_prefix=self._pv_prefix)
-        self._ioc.run(self._loop)
+        self._ioc.run()
 
     @property
     def context(self) -> dict[str, Any]:

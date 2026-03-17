@@ -41,11 +41,8 @@ class EpicsCAIOC:
         _create_and_link_attribute_pvs(pv_prefix, controller_api)
         _create_and_link_command_pvs(pv_prefix, controller_api)
 
-    def run(
-        self,
-        loop: asyncio.AbstractEventLoop,
-    ) -> None:
-        dispatcher = AsyncioDispatcher(loop)  # Needs running loop
+    def run(self) -> None:
+        dispatcher = AsyncioDispatcher(asyncio.get_running_loop())
         builder.LoadDatabase()
         softioc.iocInit(dispatcher)
 

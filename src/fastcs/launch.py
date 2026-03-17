@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 import json
 from pathlib import Path
@@ -158,9 +157,7 @@ def _launch(
         else:
             controller = controller_class()
 
-        instance = FastCS(
-            controller, instance_options.transport, loop=asyncio.get_event_loop()
-        )
+        instance = FastCS(controller, instance_options.transport)
 
         instance.run()
 

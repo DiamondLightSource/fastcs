@@ -91,7 +91,6 @@ addopts = """
     --tb=native -vv --doctest-modules --doctest-glob="*.md" --ignore-glob docs/snippets/*py --benchmark-sort=mean --benchmark-columns="mean, min, max, outliers, ops, rounds"
     """
 # https://iscinumpy.gitlab.io/post/bound-version-constraints/#watch-for-warnings
-# https://github.com/DiamondLightSource/FastCS/issues/230
 filterwarnings = "error"
 # Doctest python code in docs, python code in src docstrings, test functions in tests
 testpaths = "docs src tests"
