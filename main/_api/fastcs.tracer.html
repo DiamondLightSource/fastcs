@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>fastcs.tracer &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.tracer &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -496,6 +496,7 @@
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../genindex.html">Index</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/DiamondLightSource/fastcs/releases">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/projects-using-fastcs.html">Projects Using FastCS</a></li>
 </ul>
 </div>
 </nav></div>
@@ -577,11 +578,12 @@
 <p>This can be used for verbose logging that is disabled by default and enabled on a
 per-instance basis, with filtering based on specific key-value pairs on the event.</p>
 <p>Any instance of this class can enable tracing independently. Some key classes
-inherit this class, such as <code class="docutils literal notranslate"><span class="pre">Attributes</span></code>, and some modules have their own
-<code class="docutils literal notranslate"><span class="pre">Tracer</span></code>, such as <code class="docutils literal notranslate"><span class="pre">fastcs.launch</span></code>. When enabled, any event logged from the
-object, or from another <code class="docutils literal notranslate"><span class="pre">Tracer</span></code> that uses the object as the <code class="docutils literal notranslate"><span class="pre">topic</span></code>, will be
+inherit this class, such as an <a class="reference internal" href="fastcs.attributes.attribute.html#fastcs.attributes.attribute.Attribute" title="fastcs.attributes.attribute.Attribute"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Attribute</span></code></a>, and some modules have their own
+<a class="reference internal" href="#fastcs.tracer.Tracer" title="fastcs.tracer.Tracer"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Tracer</span></code></a>, such as <a class="reference internal" href="fastcs.launch.html#module-fastcs.launch" title="fastcs.launch"><code class="xref py py-mod docutils literal notranslate"><span class="pre">fastcs.launch</span></code></a>. When enabled, any event logged from the
+object, or from another <a class="reference internal" href="#fastcs.tracer.Tracer" title="fastcs.tracer.Tracer"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Tracer</span></code></a> that uses the object as the <code class="docutils literal notranslate"><span class="pre">topic</span></code>, will be
 logged.</p>
-<p>Note: The logger level must be set to <code class="docutils literal notranslate"><span class="pre">TRACE</span></code> for the messages to be logged</p>
+<p>Note: The global logger level must be set to <code class="docutils literal notranslate"><span class="pre">LogLevel.TRACE</span></code> for the messages to
+be logged</p>
 <p>Example usage in interactive shell:
 .. code-block:: python</p>
 <blockquote>

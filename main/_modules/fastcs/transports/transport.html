@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.transport &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.transports.transport &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../../../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -476,19 +476,42 @@
 
         <span class="k">return</span> <span class="n">Union</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">subclasses</span><span class="p">)]</span>  <span class="c1"># noqa: UP007</span>
 
+<div class="viewcode-block" id="Transport.connect">
+<a class="viewcode-back" href="../../../_api/fastcs.transports.transport.html#fastcs.transports.transport.Transport.connect">[docs]</a>
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">pass</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Connect the ``Transport`` to the control system</span>
+
+<span class="sd">        The `ControllerAPI` should be exposed over the transport. The provided event</span>
+<span class="sd">        loop should be used where required instead of creating a new one.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">context</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Functions and variables to add to the context of the interactive shell</span>
+
+<span class="sd">        See `FastCS.serve` for usage.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">{}</span>
 
+<div class="viewcode-block" id="Transport.serve">
+<a class="viewcode-back" href="../../../_api/fastcs.transports.transport.html#fastcs.transports.transport.Transport.serve">[docs]</a>
     <span class="nd">@abstractmethod</span>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">serve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Serve the `ControllerAPI`</span>
+
+<span class="sd">        This method will be spawned as an async background task in before launching the</span>
+<span class="sd">        interactive shell, so it can (but doesn&#39;t have to) block and run forever.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
+</div>
 
 </pre></div>
 

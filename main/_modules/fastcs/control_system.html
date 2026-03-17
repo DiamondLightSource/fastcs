@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.control_system &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.control_system &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -472,12 +472,13 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">FastCS</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Entrypoint for a FastCS application.</span>
 
-<span class="sd">    This class takes a ``Controller``, creates asyncio tasks to run its update loops and</span>
-<span class="sd">    builds its API to serve over the given transports.</span>
+<span class="sd">    This class takes a `Controller`, creates asyncio tasks to run its update loops and</span>
+<span class="sd">    builds its API to serve over the given `Transport`s.</span>
 
-<span class="sd">    :param: controller: The controller to serve in the control system</span>
-<span class="sd">    :param: transports: A list of transports to serve the API over</span>
-<span class="sd">    :param: loop: Optional event loop to run the control system in</span>
+<span class="sd">    Args:</span>
+<span class="sd">        controller: The controller to serve in the control system</span>
+<span class="sd">        transports: A list of transports to serve the API over</span>
+<span class="sd">        loop: Optional event loop to run the control system in</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -495,13 +496,24 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_scan_tasks</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
+<div class="viewcode-block" id="FastCS.run">
+<a class="viewcode-back" href="../../_api/fastcs.control_system.html#fastcs.control_system.FastCS.run">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interactive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the application</span>
+
+<span class="sd">        This is a convenience method to call `serve` in a synchronous context.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            interactive: Whether to create an interactive IPython shell</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">serve</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">serve</span><span class="p">(</span><span class="n">interactive</span><span class="o">=</span><span class="n">interactive</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;nt&quot;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">add_signal_handler</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">,</span> <span class="n">serve</span><span class="o">.</span><span class="n">cancel</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">add_signal_handler</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGTERM</span><span class="p">,</span> <span class="n">serve</span><span class="o">.</span><span class="n">cancel</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">serve</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">serve</span><span class="p">)</span></div>
+
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run_initial_coros</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">coro</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initial_coros</span><span class="p">:</span>
@@ -522,7 +534,23 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_scan_tasks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
 
+<div class="viewcode-block" id="FastCS.serve">
+<a class="viewcode-back" href="../../_api/fastcs.control_system.html#fastcs.control_system.FastCS.serve">[docs]</a>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">serve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interactive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Serve the control system over the given transports on the current event loop</span>
+
+<span class="sd">        This is the main entrypoint for a FastCS application. It can be awaited</span>
+<span class="sd">        directly, which will block until stopped, or to allow further logic or</span>
+<span class="sd">        interaction with the system it can be run as a background task. If doing the</span>
+<span class="sd">        latter, generally it should be called with ``interactive=False`` for more</span>
+<span class="sd">        reliable stdout capture.</span>
+
+<span class="sd">        To call from a synchronous context, use the `run` method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            interactive: Whether to create an interactive IPython shell</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">initialise</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">post_initialise</span><span class="p">()</span>
 
@@ -581,7 +609,8 @@
         <span class="k">finally</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Shutting down FastCS&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_stop_scan_tasks</span><span class="p">()</span>
-            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span></div>
+
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_interactive_shell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Spawn interactive shell in another thread and wait for it to complete.&quot;&quot;&quot;</span>

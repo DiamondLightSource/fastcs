@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.tracer &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.tracer &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -467,12 +467,13 @@
 <span class="sd">    per-instance basis, with filtering based on specific key-value pairs on the event.</span>
 
 <span class="sd">    Any instance of this class can enable tracing independently. Some key classes</span>
-<span class="sd">    inherit this class, such as ``Attributes``, and some modules have their own</span>
-<span class="sd">    ``Tracer``, such as ``fastcs.launch``. When enabled, any event logged from the</span>
-<span class="sd">    object, or from another ``Tracer`` that uses the object as the ``topic``, will be</span>
+<span class="sd">    inherit this class, such as an `Attribute`, and some modules have their own</span>
+<span class="sd">    `Tracer`, such as :py:mod:`fastcs.launch`. When enabled, any event logged from the</span>
+<span class="sd">    object, or from another `Tracer` that uses the object as the ``topic``, will be</span>
 <span class="sd">    logged.</span>
 
-<span class="sd">    Note: The logger level must be set to ``TRACE`` for the messages to be logged</span>
+<span class="sd">    Note: The global logger level must be set to ``LogLevel.TRACE`` for the messages to</span>
+<span class="sd">    be logged</span>
 
 <span class="sd">    Example usage in interactive shell:</span>
 <span class="sd">    .. code-block:: python</span>
@@ -534,8 +535,9 @@
 <span class="sd">        To reduce trace messages further, a filter can be applied such that events must</span>
 <span class="sd">        have a key with a specific value for it to be logged.</span>
 
-<span class="sd">        :param key: A new or existing key to filter on</span>
-<span class="sd">        :param value: An allowed value for the event to be logged</span>
+<span class="sd">        Args:</span>
+<span class="sd">            key: A new or existing key to filter on</span>
+<span class="sd">            value: An allowed value for the event to be logged</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">__tracing_filters</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
@@ -546,8 +548,9 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">remove_tracing_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove a specific key-value pair from the filter</span>
 
-<span class="sd">        :param key: An existing filter key</span>
-<span class="sd">        :param value: The allowed value to remove</span>
+<span class="sd">        Args:</span>
+<span class="sd">            key: An existing filter key</span>
+<span class="sd">            value: The allowed value to remove</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="p">(</span>

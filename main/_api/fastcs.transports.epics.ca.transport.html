@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>fastcs.transports.epics.ca.transport &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.transports.epics.ca.transport &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -496,6 +496,7 @@
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../genindex.html">Index</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/DiamondLightSource/fastcs/releases">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/projects-using-fastcs.html">Projects Using FastCS</a></li>
 </ul>
 </div>
 </nav></div>
@@ -583,6 +584,36 @@
 <dt class="sig sig-object py" id="fastcs.transports.epics.ca.transport.EpicsCATransport">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.ca.transport.</span></span><span class="sig-name descname"><span class="pre">EpicsCATransport</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">epicsca:</span> <span class="pre">~fastcs.transports.epics.options.EpicsIOCOptions</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">docs:</span> <span class="pre">~fastcs.transports.epics.options.EpicsDocsOptions</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gui:</span> <span class="pre">~fastcs.transports.epics.options.EpicsGUIOptions</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/transports/epics/ca/transport.html#EpicsCATransport"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.ca.transport.EpicsCATransport" title="Link to this definition">#</a></dt>
 <dd><p>Channel access transport.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fastcs.transports.epics.ca.transport.EpicsCATransport.epicsca">
+<span class="sig-name descname"><span class="pre">epicsca</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsIOCOptions" title="fastcs.transports.epics.options.EpicsIOCOptions"><span class="pre">EpicsIOCOptions</span></a></em><a class="headerlink" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.epicsca" title="Link to this definition">#</a></dt>
+<dd><p>Options for the IOC</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fastcs.transports.epics.ca.transport.EpicsCATransport.docs">
+<span class="sig-name descname"><span class="pre">docs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsDocsOptions" title="fastcs.transports.epics.options.EpicsDocsOptions"><span class="pre">EpicsDocsOptions</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.docs" title="Link to this definition">#</a></dt>
+<dd><p>Options for the docs</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fastcs.transports.epics.ca.transport.EpicsCATransport.gui">
+<span class="sig-name descname"><span class="pre">gui</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsGUIOptions" title="fastcs.transports.epics.options.EpicsGUIOptions"><span class="pre">EpicsGUIOptions</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.gui" title="Link to this definition">#</a></dt>
+<dd><p>Options for the GUI. If not set, no GUI will be created.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fastcs.transports.epics.ca.transport.EpicsCATransport.serve">
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">serve</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fastcs/transports/epics/ca/transport.html#EpicsCATransport.serve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.serve" title="Link to this definition">#</a></dt>
+<dd><p>Serve <a class="reference internal" href="fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI" title="fastcs.controllers.controller_api.ControllerAPI"><code class="xref any py py-class docutils literal notranslate"><span class="pre">ControllerAPI</span></code></a> over EPICS Channel Access</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fastcs.transports.epics.ca.transport.EpicsCATransport.context">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">context</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.context" title="Link to this definition">#</a></dt>
+<dd><p>Provide common IOC commands such as dbl, dbgf, etc.</p>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -634,7 +665,14 @@
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.ca.transport.EpicsCATransport"><code class="docutils literal notranslate"><span class="pre">EpicsCATransport</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.ca.transport.EpicsCATransport"><code class="docutils literal notranslate"><span class="pre">EpicsCATransport</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.epicsca"><code class="docutils literal notranslate"><span class="pre">EpicsCATransport.epicsca</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.docs"><code class="docutils literal notranslate"><span class="pre">EpicsCATransport.docs</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.gui"><code class="docutils literal notranslate"><span class="pre">EpicsCATransport.gui</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.serve"><code class="docutils literal notranslate"><span class="pre">EpicsCATransport.serve()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.ca.transport.EpicsCATransport.context"><code class="docutils literal notranslate"><span class="pre">EpicsCATransport.context</span></code></a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

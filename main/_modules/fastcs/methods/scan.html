@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.methods.scan &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.methods.scan &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../../../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -471,6 +471,12 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Scan</span><span class="p">(</span><span class="n">Method</span><span class="p">[</span><span class="s2">&quot;BaseController&quot;</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A `Controller` `Method` that will be called periodically in the background.</span>
 
+<span class="sd">    The `Scan` method will be called periodically in the background. Use `ONCE` to call</span>
+<span class="sd">    the method only once as an initial task.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        period: Period in seconds that the wrapped method is called at, or `ONCE`.</span>
+
 <span class="sd">    This class contains a function that is bound to a specific `Controller` instance and</span>
 <span class="sd">    is callable outside of the class context, without an explicit `self` parameter.</span>
 <span class="sd">    Calling an instance of this class will call the bound `Controller` method.</span>
@@ -547,9 +553,13 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">UnboundScanCallback</span><span class="p">[</span><span class="n">Controller_T</span><span class="p">]],</span> <span class="n">UnboundScanCallback</span><span class="p">[</span><span class="n">Controller_T</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Decorator to register a `Controller` method as a `Scan`</span>
 
-<span class="sd">    The `Scan` method will be called periodically in the background.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    The `Scan` method will be called periodically in the background. Use `ONCE` to call</span>
+<span class="sd">    the method only once as an initial task.</span>
 
+<span class="sd">    Args:</span>
+<span class="sd">        period: Period in seconds between wrapped method calls, or `ONCE`</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">period</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Scan method must have a positive scan period&quot;</span><span class="p">)</span>
 

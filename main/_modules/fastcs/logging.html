@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.logging &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.logging &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -519,10 +519,11 @@
 <span class="sd">      - Change the console log level</span>
 <span class="sd">      - Enable/disable graylog logging</span>
 
-<span class="sd">    :param level: Log level to set</span>
-<span class="sd">    :param graylog_endpoint: Endpoint for graylog logging - &#39;&lt;host&gt;:&lt;port&gt;&#39;</span>
-<span class="sd">    :param graylog_static_fields: Fields to add to graylog messages with static values</span>
-<span class="sd">    :param graylog_env_fields: Fields to add to graylog messages from env variables</span>
+<span class="sd">    Args:</span>
+<span class="sd">        level: Log level to set</span>
+<span class="sd">        graylog_endpoint: Endpoint for graylog logging - &#39;&lt;host&gt;:&lt;port&gt;&#39;</span>
+<span class="sd">        graylog_static_fields: Fields to add to graylog messages with static values</span>
+<span class="sd">        graylog_env_fields: Fields to add to graylog messages from env variables</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">logger</span>
@@ -549,7 +550,8 @@
 <span class="sd">    ``logging.Logger.callHandlers``, debug and run until the log message appears as</span>
 <span class="sd">    ``record.msg``. The logger name will be in ``self.name``.</span>
 
-<span class="sd">    :param logger_name: Name of the logger to intercept</span>
+<span class="sd">    Args:</span>
+<span class="sd">        logger_name: Name of the logger to intercept</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">handler</span> <span class="o">=</span> <span class="n">_StdLoggingInterceptHandler</span><span class="p">()</span>
@@ -559,6 +561,15 @@
     <span class="n">std_logger</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">handler</span><span class="p">]</span>
     <span class="n">std_logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span></div>
 
+
+
+<span class="c1"># For sphinx autodoc to find things import from private modules</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;logger&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;configure_logging&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;intercept_std_logger&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GraylogEndpoint&quot;</span><span class="p">,</span>
+<span class="p">]</span>
 </pre></div>
 
                 </article>

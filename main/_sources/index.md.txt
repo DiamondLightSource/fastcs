@@ -6,6 +6,21 @@ html_theme.sidebar_secondary.remove: true
 :end-before: <!-- README only content
 ```
 
+See [What is FastCS?](explanations/what-is-fastcs.md) for a high-level overview of the
+architecture and benefits.
+
+---
+
+<div style="text-align: center">
+
+```{raw} html
+:file: images/overview.excalidraw.svg
+```
+
+</div>
+
+---
+
 
 How the documentation is structured
 -----------------------------------

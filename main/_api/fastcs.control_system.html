@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>fastcs.control_system &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.control_system &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -496,6 +496,7 @@
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../genindex.html">Index</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/DiamondLightSource/fastcs/releases">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/projects-using-fastcs.html">Projects Using FastCS</a></li>
 </ul>
 </div>
 </nav></div>
@@ -574,19 +575,46 @@
 <dt class="sig sig-object py" id="fastcs.control_system.FastCS">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.control_system.</span></span><span class="sig-name descname"><span class="pre">FastCS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">transports</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.transports.transport.html#fastcs.transports.transport.Transport" title="fastcs.transports.transport.Transport"><span class="pre">Transport</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AbstractEventLoop</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/control_system.html#FastCS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.control_system.FastCS" title="Link to this definition">#</a></dt>
 <dd><p>Entrypoint for a FastCS application.</p>
-<p>This class takes a <code class="docutils literal notranslate"><span class="pre">Controller</span></code>, creates asyncio tasks to run its update loops and
-builds its API to serve over the given transports.</p>
+<p>This class takes a <a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Controller</span></code></a>, creates asyncio tasks to run its update loops and
+builds its API to serve over the given <a href="#id1"><span class="problematic" id="id2">`</span></a>Transport`s.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Param<span class="colon">:</span></dt>
-<dd class="field-odd"><p>controller: The controller to serve in the control system</p>
-</dd>
-<dt class="field-even">Param<span class="colon">:</span></dt>
-<dd class="field-even"><p>transports: A list of transports to serve the API over</p>
-</dd>
-<dt class="field-odd">Param<span class="colon">:</span></dt>
-<dd class="field-odd"><p>loop: Optional event loop to run the control system in</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>controller</strong> – The controller to serve in the control system</p></li>
+<li><p><strong>transports</strong> – A list of transports to serve the API over</p></li>
+<li><p><strong>loop</strong> – Optional event loop to run the control system in</p></li>
+</ul>
 </dd>
 </dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fastcs.control_system.FastCS.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/control_system.html#FastCS.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.control_system.FastCS.run" title="Link to this definition">#</a></dt>
+<dd><p>Run the application</p>
+<p>This is a convenience method to call <a class="reference internal" href="#fastcs.control_system.FastCS.serve" title="fastcs.control_system.FastCS.serve"><code class="xref any py py-meth docutils literal notranslate"><span class="pre">serve</span></code></a> in a synchronous context.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>interactive</strong> – Whether to create an interactive IPython shell</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fastcs.control_system.FastCS.serve">
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">serve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fastcs/control_system.html#FastCS.serve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.control_system.FastCS.serve" title="Link to this definition">#</a></dt>
+<dd><p>Serve the control system over the given transports on the current event loop</p>
+<p>This is the main entrypoint for a FastCS application. It can be awaited
+directly, which will block until stopped, or to allow further logic or
+interaction with the system it can be run as a background task. If doing the
+latter, generally it should be called with <code class="docutils literal notranslate"><span class="pre">interactive=False</span></code> for more
+reliable stdout capture.</p>
+<p>To call from a synchronous context, use the <a class="reference internal" href="#fastcs.control_system.FastCS.run" title="fastcs.control_system.FastCS.run"><code class="xref any py py-meth docutils literal notranslate"><span class="pre">run</span></code></a> method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>interactive</strong> – Whether to create an interactive IPython shell</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -638,7 +666,11 @@ builds its API to serve over the given transports.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.control_system.FastCS"><code class="docutils literal notranslate"><span class="pre">FastCS</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.control_system.FastCS"><code class="docutils literal notranslate"><span class="pre">FastCS</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.control_system.FastCS.run"><code class="docutils literal notranslate"><span class="pre">FastCS.run()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.control_system.FastCS.serve"><code class="docutils literal notranslate"><span class="pre">FastCS.serve()</span></code></a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

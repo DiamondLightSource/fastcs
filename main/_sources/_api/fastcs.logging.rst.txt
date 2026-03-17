@@ -3,6 +3,7 @@
         
         
         
+        
 
 .. automodule:: fastcs.logging
     :members:
@@ -18,8 +19,9 @@
     .. autosummary::
         :nosignatures:
     
+        logger
         configure_logging
         intercept_std_logger
-        logger
+        GraylogEndpoint
     
     

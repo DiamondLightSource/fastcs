@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.controllers.controller_api &#8212; fastcs 0.12.1.dev2+ga61df13aa documentation</title>
+    <title>fastcs.controllers.controller_api &#8212; fastcs 0.12.1.dev3+g81f8fadc2 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../_static/documentation_options.js?v=fbcd25ad"></script>
+    <script src="../../../_static/documentation_options.js?v=d6c60d2d"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -460,16 +460,25 @@
 <a class="viewcode-back" href="../../../_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ControllerAPI</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Attributes, Methods and sub APIs of a `Controller` to expose in a transport&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Attributes, Methods and sub APIs of a Controller to expose in a Transport</span>
+
+<span class="sd">    This provides a view of the `Attribute` s, `Method` s of a `Controller` - and its</span>
+<span class="sd">    sub controllers - to the `Transport` layer, without direct access to its internal</span>
+<span class="sd">    state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Path within controller tree (empty if this is the root)&quot;&quot;&quot;</span>
     <span class="n">attributes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Attribute</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The `Attribute` s from the `Controller`&quot;&quot;&quot;</span>
     <span class="n">command_methods</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Command</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The `Command` s from the `Controller`&quot;&quot;&quot;</span>
     <span class="n">scan_methods</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Scan</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The `Scan` s from the `Controller`&quot;&quot;&quot;</span>
     <span class="n">sub_apis</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;ControllerAPI&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;APIs of the sub controllers of the `Controller` this API was built from&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The `ControllerAPI` s of the sub controllers of the `Controller`&quot;&quot;&quot;</span>
     <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A description to display in the `Transport` layer&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="ControllerAPI.walk_api">
 <a class="viewcode-back" href="../../../_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.walk_api">[docs]</a>
@@ -477,7 +486,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Walk through all the nested `ControllerAPI` s of this `ControllerAPI`.</span>
 
 <span class="sd">        Yields the `ControllerAPI` s from a depth-first traversal of the tree,</span>
-<span class="sd">        including self.</span>
+<span class="sd">        including ``self``.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">yield</span> <span class="bp">self</span>
