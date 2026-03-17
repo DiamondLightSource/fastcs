@@ -9,7 +9,9 @@ from fastcs.datatypes.datatype import DataType
 @dataclass(frozen=True)
 class Waveform(DataType[np.ndarray]):
     array_dtype: DTypeLike
+    """Numpy array dtype"""
     shape: tuple[int, ...] = (2000,)
+    """Numpy array shape"""
 
     @property
     def dtype(self) -> type[np.ndarray]:

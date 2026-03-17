@@ -27,12 +27,29 @@ class Transport:
     def connect(
         self, controller_api: ControllerAPI, loop: asyncio.AbstractEventLoop
     ) -> None:
+        """Connect the ``Transport`` to the control system
+
+        The `ControllerAPI` should be exposed over the transport. The provided event
+        loop should be used where required instead of creating a new one.
+
+        """
         pass
 
     @property
     def context(self) -> dict[str, Any]:
+        """Functions and variables to add to the context of the interactive shell
+
+        See `FastCS.serve` for usage.
+
+        """
         return {}
 
     @abstractmethod
     async def serve(self) -> None:
+        """Serve the `ControllerAPI`
+
+        This method will be spawned as an async background task in before launching the
+        interactive shell, so it can (but doesn't have to) block and run forever.
+
+        """
         pass

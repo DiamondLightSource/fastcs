@@ -48,8 +48,7 @@ class AttrW(Attribute[DType_T, AttributeIORefT]):
         be rejected.
 
         To directly change the value of the attribute, for example from an update loop
-        that has read a new value from some underlying source, call the ``update``
-        method.
+        that has read a new value from some underlying source, call `AttrR.update`.
 
         """
         setpoint = self._datatype.validate(setpoint)

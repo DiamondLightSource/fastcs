@@ -7,7 +7,9 @@ class GraylogEndpoint:
     """Server and port for a graylog instance."""
 
     host: str
+    """GELF UDP Input server hostname"""
     port: int
+    """GELF UDP Input port"""
 
     @classmethod
     def parse_graylog_endpoint(cls, endpoint: str) -> "GraylogEndpoint":

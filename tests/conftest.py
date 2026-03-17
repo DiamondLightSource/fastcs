@@ -28,6 +28,13 @@ from tests.example_p4p_ioc import run as _run_p4p_ioc
 from tests.example_softioc import run as _run_softioc
 
 
+@pytest.fixture
+def loguru_caplog(caplog):
+    handler_id = logger.add(caplog.handler, format="{message}", level="TRACE")
+    yield caplog
+    logger.remove(handler_id)
+
+
 @pytest.fixture(scope="function", autouse=True)
 def clear_softioc_records():
     builder.ClearRecords()

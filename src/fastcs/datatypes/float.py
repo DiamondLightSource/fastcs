@@ -9,6 +9,7 @@ class Float(_Numeric[float]):
     """`DataType` mapping to builtin ``float``."""
 
     prec: int = 2
+    """Number of decimal places to represent value"""
 
     @property
     def dtype(self) -> type[float]:

@@ -27,11 +27,13 @@ class DataType(Generic[DType_T]):
     @property
     @abstractmethod
     def dtype(self) -> type[DType_T]:  # Using property due to lack of Generic ClassVars
+        """Underlying python type"""
         raise NotImplementedError()
 
     @property
     @abstractmethod
     def initial_value(self) -> DType_T:
+        """Fallback initial value if not specified in `Attribute`"""
         raise NotImplementedError()
 
     def validate(self, value: Any) -> DType_T:

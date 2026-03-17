@@ -8,7 +8,7 @@ from fastcs.tracer import Tracer
 
 
 class AttributeIO(Generic[DType_T, AttributeIORefT], Tracer):
-    """Base class for performing IO for an ``Attribute``
+    """Base class for performing IO for an `Attribute`
 
     This class should be inherited to implement reading and writing values from
     ``Attributes`` via some API. For read, ``Attribute``s implement the ``update``
@@ -16,7 +16,7 @@ class AttributeIO(Generic[DType_T, AttributeIORefT], Tracer):
 
     Concrete implementations of this class must be parameterised with a specific
     ``AttributeIORef`` that defines exactly what part of the API the ``Attribute``
-    corresponds to. See the docstring for ``AttributeIORef`` for more information.
+    corresponds to. See the docstring for `AttributeIORef` for more information.
     """
 
     ref_type = AttributeIORef
@@ -31,9 +31,29 @@ class AttributeIO(Generic[DType_T, AttributeIORefT], Tracer):
         super().__init__()
 
     async def update(self, attr: AttrR[DType_T, AttributeIORefT]) -> None:
+        """Update `AttrR` value from device
+
+        This method will be  called in `AttrR.update` in a background task.
+
+        Exceptions raised by this method will be caught and logged with a full stack
+        trace. If using targeted try-except blocks to log more specific errors, this
+        should be done with stack trace and exceptions should be re-raised to be handled
+        by FastCS.
+
+        """
         raise NotImplementedError()
 
     async def send(self, attr: AttrW[DType_T, AttributeIORefT], value: DType_T) -> None:
+        """Send `Attribute` value to device
+
+        This method will be called in `AttrW.put`, generally from a `Transport`.
+
+        Exceptions raised by this method will be caught and logged with a full stack
+        trace. If using targetted try-except blocks to log more specific errors, this
+        should be done with stack trace and exceptions should be re-raised to be handled
+        by FastCS..
+
+        """
         raise NotImplementedError()
 
 

@@ -9,8 +9,12 @@ from fastcs.datatypes.datatype import DataType
 
 @dataclass(frozen=True)
 class Table(DataType[np.ndarray]):
-    # https://numpy.org/devdocs/user/basics.rec.html#structured-datatype-creation
     structured_dtype: list[tuple[str, DTypeLike]]
+    """The structured dtype for numpy array
+
+    See docs for more information:
+    https://numpy.org/devdocs/user/basics.rec.html#structured-datatype-creation
+    """
 
     @property
     def dtype(self) -> type[np.ndarray]:

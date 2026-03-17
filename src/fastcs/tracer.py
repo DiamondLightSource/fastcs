@@ -14,12 +14,13 @@ class Tracer:
     per-instance basis, with filtering based on specific key-value pairs on the event.
 
     Any instance of this class can enable tracing independently. Some key classes
-    inherit this class, such as ``Attributes``, and some modules have their own
-    ``Tracer``, such as ``fastcs.launch``. When enabled, any event logged from the
-    object, or from another ``Tracer`` that uses the object as the ``topic``, will be
+    inherit this class, such as an `Attribute`, and some modules have their own
+    `Tracer`, such as :py:mod:`fastcs.launch`. When enabled, any event logged from the
+    object, or from another `Tracer` that uses the object as the ``topic``, will be
     logged.
 
-    Note: The logger level must be set to ``TRACE`` for the messages to be logged
+    Note: The global logger level must be set to ``LogLevel.TRACE`` for the messages to
+    be logged
 
     Example usage in interactive shell:
     .. code-block:: python
@@ -70,8 +71,9 @@ class Tracer:
         To reduce trace messages further, a filter can be applied such that events must
         have a key with a specific value for it to be logged.
 
-        :param key: A new or existing key to filter on
-        :param value: An allowed value for the event to be logged
+        Args:
+            key: A new or existing key to filter on
+            value: An allowed value for the event to be logged
 
         """
         self.__tracing_filters[key].append(value)
@@ -79,8 +81,9 @@ class Tracer:
     def remove_tracing_filter(self, key: str, value: Any):
         """Remove a specific key-value pair from the filter
 
-        :param key: An existing filter key
-        :param value: The allowed value to remove
+        Args:
+            key: An existing filter key
+            value: The allowed value to remove
 
         """
         if (

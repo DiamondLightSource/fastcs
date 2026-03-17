@@ -39,6 +39,7 @@ class EpicsPVATransport(Transport):
             PvaEpicsGUI(self._controller_api, self._pv_prefix).create_gui(self.gui)
 
     async def serve(self) -> None:
+        """Serve `ControllerAPI` over EPICS PVAccess"""
         logger.info("Running IOC", pv_prefix=self._pv_prefix)
         await self._ioc.run()
 

@@ -82,7 +82,8 @@ def command(
 
     The `Command` will be passed to the transport layer to expose in the API
 
-    :param: group: Group to display this command under in the transport layer
+    Args:
+        group: Group to display this command under in the transport layer
 
     """
 

@@ -19,12 +19,13 @@ tracer = Tracer()
 class FastCS:
     """Entrypoint for a FastCS application.
 
-    This class takes a ``Controller``, creates asyncio tasks to run its update loops and
-    builds its API to serve over the given transports.
+    This class takes a `Controller`, creates asyncio tasks to run its update loops and
+    builds its API to serve over the given `Transport`s.
 
-    :param: controller: The controller to serve in the control system
-    :param: transports: A list of transports to serve the API over
-    :param: loop: Optional event loop to run the control system in
+    Args:
+        controller: The controller to serve in the control system
+        transports: A list of transports to serve the API over
+        loop: Optional event loop to run the control system in
     """
 
     def __init__(
@@ -43,6 +44,14 @@ class FastCS:
         self._scan_tasks: set[asyncio.Task] = set()
 
     def run(self, interactive: bool = True):
+        """Run the application
+
+        This is a convenience method to call `serve` in a synchronous context.
+
+        Args:
+            interactive: Whether to create an interactive IPython shell
+
+        """
         serve = asyncio.ensure_future(self.serve(interactive=interactive))
 
         if os.name != "nt":
@@ -70,6 +79,20 @@ class FastCS:
         self._scan_tasks.clear()
 
     async def serve(self, interactive: bool = True) -> None:
+        """Serve the control system over the given transports on the current event loop
+
+        This is the main entrypoint for a FastCS application. It can be awaited
+        directly, which will block until stopped, or to allow further logic or
+        interaction with the system it can be run as a background task. If doing the
+        latter, generally it should be called with ``interactive=False`` for more
+        reliable stdout capture.
+
+        To call from a synchronous context, use the `run` method.
+
+        Args:
+            interactive: Whether to create an interactive IPython shell
+
+        """
         await self._controller.initialise()
         self._controller.post_initialise()
 

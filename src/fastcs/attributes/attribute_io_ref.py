@@ -17,6 +17,7 @@ class AttributeIORef:
     # Make fields keyword-only so that child classes can have fields without defaults
     _: KW_ONLY
     update_period: float | None = None
+    """Period in seconds between attribute updates, or `ONCE`"""
 
 
 AttributeIORefT = TypeVar(

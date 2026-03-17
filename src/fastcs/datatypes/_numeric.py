@@ -12,10 +12,15 @@ class _Numeric(DataType[Numeric_T]):
     """Base class for numeric FastCS DataType classes"""
 
     units: str | None = None
+    """The units of the numeric value"""
     min: Numeric_T | None = None
+    """The minimum allowed value - values below this will raise an exception"""
     max: Numeric_T | None = None
+    """The maximum allowed value - values above this will raise an exception"""
     min_alarm: Numeric_T | None = None
+    """The minimum alarm limit - values below this will be set with an alarm state"""
     max_alarm: Numeric_T | None = None
+    """The maximum alarm limit - values above this will be set with an alarm state"""
 
     def validate(self, value: Any) -> Numeric_T:
         _value = super().validate(value)

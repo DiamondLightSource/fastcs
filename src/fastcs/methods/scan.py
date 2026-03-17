@@ -18,6 +18,12 @@ ScanCallback = Callable[[], Coroutine[None, None, None]]
 class Scan(Method["BaseController"]):
     """A `Controller` `Method` that will be called periodically in the background.
 
+    The `Scan` method will be called periodically in the background. Use `ONCE` to call
+    the method only once as an initial task.
+
+    Args:
+        period: Period in seconds that the wrapped method is called at, or `ONCE`.
+
     This class contains a function that is bound to a specific `Controller` instance and
     is callable outside of the class context, without an explicit `self` parameter.
     Calling an instance of this class will call the bound `Controller` method.
@@ -88,9 +94,13 @@ def scan(
 ) -> Callable[[UnboundScanCallback[Controller_T]], UnboundScanCallback[Controller_T]]:
     """Decorator to register a `Controller` method as a `Scan`
 
-    The `Scan` method will be called periodically in the background.
-    """
+    The `Scan` method will be called periodically in the background. Use `ONCE` to call
+    the method only once as an initial task.
 
+    Args:
+        period: Period in seconds between wrapped method calls, or `ONCE`
+
+    """
     if period <= 0:
         raise ValueError("Scan method must have a positive scan period")
 

@@ -66,10 +66,11 @@ def configure_logging(
       - Change the console log level
       - Enable/disable graylog logging
 
-    :param level: Log level to set
-    :param graylog_endpoint: Endpoint for graylog logging - '<host>:<port>'
-    :param graylog_static_fields: Fields to add to graylog messages with static values
-    :param graylog_env_fields: Fields to add to graylog messages from env variables
+    Args:
+        level: Log level to set
+        graylog_endpoint: Endpoint for graylog logging - '<host>:<port>'
+        graylog_static_fields: Fields to add to graylog messages with static values
+        graylog_env_fields: Fields to add to graylog messages from env variables
 
     """
     global logger
@@ -93,7 +94,8 @@ def intercept_std_logger(logger_name: str):
     ``logging.Logger.callHandlers``, debug and run until the log message appears as
     ``record.msg``. The logger name will be in ``self.name``.
 
-    :param logger_name: Name of the logger to intercept
+    Args:
+        logger_name: Name of the logger to intercept
 
     """
     handler = _StdLoggingInterceptHandler()
@@ -102,3 +104,12 @@ def intercept_std_logger(logger_name: str):
     std_logger = logging.getLogger(logger_name)
     std_logger.handlers = [handler]
     std_logger.propagate = False
+
+
+# For sphinx autodoc to find things import from private modules
+__all__ = [
+    "logger",
+    "configure_logging",
+    "intercept_std_logger",
+    "GraylogEndpoint",
+]

@@ -121,6 +121,8 @@ def format_key_value(k: Any, v: Any) -> str:
 
 
 class LogLevel(StrEnum):
+    """Log level for fastcs logger"""
+
     TRACE = "TRACE"
     DEBUG = "DEBUG"
     INFO = "INFO"
