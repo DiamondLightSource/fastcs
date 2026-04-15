@@ -33,11 +33,12 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
     assert all(f in parent_pvi for f in ("alarm", "display", "timeStamp", "value"))
     assert parent_pvi["display"] == {"description": "some controller"}
     assert parent_pvi["value"] == {
-        "a": {"rw": f"{pv_prefix}:A"},
+        "a": {"w": f"{pv_prefix}:A", "r": f"{pv_prefix}:A_RBV"},
         "b": {"w": f"{pv_prefix}:B"},
         "child": {"d": f"{pv_prefix}:Child:PVI"},
         "table": {
-            "rw": f"{pv_prefix}:Table",
+            "r": f"{pv_prefix}:Table_RBV",
+            "w": f"{pv_prefix}:Table",
         },
     }
 
@@ -50,7 +51,9 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
     )
     assert _child_vector_pvi["display"] == {"description": "some child vector"}
     assert _child_vector_pvi["value"] == {
-        "vector_attribute": {"r": f"{pv_prefix}:Child:VectorAttribute"},
+        "vector_attribute": {
+            "r": f"{pv_prefix}:Child:VectorAttribute",
+        },
         "__1": {"d": f"{pv_prefix}:Child:1:PVI"},
         "__2": {"d": f"{pv_prefix}:Child:2:PVI"},
     }
@@ -65,9 +68,9 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         "c": {"w": f"{pv_prefix}:Child:1:C"},
         "d": {"x": f"{pv_prefix}:Child:1:D"},
         "e": {"r": f"{pv_prefix}:Child:1:E"},
-        "f": {"rw": f"{pv_prefix}:Child:1:F"},
-        "g": {"rw": f"{pv_prefix}:Child:1:G"},
-        "h": {"rw": f"{pv_prefix}:Child:1:H"},
+        "f": {"w": f"{pv_prefix}:Child:1:F", "r": f"{pv_prefix}:Child:1:F_RBV"},
+        "g": {"w": f"{pv_prefix}:Child:1:G", "r": f"{pv_prefix}:Child:1:G_RBV"},
+        "h": {"w": f"{pv_prefix}:Child:1:H", "r": f"{pv_prefix}:Child:1:H_RBV"},
         "i": {"x": f"{pv_prefix}:Child:1:I"},
         "j": {"r": f"{pv_prefix}:Child:1:J"},
     }
@@ -348,10 +351,16 @@ def test_pvi_grouping():
             "value": {
                 "additional_child": {"d": f"{pv_prefix}:AdditionalChild:PVI"},
                 "another_child": {"d": f"{pv_prefix}:AnotherChild:PVI"},
-                "another_attr_0": {"rw": f"{pv_prefix}:AnotherAttr0"},
-                "another_attr_1000": {"rw": f"{pv_prefix}:AnotherAttr1000"},
+                "another_attr_0": {
+                    "r": f"{pv_prefix}:AnotherAttr0_RBV",
+                    "w": f"{pv_prefix}:AnotherAttr0",
+                },
+                "another_attr_1000": {
+                    "w": f"{pv_prefix}:AnotherAttr1000",
+                    "r": f"{pv_prefix}:AnotherAttr1000_RBV",
+                },
                 "a_third_attr": {"w": f"{pv_prefix}:AThirdAttr"},
-                "attr_1": {"rw": f"{pv_prefix}:Attr1"},
+                "attr_1": {"w": f"{pv_prefix}:Attr1", "r": f"{pv_prefix}:Attr1_RBV"},
                 "child": {"d": f"{pv_prefix}:Child:PVI"},
                 "child0": {"d": f"{pv_prefix}:Child0:PVI"},
                 "child1": {"d": f"{pv_prefix}:Child1:PVI"},
