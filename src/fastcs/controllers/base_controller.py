@@ -98,10 +98,27 @@ class BaseController(Tracer):
             elif isinstance(hint, type) and issubclass(hint, Method):
                 self.__hinted_methods[name] = hint
 
-    def _bind_attrs(self) -> None:
-        """Search for Attributes and Methods to bind them to this instance.
+    @classmethod
+    def _walk_mro(cls):
+        """Return ordered attribute names from the class MRO.
 
-        This method will search the attributes of this controller class to bind them to
+        Traverses MRO from base to subclass, collecting attribute names in definition
+        order while skipping duplicates (subclass overrides take precedence) and private
+        attributes.
+        """
+        class_dir = []
+        seen = set()
+        for base in reversed(cls.__mro__):
+            for key in base.__dict__:
+                if not key.startswith("_") and key not in seen:
+                    seen.add(key)
+                    class_dir.append(key)
+        return class_dir
+
+    def _bind_attrs(self) -> None:
+        """Bind Attributes and Methods to this instance.
+
+        This method will bind the attributes of this controller class to
         this specific instance. For Attributes, this is just a case of copying and
         re-assigning to ``self`` to make it unique across multiple instances of this
         controller class. For Methods, this requires creating a bound method from a
@@ -109,8 +126,7 @@ class BaseController(Tracer):
         context with the controller instance passed as the ``self`` argument.
 
         """
-        # Using a dictionary instead of a set to maintain order.
-        class_dir = {key: None for key in dir(type(self)) if not key.startswith("_")}
+        class_dir = dict.fromkeys(self._walk_mro())
         class_type_hints = {
             key: value
             for key, value in get_type_hints(type(self)).items()
