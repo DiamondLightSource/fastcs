@@ -125,22 +125,9 @@ def test_get_components(controller_api):
                 )
             ],
         ),
-        SignalR(name="ReadBool", read_pv="DEVICE:ReadBool", read_widget=LED()),
         SignalR(
             name="ReadInt",
             read_pv="DEVICE:ReadInt",
-            read_widget=TextRead(),
-        ),
-        SignalRW(
-            name="ReadString",
-            read_pv="DEVICE:ReadString_RBV",
-            write_pv="DEVICE:ReadString",
-        ),
-        SignalRW(
-            name="ReadWriteFloat",
-            write_pv="DEVICE:ReadWriteFloat",
-            write_widget=TextWrite(),
-            read_pv="DEVICE:ReadWriteFloat_RBV",
             read_widget=TextRead(),
         ),
         SignalRW(
@@ -150,10 +137,27 @@ def test_get_components(controller_api):
             read_pv="DEVICE:ReadWriteInt_RBV",
             read_widget=TextRead(),
         ),
+        SignalRW(
+            name="ReadWriteFloat",
+            write_pv="DEVICE:ReadWriteFloat",
+            write_widget=TextWrite(),
+            read_pv="DEVICE:ReadWriteFloat_RBV",
+            read_widget=TextRead(),
+        ),
+        SignalR(
+            name="ReadBool",
+            read_pv="DEVICE:ReadBool",
+            read_widget=LED(),
+        ),
         SignalW(
             name="WriteBool",
             write_pv="DEVICE:WriteBool",
             write_widget=ToggleButton(),
+        ),
+        SignalRW(
+            name="ReadString",
+            read_pv="DEVICE:ReadString_RBV",
+            write_pv="DEVICE:ReadString",
         ),
         SignalX(
             name="Go",

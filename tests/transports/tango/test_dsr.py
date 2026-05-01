@@ -69,15 +69,15 @@ class TestTangoDevice:
 
     def test_list_attributes(self, tango_context: DeviceProxy):
         assert list(tango_context.get_attribute_list()) == [
+            "ReadInt",
+            "ReadWriteInt",
+            "ReadWriteFloat",
+            "ReadBool",
+            "WriteBool",
+            "ReadString",
             "Enum",
             "OneDWaveform",
-            "ReadBool",
-            "ReadInt",
-            "ReadString",
-            "ReadWriteFloat",
-            "ReadWriteInt",
             "TwoDWaveform",
-            "WriteBool",
             "SubController01_ReadInt",
             "SubController02_ReadInt",
             "State",
