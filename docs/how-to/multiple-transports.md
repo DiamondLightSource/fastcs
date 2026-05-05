@@ -10,17 +10,17 @@ Pass a list of transports to `FastCS`:
 from fastcs.control_system import FastCS
 from fastcs.transports import (
     EpicsCATransport,
-    EpicsIOCOptions,
     GraphQLTransport,
     RestTransport,
 )
 
 controller = MyController()
+controller.set_id("DEVICE")  # PV prefix for EPICS / route prefix for REST
 
 fastcs = FastCS(
     controller,
     [
-        EpicsCATransport(epicsca=EpicsIOCOptions(pv_prefix="DEVICE")),
+        EpicsCATransport(),
         RestTransport(),
         GraphQLTransport(),
     ]
@@ -52,17 +52,18 @@ Each transport has its own options:
 
 ### EPICS Channel Access
 
+The PV prefix is the controller's id (set via `controller.set_id(...)` or
+auto-set by `launch()` from the YAML key).
+
 ```python
 from pathlib import Path
 from fastcs.transports import (
     EpicsCATransport,
     EpicsDocsOptions,
     EpicsGUIOptions,
-    EpicsIOCOptions,
 )
 
 epics_ca = EpicsCATransport(
-    epicsca=EpicsIOCOptions(pv_prefix="DEVICE"),
     gui=EpicsGUIOptions(
         output_path=Path(".") / "device.bob",
         title="Device Control",
@@ -76,11 +77,9 @@ epics_ca = EpicsCATransport(
 ### EPICS PV Access
 
 ```python
-from fastcs.transports import EpicsPVATransport, EpicsIOCOptions
+from fastcs.transports import EpicsPVATransport
 
-epics_pva = EpicsPVATransport(
-    epicspva=EpicsIOCOptions(pv_prefix="DEVICE"),
-)
+epics_pva = EpicsPVATransport()
 ```
 
 ### REST
@@ -134,25 +133,24 @@ from pathlib import Path
 from fastcs.transports import (
     EpicsCATransport,
     EpicsGUIOptions,
-    EpicsIOCOptions,
     EpicsPVATransport,
 )
+
+controller.set_id("DEVICE")
 
 fastcs = FastCS(
     controller,
     [
         EpicsCATransport(
-            epicsca=EpicsIOCOptions(pv_prefix="DEVICE"),
             gui=EpicsGUIOptions(output_path=Path(".") / "device.bob"),
         ),
-        EpicsPVATransport(
-            epicspva=EpicsIOCOptions(pv_prefix="DEVICE"),
-        ),
+        EpicsPVATransport(),
     ]
 )
 ```
 
-Both transports share the same PV prefix and expose identical PVs.
+Both transports derive the same PV prefix from the controller's id and
+expose identical PVs.
 
 ## YAML Configuration
 

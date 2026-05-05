@@ -58,15 +58,19 @@ Create a YAML configuration file matching the schema:
 
 ```yaml
 # device_config.yaml
-controller:
-  ip_address: "192.168.1.100"
-  port: 25565
-  timeout: 10.0
+controllers:
+  DEVICE:
+    controller:
+      ip_address: "192.168.1.100"
+      port: 25565
+      timeout: 10.0
 
 transport:
-  - epicsca:
-      pv_prefix: "DEVICE"
+  - epicsca: {}
 ```
+
+The key under `controllers:` (here `DEVICE`) is the controller id, used
+verbatim as the EPICS PV prefix and as the REST route prefix.
 
 Run with:
 
@@ -98,8 +102,7 @@ Transports are configured in the `transport` section as a list:
 ```yaml
 transport:
   # EPICS Channel Access
-  - epicsca:
-      pv_prefix: "DEVICE"
+  - epicsca: {}
     gui:
       output_path: "opis/device.bob"
       title: "Device Control"
