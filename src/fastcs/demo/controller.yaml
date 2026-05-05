@@ -1,9 +1,11 @@
 # yaml-language-server: $schema=schema.json
-controller:
-  ip_settings:
-    ip: "localhost"
-    port: 25565
-  num_ramp_controllers: 4
+controllers:
+  TEMPERATURE:
+    controller:
+      ip_settings:
+        ip: "localhost"
+        port: 25565
+      num_ramp_controllers: 4
 transport:
   - graphql:
       host: localhost

@@ -157,6 +157,25 @@
       "title": "GraphQLTransport",
       "type": "object"
     },
+    "IsHintedEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "IsHinted",
+          "default": "IsHinted",
+          "title": "Type",
+          "type": "string"
+        },
+        "controller": {
+          "$ref": "#/$defs/SomeConfig"
+        }
+      },
+      "required": [
+        "controller"
+      ],
+      "title": "IsHintedEntry",
+      "type": "object"
+    },
     "RestServerOptions": {
       "properties": {
         "host": {
@@ -233,8 +252,12 @@
   },
   "additionalProperties": false,
   "properties": {
-    "controller": {
-      "$ref": "#/$defs/SomeConfig"
+    "controllers": {
+      "additionalProperties": {
+        "$ref": "#/$defs/IsHintedEntry"
+      },
+      "title": "Controllers",
+      "type": "object"
     },
     "transport": {
       "items": {
@@ -261,7 +284,7 @@
     }
   },
   "required": [
-    "controller",
+    "controllers",
     "transport"
   ],
   "title": "IsHinted",

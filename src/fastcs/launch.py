@@ -2,10 +2,10 @@ import asyncio
 import inspect
 import json
 from pathlib import Path
-from typing import Annotated, Any, Optional, get_type_hints
+from typing import Annotated, Any, Literal, Optional, Union, get_type_hints
 
 import typer
-from pydantic import BaseModel, ValidationError, create_model
+from pydantic import BaseModel, Field, ValidationError, create_model
 from ruamel.yaml import YAML
 
 from fastcs import __version__
@@ -25,53 +25,75 @@ from fastcs.transports import Transport
 
 
 def launch(
-    controller_class: type[Controller],
+    controller_classes: type[Controller] | list[type[Controller]],
     version: str | None = None,
 ) -> None:
     """
     Serves as an entry point for starting FastCS applications.
 
-    By utilizing type hints in a Controller's __init__ method, this
+    By utilizing type hints in each Controller's __init__ method, this
     function provides a command-line interface to describe and gather the
     required configuration before instantiating the application.
 
     Args:
-        controller_class (type[Controller]): The FastCS Controller to instantiate.
-            It must have a type-hinted __init__ method and no more than 2 arguments.
-        version (Optional[str]): The version of the FastCS Controller.
-            Optional
+        controller_classes: One or more FastCS Controller classes to make
+            available for instantiation. Each must have a type-hinted
+            __init__ method and no more than 2 arguments. The chosen class
+            for each id is selected by a ``type`` discriminator in the
+            config; when a single class is registered, ``type`` may be
+            omitted.
+        version (Optional[str]): The version of the FastCS application.
 
     Raises:
-        LaunchError: If the class's __init__ is not as expected
-
-    Example of the expected Controller implementation:
-        class MyController(Controller):
-            def __init__(self, my_arg: MyControllerOptions) -> None:
-                ...
+        LaunchError: If a class's __init__ is not as expected.
 
     Typical usage:
         if __name__ == "__main__":
-            launch(MyController)
+            launch(MyController)            # single class
+            launch([MyControllerA, MyControllerB])  # multi-class
     """
-    _launch(controller_class, version)()
+    _launch(controller_classes, version)()
+
+
+def _normalise_classes(
+    controller_classes: type[Controller] | list[type[Controller]],
+) -> list[type[Controller]]:
+    if isinstance(controller_classes, list):
+        if not controller_classes:
+            raise LaunchError("launch() requires at least one Controller class")
+        return controller_classes
+    return [controller_classes]
+
+
+def _discriminator(controller_class: type[Controller]) -> str:
+    """Type discriminator used in fastcs.yaml under each entry's ``type:`` key.
+
+    Defaults to the class ``__name__`` and may be overridden by setting
+    ``type_name: ClassVar[str]`` on the Controller class.
+    """
+    return getattr(controller_class, "type_name", controller_class.__name__)
 
 
 def _launch(
-    controller_class: type[Controller],
+    controller_classes: type[Controller] | list[type[Controller]],
     version: str | None = None,
 ) -> typer.Typer:
-    fastcs_options = _extract_options_model(controller_class)
+    classes = _normalise_classes(controller_classes)
+    fastcs_options = _build_options_model(classes)
+    type_map = {_discriminator(cls): cls for cls in classes}
+    app_name = classes[0].__name__ if len(classes) == 1 else "FastCS"
     launch_typer = typer.Typer()
 
     class LaunchContext:
-        def __init__(self, controller_class, fastcs_options):
-            self.controller_class = controller_class
+        def __init__(self, classes, fastcs_options, type_map):
+            self.classes = classes
             self.fastcs_options = fastcs_options
+            self.type_map = type_map
 
     def version_callback(value: bool):
         if value:
             if version:
-                print(f"{controller_class.__name__}: {version}")
+                print(f"{app_name}: {version}")
             print(f"FastCS: {__version__}")
             raise typer.Exit()
 
@@ -83,27 +105,22 @@ def _launch(
             "--version",
             callback=version_callback,
             is_eager=True,
-            help=f"Display the {controller_class.__name__} version.",
+            help=f"Display the {app_name} version.",
         ),
     ):
-        ctx.obj = LaunchContext(
-            controller_class,
-            fastcs_options,
-        )
+        ctx.obj = LaunchContext(classes, fastcs_options, type_map)
 
-    @launch_typer.command(help=f"Produce json schema for a {controller_class.__name__}")
+    @launch_typer.command(help=f"Produce json schema for a {app_name}")
     def schema(ctx: typer.Context):
         system_schema = ctx.obj.fastcs_options.model_json_schema()
         print(json.dumps(system_schema, indent=2))
 
-    @launch_typer.command(help=f"Start up a {controller_class.__name__}")
+    @launch_typer.command(help=f"Start up a {app_name}")
     def run(
         ctx: typer.Context,
         config: Annotated[
             Path,
-            typer.Argument(
-                help=f"A yaml file matching the {controller_class.__name__} schema"
-            ),
+            typer.Argument(help=f"A yaml file matching the {app_name} schema"),
         ],
         log_level: Annotated[LogLevel, typer.Option()] = LogLevel.INFO,
         graylog_endpoint: Annotated[
@@ -128,15 +145,13 @@ def _launch(
             ),
         ] = None,
     ):
-        """
-        Start the controller
-        """
+        """Start the controllers"""
         configure_logging(
             log_level, graylog_endpoint, graylog_static_fields, graylog_env_fields
         )
 
-        controller_class = ctx.obj.controller_class
         fastcs_options = ctx.obj.fastcs_options
+        type_map = ctx.obj.type_map
 
         yaml = YAML(typ="safe")
         options_yaml = yaml.load(config)
@@ -153,13 +168,19 @@ def _launch(
 
             raise LaunchError("Failed to validate config") from e
 
-        if hasattr(instance_options, "controller"):
-            controller = controller_class(instance_options.controller)
-        else:
-            controller = controller_class()
+        controllers = _instantiate_controllers(instance_options.controllers, type_map)
+
+        if len(controllers) > 1:
+            raise LaunchError(
+                "Multi-controller execution is not yet wired through FastCS; "
+                "this lands in the next slice of issue #353. "
+                "Configure exactly one entry under `controllers:` for now."
+            )
 
         instance = FastCS(
-            controller, instance_options.transport, loop=asyncio.get_event_loop()
+            controllers[0],
+            instance_options.transport,
+            loop=asyncio.get_event_loop(),
         )
 
         instance.run()
@@ -167,15 +188,43 @@ def _launch(
     return launch_typer
 
 
-def _extract_options_model(controller_class: type[Controller]) -> type[BaseModel]:
+def _instantiate_controllers(
+    controllers_options: dict[str, Any],
+    type_map: dict[str, type[Controller]],
+) -> list[Controller]:
+    """Instantiate each entry under `controllers:` and stamp its id.
+
+    Each value in ``controllers_options`` is a dynamically-built Pydantic
+    model whose fields are unknown to the type checker; the discriminator
+    and optional controller options block are accessed by name at runtime.
+    """
+    controllers: list[Controller] = []
+    for id, entry in controllers_options.items():
+        cls = type_map[entry.type]
+        if hasattr(entry, "controller"):
+            controller = cls(entry.controller)
+        else:
+            controller = cls()
+        controller.set_id(id)
+        controllers.append(controller)
+    return controllers
+
+
+def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
+    """Build a Pydantic model for one entry under `controllers:`.
+
+    Each entry has a ``type`` discriminator literal and, for Controllers
+    whose ``__init__`` accepts a typed options argument, a ``controller``
+    options block.
+    """
     sig = inspect.signature(controller_class.__init__)
     args = inspect.getfullargspec(controller_class.__init__)[0]
+    discriminator = _discriminator(controller_class)
+
+    fields: dict[str, Any] = {"type": (Literal[discriminator], discriminator)}
+
     if len(args) == 1:
-        fastcs_options = create_model(
-            f"{controller_class.__name__}",
-            transport=(list[Transport.union()], ...),
-            __config__={"extra": "forbid"},
-        )
+        pass
     elif len(args) == 2:
         hints = get_type_hints(controller_class.__init__)
         if "return" in hints:
@@ -187,22 +236,52 @@ def _extract_options_model(controller_class: type[Controller]) -> type[BaseModel
                 f"Expected typehinting in '{controller_class.__name__}"
                 f".__init__' but received {sig}. Add a typehint for `{args[-1]}`."
             )
-        fastcs_options = create_model(
-            f"{controller_class.__name__}",
-            controller=(options_type, ...),
-            transport=(list[Transport.union()], ...),
-            __config__={"extra": "forbid"},
-        )
+        fields["controller"] = (options_type, ...)
     else:
         raise LaunchError(
             f"Expected no more than 2 arguments for '{controller_class.__name__}"
             f".__init__' but received {len(args)} as `{sig}`"
         )
-    return fastcs_options
+
+    return create_model(
+        f"{controller_class.__name__}Entry",
+        __config__={"extra": "forbid"},
+        **fields,
+    )
 
 
-def get_controller_schema(target: type[Controller]) -> dict[str, Any]:
-    """Gets schema for a give controller for serialisation."""
-    options_model = _extract_options_model(target)
-    target_schema = options_model.model_json_schema()
-    return target_schema
+def _build_options_model(
+    controller_classes: list[type[Controller]],
+) -> type[BaseModel]:
+    """Build the top-level Pydantic model for fastcs.yaml.
+
+    `controllers:` is a dict keyed by id. Each value is either the single
+    registered class's entry model (in which case ``type`` is optional via
+    its default) or a discriminated union over all registered classes
+    (selected by the entry's ``type:`` field).
+    """
+    entries = [_build_entry_model(cls) for cls in controller_classes]
+
+    if len(entries) == 1:
+        entry_value_type: Any = entries[0]
+        title = controller_classes[0].__name__
+    else:
+        entry_value_type = Annotated[
+            Union[tuple(entries)], Field(discriminator="type")  # noqa: UP007
+        ]
+        title = "FastCS"
+
+    return create_model(
+        title,
+        __config__={"extra": "forbid"},
+        controllers=(dict[str, entry_value_type], ...),
+        transport=(list[Transport.union()], ...),
+    )
+
+
+def get_controller_schema(
+    target: type[Controller] | list[type[Controller]],
+) -> dict[str, Any]:
+    """Gets schema for given controller class(es) for serialisation."""
+    options_model = _build_options_model(_normalise_classes(target))
+    return options_model.model_json_schema()

@@ -1,4 +1,8 @@
 # yaml-language-server: $schema=schema.json
+controllers:
+  device-1:
+    controller:
+      name: controller-name
 transport:
   - epicsca: {}
     docs: {}
@@ -9,5 +13,3 @@ transport:
   - rest: {}
   - tango: {}
   - graphql: {}
-controller:
-  name: controller-name
