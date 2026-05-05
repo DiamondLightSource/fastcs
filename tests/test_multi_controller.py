@@ -14,6 +14,7 @@ from fastcs.controllers import Controller
 from fastcs.datatypes import Int
 from fastcs.transports.epics.ca.transport import EpicsCATransport
 from fastcs.transports.epics.pva.transport import EpicsPVATransport
+from fastcs.transports.graphql.transport import GraphQLTransport
 from fastcs.transports.rest.transport import RestTransport
 
 
@@ -174,6 +175,48 @@ def test_pva_transport_rejects_illegal_id_at_connect():
     try:
         transport = EpicsPVATransport()
         with pytest.raises(ValueError, match="bad/id"):
+            transport.connect([api], loop)
+    finally:
+        loop.close()
+
+
+def test_graphql_transport_combines_two_controllers_under_id_keyed_query():
+    """One GraphQL endpoint exposes a single combined schema with one
+    top-level Query field per controller id."""
+    from fastapi.testclient import TestClient
+
+    api1 = _api_with_id(_OneAttrController, "alpha")
+    api2 = _api_with_id(_OtherAttrController, "beta")
+
+    loop = asyncio.new_event_loop()
+    try:
+        transport = GraphQLTransport()
+        transport.connect([api1, api2], loop)
+
+        # Strawberry's ASGI app doesn't implement the lifespan protocol, so
+        # construct the TestClient without `with` to skip startup events.
+        client = TestClient(transport._server._app)
+        response = client.post(
+            "/graphql",
+            json={"query": "{ alpha { foo } beta { bar } }"},
+        )
+        assert response.status_code == 200
+        assert response.json()["data"] == {
+            "alpha": {"foo": 0},
+            "beta": {"bar": 0},
+        }
+    finally:
+        loop.close()
+
+
+def test_graphql_transport_rejects_illegal_id_at_connect():
+    # Hyphens are valid for REST/EPICS but not for GraphQL field names.
+    api = _api_with_id(_OneAttrController, "bad-id")
+
+    loop = asyncio.new_event_loop()
+    try:
+        transport = GraphQLTransport()
+        with pytest.raises(ValueError, match="bad-id"):
             transport.connect([api], loop)
     finally:
         loop.close()

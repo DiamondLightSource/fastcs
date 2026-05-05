@@ -30,6 +30,25 @@ fastcs.run()
 
 All transports run concurrently, exposing the same controller API.
 
+## Choosing controller ids across transports
+
+Each transport derives its addressing from the controller's id (the PV prefix
+for EPICS, the URL prefix for REST, the top-level Query field for GraphQL),
+and each enforces its own charset at startup.
+
+| Transport | Allowed id charset |
+|-----------|--------------------|
+| EPICS CA  | `[A-Za-z0-9_-]+`, plus the 60-char PV name limit |
+| EPICS PVA | `[A-Za-z0-9_-]+` |
+| REST      | `[A-Za-z0-9_-]+` |
+| GraphQL   | `[A-Za-z_][A-Za-z0-9_]*` (GraphQL `Name`: no hyphens, no leading digit) |
+
+If you serve the same controller through multiple transports, use the
+intersection — a leading letter or underscore followed by letters, digits and
+underscores. GraphQL is the lowest common denominator: an id like `dev-01`
+will start an EPICS or REST transport happily but fail fast when GraphQL is
+added.
+
 ## Available Transports
 
 | Transport | Protocol | Install Extra | Primary Use Case |

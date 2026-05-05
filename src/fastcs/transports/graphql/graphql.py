@@ -17,18 +17,42 @@ from .options import GraphQLServerOptions
 
 
 class GraphQLServer:
-    """A GraphQL server which handles a controller"""
+    """A GraphQL server which serves one combined schema for N controllers.
 
-    def __init__(self, controller_api: ControllerAPI):
-        self._controller_api = controller_api
+    Each top-level controller is exposed as a Query (and, where applicable,
+    Mutation) field keyed by the controller's id, so a single endpoint serves
+    every configured device.
+    """
+
+    def __init__(self, controller_apis: list[ControllerAPI]):
+        self._controller_apis = controller_apis
         self._app = self._create_app()
 
     def _create_app(self) -> GraphQL:
-        api = GraphQLAPI(self._controller_api)
-        schema = api.create_schema()
-        app = GraphQL(schema)
+        queries: list[StrawberryField] = []
+        mutations: list[StrawberryField] = []
+        for controller_api in self._controller_apis:
+            id = controller_api.path[0]
+            sub_tree = GraphQLAPI(controller_api)
+            if sub_tree.queries:
+                queries.append(
+                    _wrap_as_field(id, create_type(f"{id}Query", sub_tree.queries))
+                )
+            if sub_tree.mutations:
+                mutations.append(
+                    _wrap_as_field(id, create_type(f"{id}Mutation", sub_tree.mutations))
+                )
 
-        return app
+        if not queries:
+            raise FastCSError(
+                "Can't create GraphQL transport from ControllerAPIs with no read "
+                "attributes"
+            )
+
+        query = create_type("Query", queries)
+        mutation = create_type("Mutation", mutations) if mutations else None
+        schema = strawberry.Schema(query=query, mutation=mutation)
+        return GraphQL(schema)
 
     async def serve(self, options: GraphQLServerOptions | None = None) -> None:
         options = options or GraphQLServerOptions()
@@ -48,7 +72,11 @@ class GraphQLServer:
 
 
 class GraphQLAPI:
-    """A Strawberry API built dynamically from a `ControllerAPI`"""
+    """A Strawberry sub-tree built dynamically from a single `ControllerAPI`.
+
+    Produces the per-controller queries and mutations; the combined top-level
+    schema is assembled by `GraphQLServer`.
+    """
 
     def __init__(self, controller_api: ControllerAPI):
         self.queries: list[StrawberryField] = []
@@ -87,33 +115,25 @@ class GraphQLAPI:
     def _process_sub_apis(self, root_controller_api: ControllerAPI):
         """Recursively add fields from the queries and mutations of sub apis"""
         for controller_api in root_controller_api.sub_apis.values():
-            name = "".join(controller_api.path)
+            field_name = controller_api.path[-1]
+            # Type name is path-joined so subs sharing a local name across two
+            # top-level controllers produce distinct GraphQL types.
+            type_stem = "_".join(controller_api.path)
             child_tree = GraphQLAPI(controller_api)
             if child_tree.queries:
                 self.queries.append(
                     _wrap_as_field(
-                        name, create_type(f"{name}Query", child_tree.queries)
+                        field_name,
+                        create_type(f"{type_stem}_Query", child_tree.queries),
                     )
                 )
             if child_tree.mutations:
                 self.mutations.append(
                     _wrap_as_field(
-                        name, create_type(f"{name}Mutation", child_tree.mutations)
+                        field_name,
+                        create_type(f"{type_stem}_Mutation", child_tree.mutations),
                     )
                 )
-
-    def create_schema(self) -> strawberry.Schema:
-        """Create a Strawberry Schema to load into a GraphQL application."""
-        if not self.queries:
-            raise FastCSError(
-                "Can't create GraphQL transport from ControllerAPI with no read "
-                "attributes"
-            )
-
-        query = create_type("Query", self.queries)
-        mutation = create_type("Mutation", self.mutations) if self.mutations else None
-
-        return strawberry.Schema(query=query, mutation=mutation)
 
 
 def _wrap_attr_set(
