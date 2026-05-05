@@ -298,7 +298,9 @@ def test_pvi_grouping():
     controller.additional_child = sub_controller
     sub_controller.child_child = ChildChildController()
 
-    pv_prefix = str(uuid4())
+    # Short id keeps the deepest prefix (`<id>:AdditionalChild:ChildChild`)
+    # under the 60-char EPICS PV name limit enforced by validate_pva_id.
+    pv_prefix = uuid4().hex[:8]
     fastcs = make_fastcs(pv_prefix, controller)
 
     ctxt = ThreadContext("pva")

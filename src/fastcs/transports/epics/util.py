@@ -1,5 +1,8 @@
 from fastcs.util import snake_to_pascal
 
+EPICS_MAX_NAME_LENGTH = 60
+"""Maximum length of an EPICS PV name, enforced by both CA and PVA transports."""
+
 
 def pv_prefix_from_path(path: list[str]) -> str:
     """Derive an EPICS PV prefix from a controller path.

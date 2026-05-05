@@ -11,9 +11,7 @@ from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
 from fastcs.datatypes import Bool, DataType, DType_T, Enum, Float, Int, String, Waveform
 from fastcs.exceptions import FastCSError
-from fastcs.transports.epics.util import pv_prefix_from_path
-
-EPICS_MAX_NAME_LENGTH = 60
+from fastcs.transports.epics.util import EPICS_MAX_NAME_LENGTH, pv_prefix_from_path
 
 _CA_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 

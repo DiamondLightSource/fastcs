@@ -48,14 +48,21 @@ async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider
 
 
 class P4PIOC:
-    """A P4P IOC which handles a controller"""
+    """A P4P IOC which handles one or more controllers.
 
-    def __init__(self, controller_api: ControllerAPI):
-        self.controller_api = controller_api
+    Each controller gets its own `StaticProvider` so it exposes an independent
+    `:PVI` root with no super-parent.
+    """
+
+    def __init__(self, controller_apis: list[ControllerAPI]):
+        self._controller_apis = controller_apis
+
+    async def _build_providers(self) -> list[StaticProvider]:
+        return [await parse_attributes(api) for api in self._controller_apis]
 
     async def run(self):
-        provider = await parse_attributes(self.controller_api)
+        providers = await self._build_providers()
 
         endless_event = asyncio.Event()
-        with Server([provider]):
+        with Server(providers):
             await endless_event.wait()

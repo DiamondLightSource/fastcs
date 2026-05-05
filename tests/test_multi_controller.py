@@ -13,6 +13,7 @@ from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.datatypes import Int
 from fastcs.transports.epics.ca.transport import EpicsCATransport
+from fastcs.transports.epics.pva.transport import EpicsPVATransport
 from fastcs.transports.rest.transport import RestTransport
 
 
@@ -141,6 +142,37 @@ def test_ca_transport_rejects_illegal_id_at_connect():
     loop = asyncio.new_event_loop()
     try:
         transport = EpicsCATransport()
+        with pytest.raises(ValueError, match="bad/id"):
+            transport.connect([api], loop)
+    finally:
+        loop.close()
+
+
+@pytest.mark.asyncio
+async def test_pva_transport_serves_two_controllers_with_distinct_pvi_roots():
+    """One p4p server hosts N controllers; each gets its own ``:PVI`` root with no
+    super-parent."""
+    api1 = _api_with_id(_OneAttrController, "ALPHA")
+    api2 = _api_with_id(_OtherAttrController, "BETA")
+
+    transport = EpicsPVATransport()
+    transport.connect([api1, api2], asyncio.get_event_loop())
+
+    providers = await transport._ioc._build_providers()
+    pv_names = {name for provider in providers for name in provider.keys()}
+
+    assert "ALPHA:PVI" in pv_names
+    assert "BETA:PVI" in pv_names
+    assert "ALPHA:Foo" in pv_names
+    assert "BETA:Bar" in pv_names
+
+
+def test_pva_transport_rejects_illegal_id_at_connect():
+    api = _api_with_id(_OneAttrController, "bad/id")
+
+    loop = asyncio.new_event_loop()
+    try:
+        transport = EpicsPVATransport()
         with pytest.raises(ValueError, match="bad/id"):
             transport.connect([api], loop)
     finally:

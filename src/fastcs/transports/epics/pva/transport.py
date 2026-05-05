@@ -10,8 +10,9 @@ from fastcs.transports.epics import (
 )
 from fastcs.transports.epics.docs import EpicsDocs
 from fastcs.transports.epics.pva.gui import PvaEpicsGUI
+from fastcs.transports.epics.pva.util import validate_pva_id
 from fastcs.transports.epics.util import pv_prefix_from_path
-from fastcs.transports.transport import Transport, _expect_single
+from fastcs.transports.transport import Transport
 
 from .ioc import P4PIOC
 
@@ -30,21 +31,23 @@ class EpicsPVATransport(Transport):
         controller_apis: list[ControllerAPI],
         loop: asyncio.AbstractEventLoop,
     ) -> None:
-        controller_api = _expect_single(controller_apis, "EpicsPVATransport")
-        self._controller_api = controller_api
-        self._pv_prefix = pv_prefix_from_path(controller_api.path)
-        self._ioc = P4PIOC(controller_api)
+        for api in controller_apis:
+            validate_pva_id(api)
+        self._controller_apis = controller_apis
+        self._pv_prefixes = [pv_prefix_from_path(api.path) for api in controller_apis]
+        self._ioc = P4PIOC(controller_apis)
 
-        if self.docs is not None:
-            EpicsDocs(self._controller_api).create_docs(self.docs)
+        for api in controller_apis:
+            if self.docs is not None:
+                EpicsDocs(api).create_docs(self.docs)
 
-        if self.gui is not None:
-            PvaEpicsGUI(self._controller_api).create_gui(self.gui)
+            if self.gui is not None:
+                PvaEpicsGUI(api).create_gui(self.gui)
 
     async def serve(self) -> None:
         """Serve `ControllerAPI` over EPICS PVAccess"""
-        logger.info("Running IOC", pv_prefix=self._pv_prefix)
+        logger.info("Running IOC", pv_prefixes=self._pv_prefixes)
         await self._ioc.run()
 
     def __repr__(self):
-        return f"EpicsPVATransport({self._pv_prefix})"
+        return f"EpicsPVATransport({self._pv_prefixes})"
