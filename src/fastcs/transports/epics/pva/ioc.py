@@ -50,8 +50,8 @@ async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider
 class P4PIOC:
     """A P4P IOC which handles one or more controllers.
 
-    Each controller gets its own `StaticProvider` so it exposes an independent
-    `:PVI` root with no super-parent.
+    Each controller gets its own ``StaticProvider`` so it exposes an independent
+    ``:PVI`` root with no super-parent.
     """
 
     def __init__(self, controller_apis: list[ControllerAPI]):
