@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from fastcs import __version__
 from fastcs.attributes import AttrR
+from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.datatypes import Int
 from fastcs.exceptions import LaunchError
@@ -179,7 +180,7 @@ def test_error_if_identical_context_in_transports(mocker: MockerFixture, data):
     mocker.patch(
         "fastcs.transports.Transport.context",
         new_callable=mocker.PropertyMock,
-        return_value={"controller": "test"},
+        return_value={"controllers": "test"},
     )
     mocker.patch(
         "fastcs.transports.epics.pva.transport.EpicsPVATransport.serve",
@@ -278,11 +279,10 @@ def test_duplicate_id_rejected_at_yaml_load(tmp_path):
         yaml.load(cfg)
 
 
-def test_multi_controller_run_errors_until_fastcs_supports_list(
-    mocker: MockerFixture, tmp_path
-):
-    """Until FastCS itself takes list[Controller] in the next slice, running a
-    multi-entry config raises a clear LaunchError."""
+def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
+    """Multi-entry config is wired through FastCS, which receives both
+    controllers in the order they appear under `controllers:`."""
+    init_spy = mocker.spy(FastCS, "__init__")
     mocker.patch("fastcs.launch.FastCS.run")
     cfg = tmp_path / "multi.yaml"
     cfg.write_text(
@@ -298,5 +298,8 @@ def test_multi_controller_run_errors_until_fastcs_supports_list(
     )
     app = _launch([IsHinted, OtherHinted])
     result = runner.invoke(app, ["run", str(cfg)])
-    assert isinstance(result.exception, LaunchError)
-    assert "Multi-controller execution" in str(result.exception)
+    assert result.exit_code == 0, result.output
+    init_spy.assert_called_once()
+    controllers_arg = init_spy.call_args.args[1]
+    assert [c.id for c in controllers_arg] == ["one", "two"]
+    assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]

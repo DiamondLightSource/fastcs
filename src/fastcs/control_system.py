@@ -7,7 +7,7 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerAPI
 from fastcs.logging import logger
 from fastcs.methods import ScanCallback
 from fastcs.tracer import Tracer
@@ -16,25 +16,49 @@ from fastcs.transports import Transport
 tracer = Tracer()
 
 
+def _context_key(controller: Controller) -> str:
+    """Key used for a controller in IPython context dicts.
+
+    Falls back to the class name when no id has been set so direct-construction
+    callers (without launch()) still get a sensible key.
+    """
+    try:
+        return controller.id
+    except RuntimeError:
+        return controller.__class__.__name__
+
+
 class FastCS:
     """Entrypoint for a FastCS application.
 
-    This class takes a `Controller`, creates asyncio tasks to run its update loops and
-    builds its API to serve over the given `Transport`s.
+    This class takes one or more `Controller`s, creates asyncio tasks to run their
+    update loops and builds their APIs to serve over the given `Transport`s.
 
     Args:
-        controller: The controller to serve in the control system
+        controllers: The controller(s) to serve in the control system. Accepts
+            either a single ``Controller`` or a sequence of them.
         transports: A list of transports to serve the API over
         loop: Optional event loop to run the control system in
     """
 
     def __init__(
         self,
-        controller: Controller,
+        controllers: Controller | Sequence[Controller],
         transports: Sequence[Transport],
         loop: asyncio.AbstractEventLoop | None = None,
     ):
-        self._controller = controller
+        if isinstance(controllers, Controller):
+            controllers = [controllers]
+        self._controllers: list[Controller] = list(controllers)
+        if not self._controllers:
+            raise ValueError("FastCS requires at least one controller")
+        keys = [_context_key(c) for c in self._controllers]
+        if len(set(keys)) != len(keys):
+            duplicates = sorted({k for k in keys if keys.count(k) > 1})
+            raise ValueError(
+                f"FastCS received controllers with duplicate context keys "
+                f"{duplicates}; ensure each controller has a unique id"
+            )
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
@@ -42,6 +66,7 @@ class FastCS:
         self._initial_coros: list[ScanCallback] = []
 
         self._scan_tasks: set[asyncio.Task] = set()
+        self.controller_apis: list[ControllerAPI] = []
 
     def run(self, interactive: bool = True):
         """Run the application
@@ -93,16 +118,25 @@ class FastCS:
             interactive: Whether to create an interactive IPython shell
 
         """
-        await self._controller.initialise()
-        self._controller.post_initialise()
+        for controller in self._controllers:
+            await controller.initialise()
+            controller.post_initialise()
 
-        self.controller_api, self._scan_coros, self._initial_coros = (
-            self._controller.create_api_and_tasks()
-        )
+        self.controller_apis = []
+        self._scan_coros = []
+        self._initial_coros = []
+        for controller in self._controllers:
+            api, scan_coros, initial_coros = controller.create_api_and_tasks()
+            self.controller_apis.append(api)
+            self._scan_coros.extend(scan_coros)
+            self._initial_coros.extend(initial_coros)
 
         context = {
-            "controller": self._controller,
-            "controller_api": self.controller_api,
+            "controllers": {_context_key(c): c for c in self._controllers},
+            "controller_apis": {
+                _context_key(c): api
+                for c, api in zip(self._controllers, self.controller_apis, strict=True)
+            },
             "transports": [
                 transport.__class__.__name__ for transport in self._transports
             ],
@@ -110,7 +144,7 @@ class FastCS:
 
         coros: list[Coroutine] = []
         for transport in self._transports:
-            transport.connect(controller_apis=[self.controller_api], loop=self._loop)
+            transport.connect(controller_apis=self.controller_apis, loop=self._loop)
             coros.append(transport.serve())
             common_context = context.keys() & transport.context.keys()
             if common_context:
@@ -134,11 +168,12 @@ class FastCS:
 
         logger.info(
             "Starting FastCS",
-            controller=self._controller,
+            controllers=[_context_key(c) for c in self._controllers],
             transports=f"[{', '.join(str(t) for t in self._transports)}]",
         )
 
-        await self._controller.connect()
+        for controller in self._controllers:
+            await controller.connect()
         await self._run_initial_coros()
         await self._start_scan_tasks()
 
@@ -151,7 +186,14 @@ class FastCS:
         finally:
             logger.info("Shutting down FastCS")
             self._stop_scan_tasks()
-            await self._controller.disconnect()
+            for controller in self._controllers:
+                try:
+                    await controller.disconnect()
+                except Exception:
+                    logger.exception(
+                        "Exception during disconnect",
+                        controller=_context_key(controller),
+                    )
 
     async def _interactive_shell(self, context: dict[str, Any]):
         """Spawn interactive shell in another thread and wait for it to complete."""

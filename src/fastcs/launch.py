@@ -170,15 +170,8 @@ def _launch(
 
         controllers = _instantiate_controllers(instance_options.controllers, type_map)
 
-        if len(controllers) > 1:
-            raise LaunchError(
-                "Multi-controller execution is not yet wired through FastCS; "
-                "this lands in the next slice of issue #353. "
-                "Configure exactly one entry under `controllers:` for now."
-            )
-
         instance = FastCS(
-            controllers[0],
+            controllers,
             instance_options.transport,
             loop=asyncio.get_event_loop(),
         )
