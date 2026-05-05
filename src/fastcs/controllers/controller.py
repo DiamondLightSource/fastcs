@@ -22,6 +22,32 @@ class Controller(BaseController):
     ) -> None:
         super().__init__(description=description, ios=ios)
         self._connected = False
+        self._id: str | None = None
+
+    @property
+    def id(self) -> str:
+        """Stable identifier set once by the launcher between ``__init__`` and
+        ``initialise()``. Reading before set is a programming error."""
+        if self._id is None:
+            raise RuntimeError(
+                f"Controller {type(self).__name__} id has not been set yet"
+            )
+        return self._id
+
+    def set_id(self, id: str) -> None:
+        """Set this controller's stable identifier. May only be called once."""
+        if self._id is not None:
+            raise RuntimeError(
+                f"Controller {type(self).__name__} id is already set to "
+                f"{self._id!r}; cannot reset to {id!r}"
+            )
+        self._id = id
+
+    def __repr__(self):
+        base = super().__repr__()
+        if self._id is None:
+            return base
+        return f"{base[:-1]}, id={self._id!r})"
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
         if name.isdigit():
@@ -70,7 +96,7 @@ class Controller(BaseController):
             tuple[ControllerAPI, list[ScanCallback], list[ScanCallback]]
 
         """
-        controller_api = self._build_api([])
+        controller_api = self._build_api([self._id] if self._id is not None else [])
 
         scan_dict: dict[float, list[ScanCallback]] = defaultdict(list)
         initial_coros: list[ScanCallback] = []
