@@ -1,8 +1,23 @@
+import re
+
 import numpy as np
 
 from fastcs.datatypes import Bool, DataType, DType_T, Enum, Float, Int, String, Waveform
 
 REST_ALLOWED_DATATYPES = (Bool, DataType, Enum, Float, Int, String)
+
+_REST_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def validate_rest_id(id: str) -> None:
+    """Reject controller ids that wouldn't be safe in a REST URL path."""
+    if not id:
+        raise ValueError("Controller id is empty; ids must be non-empty")
+    if not _REST_ID_RE.fullmatch(id):
+        raise ValueError(
+            f"Controller id {id!r} is not a valid REST id; "
+            "only alphanumerics, '-' and '_' are allowed"
+        )
 
 
 def convert_datatype(datatype: DataType[DType_T]) -> type[DType_T]:
