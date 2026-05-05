@@ -110,7 +110,7 @@ class FastCS:
 
         coros: list[Coroutine] = []
         for transport in self._transports:
-            transport.connect(controller_api=self.controller_api, loop=self._loop)
+            transport.connect(controller_apis=[self.controller_api], loop=self._loop)
             coros.append(transport.serve())
             common_context = context.keys() & transport.context.keys()
             if common_context:

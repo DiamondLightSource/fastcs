@@ -14,7 +14,7 @@ from fastcs.transports.epics import (
 from fastcs.transports.epics.ca.ioc import EpicsCAIOC
 from fastcs.transports.epics.docs import EpicsDocs
 from fastcs.transports.epics.gui import EpicsGUI
-from fastcs.transports.transport import Transport
+from fastcs.transports.transport import Transport, _expect_single
 
 
 @dataclass
@@ -30,9 +30,10 @@ class EpicsCATransport(Transport):
 
     def connect(
         self,
-        controller_api: ControllerAPI,
+        controller_apis: list[ControllerAPI],
         loop: asyncio.AbstractEventLoop,
     ) -> None:
+        controller_api = _expect_single(controller_apis, "EpicsCATransport")
         self._controller_api = controller_api
         self._loop = loop
         self._pv_prefix = self.epicsca.pv_prefix

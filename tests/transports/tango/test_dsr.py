@@ -49,7 +49,7 @@ def tango_controller_api(class_mocker: MockerFixture) -> AssertableControllerAPI
 def create_test_context(tango_controller_api: AssertableControllerAPI):
     tango_transport = TangoTransport()
     tango_transport.connect(
-        tango_controller_api,
+        [tango_controller_api],
         asyncio.get_event_loop(),
     )
     device = tango_transport._dsr._device
