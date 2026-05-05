@@ -19,7 +19,6 @@ from fastcs.exceptions import FastCSError
 from fastcs.methods import Command
 from fastcs.transports.epics.ca import EpicsCATransport
 from fastcs.transports.epics.ca.ioc import (
-    EPICS_MAX_NAME_LENGTH,
     EpicsCAIOC,
     _add_attr_pvi_info,
     _add_pvi_info,
@@ -28,6 +27,7 @@ from fastcs.transports.epics.ca.ioc import (
     _create_and_link_write_pv,
 )
 from fastcs.transports.epics.ca.util import (
+    EPICS_MAX_NAME_LENGTH,
     _make_in_record,
     _make_out_record,
 )
@@ -273,7 +273,7 @@ class EpicsController(MyTestController):
 
 @pytest.fixture()
 def epics_controller_api(class_mocker: MockerFixture):
-    return AssertableControllerAPI(EpicsController(), class_mocker)
+    return AssertableControllerAPI(EpicsController(), class_mocker, path=[DEVICE])
 
 
 def test_ioc(mocker: MockerFixture, epics_controller_api: ControllerAPI):
@@ -284,7 +284,7 @@ def test_ioc(mocker: MockerFixture, epics_controller_api: ControllerAPI):
         "fastcs.transports.epics.ca.ioc._add_sub_controller_pvi_info"
     )
 
-    EpicsCAIOC(DEVICE, epics_controller_api)
+    EpicsCAIOC([epics_controller_api])
 
     # Check records are created
     util_builder.boolIn.assert_called_once_with(
@@ -386,7 +386,7 @@ def test_ioc(mocker: MockerFixture, epics_controller_api: ControllerAPI):
 
     # Check info tags are added
     add_pvi_info.assert_called_once_with(f"{DEVICE}:PVI")
-    add_sub_controller_pvi_info.assert_called_once_with(DEVICE, epics_controller_api)
+    add_sub_controller_pvi_info.assert_called_once_with(epics_controller_api)
 
 
 def test_add_pvi_info(mocker: MockerFixture):
@@ -456,12 +456,12 @@ def test_add_pvi_info_with_parent(mocker: MockerFixture):
 def test_add_sub_controller_pvi_info(mocker: MockerFixture):
     add_pvi_info = mocker.patch("fastcs.transports.epics.ca.ioc._add_pvi_info")
     parent_api = mocker.MagicMock()
-    parent_api.path = []
+    parent_api.path = [DEVICE]
     child_api = mocker.MagicMock()
-    child_api.path = ["Child"]
+    child_api.path = [DEVICE, "Child"]
     parent_api.sub_apis = {"d": child_api}
 
-    _add_sub_controller_pvi_info(DEVICE, parent_api)
+    _add_sub_controller_pvi_info(parent_api)
 
     add_pvi_info.assert_called_once_with(
         f"{DEVICE}:Child:PVI", f"{DEVICE}:PVI", "child"
@@ -503,12 +503,14 @@ class ControllerLongNames(Controller):
 def test_long_pv_names_discarded(mocker: MockerFixture):
     util_builder = mocker.patch("fastcs.transports.epics.ca.util.builder")
     ioc_builder = mocker.patch("fastcs.transports.epics.ca.ioc.builder")
-    long_name_controller_api = AssertableControllerAPI(ControllerLongNames(), mocker)
+    long_name_controller_api = AssertableControllerAPI(
+        ControllerLongNames(), mocker, path=[DEVICE]
+    )
     long_attr_name = "attr_r_with_reallyreallyreallyreallyreallyreallyreally_long_name"
     long_rw_name = "attr_rw_with_a_reallyreally_long_name_that_is_too_long_for_RBV"
     assert long_name_controller_api.attributes["attr_rw_short_name"].enabled
     assert long_name_controller_api.attributes[long_attr_name].enabled
-    EpicsCAIOC(DEVICE, long_name_controller_api)
+    EpicsCAIOC([long_name_controller_api])
     assert long_name_controller_api.attributes["attr_rw_short_name"].enabled
     assert not long_name_controller_api.attributes[long_attr_name].enabled
 
@@ -585,21 +587,22 @@ def test_long_pv_names_discarded(mocker: MockerFixture):
 
 def test_non_1d_waveforms_discarded(mocker: MockerFixture):
     api = ControllerAPI(
+        path=[DEVICE],
         attributes={
             "waveform_0d": AttrR(Waveform(np.int32, shape=())),
             "waveform_1d": AttrR(Waveform(np.int32, shape=(10,))),
             "waveform_2d": AttrR(Waveform(np.int32, shape=(10, 2))),
             "waveform_3d": AttrR(Waveform(np.int32, shape=(10, 2, 3))),
-        }
+        },
     )
 
     create_mock = mocker.patch(
         "fastcs.transports.epics.ca.ioc._create_and_link_read_pv"
     )
-    EpicsCAIOC("DEVICE", api)
+    EpicsCAIOC([api])
 
     create_mock.assert_called_once_with(
-        "DEVICE", "Waveform1d", "waveform_1d", api.attributes["waveform_1d"]
+        DEVICE, "Waveform1d", "waveform_1d", api.attributes["waveform_1d"]
     )
 
 

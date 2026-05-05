@@ -2,9 +2,10 @@ from .transport import Transport as Transport
 
 try:
     from .epics.ca.transport import EpicsCATransport as EpicsCATransport
+    from .epics.options import EpicsCAOptions as EpicsCAOptions
     from .epics.options import EpicsDocsOptions as EpicsDocsOptions
     from .epics.options import EpicsGUIOptions as EpicsGUIOptions
-    from .epics.options import EpicsIOCOptions as EpicsIOCOptions
+    from .epics.options import EpicsPVAOptions as EpicsPVAOptions
 except ImportError:
     pass
 

@@ -9,7 +9,6 @@ from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
 from fastcs.launch import FastCS
-from fastcs.transports.epics import EpicsIOCOptions
 from fastcs.transports.epics.ca.transport import EpicsCATransport
 
 
@@ -53,9 +52,10 @@ async def test_initial_values_set_in_ca(mocker):
 
     loop = asyncio.get_event_loop()
     controller = InitialValuesController()
+    controller.set_id(pv_prefix)
     fastcs = FastCS(
         controller,
-        [EpicsCATransport(epicsca=EpicsIOCOptions(pv_prefix=pv_prefix))],
+        [EpicsCATransport()],
         loop,
     )
 

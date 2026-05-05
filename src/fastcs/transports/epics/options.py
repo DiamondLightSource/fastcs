@@ -28,7 +28,18 @@ class EpicsGUIOptions:
 
 
 @dataclass
-class EpicsIOCOptions:
-    """Epics IOC options for use in both CA and PVA transports."""
+class EpicsCAOptions:
+    """Channel-Access-specific options.
 
-    pv_prefix: str = "MY-DEVICE-PREFIX"
+    Currently empty: present so ``epicsca:`` survives in fastcs.yaml as the
+    transport discriminator key. Reserved for future CA-specific knobs.
+    """
+
+
+@dataclass
+class EpicsPVAOptions:
+    """PVAccess-specific options.
+
+    Currently empty: present so ``epicspva:`` survives in fastcs.yaml as the
+    transport discriminator key. Reserved for future PVA-specific knobs.
+    """

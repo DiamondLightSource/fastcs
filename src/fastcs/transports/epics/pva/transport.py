@@ -6,10 +6,11 @@ from fastcs.logging import logger
 from fastcs.transports.epics import (
     EpicsDocsOptions,
     EpicsGUIOptions,
-    EpicsIOCOptions,
+    EpicsPVAOptions,
 )
 from fastcs.transports.epics.docs import EpicsDocs
 from fastcs.transports.epics.pva.gui import PvaEpicsGUI
+from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.transports.transport import Transport, _expect_single
 
 from .ioc import P4PIOC
@@ -19,7 +20,8 @@ from .ioc import P4PIOC
 class EpicsPVATransport(Transport):
     """PV access transport."""
 
-    epicspva: EpicsIOCOptions = field(default_factory=EpicsIOCOptions)
+    epicspva: EpicsPVAOptions = field(default_factory=EpicsPVAOptions)
+    """PVA-specific options. Currently empty; present as the YAML discriminator."""
     docs: EpicsDocsOptions | None = None
     gui: EpicsGUIOptions | None = None
 
@@ -30,14 +32,14 @@ class EpicsPVATransport(Transport):
     ) -> None:
         controller_api = _expect_single(controller_apis, "EpicsPVATransport")
         self._controller_api = controller_api
-        self._pv_prefix = self.epicspva.pv_prefix
-        self._ioc = P4PIOC(self.epicspva.pv_prefix, controller_api)
+        self._pv_prefix = pv_prefix_from_path(controller_api.path)
+        self._ioc = P4PIOC(controller_api)
 
         if self.docs is not None:
             EpicsDocs(self._controller_api).create_docs(self.docs)
 
         if self.gui is not None:
-            PvaEpicsGUI(self._controller_api, self._pv_prefix).create_gui(self.gui)
+            PvaEpicsGUI(self._controller_api).create_gui(self.gui)
 
     async def serve(self) -> None:
         """Serve `ControllerAPI` over EPICS PVAccess"""

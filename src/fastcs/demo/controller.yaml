@@ -11,8 +11,7 @@ transport:
       host: localhost
       port: 8083
       log_level: info
-  - epicsca:
-      pv_prefix: GARYDEMO
+  - epicsca: {}
     gui:
       title: Temperature Controller Demo
       output_path: ./demo.bob

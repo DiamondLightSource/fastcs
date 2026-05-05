@@ -1,8 +1,5 @@
-"""Tests for the multi-controller foundation slice (#353).
-
-These tests exercise the public Controller.id lifecycle and
-multi-controller REST routing through RestTransport, up to the
-end-to-end FastCS.serve() lifecycle with two controllers.
+"""Tests for the multi-controller foundation slice (#353) and per-transport
+multi-root extensions (#354+).
 """
 
 import asyncio
@@ -15,6 +12,7 @@ from fastcs.attributes import AttrR
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.datatypes import Int
+from fastcs.transports.epics.ca.transport import EpicsCATransport
 from fastcs.transports.rest.transport import RestTransport
 
 
@@ -97,6 +95,52 @@ def test_rest_transport_rejects_illegal_id_at_connect():
     loop = asyncio.new_event_loop()
     try:
         transport = RestTransport()
+        with pytest.raises(ValueError, match="bad/id"):
+            transport.connect([api], loop)
+    finally:
+        loop.close()
+
+
+def test_ca_transport_routes_two_controllers_with_distinct_pv_prefixes(mocker):
+    """One softioc serves N controllers; each id is its verbatim PV prefix."""
+    util_builder = mocker.patch("fastcs.transports.epics.ca.util.builder")
+    mocker.patch("fastcs.transports.epics.ca.ioc.builder")
+
+    api1 = _api_with_id(_OneAttrController, "ALPHA")
+    api2 = _api_with_id(_OtherAttrController, "BETA")
+
+    loop = asyncio.new_event_loop()
+    try:
+        transport = EpicsCATransport()
+        transport.connect([api1, api2], loop)
+    finally:
+        loop.close()
+
+    # Each controller's record lands under its verbatim id, no clash.
+    util_builder.longIn.assert_any_call(
+        "ALPHA:Foo",
+        DESC=mocker.ANY,
+        EGU=mocker.ANY,
+        LOPR=mocker.ANY,
+        HOPR=mocker.ANY,
+        initial_value=mocker.ANY,
+    )
+    util_builder.longIn.assert_any_call(
+        "BETA:Bar",
+        DESC=mocker.ANY,
+        EGU=mocker.ANY,
+        LOPR=mocker.ANY,
+        HOPR=mocker.ANY,
+        initial_value=mocker.ANY,
+    )
+
+
+def test_ca_transport_rejects_illegal_id_at_connect():
+    api = _api_with_id(_OneAttrController, "bad/id")
+
+    loop = asyncio.new_event_loop()
+    try:
+        transport = EpicsCATransport()
         with pytest.raises(ValueError, match="bad/id"):
             transport.connect([api], loop)
     finally:

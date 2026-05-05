@@ -36,6 +36,7 @@ from fastcs.datatypes import (
 from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.transports.epics.options import EpicsGUIFormat, EpicsGUIOptions
+from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
 
@@ -44,14 +45,11 @@ class EpicsGUI:
 
     command_value = "1"
 
-    def __init__(self, controller_api: ControllerAPI, pv_prefix: str) -> None:
+    def __init__(self, controller_api: ControllerAPI) -> None:
         self._controller_api = controller_api
-        self._pv_prefix = pv_prefix
 
     def _get_pv(self, attr_path: list[str], name: str):
-        attr_prefix = ":".join(
-            [self._pv_prefix] + [snake_to_pascal(node) for node in attr_path]
-        )
+        attr_prefix = pv_prefix_from_path(attr_path)
         return f"{attr_prefix}:{snake_to_pascal(name)}"
 
     def _get_read_widget(self, attribute: Attribute) -> ReadWidgetUnion | None:

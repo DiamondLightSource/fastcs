@@ -1,4 +1,3 @@
-from fastcs.controllers import ControllerAPI
 from fastcs.util import snake_to_pascal
 
 
@@ -11,7 +10,3 @@ def pv_prefix_from_path(path: list[str]) -> str:
     if not path:
         raise ValueError("Cannot derive a PV prefix from an empty path")
     return ":".join([path[0]] + [snake_to_pascal(node) for node in path[1:]])
-
-
-def controller_pv_prefix(prefix: str, controller_api: ControllerAPI) -> str:
-    return ":".join([prefix] + [snake_to_pascal(node) for node in controller_api.path])

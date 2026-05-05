@@ -25,11 +25,11 @@ from fastcs.transports.epics.gui import EpicsGUI
 
 
 def test_get_pv():
-    gui = EpicsGUI(ControllerAPI(), "DEVICE")
+    gui = EpicsGUI(ControllerAPI())
 
-    assert gui._get_pv([], "A") == "DEVICE:A"
-    assert gui._get_pv(["B"], "C") == "DEVICE:B:C"
-    assert gui._get_pv(["D", "E"], "F") == "DEVICE:D:E:F"
+    assert gui._get_pv(["DEVICE"], "A") == "DEVICE:A"
+    assert gui._get_pv(["DEVICE", "B"], "C") == "DEVICE:B:C"
+    assert gui._get_pv(["DEVICE", "D", "E"], "F") == "DEVICE:D:E:F"
 
 
 @pytest.mark.parametrize(
@@ -44,10 +44,10 @@ def test_get_pv():
     ],
 )
 def test_get_attribute_component_r(datatype, widget):
-    gui = EpicsGUI(ControllerAPI(), "DEVICE")
+    gui = EpicsGUI(ControllerAPI())
 
-    assert gui._get_attribute_component([], "Attr", AttrR(datatype)) == SignalR(
-        name="Attr", read_pv="Attr", read_widget=widget
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(datatype)) == SignalR(
+        name="Attr", read_pv="DEVICE:Attr", read_widget=widget
     )
 
 
@@ -58,9 +58,9 @@ def test_get_attribute_component_r(datatype, widget):
     ],
 )
 def test_get_attribute_component_r_signal_none(datatype):
-    gui = EpicsGUI(ControllerAPI(), "DEVICE")
+    gui = EpicsGUI(ControllerAPI())
 
-    assert gui._get_attribute_component([], "Attr", AttrR(datatype)) is None
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(datatype)) is None
 
 
 @pytest.mark.parametrize(
@@ -74,32 +74,33 @@ def test_get_attribute_component_r_signal_none(datatype):
     ],
 )
 def test_get_attribute_component_w(datatype, widget):
-    gui = EpicsGUI(ControllerAPI(), "DEVICE")
+    gui = EpicsGUI(ControllerAPI())
 
-    assert gui._get_attribute_component([], "Attr", AttrW(datatype)) == SignalW(
-        name="Attr", write_pv="Attr", write_widget=widget
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrW(datatype)) == SignalW(
+        name="Attr", write_pv="DEVICE:Attr", write_widget=widget
     )
 
 
 def test_get_attribute_component_none(mocker):
-    gui = EpicsGUI(ControllerAPI(), "DEVICE")
+    gui = EpicsGUI(ControllerAPI())
 
     mocker.patch.object(gui, "_get_read_widget", return_value=None)
     mocker.patch.object(gui, "_get_write_widget", return_value=None)
-    assert gui._get_attribute_component([], "Attr", AttrR(Int())) is None
-    assert gui._get_attribute_component([], "Attr", AttrW(Int())) is None
-    assert gui._get_attribute_component([], "Attr", AttrRW(Int())) is None
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(Int())) is None
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrW(Int())) is None
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrRW(Int())) is None
 
 
 def test_get_write_widget_none():
-    gui = EpicsGUI(ControllerAPI(), "DEVICE")
+    gui = EpicsGUI(ControllerAPI())
     assert (
         gui._get_write_widget(attribute=AttrR(Waveform(array_dtype=np.int32))) is None
     )
 
 
-def test_get_components(controller_api):
-    gui = EpicsGUI(controller_api, "DEVICE")
+def test_get_components(controller):
+    controller_api = controller._build_api(["DEVICE"])
+    gui = EpicsGUI(controller_api)
 
     components = gui.extract_api_components(controller_api)
     assert components == [
@@ -172,7 +173,7 @@ def test_get_components_none(mocker):
     """Test that if _get_attribute_component returns none it is skipped"""
 
     controller_api = ControllerAPI()
-    gui = EpicsGUI(controller_api, "DEVICE")
+    gui = EpicsGUI(controller_api)
     mocker.patch.object(gui, "_get_attribute_component", return_value=None)
 
     components = gui.extract_api_components(controller_api)
@@ -181,9 +182,9 @@ def test_get_components_none(mocker):
 
 
 def test_get_command_component():
-    gui = EpicsGUI(ControllerAPI(), "DEVICE")
+    gui = EpicsGUI(ControllerAPI())
 
-    component = gui._get_command_component([], "Command")
+    component = gui._get_command_component(["DEVICE"], "Command")
 
     assert isinstance(component, SignalX)
     assert component.write_widget == ButtonPanel(actions={"Command": "1"})

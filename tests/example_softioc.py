@@ -5,7 +5,6 @@ from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Int
 from fastcs.methods import command
-from fastcs.transports.epics import EpicsIOCOptions
 from fastcs.transports.epics.ca.transport import EpicsCATransport, EpicsGUIOptions
 
 
@@ -22,8 +21,9 @@ class ChildController(Controller):
         pass
 
 
-def run(pv_prefix="SOFTIOC_TEST_DEVICE"):
+def run(id="SOFTIOC_TEST_DEVICE"):
     controller = ParentController()
+    controller.set_id(id)
     vector = ControllerVector({i: ChildController() for i in range(2)})
     controller.add_sub_controller("ChildVector", vector)
     gui_options = EpicsGUIOptions(
@@ -31,11 +31,7 @@ def run(pv_prefix="SOFTIOC_TEST_DEVICE"):
     )
     fastcs = FastCS(
         controller,
-        [
-            EpicsCATransport(
-                epicsca=EpicsIOCOptions(pv_prefix=pv_prefix), gui=gui_options
-            )
-        ],
+        [EpicsCATransport(gui=gui_options)],
     )
     fastcs.run(interactive=False)
 

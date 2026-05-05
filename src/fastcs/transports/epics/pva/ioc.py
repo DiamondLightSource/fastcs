@@ -4,21 +4,19 @@ from p4p.server import Server, StaticProvider
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.transports.epics.util import controller_pv_prefix
+from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
 from ._pv_handlers import make_command_pv, make_shared_read_pv, make_shared_write_pv
 from .pvi import add_pvi_info
 
 
-async def parse_attributes(
-    root_pv_prefix: str, root_controller_api: ControllerAPI
-) -> StaticProvider:
+async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
     """Parses `Attribute` s into p4p signals in handlers."""
-    provider = StaticProvider(root_pv_prefix)
+    provider = StaticProvider(pv_prefix_from_path(root_controller_api.path))
 
     for controller_api in root_controller_api.walk_api():
-        pv_prefix = controller_pv_prefix(root_pv_prefix, controller_api)
+        pv_prefix = pv_prefix_from_path(controller_api.path)
         add_pvi_info(
             provider=provider,
             pv_prefix=pv_prefix,
@@ -52,12 +50,11 @@ async def parse_attributes(
 class P4PIOC:
     """A P4P IOC which handles a controller"""
 
-    def __init__(self, pv_prefix: str, controller_api: ControllerAPI):
-        self.pv_prefix = pv_prefix
+    def __init__(self, controller_api: ControllerAPI):
         self.controller_api = controller_api
 
     async def run(self):
-        provider = await parse_attributes(self.pv_prefix, self.controller_api)
+        provider = await parse_attributes(self.controller_api)
 
         endless_event = asyncio.Event()
         with Server([provider]):

@@ -2,10 +2,12 @@ import enum
 
 import pytest
 
+from fastcs.controllers import ControllerAPI
 from fastcs.datatypes import Bool, Enum, Float, Int, String
 from fastcs.transports.epics.ca.util import (
     cast_from_epics_type,
     cast_to_epics_type,
+    validate_ca_id,
 )
 
 
@@ -131,3 +133,25 @@ def test_cast_from_epics_type(datatype, from_epics, result):
 def test_cast_from_epics_validations(datatype, input):
     with pytest.raises(ValueError):
         cast_from_epics_type(datatype, input)
+
+
+@pytest.mark.parametrize("id", ["DEVICE", "my-id", "name_1", "ABC-123_xyz"])
+def test_validate_ca_id_accepts_valid(id):
+    validate_ca_id(ControllerAPI(path=[id]))
+
+
+@pytest.mark.parametrize("id", ["bad/id", "with space", "colons:in:id", ""])
+def test_validate_ca_id_rejects_illegal_characters(id):
+    with pytest.raises(ValueError, match="EPICS CA id"):
+        validate_ca_id(ControllerAPI(path=[id]))
+
+
+def test_validate_ca_id_rejects_overlong_prefix():
+    deep_path = ["A" * 50, "deeper_sub_controller_path"]
+    with pytest.raises(ValueError, match="exceeds the EPICS"):
+        validate_ca_id(
+            ControllerAPI(
+                path=deep_path[:1],
+                sub_apis={"sub": ControllerAPI(path=deep_path)},
+            )
+        )

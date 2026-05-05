@@ -12,34 +12,30 @@ from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.tracer import Tracer
 from fastcs.transports.epics.ca.util import (
+    EPICS_MAX_NAME_LENGTH,
     _make_in_record,
     _make_out_record,
     cast_from_epics_type,
     cast_to_epics_type,
 )
-from fastcs.transports.epics.util import controller_pv_prefix
+from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
-
-EPICS_MAX_NAME_LENGTH = 60
-
 
 tracer = Tracer()
 
 
 class EpicsCAIOC:
-    """A softioc which handles a controller"""
+    """A softioc which handles one or more controllers."""
 
-    def __init__(
-        self,
-        pv_prefix: str,
-        controller_api: ControllerAPI,
-    ):
-        self._controller_api = controller_api
-        _add_pvi_info(f"{pv_prefix}:PVI")
-        _add_sub_controller_pvi_info(pv_prefix, controller_api)
+    def __init__(self, controller_apis: list[ControllerAPI]):
+        self._controller_apis = controller_apis
+        for controller_api in controller_apis:
+            root_pv_prefix = pv_prefix_from_path(controller_api.path)
+            _add_pvi_info(f"{root_pv_prefix}:PVI")
+            _add_sub_controller_pvi_info(controller_api)
 
-        _create_and_link_attribute_pvs(pv_prefix, controller_api)
-        _create_and_link_command_pvs(pv_prefix, controller_api)
+            _create_and_link_attribute_pvs(controller_api)
+            _create_and_link_command_pvs(controller_api)
 
     def run(
         self,
@@ -95,18 +91,12 @@ def _add_pvi_info(
     record.add_info("Q:group", q_group)
 
 
-def _add_sub_controller_pvi_info(pv_prefix: str, parent: ControllerAPI):
-    """Add PVI references from controller to its sub controllers, recursively.
-
-    Args:
-        pv_prefix: PV Prefix of IOC
-        parent: Controller to add PVI refs for
-
-    """
-    parent_pvi = f"{controller_pv_prefix(pv_prefix, parent)}:PVI"
+def _add_sub_controller_pvi_info(parent: ControllerAPI):
+    """Add PVI references from controller to its sub controllers, recursively."""
+    parent_pvi = f"{pv_prefix_from_path(parent.path)}:PVI"
 
     for child in parent.sub_apis.values():
-        child_pvi = f"{controller_pv_prefix(pv_prefix, child)}:PVI"
+        child_pvi = f"{pv_prefix_from_path(child.path)}:PVI"
         child_name = (
             f"__{child.path[-1]}"  # Sub-Controller of ControllerVector
             if child.path[-1].isdigit()
@@ -115,14 +105,12 @@ def _add_sub_controller_pvi_info(pv_prefix: str, parent: ControllerAPI):
 
         _add_pvi_info(child_pvi, parent_pvi, child_name.lower())
 
-        _add_sub_controller_pvi_info(pv_prefix, child)
+        _add_sub_controller_pvi_info(child)
 
 
-def _create_and_link_attribute_pvs(
-    root_pv_prefix: str, root_controller_api: ControllerAPI
-) -> None:
+def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
     for controller_api in root_controller_api.walk_api():
-        pv_prefix = controller_pv_prefix(root_pv_prefix, controller_api)
+        pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, attribute in controller_api.attributes.items():
             if (
@@ -210,11 +198,9 @@ def _create_and_link_write_pv(
     attribute.add_sync_setpoint_callback(set_setpoint_without_process)
 
 
-def _create_and_link_command_pvs(
-    root_pv_prefix: str, root_controller_api: ControllerAPI
-) -> None:
+def _create_and_link_command_pvs(root_controller_api: ControllerAPI) -> None:
     for controller_api in root_controller_api.walk_api():
-        pv_prefix = controller_pv_prefix(root_pv_prefix, controller_api)
+        pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, method in controller_api.command_methods.items():
             pv_name = snake_to_pascal(attr_name)

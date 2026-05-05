@@ -29,26 +29,26 @@ from fastcs.transports.epics.pva.gui import PvaEpicsGUI
     ],
 )
 def test_pva_get_attribute_component_r(datatype, widget):
-    gui = EpicsGUI(ControllerAPI(), "DEVICE")
+    gui = EpicsGUI(ControllerAPI())
 
-    assert gui._get_attribute_component([], "Attr", AttrR(datatype)) == SignalR(
-        name="Attr", read_pv="Attr", read_widget=widget
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(datatype)) == SignalR(
+        name="Attr", read_pv="DEVICE:Attr", read_widget=widget
     )
 
 
 def test_get_pv_in_pva():
-    gui = PvaEpicsGUI(ControllerAPI(), "DEVICE")
+    gui = PvaEpicsGUI(ControllerAPI())
 
-    assert gui._get_pv([], "A") == "pva://DEVICE:A"
-    assert gui._get_pv(["B"], "C") == "pva://DEVICE:B:C"
-    assert gui._get_pv(["D", "E"], "F") == "pva://DEVICE:D:E:F"
+    assert gui._get_pv(["DEVICE"], "A") == "pva://DEVICE:A"
+    assert gui._get_pv(["DEVICE", "B"], "C") == "pva://DEVICE:B:C"
+    assert gui._get_pv(["DEVICE", "D", "E"], "F") == "pva://DEVICE:D:E:F"
 
 
 def test_get_attribute_component_table_write():
-    gui = PvaEpicsGUI(ControllerAPI(), "DEVICE")
+    gui = PvaEpicsGUI(ControllerAPI())
 
     attribute_component = gui._get_attribute_component(
-        [],
+        ["DEVICE"],
         "Table",
         AttrW(
             Table(
@@ -71,10 +71,10 @@ def test_get_attribute_component_table_write():
 
 
 def test_get_attribute_component_table_read():
-    gui = PvaEpicsGUI(ControllerAPI(), "DEVICE")
+    gui = PvaEpicsGUI(ControllerAPI())
 
     attribute_component = gui._get_attribute_component(
-        [],
+        ["DEVICE"],
         "Table",
         AttrR(
             Table(
@@ -97,9 +97,9 @@ def test_get_attribute_component_table_read():
 
 
 def test_get_command_component():
-    gui = PvaEpicsGUI(ControllerAPI(), "DEVICE")
+    gui = PvaEpicsGUI(ControllerAPI())
 
-    component = gui._get_command_component([], "Command")
+    component = gui._get_command_component(["DEVICE"], "Command")
 
     assert isinstance(component, SignalX)
     assert component.write_widget == ButtonPanel(actions={"Command": "true"})

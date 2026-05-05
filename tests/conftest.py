@@ -114,7 +114,7 @@ def _run_ioc_as_subprocess(
 
     try:
         sys.stdout = QueueWriter(stdout_queue)
-        run_ioc(pv_prefix=pv_prefix)
+        run_ioc(id=pv_prefix)
 
     except Exception as e:
         error_queue.put(e)

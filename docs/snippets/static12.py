@@ -10,7 +10,7 @@ from fastcs.controllers import Controller
 from fastcs.datatypes import Enum, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.methods import scan
-from fastcs.transports.epics import EpicsGUIOptions, EpicsIOCOptions
+from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
 
 NumberT = TypeVar("NumberT", int, float)
@@ -98,7 +98,7 @@ class TemperatureController(Controller):
 gui_options = EpicsGUIOptions(
     output_path=Path(".") / "demo.bob", title="Demo Temperature Controller"
 )
-epics_ca = EpicsCATransport(gui=gui_options, epicsca=EpicsIOCOptions(pv_prefix="DEMO"))
+epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
 fastcs = FastCS(TemperatureController(4, connection_settings), [epics_ca])
 
