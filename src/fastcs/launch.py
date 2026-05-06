@@ -40,9 +40,8 @@ def launch(
         controller_classes: One or more FastCS Controller classes to make
             available for instantiation. Each must have a type-hinted
             __init__ method and no more than 2 arguments. The chosen class
-            for each id is selected by a ``type`` discriminator in the
-            config; when a single class is registered, ``type`` may be
-            omitted.
+            for each id is selected by a required ``type`` discriminator
+            in the config.
         version (Optional[str]): The version of the FastCS application.
 
     Raises:
@@ -250,7 +249,7 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     args = inspect.getfullargspec(controller_class.__init__)[0]
     discriminator = _discriminator(controller_class)
 
-    fields: dict[str, Any] = {"type": (Literal[discriminator], discriminator)}
+    fields: dict[str, Any] = {"type": (Literal[discriminator], ...)}
     options_type: type | None = None
 
     if len(args) == 1:
@@ -294,9 +293,9 @@ def _build_options_model(
     """Build the top-level Pydantic model for fastcs.yaml.
 
     `controllers:` is a dict keyed by id. Each value is either the single
-    registered class's entry model (in which case ``type`` is optional via
-    its default) or a discriminated union over all registered classes
-    (selected by the entry's ``type:`` field).
+    registered class's entry model or a discriminated union over all
+    registered classes; in both cases the entry's ``type:`` field is
+    required and names the controller class.
     """
     entries = [_build_entry_model(cls) for cls in controller_classes]
 

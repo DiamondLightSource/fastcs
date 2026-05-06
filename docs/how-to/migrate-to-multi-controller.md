@@ -33,6 +33,7 @@ transport:
 # After
 controllers:
   DEVICE:                     # id — used as the addressing prefix
+    type: DeviceController    # required discriminator
     ip_address: "192.168.1.100"
     port: 25565
 
@@ -77,15 +78,13 @@ pv_prefix="DEVICE"))` with `EpicsCATransport()` plus
 `controller.set_id("DEVICE")` (or set the id from the YAML key when
 using `launch()`).
 
-## 4. `type:` discriminator and single-class inference
+## 4. `type:` discriminator is required on every entry
 
-Each entry under `controllers:` carries a `type:` discriminator that
-names the Controller class to instantiate. When `launch()` is called
-with a single class, `type:` may be omitted — it defaults to that
-class's discriminator (the class `__name__`, or
-`type_name: ClassVar[str]` on the class if set). When `launch()` is
-called with more than one class, every entry must carry an explicit
-`type:`.
+Each entry under `controllers:` carries a required `type:` discriminator
+that names the Controller class to instantiate. The discriminator value
+is the class `__name__`, or `type_name: ClassVar[str]` on the class if
+set. The same rule applies whether `launch()` is called with a single
+class or with several — `type:` is never optional.
 
 ```yaml
 # Two-class app: launch([Lakeshore, Eurotherm])

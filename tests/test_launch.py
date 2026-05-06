@@ -75,7 +75,7 @@ def test_single_arg_schema():
     entry_model = create_model(
         "SingleArgEntry",
         __config__={"extra": "forbid"},
-        type=(Literal["SingleArg"], "SingleArg"),
+        type=(Literal["SingleArg"], ...),
     )
     target_model = create_model(
         "SingleArg",
@@ -97,7 +97,7 @@ def test_is_hinted_schema(data):
     entry_model = create_model(
         "IsHintedEntry",
         __config__={"extra": "forbid"},
-        type=(Literal["IsHinted"], "IsHinted"),
+        type=(Literal["IsHinted"], ...),
         name=(str, ...),
     )
     target_model = create_model(
@@ -201,12 +201,21 @@ def _controllers(instance) -> dict:
     return instance.controllers  # type: ignore[attr-defined]
 
 
-def test_single_class_omits_type():
-    """Single-class registration may omit `type:` under each controller entry."""
+def test_single_class_requires_type():
+    """`type:` is mandatory on every controllers entry, even when only one
+    Controller class is registered."""
     options_model = _build_options_model([IsHinted])
+    with pytest.raises(ValidationError):
+        options_model.model_validate(
+            {
+                "controllers": {"my-id": {"name": "x"}},
+                "transport": [{"rest": {}}],
+            }
+        )
+
     instance = options_model.model_validate(
         {
-            "controllers": {"my-id": {"name": "x"}},
+            "controllers": {"my-id": {"type": "IsHinted", "name": "x"}},
             "transport": [{"rest": {}}],
         }
     )

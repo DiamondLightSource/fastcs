@@ -62,6 +62,7 @@ as an argument:
 # fastcs.yaml
 controllers:
   DEVICE:
+    type: DeviceController
     ip_address: "192.168.1.100"
     port: 25565
     timeout: 10.0
@@ -70,9 +71,10 @@ transport:
   - epicsca: {}
 ```
 
-The fields under each id come straight from the `__init__` options type
-(`DeviceSettings` here). The optional `type:` key sits alongside them
-for multi-class apps (see below).
+Every entry carries a required `type:` discriminator that names the
+Controller class to instantiate. The remaining fields under each id
+come straight from that class's `__init__` options type
+(`DeviceSettings` here).
 
 The key under `controllers:` (here `DEVICE`) is the controller id, used
 verbatim as the EPICS PV prefix and as the REST route prefix.
@@ -86,23 +88,21 @@ python my_driver.py run fastcs.yaml
 ### Hosting multiple controllers
 
 `controllers:` is a dict, so a single application can host more than one
-controller. Each entry needs a unique id (the dict key); together with the
-optional `type:` discriminator it selects which class to instantiate.
-
-When `launch()` was given a single Controller class, `type:` may be
-omitted — it defaults to that class's discriminator. The bundled demo
+controller. Each entry needs a unique id (the dict key); the `type:`
+discriminator selects which class to instantiate. The bundled demo
 (`python -m fastcs.demo run src/fastcs/demo/fastcs.yaml`) hosts two
-`DeviceController` instances on different ports to exercise this case
-end-to-end:
+`DeviceController` instances on different ports:
 
 ```yaml
 # fastcs.yaml
 controllers:
   MAIN:
+    type: DeviceController
     ip_address: "192.168.1.100"
     port: 25565
     timeout: 10.0
   AUX:
+    type: DeviceController
     ip_address: "192.168.1.101"
     port: 25565
     timeout: 10.0
@@ -111,9 +111,8 @@ transport:
   - epicsca: {}
 ```
 
-When more than one class is registered with
-`launch([ClassA, ClassB])`, every entry must carry an explicit
-`type:` key naming the class.
+When more than one class is registered with `launch([ClassA, ClassB])`,
+each entry's `type:` selects between them.
 
 The transport list is shared across all controllers: each transport sees
 the full set, and uses the per-entry id as the addressing prefix
@@ -134,6 +133,7 @@ Use this schema for IDE autocompletion in YAML files:
 # yaml-language-server: $schema=schema.json
 controllers:
   DEVICE:
+    type: DeviceController
     ip_address: "192.168.1.100"
     # ... IDE will provide autocompletion
 ```

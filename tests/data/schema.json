@@ -166,7 +166,6 @@
       "properties": {
         "type": {
           "const": "IsHinted",
-          "default": "IsHinted",
           "title": "Type",
           "type": "string"
         },
@@ -176,6 +175,7 @@
         }
       },
       "required": [
+        "type",
         "name"
       ],
       "title": "IsHintedEntry",
