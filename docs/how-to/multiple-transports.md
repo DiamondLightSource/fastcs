@@ -84,11 +84,11 @@ from fastcs.transports import (
 
 epics_ca = EpicsCATransport(
     gui=EpicsGUIOptions(
-        output_path=Path(".") / "device.bob",
+        output_dir=Path("./opis"),
         title="Device Control",
     ),
     docs=EpicsDocsOptions(
-        output_path=Path(".") / "device.csv",
+        output_dir=Path("./reference"),
     ),
 )
 ```
@@ -161,7 +161,7 @@ fastcs = FastCS(
     controller,
     [
         EpicsCATransport(
-            gui=EpicsGUIOptions(output_path=Path(".") / "device.bob"),
+            gui=EpicsGUIOptions(output_dir=Path("./opis")),
         ),
         EpicsPVATransport(),
     ]

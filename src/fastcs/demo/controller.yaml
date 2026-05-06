@@ -14,4 +14,4 @@ transport:
   - epicsca: {}
     gui:
       title: Temperature Controller Demo
-      output_path: ./demo.bob
+      output_dir: .

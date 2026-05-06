@@ -5,11 +5,7 @@ controllers:
       name: controller-name
 transport:
   - epicsca: {}
-    docs: {}
-    gui: {}
   - epicspva: {}
-    docs: {}
-    gui: {}
   - rest: {}
   - tango: {}
   - graphql: {}

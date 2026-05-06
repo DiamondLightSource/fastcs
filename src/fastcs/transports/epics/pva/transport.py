@@ -8,7 +8,7 @@ from fastcs.transports.epics import (
     EpicsGUIOptions,
     EpicsPVAOptions,
 )
-from fastcs.transports.epics.docs import EpicsDocs
+from fastcs.transports.epics.emission import emit_docs_files, emit_gui_files
 from fastcs.transports.epics.pva.gui import PvaEpicsGUI
 from fastcs.transports.epics.pva.util import validate_pva_id
 from fastcs.transports.epics.util import pv_prefix_from_path
@@ -37,12 +37,11 @@ class EpicsPVATransport(Transport):
         self._pv_prefixes = [pv_prefix_from_path(api.path) for api in controller_apis]
         self._ioc = P4PIOC(controller_apis)
 
-        for api in controller_apis:
-            if self.docs is not None:
-                EpicsDocs(api).create_docs(self.docs)
+        if self.docs is not None:
+            emit_docs_files(controller_apis, self.docs)
 
-            if self.gui is not None:
-                PvaEpicsGUI(api).create_gui(self.gui)
+        if self.gui is not None:
+            emit_gui_files(controller_apis, self.gui, PvaEpicsGUI)
 
     async def serve(self) -> None:
         """Serve `ControllerAPI` over EPICS PVAccess"""

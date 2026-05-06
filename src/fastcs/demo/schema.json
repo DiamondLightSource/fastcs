@@ -38,10 +38,15 @@
     },
     "EpicsDocsOptions": {
       "properties": {
-        "path": {
+        "output_dir": {
           "default": ".",
           "format": "path",
-          "title": "Path",
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "title": {
+          "default": "FastCS Devices",
+          "title": "Title",
           "type": "string"
         },
         "depth": {
@@ -71,10 +76,10 @@
     },
     "EpicsGUIOptions": {
       "properties": {
-        "output_path": {
-          "default": "output.bob",
+        "output_dir": {
+          "default": ".",
           "format": "path",
-          "title": "Output Path",
+          "title": "Output Dir",
           "type": "string"
         },
         "file_format": {
@@ -82,7 +87,7 @@
           "default": ".bob"
         },
         "title": {
-          "default": "Simple Device",
+          "default": "FastCS Devices",
           "title": "Title",
           "type": "string"
         }

@@ -104,7 +104,7 @@ transport:
   # EPICS Channel Access
   - epicsca: {}
     gui:
-      output_path: "opis/device.bob"
+      output_dir: "opis"
       title: "Device Control"
 
   # REST API

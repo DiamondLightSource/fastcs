@@ -3,6 +3,7 @@ multi-root extensions (#354+).
 """
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +13,9 @@ from fastcs.attributes import AttrR
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.datatypes import Int
+from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions
 from fastcs.transports.epics.ca.transport import EpicsCATransport
+from fastcs.transports.epics.emission import INDEX_STEM
 from fastcs.transports.epics.pva.transport import EpicsPVATransport
 from fastcs.transports.graphql.transport import GraphQLTransport
 from fastcs.transports.rest.transport import RestTransport
@@ -135,6 +138,36 @@ def test_ca_transport_routes_two_controllers_with_distinct_pv_prefixes(mocker):
         HOPR=mocker.ANY,
         initial_value=mocker.ANY,
     )
+
+
+def test_ca_transport_emits_per_controller_gui_and_docs_files(mocker, tmp_path: Path):
+    """#358: GUI/docs emission writes ``output_dir/{id}.bob`` per controller
+    plus an index file alongside, even via the transport-level wiring."""
+    mocker.patch("fastcs.transports.epics.ca.util.builder")
+    mocker.patch("fastcs.transports.epics.ca.ioc.builder")
+
+    api1 = _api_with_id(_OneAttrController, "ALPHA")
+    api2 = _api_with_id(_OtherAttrController, "BETA")
+
+    gui_dir = tmp_path / "opis"
+    docs_dir = tmp_path / "reference"
+
+    loop = asyncio.new_event_loop()
+    try:
+        transport = EpicsCATransport(
+            gui=EpicsGUIOptions(output_dir=gui_dir),
+            docs=EpicsDocsOptions(output_dir=docs_dir),
+        )
+        transport.connect([api1, api2], loop)
+    finally:
+        loop.close()
+
+    assert (gui_dir / "ALPHA.bob").is_file()
+    assert (gui_dir / "BETA.bob").is_file()
+    assert (gui_dir / f"{INDEX_STEM}.bob").is_file()
+    assert (docs_dir / "ALPHA.md").is_file()
+    assert (docs_dir / "BETA.md").is_file()
+    assert (docs_dir / f"{INDEX_STEM}.md").is_file()
 
 
 def test_ca_transport_rejects_illegal_id_at_connect():

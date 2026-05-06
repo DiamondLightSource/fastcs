@@ -95,9 +95,7 @@ class TemperatureController(Controller):
             await controller.voltage.update(float(voltages[index]))
 
 
-gui_options = EpicsGUIOptions(
-    output_path=Path(".") / "demo.bob", title="Demo Temperature Controller"
-)
+gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
 fastcs = FastCS(TemperatureController(4, connection_settings), [epics_ca])

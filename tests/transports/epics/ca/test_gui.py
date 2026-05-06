@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 from pvi.device import (
@@ -19,9 +21,11 @@ from pvi.device import (
 from tests.util import ColourEnum
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.controllers import ControllerAPI
+from fastcs.controllers import Controller, ControllerAPI
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
+from fastcs.transports.epics.emission import INDEX_STEM, emit_gui_files
 from fastcs.transports.epics.gui import EpicsGUI
+from fastcs.transports.epics.options import EpicsGUIOptions
 
 
 def test_get_pv():
@@ -188,3 +192,29 @@ def test_get_command_component():
 
     assert isinstance(component, SignalX)
     assert component.write_widget == ButtonPanel(actions={"Command": "1"})
+
+
+class _A(Controller):
+    foo = AttrR(Int())
+
+
+class _B(Controller):
+    bar = AttrR(Int())
+
+
+def _api_with_id(cls, name):
+    c = cls()
+    c.set_id(name)
+    api, _, _ = c.create_api_and_tasks()
+    return api
+
+
+def test_emit_gui_writes_index_alongside_per_controller_files(tmp_path: Path):
+    """#358 acceptance criteria: per-id .bob files and an index file."""
+    apis = [_api_with_id(_A, "alpha"), _api_with_id(_B, "beta")]
+
+    emit_gui_files(apis, EpicsGUIOptions(output_dir=tmp_path), EpicsGUI)
+
+    assert (tmp_path / "alpha.bob").is_file()
+    assert (tmp_path / "beta.bob").is_file()
+    assert (tmp_path / f"{INDEX_STEM}.bob").is_file()

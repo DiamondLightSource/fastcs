@@ -1,14 +1,12 @@
-from fastcs.controllers import ControllerAPI
+"""Re-exports kept for backwards-compatible imports.
 
-from .options import EpicsDocsOptions
+Per-controller docs file emission lives in
+:py:mod:`fastcs.transports.epics.emission`; transports call
+:py:func:`fastcs.transports.epics.emission.emit_docs_files` directly with
+the full ``list[ControllerAPI]``.
+"""
 
+from fastcs.transports.epics.emission import emit_docs_files
+from fastcs.transports.epics.options import EpicsDocsOptions
 
-class EpicsDocs:
-    """For creating docs in the EPICS transports."""
-
-    def __init__(self, controller_apis: ControllerAPI) -> None:
-        self._controller_apis = controller_apis
-
-    def create_docs(self, options: EpicsDocsOptions | None = None) -> None:
-        if options is None:
-            options = EpicsDocsOptions()
+__all__ = ["emit_docs_files", "EpicsDocsOptions"]

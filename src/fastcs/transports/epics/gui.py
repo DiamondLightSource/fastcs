@@ -1,4 +1,3 @@
-from pvi._format.dls import DLSFormatter  # type: ignore
 from pvi.device import (
     LED,
     ArrayTrace,
@@ -35,7 +34,6 @@ from fastcs.datatypes import (
 )
 from fastcs.logging import logger
 from fastcs.methods import Command
-from fastcs.transports.epics.options import EpicsGUIFormat, EpicsGUIOptions
 from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
@@ -145,21 +143,9 @@ class EpicsGUI:
             write_widget=ButtonPanel(actions={name: self.command_value}),
         )
 
-    def create_gui(self, options: EpicsGUIOptions | None = None) -> None:
-        if options is None:
-            options = EpicsGUIOptions()
-
-        if options.file_format is EpicsGUIFormat.edl:
-            logger.warning("FastCS may not support all widgets in .edl screens")
-
-        assert options.output_path.suffix == options.file_format.value
-        options.output_path.parent.mkdir(parents=True, exist_ok=True)
-
+    def build_device(self, title: str) -> Device:
         components = self.extract_api_components(self._controller_api)
-        device = Device(label=options.title, children=components)
-
-        formatter = DLSFormatter()
-        formatter.format(device, options.output_path.resolve())
+        return Device(label=title, children=components)
 
     def extract_api_components(self, controller_api: ControllerAPI) -> Tree:
         components: Tree = []

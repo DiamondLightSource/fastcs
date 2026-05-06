@@ -13,7 +13,7 @@ from fastcs.transports.epics import (
 )
 from fastcs.transports.epics.ca.ioc import EpicsCAIOC
 from fastcs.transports.epics.ca.util import validate_ca_id
-from fastcs.transports.epics.docs import EpicsDocs
+from fastcs.transports.epics.emission import emit_docs_files, emit_gui_files
 from fastcs.transports.epics.gui import EpicsGUI
 from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.transports.transport import Transport
@@ -42,12 +42,11 @@ class EpicsCATransport(Transport):
         self._pv_prefixes = [pv_prefix_from_path(api.path) for api in controller_apis]
         self._ioc = EpicsCAIOC(controller_apis)
 
-        for api in controller_apis:
-            if self.docs is not None:
-                EpicsDocs(api).create_docs(self.docs)
+        if self.docs is not None:
+            emit_docs_files(controller_apis, self.docs)
 
-            if self.gui is not None:
-                EpicsGUI(api).create_gui(self.gui)
+        if self.gui is not None:
+            emit_gui_files(controller_apis, self.gui, EpicsGUI)
 
     async def serve(self) -> None:
         """Serve `ControllerAPI` over EPICS Channel Access"""

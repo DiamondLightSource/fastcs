@@ -7,7 +7,8 @@ from pathlib import Path
 class EpicsDocsOptions:
     """Docs options for EPICS."""
 
-    path: Path = Path(".")
+    output_dir: Path = Path(".")
+    title: str = "FastCS Devices"
     depth: int | None = None
 
 
@@ -22,9 +23,9 @@ class EpicsGUIFormat(Enum):
 class EpicsGUIOptions:
     """Epics GUI options for use in both CA and PVA transports."""
 
-    output_path: Path = Path(".") / "output.bob"
+    output_dir: Path = Path(".")
     file_format: EpicsGUIFormat = EpicsGUIFormat.bob
-    title: str = "Simple Device"
+    title: str = "FastCS Devices"
 
 
 @dataclass
