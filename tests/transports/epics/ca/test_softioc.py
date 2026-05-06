@@ -27,10 +27,10 @@ from fastcs.transports.epics.ca.ioc import (
     _create_and_link_write_pv,
 )
 from fastcs.transports.epics.ca.util import (
-    EPICS_MAX_NAME_LENGTH,
     _make_in_record,
     _make_out_record,
 )
+from fastcs.transports.epics.util import EPICS_MAX_NAME_LENGTH
 
 DEVICE = "DEVICE"
 

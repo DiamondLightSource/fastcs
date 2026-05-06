@@ -12,13 +12,12 @@ from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.tracer import Tracer
 from fastcs.transports.epics.ca.util import (
-    EPICS_MAX_NAME_LENGTH,
     _make_in_record,
     _make_out_record,
     cast_from_epics_type,
     cast_to_epics_type,
 )
-from fastcs.transports.epics.util import pv_prefix_from_path
+from fastcs.transports.epics.util import EPICS_MAX_NAME_LENGTH, pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
 tracer = Tracer()
