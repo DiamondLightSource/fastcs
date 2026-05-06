@@ -303,6 +303,29 @@ def test_tango_transport_rejects_illegal_id_at_connect():
         loop.close()
 
 
+def test_tango_transport_rejects_post_sanitisation_class_name_collision():
+    """#371: hyphens and underscores both sanitise to underscores in Tango device
+    class names, so ``DEV-1`` and ``DEV_1`` would silently override each other in
+    ``tango.server.run``. Detect and fail fast at connect."""
+    api1 = _api_with_id(_OneAttrController, "DEV-1")
+    api2 = _api_with_id(_OtherAttrController, "DEV_1")
+
+    loop = asyncio.new_event_loop()
+    try:
+        from fastcs.transports.tango.transport import TangoTransport
+
+        transport = TangoTransport()
+        with pytest.raises(ValueError) as excinfo:
+            transport.connect([api1, api2], loop)
+    finally:
+        loop.close()
+
+    message = str(excinfo.value)
+    # Both colliding ids appear in the message so callers can spot the pair.
+    assert "'DEV-1'" in message
+    assert "'DEV_1'" in message
+
+
 class _LifecycleController(Controller):
     """Records lifecycle hook calls for end-to-end assertions."""
 
