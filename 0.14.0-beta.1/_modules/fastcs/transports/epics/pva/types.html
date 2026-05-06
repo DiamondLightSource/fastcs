@@ -1,0 +1,736 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>fastcs.transports.epics.pva.types &#8212; fastcs 0.14.0b1 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/custom.css?v=3fefa004" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../../../_static/documentation_options.js?v=7580bf23"></script>
+    <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../../_static/copybutton.js?v=30646c52"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../../../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/fastcs/transports/epics/pva/types';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://DiamondLightSource.github.io/fastcs/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.14.0b1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="icon" href="../../../../../_static/fastcs.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.14.0b1" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../../../_static/fastcs.svg" class="logo__image only-light" alt=""/>
+    <img src="../../../../../_static/fastcs.svg" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">fastcs</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">fastcs.transports.epics.pva.types</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for fastcs.transports.epics.pva.types</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">DTypeLike</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">p4p</span><span class="w"> </span><span class="kn">import</span> <span class="n">Value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">p4p.nt</span><span class="w"> </span><span class="kn">import</span> <span class="n">NTEnum</span><span class="p">,</span> <span class="n">NTNDArray</span><span class="p">,</span> <span class="n">NTScalar</span><span class="p">,</span> <span class="n">NTTable</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.attributes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Attribute</span><span class="p">,</span> <span class="n">AttrR</span><span class="p">,</span> <span class="n">AttrW</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bool</span><span class="p">,</span> <span class="n">DType</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">Table</span><span class="p">,</span> <span class="n">Waveform</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes.datatype</span><span class="w"> </span><span class="kn">import</span> <span class="n">DType_T</span>
+
+<span class="n">P4P_ALLOWED_DATATYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">Int</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">Bool</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Waveform</span><span class="p">,</span> <span class="n">Table</span><span class="p">)</span>
+
+<span class="c1"># https://epics-base.github.io/pvxs/nt.html#alarm-t</span>
+<span class="n">RECORD_ALARM_STATUS</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">NO_ALARM_STATUS</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">MAJOR_ALARM_SEVERITY</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">NO_ALARM_SEVERITY</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="c1"># https://numpy.org/devdocs/reference/arrays.dtypes.html#arrays-dtypes</span>
+<span class="c1"># Some numpy dtypes don&#39;t match directly with the p4p ones</span>
+<span class="n">_NUMPY_DTYPE_TO_P4P_DTYPE</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;S&quot;</span><span class="p">:</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>  <span class="c1"># Raw bytes to unicode bytes</span>
+    <span class="s2">&quot;U&quot;</span><span class="p">:</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_table_with_numpy_dtypes_to_p4p_dtypes</span><span class="p">(</span><span class="n">numpy_dtypes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DTypeLike</span><span class="p">]]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Numpy structured datatypes can use the numpy dtype class, e.g `np.int32` or the</span>
+<span class="sd">    character, e.g &quot;i&quot;. P4P only accepts the character so this method is used to</span>
+<span class="sd">    convert.</span>
+
+<span class="sd">    https://epics-base.github.io/p4p/values.html#type-definitions</span>
+
+<span class="sd">    It also forbids:</span>
+<span class="sd">        The numpy dtype for float16, which isn&#39;t supported in p4p.</span>
+<span class="sd">        String types which should be supported but currently don&#39;t function:</span>
+<span class="sd">            https://github.com/epics-base/p4p/issues/168</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">p4p_dtypes</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">numpy_dtype</span> <span class="ow">in</span> <span class="n">numpy_dtypes</span><span class="p">:</span>
+        <span class="n">dtype_char</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">numpy_dtype</span><span class="p">)</span><span class="o">.</span><span class="n">char</span>
+        <span class="n">dtype_char</span> <span class="o">=</span> <span class="n">_NUMPY_DTYPE_TO_P4P_DTYPE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">dtype_char</span><span class="p">,</span> <span class="n">dtype_char</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dtype_char</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;e&quot;</span><span class="p">,</span> <span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">numpy_dtype</span><span class="p">)</span><span class="si">}</span><span class="s2">` is unsupported in p4p.&quot;</span><span class="p">)</span>
+        <span class="n">p4p_dtypes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">dtype_char</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">p4p_dtypes</span>
+
+
+<div class="viewcode-block" id="make_p4p_type">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.make_p4p_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_p4p_type</span><span class="p">(</span>
+    <span class="n">attribute</span><span class="p">:</span> <span class="n">Attribute</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NTScalar</span> <span class="o">|</span> <span class="n">NTEnum</span> <span class="o">|</span> <span class="n">NTNDArray</span> <span class="o">|</span> <span class="n">NTTable</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates a p4p type for a given `Attribute` `DataType`.&quot;&quot;&quot;</span>
+
+    <span class="n">display</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute</span><span class="p">,</span> <span class="n">AttrR</span><span class="p">)</span>
+    <span class="n">control</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute</span><span class="p">,</span> <span class="n">AttrW</span><span class="p">)</span>
+    <span class="k">match</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">:</span>
+        <span class="k">case</span> <span class="n">Int</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">NTScalar</span><span class="o">.</span><span class="n">buildType</span><span class="p">(</span><span class="s2">&quot;i&quot;</span><span class="p">,</span> <span class="n">display</span><span class="o">=</span><span class="n">display</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">)</span>
+        <span class="k">case</span> <span class="n">Float</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">NTScalar</span><span class="o">.</span><span class="n">buildType</span><span class="p">(</span><span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="n">display</span><span class="o">=</span><span class="n">display</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">,</span> <span class="n">form</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">case</span> <span class="n">String</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">NTScalar</span><span class="o">.</span><span class="n">buildType</span><span class="p">(</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="n">display</span><span class="o">=</span><span class="n">display</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">)</span>
+        <span class="k">case</span> <span class="n">Bool</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">NTScalar</span><span class="o">.</span><span class="n">buildType</span><span class="p">(</span><span class="s2">&quot;?&quot;</span><span class="p">,</span> <span class="n">display</span><span class="o">=</span><span class="n">display</span><span class="p">,</span> <span class="n">control</span><span class="o">=</span><span class="n">control</span><span class="p">)</span>
+        <span class="k">case</span> <span class="n">Enum</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">NTEnum</span><span class="p">()</span>
+        <span class="k">case</span> <span class="n">Waveform</span><span class="p">():</span>
+            <span class="c1"># TODO: https://github.com/DiamondLightSource/FastCS/issues/123</span>
+            <span class="c1"># * Make 1D scalar array for 1D shapes.</span>
+            <span class="c1">#     This will require converting from np.int32 to &quot;ai&quot;</span>
+            <span class="c1">#     if len(shape) == 1:</span>
+            <span class="c1">#         return NTScalarArray(convert np.datatype32 to string &quot;ad&quot;)</span>
+            <span class="c1"># * Add an option for allowing shape to change, if so we will</span>
+            <span class="c1">#   use an NDArray here even if shape is 1D</span>
+
+            <span class="k">return</span> <span class="n">NTNDArray</span><span class="p">()</span>
+        <span class="k">case</span> <span class="n">Table</span><span class="p">(</span><span class="n">structured_dtype</span><span class="p">):</span>
+            <span class="c1"># TODO: `NTEnum/NTNDArray/NTTable.wrap` don&#39;t accept extra fields until</span>
+            <span class="c1"># https://github.com/epics-base/p4p/issues/166</span>
+            <span class="k">return</span> <span class="n">NTTable</span><span class="p">(</span>
+                <span class="n">columns</span><span class="o">=</span><span class="n">_table_with_numpy_dtypes_to_p4p_dtypes</span><span class="p">(</span><span class="n">structured_dtype</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;DataType `</span><span class="si">{</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="si">}</span><span class="s2">` unsupported in P4P.&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="cast_from_p4p_value">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.cast_from_p4p_value">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cast_from_p4p_value</span><span class="p">(</span><span class="n">attribute</span><span class="p">:</span> <span class="n">Attribute</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DType_T</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Converts from a p4p value to a FastCS `Attribute` value.&quot;&quot;&quot;</span>
+    <span class="k">match</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">:</span>
+        <span class="k">case</span> <span class="n">Enum</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;index&quot;</span><span class="p">),</span> <span class="s2">&quot;Got non-enum p4p.Value for Enum DataType&quot;</span>
+            <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">index</span>  <span class="c1"># pyright: ignore[reportAttributeAccessIssue]</span>
+            <span class="k">return</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">members</span><span class="p">[</span><span class="n">index</span><span class="p">])</span>
+        <span class="k">case</span> <span class="n">Waveform</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">):</span>
+            <span class="c1"># p4p sends a flattened array</span>
+            <span class="k">assert</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">),)</span>
+            <span class="k">return</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="k">case</span> <span class="n">Table</span><span class="p">(</span><span class="n">structured_dtype</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">structured_dtype</span><span class="p">))</span>
+        <span class="k">case</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span> <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">),</span> <span class="n">P4P_ALLOWED_DATATYPES</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported datatype </span><span class="si">{</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="p4p_alarm_states">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.p4p_alarm_states">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">p4p_alarm_states</span><span class="p">(</span>
+    <span class="n">severity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NO_ALARM_SEVERITY</span><span class="p">,</span>
+    <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NO_ALARM_STATUS</span><span class="p">,</span>
+    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns the p4p alarm structure for a given severity, status, and message.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;alarm&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="n">severity</span><span class="p">,</span>
+            <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
+            <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">message</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="p4p_timestamp_now">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.p4p_timestamp_now">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">p4p_timestamp_now</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The p4p timestamp structure for the current time.&quot;&quot;&quot;</span>
+    <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">seconds_past_epoch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">now</span><span class="p">)</span>
+    <span class="n">nanoseconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">now</span> <span class="o">-</span> <span class="n">seconds_past_epoch</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e9</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;timeStamp&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;secondsPastEpoch&quot;</span><span class="p">:</span> <span class="n">seconds_past_epoch</span><span class="p">,</span>
+            <span class="s2">&quot;nanoseconds&quot;</span><span class="p">:</span> <span class="n">nanoseconds</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="p4p_display">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.p4p_display">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">p4p_display</span><span class="p">(</span><span class="n">attribute</span><span class="p">:</span> <span class="n">Attribute</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Gets the p4p display structure for a given attribute.&quot;&quot;&quot;</span>
+    <span class="n">display</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">display</span><span class="p">[</span><span class="s2">&quot;description&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute</span><span class="o">.</span><span class="n">description</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="p">(</span><span class="n">Float</span> <span class="o">|</span> <span class="n">Int</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">display</span><span class="p">[</span><span class="s2">&quot;limitHigh&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">max</span>
+        <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">min</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">display</span><span class="p">[</span><span class="s2">&quot;limitLow&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">min</span>
+        <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">units</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">display</span><span class="p">[</span><span class="s2">&quot;units&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">units</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">Float</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">prec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">display</span><span class="p">[</span><span class="s2">&quot;precision&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">prec</span>
+    <span class="k">if</span> <span class="n">display</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;display&quot;</span><span class="p">:</span> <span class="n">display</span><span class="p">}</span>
+    <span class="k">return</span> <span class="p">{}</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_p4p_check_numeric_for_alarm_states</span><span class="p">(</span><span class="n">datatype</span><span class="p">:</span> <span class="n">Int</span> <span class="o">|</span> <span class="n">Float</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">DType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="n">low</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">datatype</span><span class="o">.</span><span class="n">min_alarm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="n">datatype</span><span class="o">.</span><span class="n">min_alarm</span>  <span class="c1"># type: ignore</span>
+    <span class="n">high</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">datatype</span><span class="o">.</span><span class="n">max_alarm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="n">datatype</span><span class="o">.</span><span class="n">max_alarm</span>  <span class="c1"># type: ignore</span>
+    <span class="n">severity</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">MAJOR_ALARM_SEVERITY</span>
+        <span class="k">if</span> <span class="n">high</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">or</span> <span class="n">low</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span> <span class="n">NO_ALARM_SEVERITY</span>
+    <span class="p">)</span>
+    <span class="n">status</span><span class="p">,</span> <span class="n">message</span> <span class="o">=</span> <span class="n">NO_ALARM_SEVERITY</span><span class="p">,</span> <span class="s2">&quot;No alarm&quot;</span>
+    <span class="k">if</span> <span class="n">low</span><span class="p">:</span>
+        <span class="n">status</span><span class="p">,</span> <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">RECORD_ALARM_STATUS</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;Below minimum alarm limit: </span><span class="si">{</span><span class="n">datatype</span><span class="o">.</span><span class="n">min_alarm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">high</span><span class="p">:</span>
+        <span class="n">status</span><span class="p">,</span> <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">RECORD_ALARM_STATUS</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;Above maximum alarm limit: </span><span class="si">{</span><span class="n">datatype</span><span class="o">.</span><span class="n">max_alarm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">p4p_alarm_states</span><span class="p">(</span><span class="n">severity</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="cast_to_p4p_value">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.cast_to_p4p_value">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cast_to_p4p_value</span><span class="p">(</span><span class="n">attribute</span><span class="p">:</span> <span class="n">Attribute</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="n">DType_T</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Converts a FastCS ``Attribute`` value to a p4p value&quot;&quot;&quot;</span>
+    <span class="k">match</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">:</span>
+        <span class="k">case</span> <span class="n">Enum</span><span class="p">():</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">index_of</span><span class="p">(</span><span class="n">value</span><span class="p">),</span>
+                <span class="s2">&quot;choices&quot;</span><span class="p">:</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">names</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="k">case</span> <span class="n">Waveform</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">case</span> <span class="n">Table</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="k">case</span> <span class="n">datatype</span> <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">datatype</span><span class="p">),</span> <span class="n">P4P_ALLOWED_DATATYPES</span><span class="p">):</span>
+            <span class="n">record_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">datatype</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">value</span><span class="p">)}</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute</span><span class="p">,</span> <span class="n">AttrR</span><span class="p">):</span>
+                <span class="n">record_fields</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">p4p_display</span><span class="p">(</span><span class="n">attribute</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">datatype</span><span class="p">,</span> <span class="p">(</span><span class="n">Float</span> <span class="o">|</span> <span class="n">Int</span><span class="p">)):</span>
+                <span class="n">record_fields</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="n">_p4p_check_numeric_for_alarm_states</span><span class="p">(</span>
+                        <span class="n">datatype</span><span class="p">,</span>
+                        <span class="n">value</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">record_fields</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">p4p_alarm_states</span><span class="p">())</span>
+
+            <span class="n">record_fields</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">p4p_timestamp_now</span><span class="p">())</span>
+
+            <span class="k">return</span> <span class="n">Value</span><span class="p">(</span><span class="n">make_p4p_type</span><span class="p">(</span><span class="n">attribute</span><span class="p">),</span> <span class="n">record_fields</span><span class="p">)</span>
+        <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported datatype </span><span class="si">{</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

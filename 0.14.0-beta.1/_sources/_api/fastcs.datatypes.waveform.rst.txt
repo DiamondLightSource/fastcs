@@ -1,0 +1,21 @@
+``fastcs.datatypes.waveform``
+=============================
+        
+
+.. automodule:: fastcs.datatypes.waveform
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        Waveform
+    
+    

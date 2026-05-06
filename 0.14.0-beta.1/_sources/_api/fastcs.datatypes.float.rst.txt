@@ -1,0 +1,21 @@
+``fastcs.datatypes.float``
+==========================
+        
+
+.. automodule:: fastcs.datatypes.float
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        Float
+    
+    
