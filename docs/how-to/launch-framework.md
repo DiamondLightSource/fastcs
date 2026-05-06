@@ -89,9 +89,9 @@ python my_driver.py run fastcs.yaml
 
 `controllers:` is a dict, so a single application can host more than one
 controller. Each entry needs a unique id (the dict key); the `type:`
-discriminator selects which class to instantiate. The bundled demo
-(`python -m fastcs.demo run src/fastcs/demo/fastcs.yaml`) hosts two
-`DeviceController` instances on different ports:
+discriminator selects which class to instantiate. For example, two
+`DeviceController` instances on different IPs sharing a single transport
+list:
 
 ```yaml
 # fastcs.yaml
@@ -113,6 +113,10 @@ transport:
 
 When more than one class is registered with `launch([ClassA, ClassB])`,
 each entry's `type:` selects between them.
+
+For a real working example, see `src/fastcs/demo/fastcs.yaml`, which
+hosts two `TemperatureController` instances and can be run with
+`python -m fastcs.demo run src/fastcs/demo/fastcs.yaml`.
 
 The transport list is shared across all controllers: each transport sees
 the full set, and uses the per-entry id as the addressing prefix
