@@ -24,10 +24,19 @@ from fastcs.logging import (
 )
 from fastcs.transports import Transport
 
-_ENTRY_REGISTRY: dict[type[BaseModel], tuple[type[Controller], Any]] = {}
+
+@dataclasses.dataclass(frozen=True)
+class _RegisteredClass:
+    cls: type[Controller]
+    expects_options: bool
+    options_type: Any
+
+
+_ENTRY_REGISTRY: dict[type[BaseModel], _RegisteredClass] = {}
 """Maps each dynamically-built Entry model class to its originating
-Controller class and (optional) options-type. Populated by
-``_build_entry_model`` and read by ``_instantiate_controllers``."""
+Controller class and whether it expects an options arg (with the
+options-type, if any). Populated by ``_build_entry_model`` and read by
+``_instantiate_controllers``."""
 
 
 def launch(
@@ -196,16 +205,16 @@ def _instantiate_controllers(
     controllers: list[Controller] = []
     for id, entry in controllers_options.items():
         entry_cls: type[BaseModel] = type(entry)
-        cls, options_type = _ENTRY_REGISTRY[entry_cls]
-        if options_type is None:
-            controller = cls()
-        else:
+        registered = _ENTRY_REGISTRY[entry_cls]
+        if registered.expects_options:
             field_values = {
                 name: getattr(entry, name)
                 for name in entry_cls.model_fields
                 if name != "type"
             }
-            controller = cls(options_type(**field_values))
+            controller = registered.cls(registered.options_type(**field_values))
+        else:
+            controller = registered.cls()
         controller.set_id(id)
         controllers.append(controller)
     return controllers
@@ -255,11 +264,13 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     discriminator = _discriminator(controller_class)
 
     fields: dict[str, Any] = {"type": (Literal[discriminator], ...)}
+    expects_options = False
     options_type: Any = None
 
     if len(args) == 1:
         pass
     elif len(args) == 2:
+        expects_options = True
         hints = get_type_hints(controller_class.__init__)
         hints.pop("return", None)
         if not hints:
@@ -287,7 +298,11 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
         __config__={"extra": "forbid"},
         **fields,
     )
-    _ENTRY_REGISTRY[entry_model] = (controller_class, options_type)
+    _ENTRY_REGISTRY[entry_model] = _RegisteredClass(
+        cls=controller_class,
+        expects_options=expects_options,
+        options_type=options_type,
+    )
     return entry_model
 
 
