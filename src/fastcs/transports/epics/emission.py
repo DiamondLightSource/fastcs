@@ -11,7 +11,12 @@ which is the order in which ``controller_apis`` is passed in.
 from collections.abc import Callable
 
 from pvi._format.dls import DLSFormatter  # type: ignore
-from pvi.device import Device, DeviceRef, enforce_pascal_case  # type: ignore
+from pvi.device import (  # type: ignore
+    NON_PASCAL_CHARS_RE,
+    Device,
+    DeviceRef,
+    enforce_pascal_case,
+)
 
 from fastcs.controllers import ControllerAPI
 from fastcs.logging import logger
@@ -36,9 +41,24 @@ def _coerce_pascal_name(controller_id: str) -> str:
     union of every transport's charset and may legitimately start with a
     digit (e.g. UUID-flavoured test prefixes), so we prepend ``X`` when
     needed before delegating to ``pvi.device.enforce_pascal_case``.
+
+    Some otherwise-valid transport ids (the EPICS CA validator accepts
+    ``[A-Za-z0-9_-]+`` so ``"___"`` and ``"-"`` are legal) contain no
+    Pascal-usable characters at all. ``enforce_pascal_case`` strips
+    everything and then unconditionally indexes ``s[0]``, raising
+    ``IndexError`` on the empty string. We fail fast with a clearer
+    ``ValueError`` instead -- a silent fallback would produce nonsense
+    GUI names that the user can't trace back to the offending id.
     """
+    stripped = NON_PASCAL_CHARS_RE.sub("", controller_id)
+    if not stripped:
+        raise ValueError(
+            f"Controller id {controller_id!r} contains no characters usable "
+            "in a Pascal-case name; pick an id with at least one ASCII "
+            "letter or digit"
+        )
     candidate = enforce_pascal_case(controller_id)
-    if candidate and not candidate[0].isupper():
+    if not candidate[0].isupper():
         candidate = "X" + candidate
     return candidate
 

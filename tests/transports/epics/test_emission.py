@@ -10,6 +10,7 @@ from fastcs.datatypes import Int
 from fastcs.transports.epics.emission import (
     DOCS_EXT,
     INDEX_STEM,
+    _coerce_pascal_name,
     emit_docs_files,
     emit_gui_files,
 )
@@ -163,3 +164,32 @@ def test_docs_creates_missing_output_dir(two_apis, tmp_path: Path):
 
     assert (nested / f"alpha{DOCS_EXT}").is_file()
     assert (nested / f"{INDEX_STEM}{DOCS_EXT}").is_file()
+
+
+# --- _coerce_pascal_name fail-fast (#369) ----------------------------------
+
+
+@pytest.mark.parametrize("bad_id", ["___", "-", "_-_", "----"])
+def test_coerce_pascal_name_rejects_all_punctuation_ids(bad_id: str):
+    """Ids that strip to empty would IndexError inside ``enforce_pascal_case``.
+
+    The EPICS CA validator accepts ``[A-Za-z0-9_-]+`` so ids like ``"___"``
+    and ``"-"`` reach GUI emission. We raise ``ValueError`` rather than
+    falling back to a generated name so the offending id surfaces in the
+    error message instead of producing a nonsense PascalStr the user
+    can't trace.
+    """
+    with pytest.raises(ValueError, match=repr(bad_id)) as excinfo:
+        _coerce_pascal_name(bad_id)
+
+    assert "Pascal-case" in str(excinfo.value)
+
+
+def test_coerce_pascal_name_accepts_digit_leading_id():
+    """Happy path: digit-leading ids are still coerced via ``X`` prefix."""
+    assert _coerce_pascal_name("120e1b6") == "X120e1b6"
+
+
+def test_coerce_pascal_name_accepts_normal_pascal_id():
+    """Happy path: ordinary Pascal-friendly ids round-trip cleanly."""
+    assert _coerce_pascal_name("alpha") == "Alpha"
