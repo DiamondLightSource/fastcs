@@ -116,6 +116,17 @@ def test_gui_uses_pva_builder_for_pva_transport(two_apis, tmp_path: Path):
     assert "pva://beta:Bar" in (tmp_path / "beta.bob").read_text()
 
 
+def test_gui_index_uses_controller_id_verbatim(two_apis, tmp_path: Path):
+    """#368: index DeviceRef pv must match the IOC prefix verbatim (no case fold)."""
+    emit_gui_files(two_apis, EpicsGUIOptions(output_dir=tmp_path), EpicsGUI)
+
+    text = (tmp_path / f"{INDEX_STEM}.bob").read_text()
+    assert "alpha" in text
+    assert "beta" in text
+    assert "ALPHA" not in text
+    assert "BETA" not in text
+
+
 def test_gui_respects_file_format(two_apis, tmp_path: Path):
     """The configured file format propagates to per-controller and index files."""
     options = EpicsGUIOptions(output_dir=tmp_path, file_format=EpicsGUIFormat.bob)

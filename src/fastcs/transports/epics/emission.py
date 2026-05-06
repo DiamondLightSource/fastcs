@@ -80,7 +80,7 @@ def emit_gui_files(
             DeviceRef(
                 name=_coerce_pascal_name(controller_id),
                 label=controller_id,
-                pv=controller_id.upper(),
+                pv=controller_id,
                 ui=ui_filename,
                 macros={},
             )
