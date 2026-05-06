@@ -54,10 +54,12 @@ if __name__ == "__main__":
 
 ## YAML Configuration Files
 
-Create a YAML configuration file matching the schema:
+Create a YAML configuration file matching the schema. The conventional
+filename is `fastcs.yaml`, but any filename works — `run` takes the path
+as an argument:
 
 ```yaml
-# device_config.yaml
+# fastcs.yaml
 controllers:
   DEVICE:
     controller:
@@ -75,8 +77,47 @@ verbatim as the EPICS PV prefix and as the REST route prefix.
 Run with:
 
 ```bash
-python my_driver.py run device_config.yaml
+python my_driver.py run fastcs.yaml
 ```
+
+### Hosting multiple controllers
+
+`controllers:` is a dict, so a single application can host more than one
+controller. Each entry needs a unique id (the dict key); together with the
+optional `type:` discriminator it selects which class to instantiate.
+
+When `launch()` was given a single Controller class, `type:` may be
+omitted — it defaults to that class's discriminator. The bundled demo
+(`python -m fastcs.demo run src/fastcs/demo/fastcs.yaml`) hosts two
+`DeviceController` instances on different ports to exercise this case
+end-to-end:
+
+```yaml
+# fastcs.yaml
+controllers:
+  MAIN:
+    controller:
+      ip_address: "192.168.1.100"
+      port: 25565
+      timeout: 10.0
+  AUX:
+    controller:
+      ip_address: "192.168.1.101"
+      port: 25565
+      timeout: 10.0
+
+transport:
+  - epicsca: {}
+```
+
+When more than one class is registered with
+`launch([ClassA, ClassB])`, every entry must carry an explicit
+`type:` key naming the class.
+
+The transport list is shared across all controllers: each transport sees
+the full set, and uses the per-entry id as the addressing prefix
+(EPICS PV prefix, REST route prefix, GraphQL top-level Query field, Tango
+device name segment).
 
 ## Schema Generation
 
@@ -124,10 +165,10 @@ The `run` command includes logging options:
 
 ```bash
 # Set log level
-python my_driver.py run config.yaml --log-level debug
+python my_driver.py run fastcs.yaml --log-level debug
 
 # Send logs to Graylog
-python my_driver.py run config.yaml \
+python my_driver.py run fastcs.yaml \
   --graylog-endpoint "graylog.example.com:12201" \
   --graylog-static-fields "app=my_driver,env=prod"
 ```
