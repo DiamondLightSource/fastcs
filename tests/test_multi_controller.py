@@ -255,6 +255,54 @@ def test_graphql_transport_rejects_illegal_id_at_connect():
         loop.close()
 
 
+def test_tango_transport_builds_one_device_per_controller_with_id_in_name():
+    """One Tango DSR hosts N devices; each id forms the leading segment of its
+    three-segment device name and a unique device class is built per controller."""
+    from fastcs.transports.tango.dsr import FASTCS_TANGO_SERVER_NAME
+    from fastcs.transports.tango.transport import TangoTransport
+    from fastcs.transports.tango.util import tango_dev_class_name, tango_dev_name
+
+    api1 = _api_with_id(_OneAttrController, "ALPHA")
+    api2 = _api_with_id(_OtherAttrController, "BETA")
+
+    loop = asyncio.new_event_loop()
+    try:
+        transport = TangoTransport()
+        transport.connect([api1, api2], loop)
+    finally:
+        loop.close()
+
+    # Two distinct Tango device classes, one per controller, named after the id.
+    devices = transport._dsr._devices
+    assert len(devices) == 2
+    assert [d.__name__ for d in devices] == ["ALPHA", "BETA"]
+
+    # Device names embed the id as the leading segment.
+    instance = transport.tango.dsr_instance
+    assert tango_dev_name("ALPHA", instance) == f"ALPHA/ALPHA/{instance}"
+    assert tango_dev_name("BETA", instance) == f"BETA/BETA/{instance}"
+
+    # FastCS-hosted DSRs use a fixed server name independent of controller class
+    # so a multi-class server has a single identity.
+    assert FASTCS_TANGO_SERVER_NAME == "FastCS"
+    assert tango_dev_class_name("ALPHA") == "ALPHA"
+    assert tango_dev_class_name("BETA") == "BETA"
+
+
+def test_tango_transport_rejects_illegal_id_at_connect():
+    api = _api_with_id(_OneAttrController, "bad/id")
+
+    loop = asyncio.new_event_loop()
+    try:
+        from fastcs.transports.tango.transport import TangoTransport
+
+        transport = TangoTransport()
+        with pytest.raises(ValueError, match="bad/id"):
+            transport.connect([api], loop)
+    finally:
+        loop.close()
+
+
 class _LifecycleController(Controller):
     """Records lifecycle hook calls for end-to-end assertions."""
 

@@ -2,9 +2,10 @@ import asyncio
 from dataclasses import dataclass, field
 
 from fastcs.controllers import ControllerAPI
-from fastcs.transports.transport import Transport, _expect_single
+from fastcs.transports.transport import Transport
 
 from .dsr import TangoDSR, TangoDSROptions
+from .util import validate_tango_id
 
 
 @dataclass
@@ -18,8 +19,9 @@ class TangoTransport(Transport):
         controller_apis: list[ControllerAPI],
         loop: asyncio.AbstractEventLoop,
     ):
-        controller_api = _expect_single(controller_apis, "TangoTransport")
-        self._dsr = TangoDSR(controller_api, loop)
+        for api in controller_apis:
+            validate_tango_id(api.path[0])
+        self._dsr = TangoDSR(controller_apis, loop)
 
     async def serve(self) -> None:
         coro = asyncio.to_thread(self._dsr.run, self.tango)

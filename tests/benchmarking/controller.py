@@ -7,7 +7,6 @@ from fastcs.datatypes import Bool, Int
 from fastcs.transports.epics.ca.transport import EpicsCATransport
 from fastcs.transports.rest.options import RestServerOptions
 from fastcs.transports.rest.transport import RestTransport
-from fastcs.transports.tango.options import TangoDSROptions
 from fastcs.transports.tango.transport import TangoTransport
 
 
@@ -20,7 +19,7 @@ def run():
     transport_options = [
         RestTransport(rest=RestServerOptions(port=8090)),
         EpicsCATransport(),
-        TangoTransport(tango=TangoDSROptions(dev_name="MY/BENCHMARK/DEVICE")),
+        TangoTransport(),
     ]
     controller = MyTestController()
     controller.set_id("BENCHMARK-DEVICE")

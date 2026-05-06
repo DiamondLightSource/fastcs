@@ -209,11 +209,6 @@
     },
     "TangoDSROptions": {
       "properties": {
-        "dev_name": {
-          "default": "MY/DEVICE/NAME",
-          "title": "Dev Name",
-          "type": "string"
-        },
         "dsr_instance": {
           "default": "MY_SERVER_INSTANCE",
           "title": "Dsr Instance",

@@ -39,8 +39,9 @@ and each enforces its own charset at startup.
 | Transport | Allowed id charset |
 |-----------|--------------------|
 | EPICS CA  | `[A-Za-z0-9_-]+`, plus the 60-char PV name limit |
-| EPICS PVA | `[A-Za-z0-9_-]+` |
+| EPICS PVA | `[A-Za-z0-9_-]+`, plus the 60-char PV name limit |
 | REST      | `[A-Za-z0-9_-]+` |
+| Tango     | `[A-Za-z0-9_-]+` |
 | GraphQL   | `[A-Za-z_][A-Za-z0-9_]*` (GraphQL `Name`: no hyphens, no leading digit) |
 
 If you serve the same controller through multiple transports, use the
@@ -137,10 +138,14 @@ from fastcs.transports import TangoTransport, TangoDSROptions
 
 tango = TangoTransport(
     tango=TangoDSROptions(
-        device_name="test/device/1",
+        dsr_instance="MY_SERVER_INSTANCE",
     ),
 )
 ```
+
+The Tango device name for each controller is derived from its id —
+`{id}/{dev_class}/{dsr_instance}`. The id forms the leading device-name
+segment, so multiple controllers in one DSR get distinct device names.
 
 ## EPICS CA + PVA Together
 

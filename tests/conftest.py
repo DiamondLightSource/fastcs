@@ -22,7 +22,8 @@ from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.datatypes import Bool, Float, Int, String
 from fastcs.logging import configure_logging, logger
 from fastcs.logging._logging import LogLevel
-from fastcs.transports.tango.dsr import register_dev
+from fastcs.transports.tango.dsr import FASTCS_TANGO_SERVER_NAME, register_dev
+from fastcs.transports.tango.util import tango_dev_class_name, tango_dev_name
 from tests.assertable_controller import MyTestAttributeIORef, MyTestController
 from tests.example_p4p_ioc import run as _run_p4p_ioc
 from tests.example_softioc import run as _run_softioc
@@ -199,12 +200,16 @@ def register_device():
     if not os.getenv("TANGO_HOST"):
         raise RuntimeError("TANGO_HOST not defined")
 
+    benchmark_id = "BENCHMARK-DEVICE"
+    dsr_instance = "MY_SERVER_INSTANCE"
+
     for attempt in range(1, attempts + 1):
         try:
             register_dev(
-                dev_name="MY/BENCHMARK/DEVICE",
-                dev_class="TestController",
-                dsr_instance="MY_SERVER_INSTANCE",
+                dev_name=tango_dev_name(benchmark_id, dsr_instance),
+                dev_class=tango_dev_class_name(benchmark_id),
+                dsr_instance=dsr_instance,
+                server_name=FASTCS_TANGO_SERVER_NAME,
             )
             break
         except Exception:

@@ -43,7 +43,7 @@ class TangoController(MyTestController):
 
 @pytest.fixture(scope="class")
 def tango_controller_api(class_mocker: MockerFixture) -> AssertableControllerAPI:
-    return AssertableControllerAPI(TangoController(), class_mocker)
+    return AssertableControllerAPI(TangoController(), class_mocker, path=["DEVICE"])
 
 
 def create_test_context(tango_controller_api: AssertableControllerAPI):
@@ -52,7 +52,7 @@ def create_test_context(tango_controller_api: AssertableControllerAPI):
         [tango_controller_api],
         asyncio.get_event_loop(),
     )
-    device = tango_transport._dsr._device
+    device = tango_transport._dsr._devices[0]
     # https://tango-controls.readthedocs.io/projects/pytango/en/v9.5.1/testing/test_context.html
     with DeviceTestContext(device, debug=0) as proxy:
         yield proxy
