@@ -21,8 +21,7 @@ class GraphQLTransport(Transport):
         loop: asyncio.AbstractEventLoop,
     ):
         for api in controller_apis:
-            if api.path:
-                validate_graphql_id(api.path[0])
+            validate_graphql_id(api.path[0])
         self._server = GraphQLServer(controller_apis)
 
     async def serve(self) -> None:
