@@ -98,7 +98,7 @@ def test_is_hinted_schema(data):
         "IsHintedEntry",
         __config__={"extra": "forbid"},
         type=(Literal["IsHinted"], "IsHinted"),
-        controller=(SomeConfig, ...),
+        name=(str, ...),
     )
     target_model = create_model(
         "IsHinted",
@@ -206,13 +206,13 @@ def test_single_class_omits_type():
     options_model = _build_options_model([IsHinted])
     instance = options_model.model_validate(
         {
-            "controllers": {"my-id": {"controller": {"name": "x"}}},
+            "controllers": {"my-id": {"name": "x"}},
             "transport": [{"rest": {}}],
         }
     )
     entry = _controllers(instance)["my-id"]
     assert entry.type == "IsHinted"
-    assert entry.controller.name == "x"
+    assert entry.name == "x"
 
 
 def test_multi_class_discriminator():
@@ -221,8 +221,8 @@ def test_multi_class_discriminator():
     instance = options_model.model_validate(
         {
             "controllers": {
-                "first": {"type": "IsHinted", "controller": {"name": "a"}},
-                "second": {"type": "OtherHinted", "controller": {"address": "b"}},
+                "first": {"type": "IsHinted", "name": "a"},
+                "second": {"type": "OtherHinted", "address": "b"},
             },
             "transport": [{"rest": {}}],
         }
@@ -231,9 +231,9 @@ def test_multi_class_discriminator():
     first = _controllers(instance)["first"]
     second = _controllers(instance)["second"]
     assert first.type == "IsHinted"
-    assert isinstance(first.controller, SomeConfig)
+    assert first.name == "a"
     assert second.type == "OtherHinted"
-    assert isinstance(second.controller, OtherConfig)
+    assert second.address == "b"
 
 
 def test_multi_class_unknown_type_rejected():
@@ -241,7 +241,7 @@ def test_multi_class_unknown_type_rejected():
     with pytest.raises(ValidationError):
         options_model.model_validate(
             {
-                "controllers": {"x": {"type": "Unknown", "controller": {"name": "a"}}},
+                "controllers": {"x": {"type": "Unknown", "name": "a"}},
                 "transport": [{"rest": {}}],
             }
         )
@@ -253,7 +253,7 @@ def test_type_name_override():
     instance = options_model.model_validate(
         {
             "controllers": {
-                "x": {"type": "aliased-controller", "controller": {"name": "n"}},
+                "x": {"type": "aliased-controller", "name": "n"},
             },
             "transport": [{"rest": {}}],
         }
@@ -268,9 +268,9 @@ def test_duplicate_id_rejected_at_yaml_load(tmp_path):
     cfg.write_text(
         "controllers:\n"
         "  same:\n"
-        "    controller: {name: a}\n"
+        "    name: a\n"
         "  same:\n"
-        "    controller: {name: b}\n"
+        "    name: b\n"
         "transport:\n"
         "  - rest: {}\n"
     )
@@ -289,10 +289,10 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
         "controllers:\n"
         "  one:\n"
         "    type: IsHinted\n"
-        "    controller: {name: a}\n"
+        "    name: a\n"
         "  two:\n"
         "    type: OtherHinted\n"
-        "    controller: {address: b}\n"
+        "    address: b\n"
         "transport:\n"
         "  - rest: {}\n"
     )

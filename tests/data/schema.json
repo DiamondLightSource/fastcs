@@ -170,12 +170,13 @@
           "title": "Type",
           "type": "string"
         },
-        "controller": {
-          "$ref": "#/$defs/SomeConfig"
+        "name": {
+          "title": "Name",
+          "type": "string"
         }
       },
       "required": [
-        "controller"
+        "name"
       ],
       "title": "IsHintedEntry",
       "type": "object"
@@ -208,19 +209,6 @@
         }
       },
       "title": "RestTransport",
-      "type": "object"
-    },
-    "SomeConfig": {
-      "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name"
-      ],
-      "title": "SomeConfig",
       "type": "object"
     },
     "TangoDSROptions": {

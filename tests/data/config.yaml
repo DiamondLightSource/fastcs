@@ -1,8 +1,7 @@
 # yaml-language-server: $schema=schema.json
 controllers:
   device-1:
-    controller:
-      name: controller-name
+    name: controller-name
 transport:
   - epicsca: {}
   - epicspva: {}

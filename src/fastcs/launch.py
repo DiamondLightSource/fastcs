@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import inspect
 import json
 from pathlib import Path
@@ -80,15 +81,12 @@ def _launch(
 ) -> typer.Typer:
     classes = _normalise_classes(controller_classes)
     fastcs_options = _build_options_model(classes)
-    type_map = {_discriminator(cls): cls for cls in classes}
     app_name = classes[0].__name__ if len(classes) == 1 else "FastCS"
     launch_typer = typer.Typer()
 
     class LaunchContext:
-        def __init__(self, classes, fastcs_options, type_map):
-            self.classes = classes
+        def __init__(self, fastcs_options):
             self.fastcs_options = fastcs_options
-            self.type_map = type_map
 
     def version_callback(value: bool):
         if value:
@@ -108,7 +106,7 @@ def _launch(
             help=f"Display the {app_name} version.",
         ),
     ):
-        ctx.obj = LaunchContext(classes, fastcs_options, type_map)
+        ctx.obj = LaunchContext(fastcs_options)
 
     @launch_typer.command(help=f"Produce json schema for a {app_name}")
     def schema(ctx: typer.Context):
@@ -151,7 +149,6 @@ def _launch(
         )
 
         fastcs_options = ctx.obj.fastcs_options
-        type_map = ctx.obj.type_map
 
         yaml = YAML(typ="safe")
         options_yaml = yaml.load(config)
@@ -168,7 +165,7 @@ def _launch(
 
             raise LaunchError("Failed to validate config") from e
 
-        controllers = _instantiate_controllers(instance_options.controllers, type_map)
+        controllers = _instantiate_controllers(instance_options.controllers)
 
         instance = FastCS(
             controllers,
@@ -183,64 +180,112 @@ def _launch(
 
 def _instantiate_controllers(
     controllers_options: dict[str, Any],
-    type_map: dict[str, type[Controller]],
 ) -> list[Controller]:
     """Instantiate each entry under `controllers:` and stamp its id.
 
     Each value in ``controllers_options`` is a dynamically-built Pydantic
-    model whose fields are unknown to the type checker; the discriminator
-    and optional controller options block are accessed by name at runtime.
+    model that exposes ``type`` plus the controller's options fields
+    inlined as siblings. The originating Controller class and its
+    options-type are stashed on the Entry class by ``_build_entry_model``.
     """
     controllers: list[Controller] = []
     for id, entry in controllers_options.items():
-        cls = type_map[entry.type]
-        if hasattr(entry, "controller"):
-            controller = cls(entry.controller)
-        else:
+        entry_cls = type(entry)
+        cls: type[Controller] = entry_cls.fastcs_controller_class
+        options_type: type | None = entry_cls.fastcs_options_type
+        if options_type is None:
             controller = cls()
+        else:
+            field_values = {
+                name: getattr(entry, name)
+                for name in entry_cls.model_fields
+                if name != "type"
+            }
+            controller = cls(options_type(**field_values))
         controller.set_id(id)
         controllers.append(controller)
     return controllers
 
 
+def _options_field_definitions(options_type: type) -> dict[str, tuple[Any, Any]]:
+    """Field-by-field definitions for inlining ``options_type`` into an Entry.
+
+    Returns a mapping suitable for splatting into ``create_model``. Supports
+    pydantic ``BaseModel`` and (stdlib or pydantic) dataclasses; raises
+    ``LaunchError`` for anything else.
+    """
+    if isinstance(options_type, type) and issubclass(options_type, BaseModel):
+        return {
+            name: (field.annotation, field)
+            for name, field in options_type.model_fields.items()
+        }
+    if dataclasses.is_dataclass(options_type):
+        hints = get_type_hints(options_type)
+        result: dict[str, tuple[Any, Any]] = {}
+        for f in dataclasses.fields(options_type):
+            annotation = hints.get(f.name, f.type)
+            if f.default is not dataclasses.MISSING:
+                default: Any = f.default
+            elif f.default_factory is not dataclasses.MISSING:
+                default = Field(default_factory=f.default_factory)
+            else:
+                default = ...
+            result[f.name] = (annotation, default)
+        return result
+    raise LaunchError(
+        f"Cannot inline options type {options_type!r}: expected a dataclass "
+        f"or pydantic BaseModel."
+    )
+
+
 def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     """Build a Pydantic model for one entry under `controllers:`.
 
-    Each entry has a ``type`` discriminator literal and, for Controllers
-    whose ``__init__`` accepts a typed options argument, a ``controller``
-    options block.
+    Each entry exposes a ``type`` discriminator literal alongside the
+    options-type's fields, inlined as siblings (no nested ``controller:``
+    block). The Controller class and its options-type are stashed on the
+    returned model class for use by ``_instantiate_controllers``.
     """
     sig = inspect.signature(controller_class.__init__)
     args = inspect.getfullargspec(controller_class.__init__)[0]
     discriminator = _discriminator(controller_class)
 
     fields: dict[str, Any] = {"type": (Literal[discriminator], discriminator)}
+    options_type: type | None = None
 
     if len(args) == 1:
         pass
     elif len(args) == 2:
         hints = get_type_hints(controller_class.__init__)
-        if "return" in hints:
-            del hints["return"]
-        if hints:
-            options_type = list(hints.values())[-1]
-        else:
+        hints.pop("return", None)
+        if not hints:
             raise LaunchError(
                 f"Expected typehinting in '{controller_class.__name__}"
                 f".__init__' but received {sig}. Add a typehint for `{args[-1]}`."
             )
-        fields["controller"] = (options_type, ...)
+        options_type = list(hints.values())[-1]
+        options_fields = _options_field_definitions(options_type)
+        if "type" in options_fields:
+            raise LaunchError(
+                f"Options type {options_type.__name__} for "
+                f"{controller_class.__name__} declares a 'type' field, which "
+                f"collides with the launch-framework discriminator key."
+            )
+        fields.update(options_fields)
     else:
         raise LaunchError(
             f"Expected no more than 2 arguments for '{controller_class.__name__}"
             f".__init__' but received {len(args)} as `{sig}`"
         )
 
-    return create_model(
+    entry_model = create_model(
         f"{controller_class.__name__}Entry",
         __config__={"extra": "forbid"},
         **fields,
     )
+    entry_model.fastcs_controller_class = controller_class
+    entry_model.fastcs_options_type = options_type
+    return entry_model
 
 
 def _build_options_model(

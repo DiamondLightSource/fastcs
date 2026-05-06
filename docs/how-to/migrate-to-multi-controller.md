@@ -33,9 +33,8 @@ transport:
 # After
 controllers:
   DEVICE:                     # id — used as the addressing prefix
-    controller:               # nested options block (same fields as before)
-      ip_address: "192.168.1.100"
-      port: 25565
+    ip_address: "192.168.1.100"
+    port: 25565
 
 transport:
   - epicsca: {}
@@ -93,12 +92,10 @@ called with more than one class, every entry must carry an explicit
 controllers:
   CRYO:
     type: Lakeshore
-    controller:
-      ip_address: "192.168.1.100"
+    ip_address: "192.168.1.100"
   OVEN:
     type: Eurotherm
-    controller:
-      ip_address: "192.168.1.101"
+    ip_address: "192.168.1.101"
 
 transport:
   - epicsca: {}

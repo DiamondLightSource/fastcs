@@ -62,14 +62,17 @@ as an argument:
 # fastcs.yaml
 controllers:
   DEVICE:
-    controller:
-      ip_address: "192.168.1.100"
-      port: 25565
-      timeout: 10.0
+    ip_address: "192.168.1.100"
+    port: 25565
+    timeout: 10.0
 
 transport:
   - epicsca: {}
 ```
+
+The fields under each id come straight from the `__init__` options type
+(`DeviceSettings` here). The optional `type:` key sits alongside them
+for multi-class apps (see below).
 
 The key under `controllers:` (here `DEVICE`) is the controller id, used
 verbatim as the EPICS PV prefix and as the REST route prefix.
@@ -96,15 +99,13 @@ end-to-end:
 # fastcs.yaml
 controllers:
   MAIN:
-    controller:
-      ip_address: "192.168.1.100"
-      port: 25565
-      timeout: 10.0
+    ip_address: "192.168.1.100"
+    port: 25565
+    timeout: 10.0
   AUX:
-    controller:
-      ip_address: "192.168.1.101"
-      port: 25565
-      timeout: 10.0
+    ip_address: "192.168.1.101"
+    port: 25565
+    timeout: 10.0
 
 transport:
   - epicsca: {}
@@ -131,9 +132,10 @@ Use this schema for IDE autocompletion in YAML files:
 
 ```yaml
 # yaml-language-server: $schema=schema.json
-controller:
-  ip_address: "192.168.1.100"
-  # ... IDE will provide autocompletion
+controllers:
+  DEVICE:
+    ip_address: "192.168.1.100"
+    # ... IDE will provide autocompletion
 ```
 
 ## Transport Configuration
