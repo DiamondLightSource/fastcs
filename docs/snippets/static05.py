@@ -14,7 +14,9 @@ class TemperatureController(Controller):
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
-fastcs = FastCS(TemperatureController(), [epics_ca])
+controller = TemperatureController()
+controller.set_id("DEMO")
+fastcs = FastCS(controller, [epics_ca])
 
 if __name__ == "__main__":
     fastcs.run()
