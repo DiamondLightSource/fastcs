@@ -10,7 +10,9 @@ class TemperatureController(Controller):
 
 
 epics_ca = EpicsCATransport()
-fastcs = FastCS(TemperatureController(), [epics_ca])
+controller = TemperatureController()
+controller.set_id("DEMO")
+fastcs = FastCS(controller, [epics_ca])
 
 if __name__ == "__main__":
     fastcs.run()
