@@ -24,6 +24,11 @@ from fastcs.logging import (
 )
 from fastcs.transports import Transport
 
+_ENTRY_REGISTRY: dict[type[BaseModel], tuple[type[Controller], Any]] = {}
+"""Maps each dynamically-built Entry model class to its originating
+Controller class and (optional) options-type. Populated by
+``_build_entry_model`` and read by ``_instantiate_controllers``."""
+
 
 def launch(
     controller_classes: type[Controller] | list[type[Controller]],
@@ -185,13 +190,13 @@ def _instantiate_controllers(
     Each value in ``controllers_options`` is a dynamically-built Pydantic
     model that exposes ``type`` plus the controller's options fields
     inlined as siblings. The originating Controller class and its
-    options-type are stashed on the Entry class by ``_build_entry_model``.
+    options-type are looked up in ``_ENTRY_REGISTRY`` (populated by
+    ``_build_entry_model``).
     """
     controllers: list[Controller] = []
     for id, entry in controllers_options.items():
-        entry_cls = type(entry)
-        cls: type[Controller] = entry_cls.fastcs_controller_class
-        options_type: type | None = entry_cls.fastcs_options_type
+        entry_cls: type[BaseModel] = type(entry)
+        cls, options_type = _ENTRY_REGISTRY[entry_cls]
         if options_type is None:
             controller = cls()
         else:
@@ -242,15 +247,15 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
 
     Each entry exposes a ``type`` discriminator literal alongside the
     options-type's fields, inlined as siblings (no nested ``controller:``
-    block). The Controller class and its options-type are stashed on the
-    returned model class for use by ``_instantiate_controllers``.
+    block). The Controller class and its options-type are recorded in
+    ``_ENTRY_REGISTRY`` for use by ``_instantiate_controllers``.
     """
     sig = inspect.signature(controller_class.__init__)
     args = inspect.getfullargspec(controller_class.__init__)[0]
     discriminator = _discriminator(controller_class)
 
     fields: dict[str, Any] = {"type": (Literal[discriminator], ...)}
-    options_type: type | None = None
+    options_type: Any = None
 
     if len(args) == 1:
         pass
@@ -282,8 +287,7 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
         __config__={"extra": "forbid"},
         **fields,
     )
-    entry_model.fastcs_controller_class = controller_class
-    entry_model.fastcs_options_type = options_type
+    _ENTRY_REGISTRY[entry_model] = (controller_class, options_type)
     return entry_model
 
 
