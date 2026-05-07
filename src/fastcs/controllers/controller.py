@@ -17,37 +17,40 @@ class Controller(BaseController):
 
     def __init__(
         self,
+        id: str | None = None,
         description: str | None = None,
         ios: Sequence[AnyAttributeIO] | None = None,
     ) -> None:
         super().__init__(description=description, ios=ios)
         self._connected = False
-        self._id: str | None = None
+        self._id: str | None = id
 
     @property
     def id(self) -> str:
-        """Stable identifier set once by the launcher between ``__init__`` and
-        ``initialise()``. Reading before set is a programming error."""
-        if self._id is None:
-            raise RuntimeError(
-                f"Controller {type(self).__name__} id has not been set yet"
-            )
-        return self._id
+        """Stable identifier for this Controller.
 
-    def set_id(self, id: str) -> None:
-        """Set this controller's stable identifier. May only be called once."""
+        Roots receive their id at construction time (the launcher passes it
+        from the ``id:`` field of the matching ``controllers:`` entry). Subs
+        omit it at construction and fall back to the name they were registered
+        under in the parent (the last segment of ``path``). Reading before
+        either is set is a programming error.
+        """
         if self._id is not None:
-            raise RuntimeError(
-                f"Controller {type(self).__name__} id is already set to "
-                f"{self._id!r}; cannot reset to {id!r}"
-            )
-        self._id = id
+            return self._id
+        if self._path:
+            return self._path[-1]
+        raise RuntimeError(
+            f"Controller {type(self).__name__} has no id: not constructed with "
+            f"one and not registered as a sub-controller"
+        )
 
     def __repr__(self):
         base = super().__repr__()
-        if self._id is None:
+        try:
+            id = self.id
+        except RuntimeError:
             return base
-        return f"{base[:-1]}, id={self._id!r})"
+        return f"{base[:-1]}, id={id!r})"
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
         if name.isdigit():

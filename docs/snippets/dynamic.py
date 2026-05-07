@@ -100,7 +100,7 @@ class TemperatureRampController(Controller):
         io: TemperatureControllerAttributeIO,
     ):
         self._parameters = parameters
-        super().__init__(f"Ramp{index}", ios=[io])
+        super().__init__(description=f"Ramp{index}", ios=[io])
 
     async def initialise(self):
         for name, attribute in create_attributes(self._parameters).items():
@@ -108,12 +108,12 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
-    def __init__(self, settings: IPConnectionSettings):
+    def __init__(self, id: str, settings: IPConnectionSettings):
         self._ip_settings = settings
         self._connection = IPConnection()
 
         self._io = TemperatureControllerAttributeIO(self._connection)
-        super().__init__(ios=[self._io])
+        super().__init__(id, ios=[self._io])
 
     async def connect(self):
         await self._connection.connect(self._ip_settings)
@@ -140,8 +140,7 @@ class TemperatureController(Controller):
 
 epics_ca = EpicsCATransport()
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
-controller.set_id("DEMO")
+controller = TemperatureController("DEMO", connection_settings)
 fastcs = FastCS(controller, [epics_ca])
 
 

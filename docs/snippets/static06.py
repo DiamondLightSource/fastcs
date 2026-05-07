@@ -12,8 +12,8 @@ from fastcs.transports.epics.ca import EpicsCATransport
 class TemperatureController(Controller):
     device_id = AttrR(String())
 
-    def __init__(self, settings: IPConnectionSettings):
-        super().__init__()
+    def __init__(self, id: str, settings: IPConnectionSettings):
+        super().__init__(id)
 
         self._ip_settings = settings
         self._connection = IPConnection()
@@ -25,8 +25,7 @@ class TemperatureController(Controller):
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
-controller.set_id("DEMO")
+controller = TemperatureController("DEMO", connection_settings)
 fastcs = FastCS(controller, [epics_ca])
 
 

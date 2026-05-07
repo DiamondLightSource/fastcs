@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=schema.json
 controllers:
-  device-1:
+  - id: device-1
     type: IsHinted
     name: controller-name
 transport:

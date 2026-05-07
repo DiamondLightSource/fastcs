@@ -33,37 +33,48 @@ class _OtherAttrController(Controller):
     bar = AttrR(Int())
 
 
-def test_id_raises_before_set():
+def test_id_raises_when_neither_constructed_nor_registered():
+    """A bare Controller instance with no id and not registered as a sub
+    has no identity to fall back on."""
     controller = _IdController()
     with pytest.raises(RuntimeError, match="id"):
         _ = controller.id
 
 
-def test_id_returns_value_after_set():
-    controller = _IdController()
-    controller.set_id("foo")
+def test_id_returns_value_when_constructed_with_one():
+    controller = _IdController("foo")
     assert controller.id == "foo"
 
 
-def test_set_id_twice_raises():
-    controller = _IdController()
-    controller.set_id("foo")
-    with pytest.raises(RuntimeError, match="already"):
-        controller.set_id("bar")
+def test_id_falls_back_to_registered_name_for_sub():
+    """A sub-controller without an explicit id derives id from the name it
+    was registered under in the parent."""
+    parent = _IdController("root")
+    sub = _IdController()
+    parent.add_sub_controller("Sub", sub)
+    assert sub.id == "Sub"
 
 
-def test_repr_includes_id_when_set():
-    controller = _IdController()
-    assert "id=" not in repr(controller)
-    controller.set_id("foo")
-    assert "id='foo'" in repr(controller)
+def test_explicit_id_wins_over_registered_name_for_sub():
+    """A sub constructed with an explicit id keeps it, even after registration
+    under a different name."""
+    parent = _IdController("root")
+    sub = _IdController("explicit")
+    parent.add_sub_controller("Sub", sub)
+    assert sub.id == "explicit"
+
+
+def test_repr_includes_id_when_present():
+    bare = _IdController()
+    assert "id=" not in repr(bare)
+    constructed = _IdController("foo")
+    assert "id='foo'" in repr(constructed)
 
 
 def test_controller_api_path_uses_id():
-    controller = _IdController()
+    controller = _IdController("X")
     sub = _IdController()
     controller.add_sub_controller("Sub", sub)
-    controller.set_id("X")
 
     api, _, _ = controller.create_api_and_tasks()
 
@@ -72,8 +83,7 @@ def test_controller_api_path_uses_id():
 
 
 def _api_with_id(controller_class: type[Controller], id: str):
-    controller = controller_class()
-    controller.set_id(id)
+    controller = controller_class(id)
     api, _, _ = controller.create_api_and_tasks()
     return api
 
@@ -331,8 +341,8 @@ class _LifecycleController(Controller):
 
     foo = AttrR(Int())
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, id: str):
+        super().__init__(id)
         self.connected = False
         self.initialised = False
         self.post_initialised = False
@@ -358,10 +368,8 @@ class _OtherLifecycleController(_LifecycleController):
 async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     """FastCS.serve drives lifecycle on every controller and routes REST traffic
     per-id; combined OpenAPI describes both prefixes."""
-    a = _LifecycleController()
-    a.set_id("alpha")
-    b = _OtherLifecycleController()
-    b.set_id("beta")
+    a = _LifecycleController("alpha")
+    b = _OtherLifecycleController("beta")
 
     transport = RestTransport()
     # Stop RestTransport from binding to a real port; we exercise the FastAPI
