@@ -235,24 +235,15 @@
     "TemperatureControllerEntry": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
         "type": {
           "const": "TemperatureController",
-          "default": "TemperatureController",
           "title": "Type",
           "type": "string"
         },
-        "controller": {
-          "$ref": "#/$defs/TemperatureControllerSettings"
-        }
-      },
-      "required": [
-        "controller"
-      ],
-      "title": "TemperatureControllerEntry",
-      "type": "object"
-    },
-    "TemperatureControllerSettings": {
-      "properties": {
         "num_ramp_controllers": {
           "title": "Num Ramp Controllers",
           "type": "integer"
@@ -262,21 +253,23 @@
         }
       },
       "required": [
+        "id",
+        "type",
         "num_ramp_controllers",
         "ip_settings"
       ],
-      "title": "TemperatureControllerSettings",
+      "title": "TemperatureControllerEntry",
       "type": "object"
     }
   },
   "additionalProperties": false,
   "properties": {
     "controllers": {
-      "additionalProperties": {
+      "items": {
         "$ref": "#/$defs/TemperatureControllerEntry"
       },
       "title": "Controllers",
-      "type": "object"
+      "type": "array"
     },
     "transport": {
       "items": {

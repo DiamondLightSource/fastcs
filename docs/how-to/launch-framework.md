@@ -61,7 +61,7 @@ as an argument:
 ```yaml
 # fastcs.yaml
 controllers:
-  DEVICE:
+  - id: DEVICE
     type: DeviceController
     ip_address: "192.168.1.100"
     port: 25565
@@ -71,13 +71,13 @@ transport:
   - epicsca: {}
 ```
 
-Every entry carries a required `type:` discriminator that names the
-Controller class to instantiate. The remaining fields under each id
-come straight from that class's `__init__` options type
+Every entry carries a required `id:` plus a required `type:` discriminator
+that names the Controller class to instantiate. The remaining fields under
+each entry come straight from that class's `__init__` options type
 (`DeviceSettings` here).
 
-The key under `controllers:` (here `DEVICE`) is the controller id, used
-verbatim as the EPICS PV prefix and as the REST route prefix.
+The `id:` (here `DEVICE`) is used verbatim as the EPICS PV prefix and as
+the REST route prefix.
 
 Run with:
 
@@ -87,21 +87,20 @@ python my_driver.py run fastcs.yaml
 
 ### Hosting multiple controllers
 
-`controllers:` is a dict, so a single application can host more than one
-controller. Each entry needs a unique id (the dict key); the `type:`
-discriminator selects which class to instantiate. For example, two
-`DeviceController` instances on different IPs sharing a single transport
-list:
+`controllers:` is a list, so a single application can host more than one
+controller. Each entry needs a unique `id:`; the `type:` discriminator
+selects which class to instantiate. For example, two `DeviceController`
+instances on different IPs sharing a single transport list:
 
 ```yaml
 # fastcs.yaml
 controllers:
-  MAIN:
+  - id: MAIN
     type: DeviceController
     ip_address: "192.168.1.100"
     port: 25565
     timeout: 10.0
-  AUX:
+  - id: AUX
     type: DeviceController
     ip_address: "192.168.1.101"
     port: 25565
@@ -136,7 +135,7 @@ Use this schema for IDE autocompletion in YAML files:
 ```yaml
 # yaml-language-server: $schema=schema.json
 controllers:
-  DEVICE:
+  - id: DEVICE
     type: DeviceController
     ip_address: "192.168.1.100"
     # ... IDE will provide autocompletion

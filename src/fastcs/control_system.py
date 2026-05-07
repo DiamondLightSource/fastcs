@@ -19,12 +19,12 @@ tracer = Tracer()
 def _context_key(controller: Controller) -> str:
     """Key used for a controller in IPython context dicts.
 
-    Falls back to the class name when no id has been set so direct-construction
-    callers (without launch()) still get a sensible key.
+    Falls back to the class name when no path has been seeded so
+    direct-construction callers (without launch()) still get a sensible key.
     """
     try:
-        return controller.id
-    except RuntimeError:
+        return controller.path[0]
+    except IndexError:
         return controller.__class__.__name__
 
 

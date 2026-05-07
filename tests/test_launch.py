@@ -75,12 +75,13 @@ def test_single_arg_schema():
     entry_model = create_model(
         "SingleArgEntry",
         __config__={"extra": "forbid"},
+        id=(str, ...),
         type=(Literal["SingleArg"], ...),
     )
     target_model = create_model(
         "SingleArg",
         __config__={"extra": "forbid"},
-        controllers=(dict[str, entry_model], ...),
+        controllers=(list[entry_model], ...),
         transport=(list[Transport.union()], ...),
     )
     target_dict = target_model.model_json_schema()
@@ -97,13 +98,14 @@ def test_is_hinted_schema(data):
     entry_model = create_model(
         "IsHintedEntry",
         __config__={"extra": "forbid"},
+        id=(str, ...),
         type=(Literal["IsHinted"], ...),
         name=(str, ...),
     )
     target_model = create_model(
         "IsHinted",
         __config__={"extra": "forbid"},
-        controllers=(dict[str, entry_model], ...),
+        controllers=(list[entry_model], ...),
         transport=(list[Transport.union()], ...),
     )
     target_dict = target_model.model_json_schema()
@@ -196,8 +198,8 @@ def test_error_if_identical_context_in_transports(mocker: MockerFixture, data):
     assert "Duplicate context keys found" in result.exception.args[0]
 
 
-def _controllers(instance) -> dict:
-    """Read the dynamically-defined `controllers` mapping off a validated model."""
+def _controllers(instance) -> list:
+    """Read the dynamically-defined `controllers` list off a validated model."""
     return instance.controllers  # type: ignore[attr-defined]
 
 
@@ -208,18 +210,19 @@ def test_single_class_requires_type():
     with pytest.raises(ValidationError):
         options_model.model_validate(
             {
-                "controllers": {"my-id": {"name": "x"}},
+                "controllers": [{"id": "my-id", "name": "x"}],
                 "transport": [{"rest": {}}],
             }
         )
 
     instance = options_model.model_validate(
         {
-            "controllers": {"my-id": {"type": "IsHinted", "name": "x"}},
+            "controllers": [{"id": "my-id", "type": "IsHinted", "name": "x"}],
             "transport": [{"rest": {}}],
         }
     )
-    entry = _controllers(instance)["my-id"]
+    entry = _controllers(instance)[0]
+    assert entry.id == "my-id"
     assert entry.type == "IsHinted"
     assert entry.name == "x"
 
@@ -229,18 +232,19 @@ def test_multi_class_discriminator():
     options_model = _build_options_model([IsHinted, OtherHinted])
     instance = options_model.model_validate(
         {
-            "controllers": {
-                "first": {"type": "IsHinted", "name": "a"},
-                "second": {"type": "OtherHinted", "address": "b"},
-            },
+            "controllers": [
+                {"id": "first", "type": "IsHinted", "name": "a"},
+                {"id": "second", "type": "OtherHinted", "address": "b"},
+            ],
             "transport": [{"rest": {}}],
         }
     )
 
-    first = _controllers(instance)["first"]
-    second = _controllers(instance)["second"]
+    first, second = _controllers(instance)
+    assert first.id == "first"
     assert first.type == "IsHinted"
     assert first.name == "a"
+    assert second.id == "second"
     assert second.type == "OtherHinted"
     assert second.address == "b"
 
@@ -250,7 +254,7 @@ def test_multi_class_unknown_type_rejected():
     with pytest.raises(ValidationError):
         options_model.model_validate(
             {
-                "controllers": {"x": {"type": "Unknown", "name": "a"}},
+                "controllers": [{"id": "x", "type": "Unknown", "name": "a"}],
                 "transport": [{"rest": {}}],
             }
         )
@@ -261,31 +265,35 @@ def test_type_name_override():
     options_model = _build_options_model([Aliased, OtherHinted])
     instance = options_model.model_validate(
         {
-            "controllers": {
-                "x": {"type": "aliased-controller", "name": "n"},
-            },
+            "controllers": [
+                {"id": "x", "type": "aliased-controller", "name": "n"},
+            ],
             "transport": [{"rest": {}}],
         }
     )
-    assert _controllers(instance)["x"].type == "aliased-controller"
+    assert _controllers(instance)[0].type == "aliased-controller"
 
 
-def test_duplicate_id_rejected_at_yaml_load(tmp_path):
-    """ruamel YAML rejects duplicate mapping keys, so duplicate ids cannot
-    survive parsing; this is the natural source of duplicate-id rejection."""
+def test_duplicate_id_rejected_at_run(mocker: MockerFixture, tmp_path):
+    """Two entries with the same `id` are rejected at run time. (List-form
+    YAML accepts duplicate ids syntactically, so the launcher checks.)"""
+    mocker.patch("fastcs.launch.FastCS.run")
     cfg = tmp_path / "dup.yaml"
     cfg.write_text(
         "controllers:\n"
-        "  same:\n"
+        "  - id: same\n"
+        "    type: IsHinted\n"
         "    name: a\n"
-        "  same:\n"
+        "  - id: same\n"
+        "    type: IsHinted\n"
         "    name: b\n"
         "transport:\n"
         "  - rest: {}\n"
     )
-    yaml = YAML(typ="safe")
-    with pytest.raises(Exception, match="duplicate key"):
-        yaml.load(cfg)
+    app = _launch(IsHinted)
+    result = runner.invoke(app, ["run", str(cfg)])
+    assert isinstance(result.exception, LaunchError)
+    assert "Duplicate controller id" in str(result.exception)
 
 
 def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
@@ -296,10 +304,10 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     cfg = tmp_path / "multi.yaml"
     cfg.write_text(
         "controllers:\n"
-        "  one:\n"
+        "  - id: one\n"
         "    type: IsHinted\n"
         "    name: a\n"
-        "  two:\n"
+        "  - id: two\n"
         "    type: OtherHinted\n"
         "    address: b\n"
         "transport:\n"
@@ -310,5 +318,5 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     assert result.exit_code == 0, result.output
     init_spy.assert_called_once()
     controllers_arg = init_spy.call_args.args[1]
-    assert [c.id for c in controllers_arg] == ["one", "two"]
+    assert [c.path[0] for c in controllers_arg] == ["one", "two"]
     assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]

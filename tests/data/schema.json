@@ -164,6 +164,10 @@
     "IsHintedEntry": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
         "type": {
           "const": "IsHinted",
           "title": "Type",
@@ -175,6 +179,7 @@
         }
       },
       "required": [
+        "id",
         "type",
         "name"
       ],
@@ -240,11 +245,11 @@
   "additionalProperties": false,
   "properties": {
     "controllers": {
-      "additionalProperties": {
+      "items": {
         "$ref": "#/$defs/IsHintedEntry"
       },
       "title": "Controllers",
-      "type": "object"
+      "type": "array"
     },
     "transport": {
       "items": {

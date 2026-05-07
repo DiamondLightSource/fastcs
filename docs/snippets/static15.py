@@ -117,7 +117,7 @@ epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
 logger.info("Configuring connection settings", connection_settings=connection_settings)
 controller = TemperatureController(4, connection_settings)
-controller.set_id("DEMO")
+controller.set_path(["DEMO"])
 fastcs = FastCS(controller, [epics_ca])
 
 if __name__ == "__main__":

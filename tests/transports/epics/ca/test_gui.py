@@ -204,7 +204,7 @@ class _B(Controller):
 
 def _api_with_id(cls, name):
     c = cls()
-    c.set_id(name)
+    c.set_path([name])
     api, _, _ = c.create_api_and_tasks()
     return api
 

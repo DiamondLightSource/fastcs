@@ -22,7 +22,7 @@ def run():
         TangoTransport(),
     ]
     controller = MyTestController()
-    controller.set_id("BENCHMARK-DEVICE")
+    controller.set_path(["BENCHMARK-DEVICE"])
     instance = FastCS(controller, transport_options, asyncio.get_event_loop())
     instance.run()
 

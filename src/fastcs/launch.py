@@ -192,30 +192,43 @@ def _launch(
 
 
 def _instantiate_controllers(
-    controllers_options: dict[str, Any],
+    controllers_options: list[Any],
 ) -> list[Controller]:
-    """Instantiate each entry under `controllers:` and stamp its id.
+    """Instantiate each entry under `controllers:` and seed its path.
 
-    Each value in ``controllers_options`` is a dynamically-built Pydantic
-    model that exposes ``type`` plus the controller's options fields
+    Each item in ``controllers_options`` is a dynamically-built Pydantic
+    model that exposes ``id``, ``type`` and the controller's options fields
     inlined as siblings. The originating Controller class and its
     options-type are looked up in ``_ENTRY_REGISTRY`` (populated by
-    ``_build_entry_model``).
+    ``_build_entry_model``). The entry's ``id`` is seeded into the
+    controller's ``_path`` via ``set_path([id])`` so that
+    ``ControllerAPI.path`` is rooted at the YAML id.
     """
+    seen_ids: set[str] = set()
+    duplicates: list[str] = []
+    for entry in controllers_options:
+        if entry.id in seen_ids:
+            duplicates.append(entry.id)
+        seen_ids.add(entry.id)
+    if duplicates:
+        raise LaunchError(
+            f"Duplicate controller id(s) in `controllers:`: {sorted(set(duplicates))}"
+        )
+
     controllers: list[Controller] = []
-    for id, entry in controllers_options.items():
+    for entry in controllers_options:
         entry_cls: type[BaseModel] = type(entry)
         registered = _ENTRY_REGISTRY[entry_cls]
         if registered.expects_options:
             field_values = {
                 name: getattr(entry, name)
                 for name in entry_cls.model_fields
-                if name != "type"
+                if name not in ("id", "type")
             }
             controller = registered.cls(registered.options_type(**field_values))
         else:
             controller = registered.cls()
-        controller.set_id(id)
+        controller.set_path([entry.id])
         controllers.append(controller)
     return controllers
 
@@ -254,8 +267,8 @@ def _options_field_definitions(options_type: type) -> dict[str, tuple[Any, Any]]
 def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     """Build a Pydantic model for one entry under `controllers:`.
 
-    Each entry exposes a ``type`` discriminator literal alongside the
-    options-type's fields, inlined as siblings (no nested ``controller:``
+    Each entry exposes ``id`` and a ``type`` discriminator literal alongside
+    the options-type's fields, inlined as siblings (no nested ``controller:``
     block). The Controller class and its options-type are recorded in
     ``_ENTRY_REGISTRY`` for use by ``_instantiate_controllers``.
     """
@@ -263,7 +276,10 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     args = inspect.getfullargspec(controller_class.__init__)[0]
     discriminator = _discriminator(controller_class)
 
-    fields: dict[str, Any] = {"type": (Literal[discriminator], ...)}
+    fields: dict[str, Any] = {
+        "id": (str, ...),
+        "type": (Literal[discriminator], ...),
+    }
     expects_options = False
     options_type: Any = None
 
@@ -280,12 +296,13 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
             )
         options_type = list(hints.values())[-1]
         options_fields = _options_field_definitions(options_type)
-        if "type" in options_fields:
-            raise LaunchError(
-                f"Options type {options_type.__name__} for "
-                f"{controller_class.__name__} declares a 'type' field, which "
-                f"collides with the launch-framework discriminator key."
-            )
+        for reserved in ("id", "type"):
+            if reserved in options_fields:
+                raise LaunchError(
+                    f"Options type {options_type.__name__} for "
+                    f"{controller_class.__name__} declares a {reserved!r} field, "
+                    f"which collides with a launch-framework key."
+                )
         fields.update(options_fields)
     else:
         raise LaunchError(
@@ -311,10 +328,11 @@ def _build_options_model(
 ) -> type[BaseModel]:
     """Build the top-level Pydantic model for fastcs.yaml.
 
-    `controllers:` is a dict keyed by id. Each value is either the single
+    `controllers:` is a list of entries. Each entry is either the single
     registered class's entry model or a discriminated union over all
-    registered classes; in both cases the entry's ``type:`` field is
-    required and names the controller class.
+    registered classes; in both cases the entry's ``id:`` and ``type:``
+    fields are required. Duplicate ``id`` values across the list are
+    rejected by ``_instantiate_controllers``.
     """
     entries = [_build_entry_model(cls) for cls in controller_classes]
 
@@ -330,7 +348,7 @@ def _build_options_model(
     return create_model(
         title,
         __config__={"extra": "forbid"},
-        controllers=(dict[str, entry_value_type], ...),
+        controllers=(list[entry_value_type], ...),
         transport=(list[Transport.union()], ...),
     )
 
