@@ -1,0 +1,21 @@
+``fastcs.transports.rest.rest``
+===============================
+        
+
+.. automodule:: fastcs.transports.rest.rest
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        RestServer
+    
+    

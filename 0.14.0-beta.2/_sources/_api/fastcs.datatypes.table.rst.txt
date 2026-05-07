@@ -1,0 +1,21 @@
+``fastcs.datatypes.table``
+==========================
+        
+
+.. automodule:: fastcs.datatypes.table
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        Table
+    
+    

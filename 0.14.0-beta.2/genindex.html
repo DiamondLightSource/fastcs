@@ -1,0 +1,1820 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Index &#8212; fastcs 0.14.0b2 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=3fefa004" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=42783549"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=30646c52"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'genindex';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://DiamondLightSource.github.io/fastcs/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.14.0b2';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="icon" href="_static/fastcs.svg"/>
+    <link rel="index" title="Index" href="#" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.14.0b2" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/fastcs.svg" class="logo__image only-light" alt=""/>
+    <img src="_static/fastcs.svg" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">fastcs</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="_api/fastcs.html">API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_api/fastcs.attributes.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.attributes.attr_r.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes.attr_r</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.attributes.attr_rw.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes.attr_rw</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.attributes.attr_w.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes.attr_w</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.attributes.attribute.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes.attribute</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.attributes.attribute_io.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes.attribute_io</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.attributes.attribute_io_ref.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes.attribute_io_ref</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.attributes.hinted_attribute.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes.hinted_attribute</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.attributes.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.attributes.util</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_api/fastcs.connections.html"><code class="docutils literal notranslate"><span class="pre">fastcs.connections</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.connections.ip_connection.html"><code class="docutils literal notranslate"><span class="pre">fastcs.connections.ip_connection</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.connections.serial_connection.html"><code class="docutils literal notranslate"><span class="pre">fastcs.connections.serial_connection</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="_api/fastcs.control_system.html"><code class="docutils literal notranslate"><span class="pre">fastcs.control_system</span></code></a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_api/fastcs.controllers.html"><code class="docutils literal notranslate"><span class="pre">fastcs.controllers</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.controllers.base_controller.html"><code class="docutils literal notranslate"><span class="pre">fastcs.controllers.base_controller</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.controllers.controller.html"><code class="docutils literal notranslate"><span class="pre">fastcs.controllers.controller</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.controllers.controller_api.html"><code class="docutils literal notranslate"><span class="pre">fastcs.controllers.controller_api</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.controllers.controller_vector.html"><code class="docutils literal notranslate"><span class="pre">fastcs.controllers.controller_vector</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_api/fastcs.datatypes.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.datatypes.bool.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes.bool</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.datatypes.datatype.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes.datatype</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.datatypes.enum.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes.enum</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.datatypes.float.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes.float</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.datatypes.int.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes.int</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.datatypes.string.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes.string</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.datatypes.table.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes.table</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.datatypes.waveform.html"><code class="docutils literal notranslate"><span class="pre">fastcs.datatypes.waveform</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_api/fastcs.demo.html"><code class="docutils literal notranslate"><span class="pre">fastcs.demo</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.demo.controllers.html"><code class="docutils literal notranslate"><span class="pre">fastcs.demo.controllers</span></code></a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="_api/fastcs.demo.simulation.html"><code class="docutils literal notranslate"><span class="pre">fastcs.demo.simulation</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.demo.simulation.device.html"><code class="docutils literal notranslate"><span class="pre">fastcs.demo.simulation.device</span></code></a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="_api/fastcs.exceptions.html"><code class="docutils literal notranslate"><span class="pre">fastcs.exceptions</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="_api/fastcs.launch.html"><code class="docutils literal notranslate"><span class="pre">fastcs.launch</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="_api/fastcs.logging.html"><code class="docutils literal notranslate"><span class="pre">fastcs.logging</span></code></a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_api/fastcs.methods.html"><code class="docutils literal notranslate"><span class="pre">fastcs.methods</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.methods.command.html"><code class="docutils literal notranslate"><span class="pre">fastcs.methods.command</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.methods.method.html"><code class="docutils literal notranslate"><span class="pre">fastcs.methods.method</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.methods.scan.html"><code class="docutils literal notranslate"><span class="pre">fastcs.methods.scan</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="_api/fastcs.tracer.html"><code class="docutils literal notranslate"><span class="pre">fastcs.tracer</span></code></a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_api/fastcs.transports.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="_api/fastcs.transports.epics.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.ca.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.ca</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.emission.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.emission</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.gui.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.gui</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.options</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.pva.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.pva</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.util</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="_api/fastcs.transports.graphql.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.graphql.graphql.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.graphql</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.graphql.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.options</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.graphql.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.transport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.graphql.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.util</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="_api/fastcs.transports.rest.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.rest.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest.options</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.rest.rest.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest.rest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.rest.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest.transport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.rest.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest.util</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="_api/fastcs.transports.tango.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.tango</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.tango.dsr.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.tango.dsr</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.tango.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.tango.options</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.tango.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.tango.transport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.tango.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.tango.util</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="_api/fastcs.transports.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.transport</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="_api/fastcs.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.util</span></code></a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Index</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/DiamondLightSource/fastcs/releases">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/projects-using-fastcs.html">Projects Using FastCS</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+
+<h1 id="index">Index</h1>
+
+<div class="genindex-jumpbox">
+ <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
+ 
+</div>
+<h2 id="_">_</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.html#fastcs.__version__">__version__ (in module fastcs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.attributes.attribute.html#fastcs.attributes.attribute.Attribute.access_mode">access_mode (fastcs.attributes.attribute.Attribute property)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrR.add_on_update_callback">add_on_update_callback() (fastcs.attributes.attr_r.AttrR method)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.pvi.html#fastcs.transports.epics.pva.pvi.add_pvi_info">add_pvi_info() (in module fastcs.transports.epics.pva.pvi)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_w.html#fastcs.attributes.attr_w.AttrW.add_sync_setpoint_callback">add_sync_setpoint_callback() (fastcs.attributes.attr_w.AttrW method)</a>
+</li>
+      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.add_tracing_filter">add_tracing_filter() (fastcs.tracer.Tracer method)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DataType.all_equal">all_equal() (fastcs.datatypes.datatype.DataType class method)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.waveform.html#fastcs.datatypes.waveform.Waveform.array_dtype">array_dtype (fastcs.datatypes.waveform.Waveform attribute)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.hinted_attribute.html#fastcs.attributes.hinted_attribute.HintedAttribute.attr_type">attr_type (fastcs.attributes.hinted_attribute.HintedAttribute attribute)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attribute.html#fastcs.attributes.attribute.Attribute">Attribute (class in fastcs.attributes.attribute)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attribute_io.html#fastcs.attributes.attribute_io.AttributeIO">AttributeIO (class in fastcs.attributes.attribute_io)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.attributes.attribute_io_ref.html#fastcs.attributes.attribute_io_ref.AttributeIORef">AttributeIORef (class in fastcs.attributes.attribute_io_ref)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attribute_io_ref.html#fastcs.attributes.attribute_io_ref.AttributeIORefT">AttributeIORefT (class in fastcs.attributes.attribute_io_ref)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.attributes">attributes (fastcs.controllers.controller_api.ControllerAPI attribute)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrIOUpdateCallback">AttrIOUpdateCallback (in module fastcs.attributes.attr_r)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_w.html#fastcs.attributes.attr_w.AttrOnPutCallback">AttrOnPutCallback (in module fastcs.attributes.attr_w)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrOnUpdateCallback">AttrOnUpdateCallback (in module fastcs.attributes.attr_r)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrR">AttrR (class in fastcs.attributes.attr_r)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_rw.html#fastcs.attributes.attr_rw.AttrRW">AttrRW (class in fastcs.attributes.attr_rw)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_w.html#fastcs.attributes.attr_w.AttrSyncSetpointCallback">AttrSyncSetpointCallback (in module fastcs.attributes.attr_w)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrUpdateCallback">AttrUpdateCallback (in module fastcs.attributes.attr_r)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_w.html#fastcs.attributes.attr_w.AttrW">AttrW (class in fastcs.attributes.attr_w)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.controllers.base_controller.html#fastcs.controllers.base_controller.BaseController">BaseController (class in fastcs.controllers.base_controller)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrR.bind_update_callback">bind_update_callback() (fastcs.attributes.attr_r.AttrR method)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.bool.html#fastcs.datatypes.bool.Bool">Bool (class in fastcs.datatypes.bool)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.epics.ca.util.html#fastcs.transports.epics.ca.util.cast_from_epics_type">cast_from_epics_type() (in module fastcs.transports.epics.ca.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.cast_from_p4p_value">cast_from_p4p_value() (in module fastcs.transports.epics.pva.types)</a>
+</li>
+      <li><a href="_api/fastcs.transports.rest.util.html#fastcs.transports.rest.util.cast_from_rest_type">cast_from_rest_type() (in module fastcs.transports.rest.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.cast_from_tango_type">cast_from_tango_type() (in module fastcs.transports.tango.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.ca.util.html#fastcs.transports.epics.ca.util.cast_to_epics_type">cast_to_epics_type() (in module fastcs.transports.epics.ca.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.cast_to_p4p_value">cast_to_p4p_value() (in module fastcs.transports.epics.pva.types)</a>
+</li>
+      <li><a href="_api/fastcs.transports.rest.util.html#fastcs.transports.rest.util.cast_to_rest_type">cast_to_rest_type() (in module fastcs.transports.rest.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.cast_to_tango_type">cast_to_tango_type() (in module fastcs.transports.tango.util)</a>
+</li>
+      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.clear_tracing_filters">clear_tracing_filters() (fastcs.tracer.Tracer method)</a>
+</li>
+      <li><a href="_api/fastcs.methods.command.html#fastcs.methods.command.Command">Command (class in fastcs.methods.command)</a>
+</li>
+      <li><a href="_api/fastcs.methods.command.html#fastcs.methods.command.command">command() (in module fastcs.methods.command)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.command_methods">command_methods (fastcs.controllers.controller_api.ControllerAPI attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.methods.command.html#fastcs.methods.command.CommandCallback">CommandCallback (in module fastcs.methods.command)</a>
+</li>
+      <li><a href="_api/fastcs.logging.html#fastcs.logging.configure_logging">configure_logging() (in module fastcs.logging)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller.html#fastcs.controllers.controller.Controller.connect">connect() (fastcs.controllers.controller.Controller method)</a>
+
+      <ul>
+        <li><a href="_api/fastcs.transports.transport.html#fastcs.transports.transport.Transport.connect">(fastcs.transports.transport.Transport method)</a>
+</li>
+      </ul></li>
+      <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport.context">context (fastcs.transports.epics.ca.transport.EpicsCATransport property)</a>
+
+      <ul>
+        <li><a href="_api/fastcs.transports.transport.html#fastcs.transports.transport.Transport.context">(fastcs.transports.transport.Transport property)</a>
+</li>
+      </ul></li>
+      <li><a href="_api/fastcs.controllers.controller.html#fastcs.controllers.controller.Controller">Controller (class in fastcs.controllers.controller)</a>
+</li>
+      <li><a href="_api/fastcs.util.html#fastcs.util.Controller_T">Controller_T (class in fastcs.util)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI">ControllerAPI (class in fastcs.controllers.controller_api)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller_vector.html#fastcs.controllers.controller_vector.ControllerVector">ControllerVector (class in fastcs.controllers.controller_vector)</a>
+</li>
+      <li><a href="_api/fastcs.transports.rest.util.html#fastcs.transports.rest.util.convert_datatype">convert_datatype() (in module fastcs.transports.rest.util)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller.html#fastcs.controllers.controller.Controller.create_api_and_tasks">create_api_and_tasks() (fastcs.controllers.controller.Controller method)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.ca.util.html#fastcs.transports.epics.ca.util.create_state_keys">create_state_keys() (in module fastcs.transports.epics.ca.util)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DataType">DataType (class in fastcs.datatypes.datatype)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.description">description (fastcs.controllers.controller_api.ControllerAPI attribute)</a>
+</li>
+      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.disable_tracing">disable_tracing() (fastcs.tracer.Tracer method)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller.html#fastcs.controllers.controller.Controller.disconnect">disconnect() (fastcs.controllers.controller.Controller method)</a>
+</li>
+      <li><a href="_api/fastcs.connections.ip_connection.html#fastcs.connections.ip_connection.DisconnectedError">DisconnectedError</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport.docs">docs (fastcs.transports.epics.ca.transport.EpicsCATransport attribute)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.hinted_attribute.html#fastcs.attributes.hinted_attribute.HintedAttribute.dtype">dtype (fastcs.attributes.hinted_attribute.HintedAttribute attribute)</a>
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DataType.dtype">(fastcs.datatypes.datatype.DataType property)</a>
+</li>
+      </ul></li>
+      <li><a href="_api/fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DType">DType (in module fastcs.datatypes.datatype)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DType_T">DType_T (class in fastcs.datatypes.datatype)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.epics.emission.html#fastcs.transports.epics.emission.emit_docs_files">emit_docs_files() (in module fastcs.transports.epics.emission)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.emission.html#fastcs.transports.epics.emission.emit_gui_files">emit_gui_files() (in module fastcs.transports.epics.emission)</a>
+</li>
+      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.enable_tracing">enable_tracing() (fastcs.tracer.Tracer method)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.enum.html#fastcs.datatypes.enum.Enum">Enum (class in fastcs.datatypes.enum)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.enum.html#fastcs.datatypes.enum.Enum_T">Enum_T (class in fastcs.datatypes.enum)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.EPICS_MAX_NAME_LENGTH">EPICS_MAX_NAME_LENGTH (in module fastcs.transports.epics.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport.epicsca">epicsca (fastcs.transports.epics.ca.transport.EpicsCATransport attribute)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.ca.ioc.html#fastcs.transports.epics.ca.ioc.EpicsCAIOC">EpicsCAIOC (class in fastcs.transports.epics.ca.ioc)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsCAOptions">EpicsCAOptions (class in fastcs.transports.epics.options)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport">EpicsCATransport (class in fastcs.transports.epics.ca.transport)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsDocsOptions">EpicsDocsOptions (class in fastcs.transports.epics.options)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.gui.html#fastcs.transports.epics.gui.EpicsGUI">EpicsGUI (class in fastcs.transports.epics.gui)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsGUIFormat">EpicsGUIFormat (class in fastcs.transports.epics.options)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsGUIOptions">EpicsGUIOptions (class in fastcs.transports.epics.options)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.transport.html#fastcs.transports.epics.pva.transport.EpicsPVATransport.epicspva">epicspva (fastcs.transports.epics.pva.transport.EpicsPVATransport attribute)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsPVAOptions">EpicsPVAOptions (class in fastcs.transports.epics.options)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.transport.html#fastcs.transports.epics.pva.transport.EpicsPVATransport">EpicsPVATransport (class in fastcs.transports.epics.pva.transport)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DataType.equal">equal() (fastcs.datatypes.datatype.DataType static method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    fastcs
+
+      <ul>
+        <li><a href="_api/fastcs.html#module-fastcs">module</a>
+</li>
+      </ul></li>
+      <li><a href="_api/fastcs.control_system.html#fastcs.control_system.FastCS">FastCS (class in fastcs.control_system)</a>
+</li>
+      <li>
+    fastcs.attributes
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.html#module-fastcs.attributes">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.attributes.attr_r
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.attr_r.html#module-fastcs.attributes.attr_r">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.attributes.attr_rw
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.attr_rw.html#module-fastcs.attributes.attr_rw">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.attributes.attr_w
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.attr_w.html#module-fastcs.attributes.attr_w">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.attributes.attribute
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.attribute.html#module-fastcs.attributes.attribute">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.attributes.attribute_io
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.attribute_io.html#module-fastcs.attributes.attribute_io">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.attributes.attribute_io_ref
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.attribute_io_ref.html#module-fastcs.attributes.attribute_io_ref">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.attributes.hinted_attribute
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.hinted_attribute.html#module-fastcs.attributes.hinted_attribute">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.attributes.util
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.util.html#module-fastcs.attributes.util">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.connections
+
+      <ul>
+        <li><a href="_api/fastcs.connections.html#module-fastcs.connections">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.connections.ip_connection
+
+      <ul>
+        <li><a href="_api/fastcs.connections.ip_connection.html#module-fastcs.connections.ip_connection">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.connections.serial_connection
+
+      <ul>
+        <li><a href="_api/fastcs.connections.serial_connection.html#module-fastcs.connections.serial_connection">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.control_system
+
+      <ul>
+        <li><a href="_api/fastcs.control_system.html#module-fastcs.control_system">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.controllers
+
+      <ul>
+        <li><a href="_api/fastcs.controllers.html#module-fastcs.controllers">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.controllers.base_controller
+
+      <ul>
+        <li><a href="_api/fastcs.controllers.base_controller.html#module-fastcs.controllers.base_controller">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.controllers.controller
+
+      <ul>
+        <li><a href="_api/fastcs.controllers.controller.html#module-fastcs.controllers.controller">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.controllers.controller_api
+
+      <ul>
+        <li><a href="_api/fastcs.controllers.controller_api.html#module-fastcs.controllers.controller_api">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.controllers.controller_vector
+
+      <ul>
+        <li><a href="_api/fastcs.controllers.controller_vector.html#module-fastcs.controllers.controller_vector">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.html#module-fastcs.datatypes">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes.bool
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.bool.html#module-fastcs.datatypes.bool">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes.datatype
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.datatype.html#module-fastcs.datatypes.datatype">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes.enum
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.enum.html#module-fastcs.datatypes.enum">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes.float
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.float.html#module-fastcs.datatypes.float">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes.int
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.int.html#module-fastcs.datatypes.int">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes.string
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.string.html#module-fastcs.datatypes.string">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes.table
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.table.html#module-fastcs.datatypes.table">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.datatypes.waveform
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.waveform.html#module-fastcs.datatypes.waveform">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.demo
+
+      <ul>
+        <li><a href="_api/fastcs.demo.html#module-fastcs.demo">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.demo.controllers
+
+      <ul>
+        <li><a href="_api/fastcs.demo.controllers.html#module-fastcs.demo.controllers">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.demo.simulation
+
+      <ul>
+        <li><a href="_api/fastcs.demo.simulation.html#module-fastcs.demo.simulation">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.demo.simulation.device
+
+      <ul>
+        <li><a href="_api/fastcs.demo.simulation.device.html#module-fastcs.demo.simulation.device">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.exceptions
+
+      <ul>
+        <li><a href="_api/fastcs.exceptions.html#module-fastcs.exceptions">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.launch
+
+      <ul>
+        <li><a href="_api/fastcs.launch.html#module-fastcs.launch">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.logging
+
+      <ul>
+        <li><a href="_api/fastcs.logging.html#module-fastcs.logging">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.methods
+
+      <ul>
+        <li><a href="_api/fastcs.methods.html#module-fastcs.methods">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.methods.command
+
+      <ul>
+        <li><a href="_api/fastcs.methods.command.html#module-fastcs.methods.command">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    fastcs.methods.method
+
+      <ul>
+        <li><a href="_api/fastcs.methods.method.html#module-fastcs.methods.method">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.methods.scan
+
+      <ul>
+        <li><a href="_api/fastcs.methods.scan.html#module-fastcs.methods.scan">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.tracer
+
+      <ul>
+        <li><a href="_api/fastcs.tracer.html#module-fastcs.tracer">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports
+
+      <ul>
+        <li><a href="_api/fastcs.transports.html#module-fastcs.transports">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.html#module-fastcs.transports.epics">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.ca
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.ca.html#module-fastcs.transports.epics.ca">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.ca.ioc
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.ca.ioc.html#module-fastcs.transports.epics.ca.ioc">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.ca.transport
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.ca.transport.html#module-fastcs.transports.epics.ca.transport">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.ca.util
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.ca.util.html#module-fastcs.transports.epics.ca.util">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.emission
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.emission.html#module-fastcs.transports.epics.emission">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.gui
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.gui.html#module-fastcs.transports.epics.gui">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.options
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.options.html#module-fastcs.transports.epics.options">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.pva
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.pva.html#module-fastcs.transports.epics.pva">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.pva.gui
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.pva.gui.html#module-fastcs.transports.epics.pva.gui">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.pva.ioc
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.pva.ioc.html#module-fastcs.transports.epics.pva.ioc">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.pva.pvi
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.pva.pvi.html#module-fastcs.transports.epics.pva.pvi">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.pva.transport
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.pva.transport.html#module-fastcs.transports.epics.pva.transport">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.pva.types
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.pva.types.html#module-fastcs.transports.epics.pva.types">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.pva.util
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.pva.util.html#module-fastcs.transports.epics.pva.util">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.epics.util
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.util.html#module-fastcs.transports.epics.util">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.graphql
+
+      <ul>
+        <li><a href="_api/fastcs.transports.graphql.html#module-fastcs.transports.graphql">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.graphql.graphql
+
+      <ul>
+        <li><a href="_api/fastcs.transports.graphql.graphql.html#module-fastcs.transports.graphql.graphql">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.graphql.options
+
+      <ul>
+        <li><a href="_api/fastcs.transports.graphql.options.html#module-fastcs.transports.graphql.options">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.graphql.transport
+
+      <ul>
+        <li><a href="_api/fastcs.transports.graphql.transport.html#module-fastcs.transports.graphql.transport">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.graphql.util
+
+      <ul>
+        <li><a href="_api/fastcs.transports.graphql.util.html#module-fastcs.transports.graphql.util">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.rest
+
+      <ul>
+        <li><a href="_api/fastcs.transports.rest.html#module-fastcs.transports.rest">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.rest.options
+
+      <ul>
+        <li><a href="_api/fastcs.transports.rest.options.html#module-fastcs.transports.rest.options">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.rest.rest
+
+      <ul>
+        <li><a href="_api/fastcs.transports.rest.rest.html#module-fastcs.transports.rest.rest">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.rest.transport
+
+      <ul>
+        <li><a href="_api/fastcs.transports.rest.transport.html#module-fastcs.transports.rest.transport">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.rest.util
+
+      <ul>
+        <li><a href="_api/fastcs.transports.rest.util.html#module-fastcs.transports.rest.util">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.tango
+
+      <ul>
+        <li><a href="_api/fastcs.transports.tango.html#module-fastcs.transports.tango">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.tango.dsr
+
+      <ul>
+        <li><a href="_api/fastcs.transports.tango.dsr.html#module-fastcs.transports.tango.dsr">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.tango.options
+
+      <ul>
+        <li><a href="_api/fastcs.transports.tango.options.html#module-fastcs.transports.tango.options">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.tango.transport
+
+      <ul>
+        <li><a href="_api/fastcs.transports.tango.transport.html#module-fastcs.transports.tango.transport">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.tango.util
+
+      <ul>
+        <li><a href="_api/fastcs.transports.tango.util.html#module-fastcs.transports.tango.util">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.transport
+
+      <ul>
+        <li><a href="_api/fastcs.transports.transport.html#module-fastcs.transports.transport">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.util
+
+      <ul>
+        <li><a href="_api/fastcs.util.html#module-fastcs.util">module</a>
+</li>
+      </ul></li>
+      <li><a href="_api/fastcs.exceptions.html#fastcs.exceptions.FastCSError">FastCSError</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.float.html#fastcs.datatypes.float.Float">Float (class in fastcs.datatypes.float)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrR.get">get() (fastcs.attributes.attr_r.AttrR method)</a>
+</li>
+      <li><a href="_api/fastcs.launch.html#fastcs.launch.get_controller_schema">get_controller_schema() (in module fastcs.launch)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.get_server_metadata_from_attribute">get_server_metadata_from_attribute() (in module fastcs.transports.tango.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.get_server_metadata_from_datatype">get_server_metadata_from_datatype() (in module fastcs.transports.tango.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.graphql.graphql.html#fastcs.transports.graphql.graphql.GraphQLAPI">GraphQLAPI (class in fastcs.transports.graphql.graphql)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.graphql.graphql.html#fastcs.transports.graphql.graphql.GraphQLServer">GraphQLServer (class in fastcs.transports.graphql.graphql)</a>
+</li>
+      <li><a href="_api/fastcs.transports.graphql.options.html#fastcs.transports.graphql.options.GraphQLServerOptions">GraphQLServerOptions (class in fastcs.transports.graphql.options)</a>
+</li>
+      <li><a href="_api/fastcs.transports.graphql.transport.html#fastcs.transports.graphql.transport.GraphQLTransport">GraphQLTransport (class in fastcs.transports.graphql.transport)</a>
+</li>
+      <li><a href="_api/fastcs.logging.html#fastcs.logging.GraylogEndpoint">GraylogEndpoint (class in fastcs.logging)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport.gui">gui (fastcs.transports.epics.ca.transport.EpicsCATransport attribute)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.emission.html#fastcs.transports.epics.emission.GUIBuilder">GUIBuilder (in module fastcs.transports.epics.emission)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.demo.simulation.device.html#fastcs.demo.simulation.device.handle_exceptions">handle_exceptions() (in module fastcs.demo.simulation.device)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.attributes.hinted_attribute.html#fastcs.attributes.hinted_attribute.HintedAttribute">HintedAttribute (class in fastcs.attributes.hinted_attribute)</a>
+</li>
+      <li><a href="_api/fastcs.logging.html#fastcs.logging.GraylogEndpoint.host">host (fastcs.logging.GraylogEndpoint attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DataType.initial_value">initial_value (fastcs.datatypes.datatype.DataType property)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.base_controller.html#fastcs.controllers.base_controller.BaseController.initialise">initialise() (fastcs.controllers.base_controller.BaseController method)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.int.html#fastcs.datatypes.int.Int">Int (class in fastcs.datatypes.int)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.logging.html#fastcs.logging.intercept_std_logger">intercept_std_logger() (in module fastcs.logging)</a>
+</li>
+      <li><a href="_api/fastcs.connections.ip_connection.html#fastcs.connections.ip_connection.IPConnection">IPConnection (class in fastcs.connections.ip_connection)</a>
+</li>
+      <li><a href="_api/fastcs.connections.ip_connection.html#fastcs.connections.ip_connection.IPConnectionSettings">IPConnectionSettings (class in fastcs.connections.ip_connection)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.launch.html#fastcs.launch.launch">launch() (in module fastcs.launch)</a>
+</li>
+      <li><a href="_api/fastcs.exceptions.html#fastcs.exceptions.LaunchError">LaunchError</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.datatypes.string.html#fastcs.datatypes.string.String.length">length (fastcs.datatypes.string.String attribute)</a>
+</li>
+      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.log_event">log_event() (fastcs.tracer.Tracer method)</a>
+</li>
+      <li><a href="_api/fastcs.logging.html#fastcs.logging.logger">logger (in module fastcs.logging)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.make_p4p_type">make_p4p_type() (in module fastcs.transports.epics.pva.types)</a>
+</li>
+      <li><a href="_api/fastcs.methods.method.html#fastcs.methods.method.Method">Method (class in fastcs.methods.method)</a>
+</li>
+      <li><a href="_api/fastcs.methods.method.html#fastcs.methods.method.MethodCallback">MethodCallback (in module fastcs.methods.method)</a>
+</li>
+      <li>
+    module
+
+      <ul>
+        <li><a href="_api/fastcs.html#module-fastcs">fastcs</a>
+</li>
+        <li><a href="_api/fastcs.attributes.html#module-fastcs.attributes">fastcs.attributes</a>
+</li>
+        <li><a href="_api/fastcs.attributes.attr_r.html#module-fastcs.attributes.attr_r">fastcs.attributes.attr_r</a>
+</li>
+        <li><a href="_api/fastcs.attributes.attr_rw.html#module-fastcs.attributes.attr_rw">fastcs.attributes.attr_rw</a>
+</li>
+        <li><a href="_api/fastcs.attributes.attr_w.html#module-fastcs.attributes.attr_w">fastcs.attributes.attr_w</a>
+</li>
+        <li><a href="_api/fastcs.attributes.attribute.html#module-fastcs.attributes.attribute">fastcs.attributes.attribute</a>
+</li>
+        <li><a href="_api/fastcs.attributes.attribute_io.html#module-fastcs.attributes.attribute_io">fastcs.attributes.attribute_io</a>
+</li>
+        <li><a href="_api/fastcs.attributes.attribute_io_ref.html#module-fastcs.attributes.attribute_io_ref">fastcs.attributes.attribute_io_ref</a>
+</li>
+        <li><a href="_api/fastcs.attributes.hinted_attribute.html#module-fastcs.attributes.hinted_attribute">fastcs.attributes.hinted_attribute</a>
+</li>
+        <li><a href="_api/fastcs.attributes.util.html#module-fastcs.attributes.util">fastcs.attributes.util</a>
+</li>
+        <li><a href="_api/fastcs.connections.html#module-fastcs.connections">fastcs.connections</a>
+</li>
+        <li><a href="_api/fastcs.connections.ip_connection.html#module-fastcs.connections.ip_connection">fastcs.connections.ip_connection</a>
+</li>
+        <li><a href="_api/fastcs.connections.serial_connection.html#module-fastcs.connections.serial_connection">fastcs.connections.serial_connection</a>
+</li>
+        <li><a href="_api/fastcs.control_system.html#module-fastcs.control_system">fastcs.control_system</a>
+</li>
+        <li><a href="_api/fastcs.controllers.html#module-fastcs.controllers">fastcs.controllers</a>
+</li>
+        <li><a href="_api/fastcs.controllers.base_controller.html#module-fastcs.controllers.base_controller">fastcs.controllers.base_controller</a>
+</li>
+        <li><a href="_api/fastcs.controllers.controller.html#module-fastcs.controllers.controller">fastcs.controllers.controller</a>
+</li>
+        <li><a href="_api/fastcs.controllers.controller_api.html#module-fastcs.controllers.controller_api">fastcs.controllers.controller_api</a>
+</li>
+        <li><a href="_api/fastcs.controllers.controller_vector.html#module-fastcs.controllers.controller_vector">fastcs.controllers.controller_vector</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.html#module-fastcs.datatypes">fastcs.datatypes</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.bool.html#module-fastcs.datatypes.bool">fastcs.datatypes.bool</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.datatype.html#module-fastcs.datatypes.datatype">fastcs.datatypes.datatype</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.enum.html#module-fastcs.datatypes.enum">fastcs.datatypes.enum</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.float.html#module-fastcs.datatypes.float">fastcs.datatypes.float</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.int.html#module-fastcs.datatypes.int">fastcs.datatypes.int</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.string.html#module-fastcs.datatypes.string">fastcs.datatypes.string</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.table.html#module-fastcs.datatypes.table">fastcs.datatypes.table</a>
+</li>
+        <li><a href="_api/fastcs.datatypes.waveform.html#module-fastcs.datatypes.waveform">fastcs.datatypes.waveform</a>
+</li>
+        <li><a href="_api/fastcs.demo.html#module-fastcs.demo">fastcs.demo</a>
+</li>
+        <li><a href="_api/fastcs.demo.controllers.html#module-fastcs.demo.controllers">fastcs.demo.controllers</a>
+</li>
+        <li><a href="_api/fastcs.demo.simulation.html#module-fastcs.demo.simulation">fastcs.demo.simulation</a>
+</li>
+        <li><a href="_api/fastcs.demo.simulation.device.html#module-fastcs.demo.simulation.device">fastcs.demo.simulation.device</a>
+</li>
+        <li><a href="_api/fastcs.exceptions.html#module-fastcs.exceptions">fastcs.exceptions</a>
+</li>
+        <li><a href="_api/fastcs.launch.html#module-fastcs.launch">fastcs.launch</a>
+</li>
+        <li><a href="_api/fastcs.logging.html#module-fastcs.logging">fastcs.logging</a>
+</li>
+        <li><a href="_api/fastcs.methods.html#module-fastcs.methods">fastcs.methods</a>
+</li>
+        <li><a href="_api/fastcs.methods.command.html#module-fastcs.methods.command">fastcs.methods.command</a>
+</li>
+        <li><a href="_api/fastcs.methods.method.html#module-fastcs.methods.method">fastcs.methods.method</a>
+</li>
+        <li><a href="_api/fastcs.methods.scan.html#module-fastcs.methods.scan">fastcs.methods.scan</a>
+</li>
+        <li><a href="_api/fastcs.tracer.html#module-fastcs.tracer">fastcs.tracer</a>
+</li>
+        <li><a href="_api/fastcs.transports.html#module-fastcs.transports">fastcs.transports</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.html#module-fastcs.transports.epics">fastcs.transports.epics</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.ca.html#module-fastcs.transports.epics.ca">fastcs.transports.epics.ca</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.ca.ioc.html#module-fastcs.transports.epics.ca.ioc">fastcs.transports.epics.ca.ioc</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.ca.transport.html#module-fastcs.transports.epics.ca.transport">fastcs.transports.epics.ca.transport</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.ca.util.html#module-fastcs.transports.epics.ca.util">fastcs.transports.epics.ca.util</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.emission.html#module-fastcs.transports.epics.emission">fastcs.transports.epics.emission</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.gui.html#module-fastcs.transports.epics.gui">fastcs.transports.epics.gui</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.options.html#module-fastcs.transports.epics.options">fastcs.transports.epics.options</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.pva.html#module-fastcs.transports.epics.pva">fastcs.transports.epics.pva</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.pva.gui.html#module-fastcs.transports.epics.pva.gui">fastcs.transports.epics.pva.gui</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.pva.ioc.html#module-fastcs.transports.epics.pva.ioc">fastcs.transports.epics.pva.ioc</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.pva.pvi.html#module-fastcs.transports.epics.pva.pvi">fastcs.transports.epics.pva.pvi</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.pva.transport.html#module-fastcs.transports.epics.pva.transport">fastcs.transports.epics.pva.transport</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.pva.types.html#module-fastcs.transports.epics.pva.types">fastcs.transports.epics.pva.types</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.pva.util.html#module-fastcs.transports.epics.pva.util">fastcs.transports.epics.pva.util</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.util.html#module-fastcs.transports.epics.util">fastcs.transports.epics.util</a>
+</li>
+        <li><a href="_api/fastcs.transports.graphql.html#module-fastcs.transports.graphql">fastcs.transports.graphql</a>
+</li>
+        <li><a href="_api/fastcs.transports.graphql.graphql.html#module-fastcs.transports.graphql.graphql">fastcs.transports.graphql.graphql</a>
+</li>
+        <li><a href="_api/fastcs.transports.graphql.options.html#module-fastcs.transports.graphql.options">fastcs.transports.graphql.options</a>
+</li>
+        <li><a href="_api/fastcs.transports.graphql.transport.html#module-fastcs.transports.graphql.transport">fastcs.transports.graphql.transport</a>
+</li>
+        <li><a href="_api/fastcs.transports.graphql.util.html#module-fastcs.transports.graphql.util">fastcs.transports.graphql.util</a>
+</li>
+        <li><a href="_api/fastcs.transports.rest.html#module-fastcs.transports.rest">fastcs.transports.rest</a>
+</li>
+        <li><a href="_api/fastcs.transports.rest.options.html#module-fastcs.transports.rest.options">fastcs.transports.rest.options</a>
+</li>
+        <li><a href="_api/fastcs.transports.rest.rest.html#module-fastcs.transports.rest.rest">fastcs.transports.rest.rest</a>
+</li>
+        <li><a href="_api/fastcs.transports.rest.transport.html#module-fastcs.transports.rest.transport">fastcs.transports.rest.transport</a>
+</li>
+        <li><a href="_api/fastcs.transports.rest.util.html#module-fastcs.transports.rest.util">fastcs.transports.rest.util</a>
+</li>
+        <li><a href="_api/fastcs.transports.tango.html#module-fastcs.transports.tango">fastcs.transports.tango</a>
+</li>
+        <li><a href="_api/fastcs.transports.tango.dsr.html#module-fastcs.transports.tango.dsr">fastcs.transports.tango.dsr</a>
+</li>
+        <li><a href="_api/fastcs.transports.tango.options.html#module-fastcs.transports.tango.options">fastcs.transports.tango.options</a>
+</li>
+        <li><a href="_api/fastcs.transports.tango.transport.html#module-fastcs.transports.tango.transport">fastcs.transports.tango.transport</a>
+</li>
+        <li><a href="_api/fastcs.transports.tango.util.html#module-fastcs.transports.tango.util">fastcs.transports.tango.util</a>
+</li>
+        <li><a href="_api/fastcs.transports.transport.html#module-fastcs.transports.transport">fastcs.transports.transport</a>
+</li>
+        <li><a href="_api/fastcs.util.html#module-fastcs.util">fastcs.util</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.connections.serial_connection.html#fastcs.connections.serial_connection.NotOpenedError">NotOpenedError</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.util.html#fastcs.util.ONCE">ONCE (in module fastcs.util)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.p4p_alarm_states">p4p_alarm_states() (in module fastcs.transports.epics.pva.types)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.p4p_display">p4p_display() (in module fastcs.transports.epics.pva.types)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.p4p_timestamp_now">p4p_timestamp_now() (in module fastcs.transports.epics.pva.types)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.ioc.html#fastcs.transports.epics.pva.ioc.P4PIOC">P4PIOC (class in fastcs.transports.epics.pva.ioc)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.ioc.html#fastcs.transports.epics.pva.ioc.parse_attributes">parse_attributes() (in module fastcs.transports.epics.pva.ioc)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.base_controller.html#fastcs.controllers.base_controller.BaseController.path">path (fastcs.controllers.base_controller.BaseController property)</a>
+
+      <ul>
+        <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.path">(fastcs.controllers.controller_api.ControllerAPI attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.logging.html#fastcs.logging.GraylogEndpoint.port">port (fastcs.logging.GraylogEndpoint attribute)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.base_controller.html#fastcs.controllers.base_controller.BaseController.post_initialise">post_initialise() (fastcs.controllers.base_controller.BaseController method)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.float.html#fastcs.datatypes.float.Float.prec">prec (fastcs.datatypes.float.Float attribute)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.util.html#fastcs.attributes.util.PredicateEvent">PredicateEvent (class in fastcs.attributes.util)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_w.html#fastcs.attributes.attr_w.AttrW.put">put() (fastcs.attributes.attr_w.AttrW method)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.pv_prefix_from_path">pv_prefix_from_path() (in module fastcs.transports.epics.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.gui.html#fastcs.transports.epics.pva.gui.PvaEpicsGUI">PvaEpicsGUI (class in fastcs.transports.epics.pva.gui)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.controllers.controller.html#fastcs.controllers.controller.Controller.reconnect">reconnect() (fastcs.controllers.controller.Controller method)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attribute_io.html#fastcs.attributes.attribute_io.AttributeIO.ref_type">ref_type (fastcs.attributes.attribute_io.AttributeIO attribute)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.register_controller_devs">register_controller_devs() (in module fastcs.transports.tango.dsr)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.register_dev">register_dev() (in module fastcs.transports.tango.dsr)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.remove_tracing_filter">remove_tracing_filter() (fastcs.tracer.Tracer method)</a>
+</li>
+      <li><a href="_api/fastcs.transports.rest.rest.html#fastcs.transports.rest.rest.RestServer">RestServer (class in fastcs.transports.rest.rest)</a>
+</li>
+      <li><a href="_api/fastcs.transports.rest.options.html#fastcs.transports.rest.options.RestServerOptions">RestServerOptions (class in fastcs.transports.rest.options)</a>
+</li>
+      <li><a href="_api/fastcs.transports.rest.transport.html#fastcs.transports.rest.transport.RestTransport">RestTransport (class in fastcs.transports.rest.transport)</a>
+</li>
+      <li><a href="_api/fastcs.control_system.html#fastcs.control_system.FastCS.run">run() (fastcs.control_system.FastCS method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.methods.scan.html#fastcs.methods.scan.Scan">Scan (class in fastcs.methods.scan)</a>
+</li>
+      <li><a href="_api/fastcs.methods.scan.html#fastcs.methods.scan.scan">scan() (in module fastcs.methods.scan)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.scan_methods">scan_methods (fastcs.controllers.controller_api.ControllerAPI attribute)</a>
+</li>
+      <li><a href="_api/fastcs.methods.scan.html#fastcs.methods.scan.ScanCallback">ScanCallback (in module fastcs.methods.scan)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attribute_io.html#fastcs.attributes.attribute_io.AttributeIO.send">send() (fastcs.attributes.attribute_io.AttributeIO method)</a>
+</li>
+      <li><a href="_api/fastcs.connections.serial_connection.html#fastcs.connections.serial_connection.SerialConnection">SerialConnection (class in fastcs.connections.serial_connection)</a>
+</li>
+      <li><a href="_api/fastcs.connections.serial_connection.html#fastcs.connections.serial_connection.SerialConnectionSettings">SerialConnectionSettings (class in fastcs.connections.serial_connection)</a>
+</li>
+      <li><a href="_api/fastcs.control_system.html#fastcs.control_system.FastCS.serve">serve() (fastcs.control_system.FastCS method)</a>
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport.serve">(fastcs.transports.epics.ca.transport.EpicsCATransport method)</a>
+</li>
+        <li><a href="_api/fastcs.transports.epics.pva.transport.html#fastcs.transports.epics.pva.transport.EpicsPVATransport.serve">(fastcs.transports.epics.pva.transport.EpicsPVATransport method)</a>
+</li>
+        <li><a href="_api/fastcs.transports.transport.html#fastcs.transports.transport.Transport.serve">(fastcs.transports.transport.Transport method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.attributes.util.html#fastcs.attributes.util.PredicateEvent.set">set() (fastcs.attributes.util.PredicateEvent method)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_w.html#fastcs.attributes.attr_w.AttrW.set_on_put_callback">set_on_put_callback() (fastcs.attributes.attr_w.AttrW method)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrR.set_update_callback">set_update_callback() (fastcs.attributes.attr_r.AttrR method)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.waveform.html#fastcs.datatypes.waveform.Waveform.shape">shape (fastcs.datatypes.waveform.Waveform attribute)</a>
+</li>
+      <li><a href="_api/fastcs.util.html#fastcs.util.snake_to_pascal">snake_to_pascal() (in module fastcs.util)</a>
+</li>
+      <li><a href="_api/fastcs.connections.ip_connection.html#fastcs.connections.ip_connection.StreamConnection">StreamConnection (class in fastcs.connections.ip_connection)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.string.html#fastcs.datatypes.string.String">String (class in fastcs.datatypes.string)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.table.html#fastcs.datatypes.table.Table.structured_dtype">structured_dtype (fastcs.datatypes.table.Table attribute)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.sub_apis">sub_apis (fastcs.controllers.controller_api.ControllerAPI attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.datatypes.table.html#fastcs.datatypes.table.Table">Table (class in fastcs.datatypes.table)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.tango_dev_class_name">tango_dev_class_name() (in module fastcs.transports.tango.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.tango_dev_name">tango_dev_name() (in module fastcs.transports.tango.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.TangoDSR">TangoDSR (class in fastcs.transports.tango.dsr)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.options.html#fastcs.transports.tango.options.TangoDSROptions">TangoDSROptions (class in fastcs.transports.tango.options)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.tango.transport.html#fastcs.transports.tango.transport.TangoTransport">TangoTransport (class in fastcs.transports.tango.transport)</a>
+</li>
+      <li><a href="_api/fastcs.demo.simulation.device.html#fastcs.demo.simulation.device.TempController">TempController (class in fastcs.demo.simulation.device)</a>
+</li>
+      <li><a href="_api/fastcs.demo.controllers.html#fastcs.demo.controllers.TemperatureControllerAttributeIORef">TemperatureControllerAttributeIORef (class in fastcs.demo.controllers)</a>
+</li>
+      <li><a href="_api/fastcs.demo.controllers.html#fastcs.demo.controllers.TemperatureControllerSettings">TemperatureControllerSettings (class in fastcs.demo.controllers)</a>
+</li>
+      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer">Tracer (class in fastcs.tracer)</a>
+</li>
+      <li><a href="_api/fastcs.transports.transport.html#fastcs.transports.transport.Transport">Transport (class in fastcs.transports.transport)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.methods.command.html#fastcs.methods.command.UnboundCommand">UnboundCommand (class in fastcs.methods.command)</a>
+</li>
+      <li><a href="_api/fastcs.methods.command.html#fastcs.methods.command.UnboundCommandCallback">UnboundCommandCallback (in module fastcs.methods.command)</a>
+</li>
+      <li><a href="_api/fastcs.methods.scan.html#fastcs.methods.scan.UnboundScan">UnboundScan (class in fastcs.methods.scan)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.methods.scan.html#fastcs.methods.scan.UnboundScanCallback">UnboundScanCallback (in module fastcs.methods.scan)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrR.update">update() (fastcs.attributes.attr_r.AttrR method)</a>
+
+      <ul>
+        <li><a href="_api/fastcs.attributes.attribute_io.html#fastcs.attributes.attribute_io.AttributeIO.update">(fastcs.attributes.attribute_io.AttributeIO method)</a>
+</li>
+      </ul></li>
+      <li><a href="_api/fastcs.attributes.attribute_io_ref.html#fastcs.attributes.attribute_io_ref.AttributeIORef.update_period">update_period (fastcs.attributes.attribute_io_ref.AttributeIORef attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DataType.validate">validate() (fastcs.datatypes.datatype.DataType method)</a>
+
+      <ul>
+        <li><a href="_api/fastcs.datatypes.string.html#fastcs.datatypes.string.String.validate">(fastcs.datatypes.string.String method)</a>
+</li>
+      </ul></li>
+      <li><a href="_api/fastcs.transports.epics.ca.util.html#fastcs.transports.epics.ca.util.validate_ca_id">validate_ca_id() (in module fastcs.transports.epics.ca.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.validate_epics_pv_id">validate_epics_pv_id() (in module fastcs.transports.epics.util)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.graphql.util.html#fastcs.transports.graphql.util.validate_graphql_id">validate_graphql_id() (in module fastcs.transports.graphql.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.util.html#fastcs.transports.epics.pva.util.validate_pva_id">validate_pva_id() (in module fastcs.transports.epics.pva.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.rest.util.html#fastcs.transports.rest.util.validate_rest_id">validate_rest_id() (in module fastcs.transports.rest.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.validate_tango_id">validate_tango_id() (in module fastcs.transports.tango.util)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.attributes.util.html#fastcs.attributes.util.PredicateEvent.wait">wait() (fastcs.attributes.util.PredicateEvent method)</a>
+</li>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrR.wait_for_predicate">wait_for_predicate() (fastcs.attributes.attr_r.AttrR method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.attributes.attr_r.html#fastcs.attributes.attr_r.AttrR.wait_for_value">wait_for_value() (fastcs.attributes.attr_r.AttrR method)</a>
+</li>
+      <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.walk_api">walk_api() (fastcs.controllers.controller_api.ControllerAPI method)</a>
+</li>
+      <li><a href="_api/fastcs.datatypes.waveform.html#fastcs.datatypes.waveform.Waveform">Waveform (class in fastcs.datatypes.waveform)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
