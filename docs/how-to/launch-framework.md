@@ -44,8 +44,8 @@ class DeviceSettings:
     timeout: float = 5.0
 
 class DeviceController(Controller):
-    def __init__(self, settings: DeviceSettings):
-        super().__init__()
+    def __init__(self, settings: DeviceSettings, *, id: str):
+        super().__init__(id=id)
         self.settings = settings
 
 if __name__ == "__main__":
@@ -61,7 +61,7 @@ as an argument:
 ```yaml
 # fastcs.yaml
 controllers:
-  DEVICE:
+  - id: DEVICE
     type: DeviceController
     ip_address: "192.168.1.100"
     port: 25565
@@ -71,13 +71,15 @@ transport:
   - epicsca: {}
 ```
 
-Every entry carries a required `type:` discriminator that names the
-Controller class to instantiate. The remaining fields under each id
-come straight from that class's `__init__` options type
-(`DeviceSettings` here).
+Every entry carries a required `id:` (the controller id) and a
+required `type:` discriminator that names the Controller class to
+instantiate. The remaining fields come straight from that class's
+`__init__` options type (`DeviceSettings` here).
 
-The key under `controllers:` (here `DEVICE`) is the controller id, used
-verbatim as the EPICS PV prefix and as the REST route prefix.
+The `id:` (here `DEVICE`) is used verbatim as the EPICS PV prefix and
+as the REST route prefix. The launcher passes it to your Controller's
+`__init__` as the `id=` keyword argument, so user code never sets it
+twice.
 
 Run with:
 
@@ -87,21 +89,21 @@ python my_driver.py run fastcs.yaml
 
 ### Hosting multiple controllers
 
-`controllers:` is a dict, so a single application can host more than one
-controller. Each entry needs a unique id (the dict key); the `type:`
+`controllers:` is a list, so a single application can host more than
+one controller. Each entry needs a unique `id:`; the `type:`
 discriminator selects which class to instantiate. For example, two
-`DeviceController` instances on different IPs sharing a single transport
-list:
+`DeviceController` instances on different IPs sharing a single
+transport list:
 
 ```yaml
 # fastcs.yaml
 controllers:
-  MAIN:
+  - id: MAIN
     type: DeviceController
     ip_address: "192.168.1.100"
     port: 25565
     timeout: 10.0
-  AUX:
+  - id: AUX
     type: DeviceController
     ip_address: "192.168.1.101"
     port: 25565
@@ -111,7 +113,8 @@ transport:
   - epicsca: {}
 ```
 
-When more than one class is registered with `launch([ClassA, ClassB])`,
+Duplicate `id:` values across the list are rejected at run time. When
+more than one class is registered with `launch([ClassA, ClassB])`,
 each entry's `type:` selects between them.
 
 For a real working example, see `src/fastcs/demo/fastcs.yaml`, which
@@ -136,7 +139,7 @@ Use this schema for IDE autocompletion in YAML files:
 ```yaml
 # yaml-language-server: $schema=schema.json
 controllers:
-  DEVICE:
+  - id: DEVICE
     type: DeviceController
     ip_address: "192.168.1.100"
     # ... IDE will provide autocompletion
@@ -199,29 +202,35 @@ FastCS: 0.12.0
 
 The `launch()` function requires:
 
-1. Controller `__init__` must have at most 2 arguments (including `self`)
-2. If a configuration argument exists, it must have a type hint
+1. Controller `__init__` must declare `id` as a keyword-only parameter (`*, id: str`) and forward it via `super().__init__(id=id)`
+2. Controller `__init__` may have at most one positional argument (besides `self`) — the configuration options
+3. If a configuration argument exists, it must have a type hint
 
 Using a dataclass or Pydantic model is recommended for the configuration type, as it enables JSON schema generation. Other type-hinted types will work, but will not produce a useful schema.
 
 ```python
 # Valid - no config
 class SimpleController(Controller):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *, id: str):
+        super().__init__(id=id)
 
 # Valid - with config
 class ConfiguredController(Controller):
-    def __init__(self, settings: MySettings):
+    def __init__(self, settings: MySettings, *, id: str):
+        super().__init__(id=id)
+
+# Invalid - missing `id` keyword-only parameter
+class MissingId(Controller):
+    def __init__(self, settings: MySettings):  # Error: must declare `*, id: str`
         super().__init__()
 
-# Invalid - missing type hint
+# Invalid - missing type hint on options
 class BadController(Controller):
-    def __init__(self, settings):  # Error: no type hint
-        super().__init__()
+    def __init__(self, settings, *, id: str):  # Error: no type hint
+        super().__init__(id=id)
 
-# Invalid - too many arguments
+# Invalid - too many positional arguments
 class TooManyArgs(Controller):
-    def __init__(self, settings: MySettings, extra: str):  # Error
-        super().__init__()
+    def __init__(self, settings: MySettings, extra: str, *, id: str):  # Error
+        super().__init__(id=id)
 ```

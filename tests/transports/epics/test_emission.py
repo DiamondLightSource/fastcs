@@ -32,8 +32,7 @@ class _Beta(Controller):
 
 
 def _api_with_id(controller_class: type[Controller], id: str):
-    controller = controller_class()
-    controller.set_id(id)
+    controller = controller_class(id=id)
     api, _, _ = controller.create_api_and_tasks()
     return api
 

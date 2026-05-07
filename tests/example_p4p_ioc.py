@@ -43,8 +43,8 @@ class ParentController(Controller):
         io_ref=SimpleAttributeIORef(),
     )
 
-    def __init__(self, description=None, ios=None):
-        super().__init__(description, ios)
+    def __init__(self, description=None, ios=None, *, id: str | None = None):
+        super().__init__(description, ios, id=id)
 
 
 class ChildController(Controller):
@@ -89,8 +89,7 @@ class ChildController(Controller):
 def run(id="P4P_TEST_DEVICE"):
     simple_attribute_io = SimpleAttributeIO()
     p4p_options = EpicsPVATransport()
-    controller = ParentController(ios=[simple_attribute_io])
-    controller.set_id(id)
+    controller = ParentController(ios=[simple_attribute_io], id=id)
 
     class ChildVector(ControllerVector):
         vector_attribute: AttrR = AttrR(Int())

@@ -40,11 +40,13 @@ class TemperatureController(Controller):
     device_id = AttrR(String(), io_ref=TemperatureControllerAttributeIORef("ID"))
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("P"))
 
-    def __init__(self, settings: IPConnectionSettings):
+    def __init__(self, settings: IPConnectionSettings, *, id: str):
         self._ip_settings = settings
         self._connection = IPConnection()
 
-        super().__init__(ios=[TemperatureControllerAttributeIO(self._connection)])
+        super().__init__(
+            ios=[TemperatureControllerAttributeIO(self._connection)], id=id
+        )
 
     async def connect(self):
         await self._connection.connect(self._ip_settings)
@@ -53,8 +55,7 @@ class TemperatureController(Controller):
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
-controller.set_id("DEMO")
+controller = TemperatureController(connection_settings, id="DEMO")
 fastcs = FastCS(controller, [epics_ca])
 
 if __name__ == "__main__":

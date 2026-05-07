@@ -35,34 +35,41 @@ class OtherConfig:
 
 
 class SingleArg(Controller):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *, id: str):
+        super().__init__(id=id)
 
 
 class NotHinted(Controller):
-    def __init__(self, arg):
-        super().__init__()
+    def __init__(self, arg, *, id: str):
+        super().__init__(id=id)
 
 
 class IsHinted(Controller):
     read = AttrR(Int())
 
-    def __init__(self, arg: SomeConfig) -> None:
-        super().__init__()
+    def __init__(self, arg: SomeConfig, *, id: str) -> None:
+        super().__init__(id=id)
 
 
 class ManyArgs(Controller):
-    def __init__(self, arg: SomeConfig, too_many):
-        super().__init__()
+    def __init__(self, arg: SomeConfig, too_many, *, id: str):
+        super().__init__(id=id)
 
 
 class OtherHinted(Controller):
-    def __init__(self, arg: OtherConfig) -> None:
-        super().__init__()
+    def __init__(self, arg: OtherConfig, *, id: str) -> None:
+        super().__init__(id=id)
 
 
 class Aliased(Controller):
     type_name: ClassVar[str] = "aliased-controller"
+
+    def __init__(self, arg: SomeConfig, *, id: str) -> None:
+        super().__init__(id=id)
+
+
+class MissingId(Controller):
+    """Controller that forgot to declare `id` as a keyword-only param."""
 
     def __init__(self, arg: SomeConfig) -> None:
         super().__init__()
@@ -75,12 +82,13 @@ def test_single_arg_schema():
     entry_model = create_model(
         "SingleArgEntry",
         __config__={"extra": "forbid"},
+        id=(str, ...),
         type=(Literal["SingleArg"], ...),
     )
     target_model = create_model(
         "SingleArg",
         __config__={"extra": "forbid"},
-        controllers=(dict[str, entry_model], ...),
+        controllers=(list[entry_model], ...),
         transport=(list[Transport.union()], ...),
     )
     target_dict = target_model.model_json_schema()
@@ -97,13 +105,14 @@ def test_is_hinted_schema(data):
     entry_model = create_model(
         "IsHintedEntry",
         __config__={"extra": "forbid"},
+        id=(str, ...),
         type=(Literal["IsHinted"], ...),
         name=(str, ...),
     )
     target_model = create_model(
         "IsHinted",
         __config__={"extra": "forbid"},
-        controllers=(dict[str, entry_model], ...),
+        controllers=(list[entry_model], ...),
         transport=(list[Transport.union()], ...),
     )
     target_dict = target_model.model_json_schema()
@@ -119,7 +128,7 @@ def test_is_hinted_schema(data):
 def test_not_hinted_schema():
     error = (
         "Expected typehinting in 'NotHinted.__init__' but received "
-        "(self, arg). Add a typehint for `arg`."
+        "(self, arg, *, id: str). Add a typehint for `arg`."
     )
 
     with pytest.raises(LaunchError) as exc_info:
@@ -130,13 +139,22 @@ def test_not_hinted_schema():
 def test_over_defined_schema():
     error = (
         ""
-        "Expected no more than 2 arguments for 'ManyArgs.__init__' "
-        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, too_many)`"
+        "Expected no more than 2 positional arguments for 'ManyArgs.__init__' "
+        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, "
+        "too_many, *, id: str)`"
     )
 
     with pytest.raises(LaunchError) as exc_info:
         launch(ManyArgs)
     assert str(exc_info.value) == error
+
+
+def test_missing_id_kwonly_rejected():
+    """A Controller class registered with launch() must declare `id` as a
+    keyword-only parameter so the launcher can pass id at construction."""
+    with pytest.raises(LaunchError) as exc_info:
+        launch(MissingId)
+    assert "must declare 'id' as a keyword-only parameter" in str(exc_info.value)
 
 
 def test_version():
@@ -196,8 +214,8 @@ def test_error_if_identical_context_in_transports(mocker: MockerFixture, data):
     assert "Duplicate context keys found" in result.exception.args[0]
 
 
-def _controllers(instance) -> dict:
-    """Read the dynamically-defined `controllers` mapping off a validated model."""
+def _controllers(instance) -> list:
+    """Read the dynamically-defined `controllers` list off a validated model."""
     return instance.controllers  # type: ignore[attr-defined]
 
 
@@ -208,18 +226,19 @@ def test_single_class_requires_type():
     with pytest.raises(ValidationError):
         options_model.model_validate(
             {
-                "controllers": {"my-id": {"name": "x"}},
+                "controllers": [{"id": "my-id", "name": "x"}],
                 "transport": [{"rest": {}}],
             }
         )
 
     instance = options_model.model_validate(
         {
-            "controllers": {"my-id": {"type": "IsHinted", "name": "x"}},
+            "controllers": [{"id": "my-id", "type": "IsHinted", "name": "x"}],
             "transport": [{"rest": {}}],
         }
     )
-    entry = _controllers(instance)["my-id"]
+    entry = _controllers(instance)[0]
+    assert entry.id == "my-id"
     assert entry.type == "IsHinted"
     assert entry.name == "x"
 
@@ -229,18 +248,19 @@ def test_multi_class_discriminator():
     options_model = _build_options_model([IsHinted, OtherHinted])
     instance = options_model.model_validate(
         {
-            "controllers": {
-                "first": {"type": "IsHinted", "name": "a"},
-                "second": {"type": "OtherHinted", "address": "b"},
-            },
+            "controllers": [
+                {"id": "first", "type": "IsHinted", "name": "a"},
+                {"id": "second", "type": "OtherHinted", "address": "b"},
+            ],
             "transport": [{"rest": {}}],
         }
     )
 
-    first = _controllers(instance)["first"]
-    second = _controllers(instance)["second"]
+    first, second = _controllers(instance)
+    assert first.id == "first"
     assert first.type == "IsHinted"
     assert first.name == "a"
+    assert second.id == "second"
     assert second.type == "OtherHinted"
     assert second.address == "b"
 
@@ -250,7 +270,7 @@ def test_multi_class_unknown_type_rejected():
     with pytest.raises(ValidationError):
         options_model.model_validate(
             {
-                "controllers": {"x": {"type": "Unknown", "name": "a"}},
+                "controllers": [{"id": "x", "type": "Unknown", "name": "a"}],
                 "transport": [{"rest": {}}],
             }
         )
@@ -261,31 +281,35 @@ def test_type_name_override():
     options_model = _build_options_model([Aliased, OtherHinted])
     instance = options_model.model_validate(
         {
-            "controllers": {
-                "x": {"type": "aliased-controller", "name": "n"},
-            },
+            "controllers": [
+                {"id": "x", "type": "aliased-controller", "name": "n"},
+            ],
             "transport": [{"rest": {}}],
         }
     )
-    assert _controllers(instance)["x"].type == "aliased-controller"
+    assert _controllers(instance)[0].type == "aliased-controller"
 
 
-def test_duplicate_id_rejected_at_yaml_load(tmp_path):
-    """ruamel YAML rejects duplicate mapping keys, so duplicate ids cannot
-    survive parsing; this is the natural source of duplicate-id rejection."""
+def test_duplicate_id_rejected_at_run(mocker: MockerFixture, tmp_path):
+    """Two entries with the same `id` are rejected at run time. (List-form
+    YAML accepts duplicate ids syntactically, so the launcher checks.)"""
+    mocker.patch("fastcs.launch.FastCS.run")
     cfg = tmp_path / "dup.yaml"
     cfg.write_text(
         "controllers:\n"
-        "  same:\n"
+        "  - id: same\n"
+        "    type: IsHinted\n"
         "    name: a\n"
-        "  same:\n"
+        "  - id: same\n"
+        "    type: IsHinted\n"
         "    name: b\n"
         "transport:\n"
         "  - rest: {}\n"
     )
-    yaml = YAML(typ="safe")
-    with pytest.raises(Exception, match="duplicate key"):
-        yaml.load(cfg)
+    app = _launch(IsHinted)
+    result = runner.invoke(app, ["run", str(cfg)])
+    assert isinstance(result.exception, LaunchError)
+    assert "Duplicate controller id" in str(result.exception)
 
 
 def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
@@ -296,10 +320,10 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     cfg = tmp_path / "multi.yaml"
     cfg.write_text(
         "controllers:\n"
-        "  one:\n"
+        "  - id: one\n"
         "    type: IsHinted\n"
         "    name: a\n"
-        "  two:\n"
+        "  - id: two\n"
         "    type: OtherHinted\n"
         "    address: b\n"
         "transport:\n"

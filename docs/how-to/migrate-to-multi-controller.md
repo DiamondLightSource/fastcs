@@ -14,10 +14,10 @@ configs, but the launcher does not hard-code it — `python -m my_driver
 run <path>` still accepts any path. If you rely on the demo path
 explicitly (e.g. in a `launch.json` debug config), update it.
 
-## 2. `controller:` → `controllers: { <id>: ... }`
+## 2. `controller:` → `controllers: [ { id: ..., ... } ]`
 
 The top-level singular `controller:` block is gone. Replace it with a
-dict keyed by controller id:
+list of entries, each carrying its own `id:`:
 
 ```yaml
 # Before
@@ -32,8 +32,8 @@ transport:
 ```yaml
 # After
 controllers:
-  DEVICE:                     # id — used as the addressing prefix
-    type: DeviceController    # required discriminator
+  - id: DEVICE                  # used as the addressing prefix
+    type: DeviceController      # required discriminator
     ip_address: "192.168.1.100"
     port: 25565
 
@@ -41,15 +41,15 @@ transport:
   - epicsca: {}
 ```
 
-The dict key (here `DEVICE`) is the controller id. It is used verbatim
-as the EPICS PV prefix, the REST route prefix, the GraphQL top-level
-Query field, and the Tango device-name segment. See
+The `id:` value (here `DEVICE`) is the controller id. It is used
+verbatim as the EPICS PV prefix, the REST route prefix, the GraphQL
+top-level Query field, and the Tango device-name segment. See
 [Run Multiple Transports Simultaneously](multiple-transports.md) for
 the per-transport id charset rules — GraphQL's `[A-Za-z_][A-Za-z0-9_]*`
 is the lowest common denominator.
 
-To host more than one controller, add more dict entries. Duplicate ids
-are rejected at config-load time.
+To host more than one controller, add more list entries. Duplicate ids
+are rejected at run time.
 
 ## 3. Drop `pv_prefix` from `EpicsIOCOptions`
 
@@ -74,9 +74,9 @@ transport:
 
 The same applies to PVA. If you construct transports in Python rather
 than via YAML, replace `EpicsCATransport(epicsca=EpicsIOCOptions(
-pv_prefix="DEVICE"))` with `EpicsCATransport()` plus
-`controller.set_id("DEVICE")` (or set the id from the YAML key when
-using `launch()`).
+pv_prefix="DEVICE"))` with `EpicsCATransport()` plus passing
+`id="DEVICE"` to your Controller's constructor (or relying on the
+launcher to pass the YAML entry's `id:` for you).
 
 ## 4. `type:` discriminator is required on every entry
 
@@ -89,10 +89,10 @@ class or with several — `type:` is never optional.
 ```yaml
 # Two-class app: launch([Lakeshore, Eurotherm])
 controllers:
-  CRYO:
+  - id: CRYO
     type: Lakeshore
     ip_address: "192.168.1.100"
-  OVEN:
+  - id: OVEN
     type: Eurotherm
     ip_address: "192.168.1.101"
 
@@ -100,15 +100,49 @@ transport:
   - epicsca: {}
 ```
 
-## 5. Direct `FastCS(...)` usage is unchanged for the single-controller case
+## 5. `set_id(...)` is gone — `id` is now an `__init__` parameter
+
+The `Controller.set_id(...)` setter was removed. Root Controllers now
+declare `id` as a keyword-only `__init__` parameter and forward it to
+the base class:
+
+```python notest
+# Before
+class MyController(Controller):
+    def __init__(self, settings: MySettings):
+        super().__init__(...)
+
+controller = MyController(settings)
+controller.set_id("DEVICE")            # separate step
+
+# After
+class MyController(Controller):
+    def __init__(self, settings: MySettings, *, id: str):
+        super().__init__(..., id=id)   # forward to base
+
+controller = MyController(settings, id="DEVICE")
+```
+
+When `launch()` instantiates Controllers from `fastcs.yaml`, it passes
+each entry's `id:` as the `id=` keyword argument — so user code never
+needs to set the id twice. A registered Controller class that omits
+`id` from its `__init__` signature is rejected at startup with a clear
+`LaunchError`.
+
+Sub-controllers (added via `parent.add_sub_controller(name, sub)`) do
+not need to declare `id` in their `__init__`. Their `.id` falls back
+to the name they were registered under, so `parent.add_sub_controller(
+"R1", ramp).id == "R1"` works without any explicit id setup.
+
+## 6. Direct `FastCS(...)` usage is unchanged for the single-controller case
 
 If you instantiate `FastCS` directly rather than via `launch()`, the
 single-controller form `FastCS(controller, transports)` still works.
 For multi-controller, pass a sequence:
-`FastCS([controller_a, controller_b], transports)`. Each Controller
-must have had `set_id(...)` called before being handed to `FastCS`.
+`FastCS([controller_a, controller_b], transports)`. Each root
+Controller must have been constructed with an `id`.
 
-## 6. GUI/docs emission output is now a directory
+## 7. GUI/docs emission output is now a directory
 
 `EpicsGUIOptions.output_path` (single file) was renamed to
 `output_dir` (directory). `EpicsDocsOptions.path` likewise renamed to
