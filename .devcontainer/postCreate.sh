@@ -4,6 +4,11 @@
 # shadow without re-downloading Claude.
 set -euo pipefail
 
-uv venv --clear && uv sync && pre-commit install --install-hooks
+uv venv --clear
+hash -r
+uv sync && pre-commit install --install-hooks
 
-bash install
+bash .devcontainer/claude-sandbox/install.sh
+
+# claude-sandbox: bring up the sandbox (added by just promote).
+bash .devcontainer/claude-sandbox/install.sh
