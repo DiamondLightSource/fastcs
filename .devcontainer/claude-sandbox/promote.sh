@@ -9,9 +9,11 @@
 # 1. Curated `.claude/` content (commands, skills, hooks, statusline,
 #    sandbox-check hook + statusLine wiring into settings.json).
 # 2. Install machinery (`.devcontainer/claude-sandbox/{install.sh,
-#    claude-shadow, promote.sh}`) so postCreate can run install.sh
-#    directly. The source repo's root `install` shim is NOT copied —
-#    it's the source-repo UX entry, not a promoted-target workflow.
+#    claude-shadow, promote.sh}` + root `justfile`) so postCreate can
+#    run install.sh directly and `just promote`/`just gh-auth` work in
+#    the target the same way they do in the source clone. The source
+#    repo's root `install` shim is NOT copied — it's the source-repo
+#    UX entry, not a promoted-target workflow.
 # 3. `.devcontainer/postCreate.sh` runs
 #    `bash .devcontainer/claude-sandbox/install.sh`; we then print the
 #    one-line JSON snippet the user pastes into devcontainer.json so
@@ -147,6 +149,13 @@ wire_settings_statusline
 install_file "$SCRIPT_DIR/install.sh"    "$TARGET/.devcontainer/claude-sandbox/install.sh"
 install_file "$SCRIPT_DIR/claude-shadow" "$TARGET/.devcontainer/claude-sandbox/claude-shadow"
 install_file "$SCRIPT_DIR/promote.sh"    "$TARGET/.devcontainer/claude-sandbox/promote.sh"
+
+# Root justfile — the recipes shipped here (promote, gh-auth,
+# glab-auth) are workflow tools a promoted host needs too. Recipes
+# specific to the source repo (test/upgrade/verify) were dropped so
+# this file is a verbatim copy. install_file overwrites on diff —
+# if the target already has a justfile, promote will replace it.
+install_file "$REPO_ROOT/justfile" "$TARGET/justfile"
 
 # Layer 3: devcontainer wiring — write/append postCreate.sh (a shell
 # script we own; trivial to edit), then print the JSON snippet for the

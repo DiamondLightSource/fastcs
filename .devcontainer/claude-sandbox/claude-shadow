@@ -197,7 +197,7 @@ fi
 # downstream errno from bwrap exec'ing a non-existent path.
 if [ ! -x "$REAL_CLAUDE" ]; then
     echo "claude-sandbox: real Claude binary missing at $REAL_CLAUDE." >&2
-    echo "  Re-run \`./install\` from a fresh clone of claude-sandbox2." >&2
+    echo "  Re-run \`./install\` from a fresh clone of claude-sandbox." >&2
     exit 1
 fi
 

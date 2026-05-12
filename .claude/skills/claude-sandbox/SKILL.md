@@ -103,9 +103,11 @@ a self-sufficient claude-sandbox host:
    plus `wire_settings_{hook,statusline}` against the target's
    `settings.json`.
 2. **Install machinery** — `.devcontainer/claude-sandbox/{install.sh,
-   claude-shadow, promote.sh}` only. The root `install` shim is *not*
-   copied; it's the source repo's manual-UX entry (`./install`),
-   not a target workflow.
+   claude-shadow, promote.sh}` + root `justfile`. The justfile is
+   shipped verbatim, so its recipes must all be promote-target-safe;
+   source-repo-only recipes (`test`, `upgrade`, `verify`) were dropped
+   for this reason. The root `install` shim is *not* copied; it's the
+   source repo's manual-UX entry (`./install`), not a target workflow.
 3. **`.devcontainer/postCreate.sh`** running
    `bash .devcontainer/claude-sandbox/install.sh` (created if absent,
    idempotently appended otherwise). Promote then prints a one-line
@@ -241,6 +243,6 @@ stayed strict.
 | Live verification spec        | `.claude/commands/verify-sandbox.md`                |
 | Pre-prompt gate hook          | `.claude/hooks/sandbox-check.sh`                    |
 | Threat model + binds rationale| `README-CLAUDE.md`                                  |
-| Recipes (test, gh-auth, …)    | `justfile`                                          |
+| Recipes (promote, gh-auth, …) | `justfile` (shipped verbatim by `just promote`)     |
 
 Touching any of these → re-read this skill first.
