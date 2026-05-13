@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=schema.json
 controllers:
   - id: MAIN
-    type: TemperatureController
+    type: fastcs.TemperatureController
     ip_settings:
       ip: "localhost"
       port: 25565
     num_ramp_controllers: 4
   - id: AUX
-    type: TemperatureController
+    type: fastcs.TemperatureController
     ip_settings:
       ip: "localhost"
       port: 25566

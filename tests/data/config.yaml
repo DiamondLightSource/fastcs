@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=schema.json
 controllers:
   - id: device-1
-    type: IsHinted
+    type: tests.IsHinted
     name: controller-name
 transport:
   - epicsca: {}

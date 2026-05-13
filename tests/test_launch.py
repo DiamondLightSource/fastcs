@@ -76,7 +76,7 @@ def test_single_arg_schema():
         "SingleArgEntry",
         __config__={"extra": "forbid"},
         id=(str, ...),
-        type=(Literal["SingleArg"], ...),
+        type=(Literal["tests.SingleArg"], ...),
     )
     target_model = create_model(
         "SingleArg",
@@ -99,7 +99,7 @@ def test_is_hinted_schema(data):
         "IsHintedEntry",
         __config__={"extra": "forbid"},
         id=(str, ...),
-        type=(Literal["IsHinted"], ...),
+        type=(Literal["tests.IsHinted"], ...),
         name=(str, ...),
     )
     target_model = create_model(
@@ -217,13 +217,13 @@ def test_single_class_requires_type():
 
     instance = options_model.model_validate(
         {
-            "controllers": [{"id": "my-id", "type": "IsHinted", "name": "x"}],
+            "controllers": [{"id": "my-id", "type": "tests.IsHinted", "name": "x"}],
             "transport": [{"rest": {}}],
         }
     )
     entry = _controllers(instance)[0]
     assert entry.id == "my-id"
-    assert entry.type == "IsHinted"
+    assert entry.type == "tests.IsHinted"
     assert entry.name == "x"
 
 
@@ -233,8 +233,8 @@ def test_multi_class_discriminator():
     instance = options_model.model_validate(
         {
             "controllers": [
-                {"id": "first", "type": "IsHinted", "name": "a"},
-                {"id": "second", "type": "OtherHinted", "address": "b"},
+                {"id": "first", "type": "tests.IsHinted", "name": "a"},
+                {"id": "second", "type": "tests.OtherHinted", "address": "b"},
             ],
             "transport": [{"rest": {}}],
         }
@@ -242,10 +242,10 @@ def test_multi_class_discriminator():
 
     first, second = _controllers(instance)
     assert first.id == "first"
-    assert first.type == "IsHinted"
+    assert first.type == "tests.IsHinted"
     assert first.name == "a"
     assert second.id == "second"
-    assert second.type == "OtherHinted"
+    assert second.type == "tests.OtherHinted"
     assert second.address == "b"
 
 
@@ -261,7 +261,8 @@ def test_multi_class_unknown_type_rejected():
 
 
 def test_type_name_override():
-    """`type_name: ClassVar[str]` overrides the default `__name__` discriminator."""
+    """`type_name: ClassVar[str]` overrides the default `<pkg>.<ClassName>`
+    discriminator (and is used verbatim — no package prefix is added)."""
     options_model = _build_options_model([Aliased, OtherHinted])
     instance = options_model.model_validate(
         {
@@ -282,10 +283,10 @@ def test_duplicate_id_rejected_at_run(mocker: MockerFixture, tmp_path):
     cfg.write_text(
         "controllers:\n"
         "  - id: same\n"
-        "    type: IsHinted\n"
+        "    type: tests.IsHinted\n"
         "    name: a\n"
         "  - id: same\n"
-        "    type: IsHinted\n"
+        "    type: tests.IsHinted\n"
         "    name: b\n"
         "transport:\n"
         "  - rest: {}\n"
@@ -305,10 +306,10 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     cfg.write_text(
         "controllers:\n"
         "  - id: one\n"
-        "    type: IsHinted\n"
+        "    type: tests.IsHinted\n"
         "    name: a\n"
         "  - id: two\n"
-        "    type: OtherHinted\n"
+        "    type: tests.OtherHinted\n"
         "    address: b\n"
         "transport:\n"
         "  - rest: {}\n"

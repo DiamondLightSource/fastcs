@@ -82,10 +82,14 @@ def _normalise_classes(
 def _discriminator(controller_class: type[Controller]) -> str:
     """Type discriminator used in fastcs.yaml under each entry's ``type:`` key.
 
-    Defaults to the class ``__name__`` and may be overridden by setting
-    ``type_name: ClassVar[str]`` on the Controller class.
+    Defaults to ``<top-level-package>.<ClassName>`` so that Controllers from
+    independently-distributed packages cannot collide. May be overridden
+    verbatim (no prefix added) by setting ``type_name: ClassVar[str]`` on
+    the Controller class.
     """
-    return getattr(controller_class, "type_name", controller_class.__name__)
+    top_level_package = controller_class.__module__.split(".", 1)[0]
+    default = f"{top_level_package}.{controller_class.__name__}"
+    return getattr(controller_class, "type_name", default)
 
 
 def _launch(

@@ -169,7 +169,7 @@
           "type": "string"
         },
         "type": {
-          "const": "IsHinted",
+          "const": "tests.IsHinted",
           "title": "Type",
           "type": "string"
         },

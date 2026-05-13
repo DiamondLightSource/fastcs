@@ -32,8 +32,8 @@ transport:
 ```yaml
 # After
 controllers:
-  - id: DEVICE                # used as the addressing prefix
-    type: DeviceController    # required discriminator
+  - id: DEVICE                          # used as the addressing prefix
+    type: my_driver.DeviceController    # required discriminator
     ip_address: "192.168.1.100"
     port: 25565
 
@@ -82,18 +82,21 @@ pv_prefix="DEVICE"))` with `EpicsCATransport()` plus
 
 Each entry under `controllers:` carries a required `type:` discriminator
 that names the Controller class to instantiate. The discriminator value
-is the class `__name__`, or `type_name: ClassVar[str]` on the class if
-set. The same rule applies whether `launch()` is called with a single
-class or with several — `type:` is never optional.
+defaults to `<top-level-package>.<ClassName>` so that classes from
+independently-distributed packages (e.g. `fastcs_eiger.Detector` and
+`fastcs_pmac.Detector`) cannot collide on a short name. A class may
+override this verbatim (no prefix added) by setting
+`type_name: ClassVar[str]`. The same rule applies whether `launch()` is
+called with a single class or with several — `type:` is never optional.
 
 ```yaml
 # Two-class app: launch([Lakeshore, Eurotherm])
 controllers:
   - id: CRYO
-    type: Lakeshore
+    type: fastcs_lakeshore.Lakeshore
     ip_address: "192.168.1.100"
   - id: OVEN
-    type: Eurotherm
+    type: fastcs_eurotherm.Eurotherm
     ip_address: "192.168.1.101"
 
 transport:

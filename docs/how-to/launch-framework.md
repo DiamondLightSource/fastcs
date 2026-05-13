@@ -62,7 +62,7 @@ as an argument:
 # fastcs.yaml
 controllers:
   - id: DEVICE
-    type: DeviceController
+    type: my_driver.DeviceController
     ip_address: "192.168.1.100"
     port: 25565
     timeout: 10.0
@@ -72,9 +72,15 @@ transport:
 ```
 
 Every entry carries a required `id:` plus a required `type:` discriminator
-that names the Controller class to instantiate. The remaining fields under
-each entry come straight from that class's `__init__` options type
-(`DeviceSettings` here).
+that names the Controller class to instantiate. The default discriminator
+is `<top-level-package>.<ClassName>` — using the package qualifier means
+two independently-distributed packages (e.g. `fastcs_eiger.Detector` and
+`fastcs_pmac.Detector`) can register classes with the same short name
+without colliding. A class can opt out by setting
+`type_name: ClassVar[str]` on itself, in which case that value is used
+verbatim with no prefix added. The remaining fields under each entry come
+straight from that class's `__init__` options type (`DeviceSettings`
+here).
 
 The `id:` (here `DEVICE`) is used verbatim as the EPICS PV prefix and as
 the REST route prefix.
@@ -96,12 +102,12 @@ instances on different IPs sharing a single transport list:
 # fastcs.yaml
 controllers:
   - id: MAIN
-    type: DeviceController
+    type: my_driver.DeviceController
     ip_address: "192.168.1.100"
     port: 25565
     timeout: 10.0
   - id: AUX
-    type: DeviceController
+    type: my_driver.DeviceController
     ip_address: "192.168.1.101"
     port: 25565
     timeout: 10.0
@@ -136,7 +142,7 @@ Use this schema for IDE autocompletion in YAML files:
 # yaml-language-server: $schema=schema.json
 controllers:
   - id: DEVICE
-    type: DeviceController
+    type: my_driver.DeviceController
     ip_address: "192.168.1.100"
     # ... IDE will provide autocompletion
 ```

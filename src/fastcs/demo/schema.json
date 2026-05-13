@@ -240,7 +240,7 @@
           "type": "string"
         },
         "type": {
-          "const": "TemperatureController",
+          "const": "fastcs.TemperatureController",
           "title": "Type",
           "type": "string"
         },
