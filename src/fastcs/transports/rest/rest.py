@@ -155,7 +155,7 @@ def _add_command_api_routes(app: FastAPI, root_controller_api: ControllerAPI) ->
     for controller_api in root_controller_api.walk_api():
         path = controller_api.path
 
-        for name, method in root_controller_api.command_methods.items():
+        for name, method in controller_api.command_methods.items():
             cmd_name = name.replace("_", "-")
             route = f"/{'/'.join(path)}/{cmd_name}" if path else cmd_name
             app.add_api_route(
