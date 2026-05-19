@@ -28,17 +28,17 @@ class TangoTransport(Transport):
         for api in controller_apis:
             if not api.path:
                 continue
-            id = api.path[0]
-            validate_tango_id(id)
-            cls_name = tango_dev_class_name(id)
+            name = api.path[0]
+            validate_tango_id(name)
+            cls_name = tango_dev_class_name(name)
             if cls_name in seen:
                 raise ValueError(
-                    f"Controller ids {seen[cls_name]!r} and {id!r} both sanitise "
+                    f"Controller ids {seen[cls_name]!r} and {name!r} both sanitise "
                     f"to Tango device-class name {cls_name!r}; pick one variant "
                     "(hyphens and underscores are not distinguishable in Tango "
                     "class names)"
                 )
-            seen[cls_name] = id
+            seen[cls_name] = name
         self._dsr = TangoDSR(controller_apis, loop)
 
     async def serve(self) -> None:
