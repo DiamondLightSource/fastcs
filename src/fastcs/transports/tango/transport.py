@@ -21,6 +21,8 @@ class TangoTransport(Transport):
     ):
         seen: dict[str, str] = {}
         for api in controller_apis:
+            if not api.path:
+                continue
             id = api.path[0]
             validate_tango_id(id)
             cls_name = tango_dev_class_name(id)
