@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import ClassVar
+
+from pydantic import ConfigDict
 
 
 @dataclass
@@ -36,6 +39,8 @@ class EpicsCAOptions:
     transport discriminator key. Reserved for future CA-specific knobs.
     """
 
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
 
 @dataclass
 class EpicsPVAOptions:
@@ -44,3 +49,5 @@ class EpicsPVAOptions:
     Currently empty: present so ``epicspva:`` survives in fastcs.yaml as the
     transport discriminator key. Reserved for future PVA-specific knobs.
     """
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")

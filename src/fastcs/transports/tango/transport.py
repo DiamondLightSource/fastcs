@@ -1,5 +1,8 @@
 import asyncio
 from dataclasses import dataclass, field
+from typing import ClassVar
+
+from pydantic import ConfigDict
 
 from fastcs.controllers import ControllerAPI
 from fastcs.transports.transport import Transport
@@ -11,6 +14,8 @@ from .util import tango_dev_class_name, validate_tango_id
 @dataclass
 class TangoTransport(Transport):
     """Tango transport."""
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     tango: TangoDSROptions = field(default_factory=TangoDSROptions)
 

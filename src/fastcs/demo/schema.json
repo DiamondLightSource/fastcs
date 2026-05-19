@@ -1,11 +1,13 @@
 {
   "$defs": {
     "EpicsCAOptions": {
+      "additionalProperties": false,
       "properties": {},
       "title": "EpicsCAOptions",
       "type": "object"
     },
     "EpicsCATransport": {
+      "additionalProperties": false,
       "properties": {
         "epicsca": {
           "$ref": "#/$defs/EpicsCAOptions"
@@ -96,11 +98,13 @@
       "type": "object"
     },
     "EpicsPVAOptions": {
+      "additionalProperties": false,
       "properties": {},
       "title": "EpicsPVAOptions",
       "type": "object"
     },
     "EpicsPVATransport": {
+      "additionalProperties": false,
       "properties": {
         "epicspva": {
           "$ref": "#/$defs/EpicsPVAOptions"
@@ -153,6 +157,7 @@
       "type": "object"
     },
     "GraphQLTransport": {
+      "additionalProperties": false,
       "properties": {
         "graphql": {
           "$ref": "#/$defs/GraphQLServerOptions"
@@ -199,6 +204,7 @@
       "type": "object"
     },
     "RestTransport": {
+      "additionalProperties": false,
       "properties": {
         "rest": {
           "$ref": "#/$defs/RestServerOptions"
@@ -224,6 +230,7 @@
       "type": "object"
     },
     "TangoTransport": {
+      "additionalProperties": false,
       "properties": {
         "tango": {
           "$ref": "#/$defs/TangoDSROptions"

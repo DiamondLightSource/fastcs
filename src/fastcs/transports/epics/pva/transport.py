@@ -1,5 +1,8 @@
 import asyncio
 from dataclasses import dataclass, field
+from typing import ClassVar
+
+from pydantic import ConfigDict
 
 from fastcs.controllers import ControllerAPI
 from fastcs.logging import logger
@@ -20,6 +23,8 @@ from .ioc import P4PIOC
 @dataclass
 class EpicsPVATransport(Transport):
     """PV access transport."""
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     epicspva: EpicsPVAOptions = field(default_factory=EpicsPVAOptions)
     """PVA-specific options. Currently empty; present as the YAML discriminator."""

@@ -1,7 +1,8 @@
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
+from pydantic import ConfigDict
 from softioc import softioc
 
 from fastcs.controllers import ControllerAPI
@@ -22,6 +23,8 @@ from fastcs.transports.transport import Transport
 @dataclass
 class EpicsCATransport(Transport):
     """Channel access transport."""
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     epicsca: EpicsCAOptions = field(default_factory=EpicsCAOptions)
     """CA-specific options. Currently empty; present as the YAML discriminator."""

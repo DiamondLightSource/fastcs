@@ -1,5 +1,8 @@
 import asyncio
 from dataclasses import dataclass, field
+from typing import ClassVar
+
+from pydantic import ConfigDict
 
 from fastcs.controllers import ControllerAPI
 from fastcs.transports.transport import Transport
@@ -12,6 +15,8 @@ from .util import validate_graphql_id
 @dataclass
 class GraphQLTransport(Transport):
     """GraphQL transport."""
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     graphql: GraphQLServerOptions = field(default_factory=GraphQLServerOptions)
 
