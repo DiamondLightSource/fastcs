@@ -164,7 +164,10 @@ def run_ioc_as_subprocess(
         error_queue.close()
         stdout_queue.close()
         process.terminate()
-        process.join(timeout=ioc_startup_timeout)
+        process.join(timeout=2)
+        if process.is_alive():
+            process.kill()
+            process.join()
 
 
 @pytest.fixture(scope="module")
