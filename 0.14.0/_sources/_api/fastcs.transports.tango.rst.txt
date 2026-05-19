@@ -1,0 +1,25 @@
+``fastcs.transports.tango``
+===========================
+
+.. automodule:: fastcs.transports.tango
+    :members:
+
+    
+    
+    .. rubric:: Submodules
+
+    .. autosummary::
+        :toctree:
+        :template: custom-module-template.rst
+        :recursive:
+    
+        dsr
+        options
+        transport
+        util
+    
+    
+
+    
+    
+    
