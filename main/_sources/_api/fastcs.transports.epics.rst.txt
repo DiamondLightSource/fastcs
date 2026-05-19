@@ -14,7 +14,7 @@
         :recursive:
     
         ca
-        docs
+        emission
         gui
         options
         pva

@@ -3,6 +3,7 @@
         
         
         
+        
 
 .. automodule:: fastcs.transports.rest.util
     :members:
@@ -21,5 +22,6 @@
         cast_from_rest_type
         cast_to_rest_type
         convert_datatype
+        validate_rest_id
     
     

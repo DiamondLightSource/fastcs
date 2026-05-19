@@ -3,6 +3,7 @@
         
         
         
+        
 
 .. automodule:: fastcs.transports.epics.ca.util
     :members:
@@ -21,5 +22,6 @@
         cast_from_epics_type
         cast_to_epics_type
         create_state_keys
+        validate_ca_id
     
     

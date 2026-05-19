@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>fastcs.launch &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.launch &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../_static/documentation_options.js?v=8120534f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -461,7 +461,7 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="fastcs.transports.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3 has-children"><a class="reference internal" href="fastcs.transports.epics.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.ca.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.ca</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.docs.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.docs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.emission.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.emission</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.gui.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.gui</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.pva.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.pva</span></code></a></li>
@@ -472,6 +472,7 @@
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.graphql.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.graphql</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.transport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.util</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="fastcs.transports.rest.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -564,35 +565,30 @@
 <span id="fastcs-launch"></span><h1><code class="docutils literal notranslate"><span class="pre">fastcs.launch</span></code><a class="headerlink" href="#module-fastcs.launch" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="fastcs.launch.launch">
-<span class="sig-prename descclassname"><span class="pre">fastcs.launch.</span></span><span class="sig-name descname"><span class="pre">launch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller_class</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fastcs/launch.html#launch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.launch.launch" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">fastcs.launch.</span></span><span class="sig-name descname"><span class="pre">launch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller_classes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fastcs/launch.html#launch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.launch.launch" title="Link to this definition">#</a></dt>
 <dd><p>Serves as an entry point for starting FastCS applications.</p>
-<p>By utilizing type hints in a Controller’s __init__ method, this
+<p>By utilizing type hints in each Controller’s __init__ method, this
 function provides a command-line interface to describe and gather the
 required configuration before instantiating the application.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>controller_class</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><em>type</em></a><em>[</em><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><em>Controller</em></a><em>]</em>) – The FastCS Controller to instantiate.
-It must have a type-hinted __init__ method and no more than 2 arguments.</p></li>
-<li><p><strong>version</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – The version of the FastCS Controller.
-Optional</p></li>
+<li><p><strong>controller_classes</strong> – One or more FastCS Controller classes to make
+available for instantiation. Each must have a type-hinted
+__init__ method and no more than 2 arguments. The chosen class
+for each id is selected by a required <code class="docutils literal notranslate"><span class="pre">type</span></code> discriminator
+in the config.</p></li>
+<li><p><strong>version</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – The version of the FastCS application.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="fastcs.exceptions.html#fastcs.exceptions.LaunchError" title="fastcs.exceptions.LaunchError"><strong>LaunchError</strong></a> – If the class’s __init__ is not as expected</p>
+<dd class="field-even"><p><a class="reference internal" href="fastcs.exceptions.html#fastcs.exceptions.LaunchError" title="fastcs.exceptions.LaunchError"><strong>LaunchError</strong></a> – If a class’s __init__ is not as expected.</p>
 </dd>
 </dl>
 <dl class="simple">
-<dt>Example of the expected Controller implementation:</dt><dd><dl class="simple">
-<dt>class MyController(Controller):</dt><dd><dl class="simple">
-<dt>def __init__(self, my_arg: MyControllerOptions) -&gt; None:</dt><dd><p>…</p>
-</dd>
-</dl>
-</dd>
-</dl>
-</dd>
 <dt>Typical usage:</dt><dd><dl class="simple">
-<dt>if __name__ == “__main__”:</dt><dd><p>launch(MyController)</p>
+<dt>if __name__ == “__main__”:</dt><dd><p>launch(MyController)            # single class
+launch([MyControllerA, MyControllerB])  # multi-class</p>
 </dd>
 </dl>
 </dd>
@@ -601,8 +597,8 @@ Optional</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="fastcs.launch.get_controller_schema">
-<span class="sig-prename descclassname"><span class="pre">fastcs.launch.</span></span><span class="sig-name descname"><span class="pre">get_controller_schema</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fastcs/launch.html#get_controller_schema"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.launch.get_controller_schema" title="Link to this definition">#</a></dt>
-<dd><p>Gets schema for a give controller for serialisation.</p>
+<span class="sig-prename descclassname"><span class="pre">fastcs.launch.</span></span><span class="sig-name descname"><span class="pre">get_controller_schema</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fastcs/launch.html#get_controller_schema"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.launch.get_controller_schema" title="Link to this definition">#</a></dt>
+<dd><p>Gets schema for given controller class(es) for serialisation.</p>
 </dd></dl>
 
 </section>

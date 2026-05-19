@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.rest.rest &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.rest.rest &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -473,16 +473,17 @@
 <div class="viewcode-block" id="RestServer">
 <a class="viewcode-back" href="../../../../_api/fastcs.transports.rest.rest.html#fastcs.transports.rest.rest.RestServer">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">RestServer</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A Rest Server which handles a controller&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A Rest Server which handles one or more controllers.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span> <span class="o">=</span> <span class="n">controller_api</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span> <span class="o">=</span> <span class="n">controller_apis</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_app</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_app</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
-        <span class="n">_add_attribute_api_routes</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">)</span>
-        <span class="n">_add_command_api_routes</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span><span class="p">:</span>
+            <span class="n">_add_attribute_api_routes</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">)</span>
+            <span class="n">_add_command_api_routes</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">app</span>
 
@@ -608,7 +609,7 @@
     <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">root_controller_api</span><span class="o">.</span><span class="n">walk_api</span><span class="p">():</span>
         <span class="n">path</span> <span class="o">=</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span>
 
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">root_controller_api</span><span class="o">.</span><span class="n">command_methods</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">command_methods</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">cmd_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
             <span class="n">route</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/</span><span class="si">{</span><span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">cmd_name</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">path</span> <span class="k">else</span> <span class="n">cmd_name</span>
             <span class="n">app</span><span class="o">.</span><span class="n">add_api_route</span><span class="p">(</span>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.gui &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.epics.gui &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -449,8 +449,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for fastcs.transports.epics.gui</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pvi._format.dls</span><span class="w"> </span><span class="kn">import</span> <span class="n">DLSFormatter</span>  <span class="c1"># type: ignore</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pvi.device</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pvi.device</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">LED</span><span class="p">,</span>
     <span class="n">ArrayTrace</span><span class="p">,</span>
     <span class="n">ButtonPanel</span><span class="p">,</span>
@@ -486,7 +485,7 @@
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">Command</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.options</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIFormat</span><span class="p">,</span> <span class="n">EpicsGUIOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">pv_prefix_from_path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">snake_to_pascal</span>
 
 
@@ -497,14 +496,11 @@
 
     <span class="n">command_value</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span> <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span> <span class="o">=</span> <span class="n">controller_api</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_pv_prefix</span> <span class="o">=</span> <span class="n">pv_prefix</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_pv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr_path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="n">attr_prefix</span> <span class="o">=</span> <span class="s2">&quot;:&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_pv_prefix</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">snake_to_pascal</span><span class="p">(</span><span class="n">node</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">attr_path</span><span class="p">]</span>
-        <span class="p">)</span>
+        <span class="n">attr_prefix</span> <span class="o">=</span> <span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">attr_path</span><span class="p">)</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">attr_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">snake_to_pascal</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_read_widget</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute</span><span class="p">:</span> <span class="n">Attribute</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadWidgetUnion</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -600,21 +596,9 @@
             <span class="n">write_widget</span><span class="o">=</span><span class="n">ButtonPanel</span><span class="p">(</span><span class="n">actions</span><span class="o">=</span><span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">command_value</span><span class="p">}),</span>
         <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_gui</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">EpicsGUIOptions</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">()</span>
-
-        <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">file_format</span> <span class="ow">is</span> <span class="n">EpicsGUIFormat</span><span class="o">.</span><span class="n">edl</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;FastCS may not support all widgets in .edl screens&quot;</span><span class="p">)</span>
-
-        <span class="k">assert</span> <span class="n">options</span><span class="o">.</span><span class="n">output_path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="n">options</span><span class="o">.</span><span class="n">file_format</span><span class="o">.</span><span class="n">value</span>
-        <span class="n">options</span><span class="o">.</span><span class="n">output_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_device</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
         <span class="n">components</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_api_components</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">)</span>
-        <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">title</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="n">components</span><span class="p">)</span>
-
-        <span class="n">formatter</span> <span class="o">=</span> <span class="n">DLSFormatter</span><span class="p">()</span>
-        <span class="n">formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">output_path</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">Device</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="n">components</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">extract_api_components</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tree</span><span class="p">:</span>
         <span class="n">components</span><span class="p">:</span> <span class="n">Tree</span> <span class="o">=</span> <span class="p">[]</span>

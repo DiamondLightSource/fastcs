@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Creating a FastCS Driver &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>Creating a FastCS Driver &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../_static/documentation_options.js?v=8120534f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -588,17 +588,18 @@ passing it in.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
-<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsIOCOptions</span>
-</span><span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca.transport</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
+<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca.transport</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
+</span><span class="hll">
 </span>
-
 <span class="k">class</span><span class="w"> </span><span class="nc">TemperatureController</span><span class="p">(</span><span class="n">Controller</span><span class="p">):</span>
     <span class="n">device_id</span> <span class="o">=</span> <span class="n">AttrR</span><span class="p">(</span><span class="n">String</span><span class="p">())</span>
 
 
-<span class="hll"><span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
-</span><span class="hll"><span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
-</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">()</span>
+<span class="hll"><span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">()</span>
+</span><span class="hll"><span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+</span><span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
@@ -621,7 +622,7 @@ options to the transport options and generate a <code class="docutils literal no
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
-<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 
@@ -629,15 +630,15 @@ options to the transport options and generate a <code class="docutils literal no
     <span class="n">device_id</span> <span class="o">=</span> <span class="n">AttrR</span><span class="p">(</span><span class="n">String</span><span class="p">())</span>
 
 
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-<span class="hll">    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-</span><span class="hll"><span class="p">)</span>
-</span><span class="hll"><span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
-</span><span class="hll"><span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
-</span><span class="hll">
+<span class="hll"><span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+</span><span class="hll"><span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
+</span><span class="hll"><span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">()</span>
+</span><span class="hll"><span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+</span><span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+<span class="hll">
 </span><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-<span class="hll">    <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</span></pre></div>
+    <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
 </div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">demo.bob</span></code> will have been created in the directory the application was run from.</p>
@@ -664,7 +665,7 @@ ensure the connection is established before it is used.</p>
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 
@@ -681,13 +682,13 @@ ensure the connection is established before it is used.</p>
 </span><span class="hll">        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ip_settings</span><span class="p">)</span>
 </span>
 
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="hll"><span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
-</span><span class="hll"><span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
-</span>
+</span><span class="hll"><span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="n">connection_settings</span><span class="p">)</span>
+</span><span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -719,7 +720,7 @@ it to the <code class="docutils literal notranslate"><span class="pre">device_id
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -756,12 +757,12 @@ it to the <code class="docutils literal notranslate"><span class="pre">device_id
 </span>        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ip_settings</span><span class="p">)</span>
 
 
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
-<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -808,7 +809,7 @@ etc.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Float</span><span class="p">,</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
-<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -851,12 +852,12 @@ etc.</p>
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ip_settings</span><span class="p">)</span>
 
 
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
-<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -888,7 +889,7 @@ and set the ramp rate.</p>
 <span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Float</span><span class="p">,</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -938,12 +939,12 @@ and set the ramp rate.</p>
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ip_settings</span><span class="p">)</span>
 
 
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
-<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -990,7 +991,7 @@ are, which is used to register the correct number of ramp controllers with the p
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
-<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -1058,15 +1059,15 @@ are, which is used to register the correct number of ramp controllers with the p
 </span>        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ip_settings</span><span class="p">)</span>
 
 
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
-<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
-
-<span class="hll"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-</span>    <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="hll"><span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1096,7 +1097,7 @@ enable (and disable) the ramping.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
-<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -1170,12 +1171,12 @@ enable (and disable) the ramping.</p>
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ip_settings</span><span class="p">)</span>
 
 
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
-<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -1234,7 +1235,7 @@ gets the array of voltages and sets each ramp controller with its value. Also ad
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">scan</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="hll"><span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -1319,12 +1320,12 @@ gets the array of voltages and sets each ramp controller with its value. Also ad
 </span><span class="hll">            <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">voltage</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">voltages</span><span class="p">[</span><span class="n">index</span><span class="p">]))</span>
 </span><span class="hll">
 </span><span class="hll">
-</span><span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+</span><span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
-<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -1356,7 +1357,7 @@ controller.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">command</span><span class="p">,</span> <span class="n">scan</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="hll"><span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -1448,12 +1449,12 @@ controller.</p>
 </span><span class="hll">            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
 </span><span class="hll">
 </span><span class="hll">
-</span><span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+</span><span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
-<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -1496,7 +1497,7 @@ logger for <code class="docutils literal notranslate"><span class="pre">Temperat
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
 <span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span><span class="p">,</span> <span class="n">logger</span>
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">command</span><span class="p">,</span> <span class="n">scan</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -1593,13 +1594,13 @@ logger for <code class="docutils literal notranslate"><span class="pre">Temperat
 
 <span class="hll"><span class="n">configure_logging</span><span class="p">()</span>
 </span>
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
 <span class="hll"><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Configuring connection settings&quot;</span><span class="p">,</span> <span class="n">connection_settings</span><span class="o">=</span><span class="n">connection_settings</span><span class="p">)</span>
-</span><span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+</span><span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -1634,7 +1635,7 @@ visible.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.launch</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
 <span class="hll"><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogLevel</span><span class="p">,</span> <span class="n">configure_logging</span><span class="p">,</span> <span class="n">logger</span>
 </span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">command</span><span class="p">,</span> <span class="n">scan</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsGUIOptions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.ca</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsCATransport</span>
 
 <span class="n">NumberT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;NumberT&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
@@ -1734,13 +1735,13 @@ visible.</p>
 
 <span class="n">configure_logging</span><span class="p">(</span><span class="n">LogLevel</span><span class="o">.</span><span class="n">TRACE</span><span class="p">)</span>
 
-<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span>
-    <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;demo.bob&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span>
-<span class="p">)</span>
-<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">,</span> <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEMO&quot;</span><span class="p">))</span>
+<span class="n">gui_options</span> <span class="o">=</span> <span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">),</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Demo Temperature Controller&quot;</span><span class="p">)</span>
+<span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">gui</span><span class="o">=</span><span class="n">gui_options</span><span class="p">)</span>
 <span class="n">connection_settings</span> <span class="o">=</span> <span class="n">IPConnectionSettings</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="mi">25565</span><span class="p">)</span>
 <span class="hll"><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Configuring connection settings&quot;</span><span class="p">,</span> <span class="n">connection_settings</span><span class="o">=</span><span class="n">connection_settings</span><span class="p">)</span>
-</span><span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">),</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
+</span><span class="n">controller</span> <span class="o">=</span> <span class="n">TemperatureController</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">connection_settings</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEMO&quot;</span><span class="p">])</span>
+<span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="p">[</span><span class="n">epics_ca</span><span class="p">])</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">fastcs</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>

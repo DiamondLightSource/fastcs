@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Run Multiple Transports Simultaneously &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>Run Multiple Transports Simultaneously &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../_static/documentation_options.js?v=8120534f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -66,7 +66,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Work with Table and Waveform Data" href="table-waveform-data.html" />
-    <link rel="prev" title="Use the Launch Framework for CLI Applications" href="launch-framework.html" />
+    <link rel="prev" title="Migrate to Multi-Controller FastCS" href="migrate-to-multi-controller.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -407,6 +407,7 @@
 <li class="toctree-l1"><a class="reference internal" href="arrange-epics-screens.html">Arrange EPICS Screens with Groups and Sub-Controllers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribute to the project</a></li>
 <li class="toctree-l1"><a class="reference internal" href="launch-framework.html">Use the Launch Framework for CLI Applications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="migrate-to-multi-controller.html">Migrate to Multi-Controller FastCS</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Run Multiple Transports Simultaneously</a></li>
 <li class="toctree-l1"><a class="reference internal" href="table-waveform-data.html">Work with Table and Waveform Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="test-logging.html">Testing Log Output</a></li>
@@ -481,17 +482,17 @@
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.control_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastCS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">EpicsCATransport</span><span class="p">,</span>
-    <span class="n">EpicsIOCOptions</span><span class="p">,</span>
     <span class="n">GraphQLTransport</span><span class="p">,</span>
     <span class="n">RestTransport</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">controller</span> <span class="o">=</span> <span class="n">MyController</span><span class="p">()</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEVICE&quot;</span><span class="p">])</span>  <span class="c1"># PV prefix for EPICS / route prefix for REST</span>
 
 <span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span>
     <span class="n">controller</span><span class="p">,</span>
     <span class="p">[</span>
-        <span class="n">EpicsCATransport</span><span class="p">(</span><span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEVICE&quot;</span><span class="p">)),</span>
+        <span class="n">EpicsCATransport</span><span class="p">(),</span>
         <span class="n">RestTransport</span><span class="p">(),</span>
         <span class="n">GraphQLTransport</span><span class="p">(),</span>
     <span class="p">]</span>
@@ -500,6 +501,42 @@
 </pre></div>
 </div>
 <p>All transports run concurrently, exposing the same controller API.</p>
+</section>
+<section id="choosing-controller-ids-across-transports">
+<h2>Choosing controller ids across transports<a class="headerlink" href="#choosing-controller-ids-across-transports" title="Link to this heading">#</a></h2>
+<p>Each transport derives its addressing from the controller’s id (the PV prefix
+for EPICS, the URL prefix for REST, the top-level Query field for GraphQL),
+and each enforces its own charset at startup.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Transport</p></th>
+<th class="head"><p>Allowed id charset</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>EPICS CA</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[A-Za-z0-9_-]+</span></code>, plus the 60-char PV name limit</p></td>
+</tr>
+<tr class="row-odd"><td><p>EPICS PVA</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[A-Za-z0-9_-]+</span></code>, plus the 60-char PV name limit</p></td>
+</tr>
+<tr class="row-even"><td><p>REST</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[A-Za-z0-9_-]+</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Tango</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[A-Za-z0-9_-]+</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>GraphQL</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[A-Za-z_][A-Za-z0-9_]*</span></code> (GraphQL <code class="docutils literal notranslate"><span class="pre">Name</span></code>: no hyphens, no leading digit)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>If you serve the same controller through multiple transports, use the
+intersection — a leading letter or underscore followed by letters, digits and
+underscores. GraphQL is the lowest common denominator: an id like <code class="docutils literal notranslate"><span class="pre">dev-01</span></code>
+will start an EPICS or REST transport happily but fail fast when GraphQL is
+added.</p>
 </section>
 <section id="available-transports">
 <h2>Available Transports<a class="headerlink" href="#available-transports" title="Link to this heading">#</a></h2>
@@ -550,22 +587,23 @@
 <p>Each transport has its own options:</p>
 <section id="epics-channel-access">
 <h3>EPICS Channel Access<a class="headerlink" href="#epics-channel-access" title="Link to this heading">#</a></h3>
+<p>The PV prefix is the first segment of the controller’s path (set via
+<code class="docutils literal notranslate"><span class="pre">controller.set_path([...])</span></code> or auto-seeded by <code class="docutils literal notranslate"><span class="pre">launch()</span></code> from the YAML
+entry’s <code class="docutils literal notranslate"><span class="pre">id:</span></code>).</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">EpicsCATransport</span><span class="p">,</span>
     <span class="n">EpicsDocsOptions</span><span class="p">,</span>
     <span class="n">EpicsGUIOptions</span><span class="p">,</span>
-    <span class="n">EpicsIOCOptions</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">epics_ca</span> <span class="o">=</span> <span class="n">EpicsCATransport</span><span class="p">(</span>
-    <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEVICE&quot;</span><span class="p">),</span>
     <span class="n">gui</span><span class="o">=</span><span class="n">EpicsGUIOptions</span><span class="p">(</span>
-        <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;device.bob&quot;</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./opis&quot;</span><span class="p">),</span>
         <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Device Control&quot;</span><span class="p">,</span>
     <span class="p">),</span>
     <span class="n">docs</span><span class="o">=</span><span class="n">EpicsDocsOptions</span><span class="p">(</span>
-        <span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;device.csv&quot;</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./reference&quot;</span><span class="p">),</span>
     <span class="p">),</span>
 <span class="p">)</span>
 </pre></div>
@@ -573,11 +611,9 @@
 </section>
 <section id="epics-pv-access">
 <h3>EPICS PV Access<a class="headerlink" href="#epics-pv-access" title="Link to this heading">#</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsPVATransport</span><span class="p">,</span> <span class="n">EpicsIOCOptions</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports</span><span class="w"> </span><span class="kn">import</span> <span class="n">EpicsPVATransport</span>
 
-<span class="n">epics_pva</span> <span class="o">=</span> <span class="n">EpicsPVATransport</span><span class="p">(</span>
-    <span class="n">epicspva</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEVICE&quot;</span><span class="p">),</span>
-<span class="p">)</span>
+<span class="n">epics_pva</span> <span class="o">=</span> <span class="n">EpicsPVATransport</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
@@ -616,11 +652,14 @@
 
 <span class="n">tango</span> <span class="o">=</span> <span class="n">TangoTransport</span><span class="p">(</span>
     <span class="n">tango</span><span class="o">=</span><span class="n">TangoDSROptions</span><span class="p">(</span>
-        <span class="n">device_name</span><span class="o">=</span><span class="s2">&quot;test/device/1&quot;</span><span class="p">,</span>
+        <span class="n">dsr_instance</span><span class="o">=</span><span class="s2">&quot;MY_SERVER_INSTANCE&quot;</span><span class="p">,</span>
     <span class="p">),</span>
 <span class="p">)</span>
 </pre></div>
 </div>
+<p>The Tango device name for each controller is derived from its id —
+<code class="docutils literal notranslate"><span class="pre">{id}/{dev_class}/{dsr_instance}</span></code>. The id forms the leading device-name
+segment, so multiple controllers in one DSR get distinct device names.</p>
 </section>
 </section>
 <section id="epics-ca-pva-together">
@@ -631,25 +670,24 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">EpicsCATransport</span><span class="p">,</span>
     <span class="n">EpicsGUIOptions</span><span class="p">,</span>
-    <span class="n">EpicsIOCOptions</span><span class="p">,</span>
     <span class="n">EpicsPVATransport</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="n">controller</span><span class="o">.</span><span class="n">set_path</span><span class="p">([</span><span class="s2">&quot;DEVICE&quot;</span><span class="p">])</span>
 
 <span class="n">fastcs</span> <span class="o">=</span> <span class="n">FastCS</span><span class="p">(</span>
     <span class="n">controller</span><span class="p">,</span>
     <span class="p">[</span>
         <span class="n">EpicsCATransport</span><span class="p">(</span>
-            <span class="n">epicsca</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEVICE&quot;</span><span class="p">),</span>
-            <span class="n">gui</span><span class="o">=</span><span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;device.bob&quot;</span><span class="p">),</span>
+            <span class="n">gui</span><span class="o">=</span><span class="n">EpicsGUIOptions</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./opis&quot;</span><span class="p">)),</span>
         <span class="p">),</span>
-        <span class="n">EpicsPVATransport</span><span class="p">(</span>
-            <span class="n">epicspva</span><span class="o">=</span><span class="n">EpicsIOCOptions</span><span class="p">(</span><span class="n">pv_prefix</span><span class="o">=</span><span class="s2">&quot;DEVICE&quot;</span><span class="p">),</span>
-        <span class="p">),</span>
+        <span class="n">EpicsPVATransport</span><span class="p">(),</span>
     <span class="p">]</span>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>Both transports share the same PV prefix and expose identical PVs.</p>
+<p>Both transports derive the same PV prefix from the controller’s id and
+expose identical PVs.</p>
 </section>
 <section id="yaml-configuration">
 <h2>YAML Configuration<a class="headerlink" href="#yaml-configuration" title="Link to this heading">#</a></h2>
@@ -669,12 +707,12 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="launch-framework.html"
+       href="migrate-to-multi-controller.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Use the Launch Framework for CLI Applications</p>
+        <p class="prev-next-title">Migrate to Multi-Controller FastCS</p>
       </div>
     </a>
     <a class="right-next"
@@ -706,6 +744,7 @@
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-setup">Basic Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-controller-ids-across-transports">Choosing controller ids across transports</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-transports">Available Transports</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#transport-configuration">Transport Configuration</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#epics-channel-access">EPICS Channel Access</a></li>

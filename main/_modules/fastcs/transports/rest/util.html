@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.rest.util &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.rest.util &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -449,11 +449,29 @@
                 <article class="bd-article">
                   
   <h1>Source code for fastcs.transports.rest.util</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bool</span><span class="p">,</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">DType_T</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">Waveform</span>
 
 <span class="n">REST_ALLOWED_DATATYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">Bool</span><span class="p">,</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span><span class="p">)</span>
+
+<span class="n">_REST_ID_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^[A-Za-z0-9_-]+$&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="validate_rest_id">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.rest.util.html#fastcs.transports.rest.util.validate_rest_id">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_rest_id</span><span class="p">(</span><span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reject controller ids that wouldn&#39;t be safe in a REST URL path.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">id</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Controller id is empty; ids must be non-empty&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_REST_ID_RE</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="nb">id</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Controller id </span><span class="si">{</span><span class="nb">id</span><span class="si">!r}</span><span class="s2"> is not a valid REST id; &quot;</span>
+            <span class="s2">&quot;only alphanumerics, &#39;-&#39; and &#39;_&#39; are allowed&quot;</span>
+        <span class="p">)</span></div>
+
 
 
 <div class="viewcode-block" id="convert_datatype">

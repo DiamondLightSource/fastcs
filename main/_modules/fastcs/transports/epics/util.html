@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.util &#8212; FastCS 0.11.1.dev1+g56dccbad6 documentation</title>
+    <title>fastcs.transports.epics.util &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -32,7 +32,7 @@
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=3fefa004" />
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=0795487a"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -50,13 +50,13 @@
     <script>let toggleHintShow = 'Click to show';</script>
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
-    <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../../../_static/togglebutton.js?v=1ae7504c"></script>
     <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/fastcs/transports/epics/util';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://DiamondLightSource.github.io/FastCS/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://DiamondLightSource.github.io/fastcs/switcher.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
@@ -136,7 +136,7 @@
     <img src="../../../../_static/fastcs.svg" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">FastCS</p>
+    <p class="title logo__title">fastcs</p>
   
 </a></div>
     
@@ -215,7 +215,7 @@
           
           
           
-          <a href="https://github.com/DiamondLightSource/FastCS" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
         <li class="nav-item">
@@ -227,7 +227,7 @@
           
           
           
-          <a href="https://pypi.org/project/FastCS" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
             <span class="sr-only">PyPI</span></a>
         </li>
 </ul></div>
@@ -352,7 +352,7 @@
           
           
           
-          <a href="https://github.com/DiamondLightSource/FastCS" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
         <li class="nav-item">
@@ -364,7 +364,7 @@
           
           
           
-          <a href="https://pypi.org/project/FastCS" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
             <span class="sr-only">PyPI</span></a>
         </li>
 </ul></div>
@@ -451,23 +451,59 @@
   <h1>Source code for fastcs.transports.epics.util</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.controller_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">ControllerAPI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ControllerAPI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">snake_to_pascal</span>
+
+<span class="n">EPICS_MAX_NAME_LENGTH</span> <span class="o">=</span> <span class="mi">60</span>
+<span class="sd">&quot;&quot;&quot;Maximum length of an EPICS PV name, enforced by both CA and PVA transports.&quot;&quot;&quot;</span>
 
 
-<div class="viewcode-block" id="snake_to_pascal">
-<a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.snake_to_pascal">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">snake_to_pascal</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Converts string from snake case to Pascal case.</span>
-<span class="sd">    If string is not a valid snake case it will be returned unchanged</span>
+<div class="viewcode-block" id="pv_prefix_from_path">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.pv_prefix_from_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pv_prefix_from_path</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Derive an EPICS PV prefix from a controller path.</span>
+
+<span class="sd">    The first segment (the controller id) is used verbatim; later segments are</span>
+<span class="sd">    converted snake_case → PascalCase. Joined with &#39;:&#39;.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[a-z][a-z0-9]*(?:_[a-z0-9]+)*&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-        <span class="n">name</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(?:^|_)([a-z0-9])&quot;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">match</span><span class="p">:</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">name</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">name</span></div>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot derive a PV prefix from an empty path&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;:&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="p">[</span><span class="n">snake_to_pascal</span><span class="p">(</span><span class="n">node</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]])</span></div>
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">controller_pv_prefix</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-    <span class="k">return</span> <span class="s2">&quot;:&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">prefix</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">snake_to_pascal</span><span class="p">(</span><span class="n">node</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">])</span>
+<div class="viewcode-block" id="validate_epics_pv_id">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.validate_epics_pv_id">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_epics_pv_id</span><span class="p">(</span>
+    <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">transport_label</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">id_re</span><span class="p">:</span> <span class="n">re</span><span class="o">.</span><span class="n">Pattern</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reject controller ids that wouldn&#39;t be safe in an EPICS PV name.</span>
+
+<span class="sd">    Rejects ids with characters not matched by ``id_re`` and rejects setups</span>
+<span class="sd">    where the longest derivable PV prefix already exceeds the</span>
+<span class="sd">    ``EPICS_MAX_NAME_LENGTH`` PV name limit. ``transport_label`` is the</span>
+<span class="sd">    transport-specific tag (e.g. ``&quot;EPICS CA id&quot;``) that appears in the</span>
+<span class="sd">    illegal-characters error message.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">id_re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Controller id </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not a valid </span><span class="si">{</span><span class="n">transport_label</span><span class="si">}</span><span class="s2">; &quot;</span>
+            <span class="s2">&quot;only alphanumerics, &#39;-&#39; and &#39;_&#39; are allowed&quot;</span>
+        <span class="p">)</span>
+    <span class="n">longest_prefix</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">path</span><span class="p">))</span> <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">walk_api</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">longest_prefix</span> <span class="o">&gt;</span> <span class="n">EPICS_MAX_NAME_LENGTH</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Controller id </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> produces a PV prefix of &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">longest_prefix</span><span class="si">}</span><span class="s2"> characters, which exceeds the EPICS &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">EPICS_MAX_NAME_LENGTH</span><span class="si">}</span><span class="s2">-character PV name limit&quot;</span>
+        <span class="p">)</span></div>
+
 </pre></div>
 
                 </article>

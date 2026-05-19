@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.tango.transport &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.tango.transport &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -451,11 +451,15 @@
   <h1>Source code for fastcs.transports.tango.transport</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigDict</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ControllerAPI</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.transport</span><span class="w"> </span><span class="kn">import</span> <span class="n">Transport</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.dsr</span><span class="w"> </span><span class="kn">import</span> <span class="n">TangoDSR</span><span class="p">,</span> <span class="n">TangoDSROptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">tango_dev_class_name</span><span class="p">,</span> <span class="n">validate_tango_id</span>
 
 
 <div class="viewcode-block" id="TangoTransport">
@@ -464,14 +468,31 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">TangoTransport</span><span class="p">(</span><span class="n">Transport</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Tango transport.&quot;&quot;&quot;</span>
 
+    <span class="n">__pydantic_config__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">ConfigDict</span><span class="p">]</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span>
+
     <span class="n">tango</span><span class="p">:</span> <span class="n">TangoDSROptions</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TangoDSROptions</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span>
+        <span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">],</span>
         <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_dsr</span> <span class="o">=</span> <span class="n">TangoDSR</span><span class="p">(</span><span class="n">controller_api</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
+        <span class="n">seen</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="n">controller_apis</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">api</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">validate_tango_id</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">cls_name</span> <span class="o">=</span> <span class="n">tango_dev_class_name</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">cls_name</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Controller ids </span><span class="si">{</span><span class="n">seen</span><span class="p">[</span><span class="n">cls_name</span><span class="p">]</span><span class="si">!r}</span><span class="s2"> and </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> both sanitise &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;to Tango device-class name </span><span class="si">{</span><span class="n">cls_name</span><span class="si">!r}</span><span class="s2">; pick one variant &quot;</span>
+                    <span class="s2">&quot;(hyphens and underscores are not distinguishable in Tango &quot;</span>
+                    <span class="s2">&quot;class names)&quot;</span>
+                <span class="p">)</span>
+            <span class="n">seen</span><span class="p">[</span><span class="n">cls_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dsr</span> <span class="o">=</span> <span class="n">TangoDSR</span><span class="p">(</span><span class="n">controller_apis</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">serve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">coro</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dsr</span><span class="o">.</span><span class="n">run</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tango</span><span class="p">)</span>

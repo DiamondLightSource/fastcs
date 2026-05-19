@@ -4,6 +4,7 @@
         
         
         
+        
 
 .. automodule:: fastcs.transports.epics.options
     :members:
@@ -19,9 +20,10 @@
     .. autosummary::
         :nosignatures:
     
+        EpicsCAOptions
         EpicsDocsOptions
         EpicsGUIFormat
         EpicsGUIOptions
-        EpicsIOCOptions
+        EpicsPVAOptions
     
     

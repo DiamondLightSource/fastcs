@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>fastcs.control_system &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.control_system &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../_static/documentation_options.js?v=8120534f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -461,7 +461,7 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="fastcs.transports.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3 has-children"><a class="reference internal" href="fastcs.transports.epics.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.ca.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.ca</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.docs.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.docs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.emission.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.emission</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.gui.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.gui</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.pva.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.pva</span></code></a></li>
@@ -472,6 +472,7 @@
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.graphql.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.graphql</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.transport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.util</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="fastcs.transports.rest.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -573,14 +574,15 @@
 </div>
 <dl class="py class">
 <dt class="sig sig-object py" id="fastcs.control_system.FastCS">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.control_system.</span></span><span class="sig-name descname"><span class="pre">FastCS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">transports</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.transports.transport.html#fastcs.transports.transport.Transport" title="fastcs.transports.transport.Transport"><span class="pre">Transport</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AbstractEventLoop</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/control_system.html#FastCS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.control_system.FastCS" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.control_system.</span></span><span class="sig-name descname"><span class="pre">FastCS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controllers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><span class="pre">Controller</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transports</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="fastcs.transports.transport.html#fastcs.transports.transport.Transport" title="fastcs.transports.transport.Transport"><span class="pre">Transport</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AbstractEventLoop</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/control_system.html#FastCS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.control_system.FastCS" title="Link to this definition">#</a></dt>
 <dd><p>Entrypoint for a FastCS application.</p>
-<p>This class takes a <a class="reference internal" href="fastcs.controllers.controller.html#fastcs.controllers.controller.Controller" title="fastcs.controllers.controller.Controller"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Controller</span></code></a>, creates asyncio tasks to run its update loops and
-builds its API to serve over the given <a href="#id1"><span class="problematic" id="id2">`</span></a>Transport`s.</p>
+<p>This class takes one or more <a href="#id1"><span class="problematic" id="id2">`</span></a>Controller`s, creates asyncio tasks to run their
+update loops and builds their APIs to serve over the given <a href="#id3"><span class="problematic" id="id4">`</span></a>Transport`s.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>controller</strong> – The controller to serve in the control system</p></li>
+<li><p><strong>controllers</strong> – The controller(s) to serve in the control system. Accepts
+either a single <code class="docutils literal notranslate"><span class="pre">Controller</span></code> or a sequence of them.</p></li>
 <li><p><strong>transports</strong> – A list of transports to serve the API over</p></li>
 <li><p><strong>loop</strong> – Optional event loop to run the control system in</p></li>
 </ul>

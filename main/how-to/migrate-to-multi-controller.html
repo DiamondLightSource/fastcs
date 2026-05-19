@@ -1,0 +1,704 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Migrate to Multi-Controller FastCS &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=3fefa004" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=8120534f"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=30646c52"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/migrate-to-multi-controller';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://DiamondLightSource.github.io/fastcs/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="icon" href="../_static/fastcs.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Run Multiple Transports Simultaneously" href="multiple-transports.html" />
+    <link rel="prev" title="Use the Launch Framework for CLI Applications" href="launch-framework.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="main" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/fastcs.svg" class="logo__image only-light" alt=""/>
+    <img src="../_static/fastcs.svg" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">fastcs</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="arrange-epics-screens.html">Arrange EPICS Screens with Groups and Sub-Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribute to the project</a></li>
+<li class="toctree-l1"><a class="reference internal" href="launch-framework.html">Use the Launch Framework for CLI Applications</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Migrate to Multi-Controller FastCS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="multiple-transports.html">Run Multiple Transports Simultaneously</a></li>
+<li class="toctree-l1"><a class="reference internal" href="table-waveform-data.html">Work with Table and Waveform Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="test-logging.html">Testing Log Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="update-attributes-from-device.html">Update Attribute Values from a Device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wait-methods.html">Synchronize Operations with Wait Methods</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../how-to.html" class="nav-link">How-to Guides</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Migrate to Multi-Controller FastCS</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="migrate-to-multi-controller-fastcs">
+<h1>Migrate to Multi-Controller FastCS<a class="headerlink" href="#migrate-to-multi-controller-fastcs" title="Link to this heading">#</a></h1>
+<p>FastCS now supports more than one top-level Controller per application.
+The launch-framework config schema, the EPICS option dataclasses, and
+the bundled demo all changed shape to accommodate this. This guide
+covers the manual migration steps for an existing FastCS app.</p>
+<section id="rename-controller-yaml-fastcs-yaml">
+<h2>1. Rename <code class="docutils literal notranslate"><span class="pre">controller.yaml</span></code> → <code class="docutils literal notranslate"><span class="pre">fastcs.yaml</span></code><a class="headerlink" href="#rename-controller-yaml-fastcs-yaml" title="Link to this heading">#</a></h2>
+<p>The bundled demo’s config file moved from
+<code class="docutils literal notranslate"><span class="pre">src/fastcs/demo/controller.yaml</span></code> to <code class="docutils literal notranslate"><span class="pre">src/fastcs/demo/fastcs.yaml</span></code>. The
+name <code class="docutils literal notranslate"><span class="pre">fastcs.yaml</span></code> is now the recommended convention for application
+configs, but the launcher does not hard-code it — <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">my_driver</span> <span class="pre">run</span> <span class="pre">&lt;path&gt;</span></code> still accepts any path. If you rely on the demo path
+explicitly (e.g. in a <code class="docutils literal notranslate"><span class="pre">launch.json</span></code> debug config), update it.</p>
+</section>
+<section id="controller-controllers-list-of-entries">
+<h2>2. <code class="docutils literal notranslate"><span class="pre">controller:</span></code> → <code class="docutils literal notranslate"><span class="pre">controllers:</span></code> list of entries<a class="headerlink" href="#controller-controllers-list-of-entries" title="Link to this heading">#</a></h2>
+<p>The top-level singular <code class="docutils literal notranslate"><span class="pre">controller:</span></code> block is gone. Replace it with a
+list of entries, each carrying an <code class="docutils literal notranslate"><span class="pre">id:</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Before</span>
+<span class="nt">controller</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span>
+<span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25565</span>
+
+<span class="nt">transport</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</pre></div>
+</div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># After</span>
+<span class="nt">controllers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DEVICE</span><span class="w">                          </span><span class="c1"># used as the addressing prefix</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_driver.DeviceController</span><span class="w">    </span><span class="c1"># required discriminator</span>
+<span class="w">    </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25565</span>
+
+<span class="nt">transport</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</pre></div>
+</div>
+<p>The entry’s <code class="docutils literal notranslate"><span class="pre">id:</span></code> (here <code class="docutils literal notranslate"><span class="pre">DEVICE</span></code>) is used verbatim as the EPICS PV
+prefix, the REST route prefix, the GraphQL top-level Query field, and
+the Tango device-name segment. See
+<a class="reference internal" href="multiple-transports.html"><span class="std std-doc">Run Multiple Transports Simultaneously</span></a> for
+the per-transport id charset rules — GraphQL’s <code class="docutils literal notranslate"><span class="pre">[A-Za-z_][A-Za-z0-9_]*</span></code>
+is the lowest common denominator.</p>
+<p>To host more than one controller, add more list entries. Duplicate ids
+across entries are rejected at run time.</p>
+</section>
+<section id="drop-pv-prefix-from-epicsiocoptions">
+<h2>3. Drop <code class="docutils literal notranslate"><span class="pre">pv_prefix</span></code> from <code class="docutils literal notranslate"><span class="pre">EpicsIOCOptions</span></code><a class="headerlink" href="#drop-pv-prefix-from-epicsiocoptions" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">EpicsIOCOptions</span></code> and its <code class="docutils literal notranslate"><span class="pre">pv_prefix</span></code> field are removed. The PV prefix
+is now derived from the controller id, so a transport block that used
+to look like:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Before</span>
+<span class="nt">transport</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">pv_prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DEVICE</span>
+</pre></div>
+</div>
+<p>becomes:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># After</span>
+<span class="nt">transport</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</pre></div>
+</div>
+<p>The same applies to PVA. If you construct transports in Python rather
+than via YAML, replace <code class="docutils literal notranslate"><span class="pre">EpicsCATransport(epicsca=EpicsIOCOptions(</span> <span class="pre">pv_prefix=&quot;DEVICE&quot;))</span></code> with <code class="docutils literal notranslate"><span class="pre">EpicsCATransport()</span></code> plus
+<code class="docutils literal notranslate"><span class="pre">controller.set_path([&quot;DEVICE&quot;])</span></code> (or set the id from the YAML entry’s
+<code class="docutils literal notranslate"><span class="pre">id:</span></code> field when using <code class="docutils literal notranslate"><span class="pre">launch()</span></code>).</p>
+</section>
+<section id="type-discriminator-is-required-on-every-entry">
+<h2>4. <code class="docutils literal notranslate"><span class="pre">type:</span></code> discriminator is required on every entry<a class="headerlink" href="#type-discriminator-is-required-on-every-entry" title="Link to this heading">#</a></h2>
+<p>Each entry under <code class="docutils literal notranslate"><span class="pre">controllers:</span></code> carries a required <code class="docutils literal notranslate"><span class="pre">type:</span></code> discriminator
+that names the Controller class to instantiate. The discriminator value
+defaults to <code class="docutils literal notranslate"><span class="pre">&lt;top-level-package&gt;.&lt;ClassName&gt;</span></code> so that classes from
+independently-distributed packages (e.g. <code class="docutils literal notranslate"><span class="pre">fastcs_eiger.Detector</span></code> and
+<code class="docutils literal notranslate"><span class="pre">fastcs_pmac.Detector</span></code>) cannot collide on a short name. A class may
+override this verbatim (no prefix added) by setting
+<code class="docutils literal notranslate"><span class="pre">type_name:</span> <span class="pre">ClassVar[str]</span></code>. The same rule applies whether <code class="docutils literal notranslate"><span class="pre">launch()</span></code> is
+called with a single class or with several — <code class="docutils literal notranslate"><span class="pre">type:</span></code> is never optional.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Two-class app: launch([Lakeshore, Eurotherm])</span>
+<span class="nt">controllers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CRYO</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fastcs_lakeshore.Lakeshore</span>
+<span class="w">    </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">OVEN</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fastcs_eurotherm.Eurotherm</span>
+<span class="w">    </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.101&quot;</span>
+
+<span class="nt">transport</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</pre></div>
+</div>
+</section>
+<section id="direct-fastcs-usage-is-unchanged-for-the-single-controller-case">
+<h2>5. Direct <code class="docutils literal notranslate"><span class="pre">FastCS(...)</span></code> usage is unchanged for the single-controller case<a class="headerlink" href="#direct-fastcs-usage-is-unchanged-for-the-single-controller-case" title="Link to this heading">#</a></h2>
+<p>If you instantiate <code class="docutils literal notranslate"><span class="pre">FastCS</span></code> directly rather than via <code class="docutils literal notranslate"><span class="pre">launch()</span></code>, the
+single-controller form <code class="docutils literal notranslate"><span class="pre">FastCS(controller,</span> <span class="pre">transports)</span></code> still works.
+For multi-controller, pass a sequence:
+<code class="docutils literal notranslate"><span class="pre">FastCS([controller_a,</span> <span class="pre">controller_b],</span> <span class="pre">transports)</span></code>. Each Controller
+must have had <code class="docutils literal notranslate"><span class="pre">set_path([...])</span></code> called before being handed to <code class="docutils literal notranslate"><span class="pre">FastCS</span></code>.</p>
+</section>
+<section id="gui-docs-emission-output-is-now-a-directory">
+<h2>6. GUI/docs emission output is now a directory<a class="headerlink" href="#gui-docs-emission-output-is-now-a-directory" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">EpicsGUIOptions.output_path</span></code> (single file) was renamed to
+<code class="docutils literal notranslate"><span class="pre">output_dir</span></code> (directory). <code class="docutils literal notranslate"><span class="pre">EpicsDocsOptions.path</span></code> likewise renamed to
+<code class="docutils literal notranslate"><span class="pre">output_dir</span></code>. Per-controller files (<code class="docutils literal notranslate"><span class="pre">&lt;id&gt;.bob</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;id&gt;.md</span></code>) plus an
+<code class="docutils literal notranslate"><span class="pre">index.&lt;ext&gt;</span></code> are written into the directory — even when only one
+controller is configured. Update any YAML or Python that set the old
+field names.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="launch-framework.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Use the Launch Framework for CLI Applications</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="multiple-transports.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Run Multiple Transports Simultaneously</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rename-controller-yaml-fastcs-yaml">1. Rename <code class="docutils literal notranslate"><span class="pre">controller.yaml</span></code> → <code class="docutils literal notranslate"><span class="pre">fastcs.yaml</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#controller-controllers-list-of-entries">2. <code class="docutils literal notranslate"><span class="pre">controller:</span></code> → <code class="docutils literal notranslate"><span class="pre">controllers:</span></code> list of entries</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#drop-pv-prefix-from-epicsiocoptions">3. Drop <code class="docutils literal notranslate"><span class="pre">pv_prefix</span></code> from <code class="docutils literal notranslate"><span class="pre">EpicsIOCOptions</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#type-discriminator-is-required-on-every-entry">4. <code class="docutils literal notranslate"><span class="pre">type:</span></code> discriminator is required on every entry</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#direct-fastcs-usage-is-unchanged-for-the-single-controller-case">5. Direct <code class="docutils literal notranslate"><span class="pre">FastCS(...)</span></code> usage is unchanged for the single-controller case</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#gui-docs-emission-output-is-now-a-directory">6. GUI/docs emission output is now a directory</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/DiamondLightSource/fastcs/edit/main/docs/how-to/migrate-to-multi-controller.md">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/how-to/migrate-to-multi-controller.md.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

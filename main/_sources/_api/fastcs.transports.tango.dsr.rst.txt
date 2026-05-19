@@ -2,6 +2,7 @@
 ===============================
         
         
+        
 
 .. automodule:: fastcs.transports.tango.dsr
     :members:
@@ -18,6 +19,7 @@
         :nosignatures:
     
         TangoDSR
+        register_controller_devs
         register_dev
     
     

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Use the Launch Framework for CLI Applications &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>Use the Launch Framework for CLI Applications &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../_static/documentation_options.js?v=8120534f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -65,7 +65,7 @@
     <link rel="icon" href="../_static/fastcs.svg"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Run Multiple Transports Simultaneously" href="multiple-transports.html" />
+    <link rel="next" title="Migrate to Multi-Controller FastCS" href="migrate-to-multi-controller.html" />
     <link rel="prev" title="Contribute to the project" href="contribute.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -407,6 +407,7 @@
 <li class="toctree-l1"><a class="reference internal" href="arrange-epics-screens.html">Arrange EPICS Screens with Groups and Sub-Controllers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribute to the project</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Use the Launch Framework for CLI Applications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="migrate-to-multi-controller.html">Migrate to Multi-Controller FastCS</a></li>
 <li class="toctree-l1"><a class="reference internal" href="multiple-transports.html">Run Multiple Transports Simultaneously</a></li>
 <li class="toctree-l1"><a class="reference internal" href="table-waveform-data.html">Work with Table and Waveform Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="test-logging.html">Testing Log Output</a></li>
@@ -525,22 +526,70 @@ argument has a type hint, which is required to infer the schema:</p>
 </section>
 <section id="yaml-configuration-files">
 <h2>YAML Configuration Files<a class="headerlink" href="#yaml-configuration-files" title="Link to this heading">#</a></h2>
-<p>Create a YAML configuration file matching the schema:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># device_config.yaml</span>
-<span class="nt">controller</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span>
-<span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25565</span>
-<span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
+<p>Create a YAML configuration file matching the schema. The conventional
+filename is <code class="docutils literal notranslate"><span class="pre">fastcs.yaml</span></code>, but any filename works — <code class="docutils literal notranslate"><span class="pre">run</span></code> takes the path
+as an argument:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># fastcs.yaml</span>
+<span class="nt">controllers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DEVICE</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_driver.DeviceController</span>
+<span class="w">    </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25565</span>
+<span class="w">    </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
 
 <span class="nt">transport</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">pv_prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;DEVICE&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 </pre></div>
 </div>
+<p>Every entry carries a required <code class="docutils literal notranslate"><span class="pre">id:</span></code> plus a required <code class="docutils literal notranslate"><span class="pre">type:</span></code> discriminator
+that names the Controller class to instantiate. The default discriminator
+is <code class="docutils literal notranslate"><span class="pre">&lt;top-level-package&gt;.&lt;ClassName&gt;</span></code> — using the package qualifier means
+two independently-distributed packages (e.g. <code class="docutils literal notranslate"><span class="pre">fastcs_eiger.Detector</span></code> and
+<code class="docutils literal notranslate"><span class="pre">fastcs_pmac.Detector</span></code>) can register classes with the same short name
+without colliding. A class can opt out by setting
+<code class="docutils literal notranslate"><span class="pre">type_name:</span> <span class="pre">ClassVar[str]</span></code> on itself, in which case that value is used
+verbatim with no prefix added. The remaining fields under each entry come
+straight from that class’s <code class="docutils literal notranslate"><span class="pre">__init__</span></code> options type (<code class="docutils literal notranslate"><span class="pre">DeviceSettings</span></code>
+here).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">id:</span></code> (here <code class="docutils literal notranslate"><span class="pre">DEVICE</span></code>) is used verbatim as the EPICS PV prefix and as
+the REST route prefix.</p>
 <p>Run with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>my_driver.py<span class="w"> </span>run<span class="w"> </span>device_config.yaml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>my_driver.py<span class="w"> </span>run<span class="w"> </span>fastcs.yaml
 </pre></div>
 </div>
+<section id="hosting-multiple-controllers">
+<h3>Hosting multiple controllers<a class="headerlink" href="#hosting-multiple-controllers" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">controllers:</span></code> is a list, so a single application can host more than one
+controller. Each entry needs a unique <code class="docutils literal notranslate"><span class="pre">id:</span></code>; the <code class="docutils literal notranslate"><span class="pre">type:</span></code> discriminator
+selects which class to instantiate. For example, two <code class="docutils literal notranslate"><span class="pre">DeviceController</span></code>
+instances on different IPs sharing a single transport list:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># fastcs.yaml</span>
+<span class="nt">controllers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MAIN</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_driver.DeviceController</span>
+<span class="w">    </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25565</span>
+<span class="w">    </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AUX</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_driver.DeviceController</span>
+<span class="w">    </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.101&quot;</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25565</span>
+<span class="w">    </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.0</span>
+
+<span class="nt">transport</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</pre></div>
+</div>
+<p>When more than one class is registered with <code class="docutils literal notranslate"><span class="pre">launch([ClassA,</span> <span class="pre">ClassB])</span></code>,
+each entry’s <code class="docutils literal notranslate"><span class="pre">type:</span></code> selects between them.</p>
+<p>For a real working example, see <code class="docutils literal notranslate"><span class="pre">src/fastcs/demo/fastcs.yaml</span></code>, which
+hosts two <code class="docutils literal notranslate"><span class="pre">TemperatureController</span></code> instances and can be run with
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">fastcs.demo</span> <span class="pre">run</span> <span class="pre">src/fastcs/demo/fastcs.yaml</span></code>.</p>
+<p>The transport list is shared across all controllers: each transport sees
+the full set, and uses the per-entry id as the addressing prefix
+(EPICS PV prefix, REST route prefix, GraphQL top-level Query field, Tango
+device name segment).</p>
+</section>
 </section>
 <section id="schema-generation">
 <h2>Schema Generation<a class="headerlink" href="#schema-generation" title="Link to this heading">#</a></h2>
@@ -550,9 +599,11 @@ argument has a type hint, which is required to infer the schema:</p>
 </div>
 <p>Use this schema for IDE autocompletion in YAML files:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># yaml-language-server: $schema=schema.json</span>
-<span class="nt">controller</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span>
-<span class="w">  </span><span class="c1"># ... IDE will provide autocompletion</span>
+<span class="nt">controllers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DEVICE</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_driver.DeviceController</span>
+<span class="w">    </span><span class="nt">ip_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span>
+<span class="w">    </span><span class="c1"># ... IDE will provide autocompletion</span>
 </pre></div>
 </div>
 </section>
@@ -561,10 +612,9 @@ argument has a type hint, which is required to infer the schema:</p>
 <p>Transports are configured in the <code class="docutils literal notranslate"><span class="pre">transport</span></code> section as a list:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">transport</span><span class="p">:</span>
 <span class="w">  </span><span class="c1"># EPICS Channel Access</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">pv_prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;DEVICE&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">epicsca</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 <span class="w">    </span><span class="nt">gui</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">output_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;opis/device.bob&quot;</span>
+<span class="w">      </span><span class="nt">output_dir</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;opis&quot;</span>
 <span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Device</span><span class="nv"> </span><span class="s">Control&quot;</span>
 
 <span class="w">  </span><span class="c1"># REST API</span>
@@ -583,10 +633,10 @@ argument has a type hint, which is required to infer the schema:</p>
 <h2>Logging Options<a class="headerlink" href="#logging-options" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">run</span></code> command includes logging options:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set log level</span>
-python<span class="w"> </span>my_driver.py<span class="w"> </span>run<span class="w"> </span>config.yaml<span class="w"> </span>--log-level<span class="w"> </span>debug
+python<span class="w"> </span>my_driver.py<span class="w"> </span>run<span class="w"> </span>fastcs.yaml<span class="w"> </span>--log-level<span class="w"> </span>debug
 
 <span class="c1"># Send logs to Graylog</span>
-python<span class="w"> </span>my_driver.py<span class="w"> </span>run<span class="w"> </span>config.yaml<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>my_driver.py<span class="w"> </span>run<span class="w"> </span>fastcs.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--graylog-endpoint<span class="w"> </span><span class="s2">&quot;graylog.example.com:12201&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--graylog-static-fields<span class="w"> </span><span class="s2">&quot;app=my_driver,env=prod&quot;</span>
 </pre></div>
@@ -657,11 +707,11 @@ FastCS:<span class="w"> </span><span class="m">0</span>.12.0
       </div>
     </a>
     <a class="right-next"
-       href="multiple-transports.html"
+       href="migrate-to-multi-controller.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Run Multiple Transports Simultaneously</p>
+        <p class="prev-next-title">Migrate to Multi-Controller FastCS</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -686,7 +736,10 @@ FastCS:<span class="w"> </span><span class="m">0</span>.12.0
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-setup">Basic Setup</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-configuration-options">Adding Configuration Options</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#yaml-configuration-files">YAML Configuration Files</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#yaml-configuration-files">YAML Configuration Files</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hosting-multiple-controllers">Hosting multiple controllers</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#schema-generation">Schema Generation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#transport-configuration">Transport Configuration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#logging-options">Logging Options</a></li>

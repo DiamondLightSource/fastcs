@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.options &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.epics.options &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -452,6 +452,9 @@
 <span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigDict</span>
 
 
 <div class="viewcode-block" id="EpicsDocsOptions">
@@ -460,7 +463,8 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">EpicsDocsOptions</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Docs options for EPICS.&quot;&quot;&quot;</span>
 
-    <span class="n">path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+    <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;FastCS Devices&quot;</span>
     <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
@@ -481,19 +485,37 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">EpicsGUIOptions</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Epics GUI options for use in both CA and PVA transports.&quot;&quot;&quot;</span>
 
-    <span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;output.bob&quot;</span>
+    <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
     <span class="n">file_format</span><span class="p">:</span> <span class="n">EpicsGUIFormat</span> <span class="o">=</span> <span class="n">EpicsGUIFormat</span><span class="o">.</span><span class="n">bob</span>
-    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Simple Device&quot;</span></div>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;FastCS Devices&quot;</span></div>
 
 
 
-<div class="viewcode-block" id="EpicsIOCOptions">
-<a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsIOCOptions">[docs]</a>
+<div class="viewcode-block" id="EpicsCAOptions">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsCAOptions">[docs]</a>
 <span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">EpicsIOCOptions</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Epics IOC options for use in both CA and PVA transports.&quot;&quot;&quot;</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">EpicsCAOptions</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Channel-Access-specific options.</span>
 
-    <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MY-DEVICE-PREFIX&quot;</span></div>
+<span class="sd">    Currently empty: present so ``epicsca:`` survives in fastcs.yaml as the</span>
+<span class="sd">    transport discriminator key. Reserved for future CA-specific knobs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__pydantic_config__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">ConfigDict</span><span class="p">]</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="EpicsPVAOptions">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsPVAOptions">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">EpicsPVAOptions</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;PVAccess-specific options.</span>
+
+<span class="sd">    Currently empty: present so ``epicspva:`` survives in fastcs.yaml as the</span>
+<span class="sd">    transport discriminator key. Reserved for future PVA-specific knobs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__pydantic_config__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">ConfigDict</span><span class="p">]</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span></div>
 
 </pre></div>
 

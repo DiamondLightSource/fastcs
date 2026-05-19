@@ -54,25 +54,79 @@ if __name__ == "__main__":
 
 ## YAML Configuration Files
 
-Create a YAML configuration file matching the schema:
+Create a YAML configuration file matching the schema. The conventional
+filename is `fastcs.yaml`, but any filename works — `run` takes the path
+as an argument:
 
 ```yaml
-# device_config.yaml
-controller:
-  ip_address: "192.168.1.100"
-  port: 25565
-  timeout: 10.0
+# fastcs.yaml
+controllers:
+  - id: DEVICE
+    type: my_driver.DeviceController
+    ip_address: "192.168.1.100"
+    port: 25565
+    timeout: 10.0
 
 transport:
-  - epicsca:
-      pv_prefix: "DEVICE"
+  - epicsca: {}
 ```
+
+Every entry carries a required `id:` plus a required `type:` discriminator
+that names the Controller class to instantiate. The default discriminator
+is `<top-level-package>.<ClassName>` — using the package qualifier means
+two independently-distributed packages (e.g. `fastcs_eiger.Detector` and
+`fastcs_pmac.Detector`) can register classes with the same short name
+without colliding. A class can opt out by setting
+`type_name: ClassVar[str]` on itself, in which case that value is used
+verbatim with no prefix added. The remaining fields under each entry come
+straight from that class's `__init__` options type (`DeviceSettings`
+here).
+
+The `id:` (here `DEVICE`) is used verbatim as the EPICS PV prefix and as
+the REST route prefix.
 
 Run with:
 
 ```bash
-python my_driver.py run device_config.yaml
+python my_driver.py run fastcs.yaml
 ```
+
+### Hosting multiple controllers
+
+`controllers:` is a list, so a single application can host more than one
+controller. Each entry needs a unique `id:`; the `type:` discriminator
+selects which class to instantiate. For example, two `DeviceController`
+instances on different IPs sharing a single transport list:
+
+```yaml
+# fastcs.yaml
+controllers:
+  - id: MAIN
+    type: my_driver.DeviceController
+    ip_address: "192.168.1.100"
+    port: 25565
+    timeout: 10.0
+  - id: AUX
+    type: my_driver.DeviceController
+    ip_address: "192.168.1.101"
+    port: 25565
+    timeout: 10.0
+
+transport:
+  - epicsca: {}
+```
+
+When more than one class is registered with `launch([ClassA, ClassB])`,
+each entry's `type:` selects between them.
+
+For a real working example, see `src/fastcs/demo/fastcs.yaml`, which
+hosts two `TemperatureController` instances and can be run with
+`python -m fastcs.demo run src/fastcs/demo/fastcs.yaml`.
+
+The transport list is shared across all controllers: each transport sees
+the full set, and uses the per-entry id as the addressing prefix
+(EPICS PV prefix, REST route prefix, GraphQL top-level Query field, Tango
+device name segment).
 
 ## Schema Generation
 
@@ -86,9 +140,11 @@ Use this schema for IDE autocompletion in YAML files:
 
 ```yaml
 # yaml-language-server: $schema=schema.json
-controller:
-  ip_address: "192.168.1.100"
-  # ... IDE will provide autocompletion
+controllers:
+  - id: DEVICE
+    type: my_driver.DeviceController
+    ip_address: "192.168.1.100"
+    # ... IDE will provide autocompletion
 ```
 
 ## Transport Configuration
@@ -98,10 +154,9 @@ Transports are configured in the `transport` section as a list:
 ```yaml
 transport:
   # EPICS Channel Access
-  - epicsca:
-      pv_prefix: "DEVICE"
+  - epicsca: {}
     gui:
-      output_path: "opis/device.bob"
+      output_dir: "opis"
       title: "Device Control"
 
   # REST API
@@ -121,10 +176,10 @@ The `run` command includes logging options:
 
 ```bash
 # Set log level
-python my_driver.py run config.yaml --log-level debug
+python my_driver.py run fastcs.yaml --log-level debug
 
 # Send logs to Graylog
-python my_driver.py run config.yaml \
+python my_driver.py run fastcs.yaml \
   --graylog-endpoint "graylog.example.com:12201" \
   --graylog-static-fields "app=my_driver,env=prod"
 ```

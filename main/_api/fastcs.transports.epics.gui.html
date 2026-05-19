@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>fastcs.transports.epics.gui &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.epics.gui &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../_static/documentation_options.js?v=8120534f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -66,7 +66,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="fastcs.transports.epics.options" href="fastcs.transports.epics.options.html" />
-    <link rel="prev" title="fastcs.transports.epics.docs" href="fastcs.transports.epics.docs.html" />
+    <link rel="prev" title="fastcs.transports.epics.emission" href="fastcs.transports.epics.emission.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -461,7 +461,7 @@
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="fastcs.transports.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports</span></code></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3 current active has-children"><a class="reference internal" href="fastcs.transports.epics.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics</span></code></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.ca.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.ca</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.docs.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.docs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.emission.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.emission</span></code></a></li>
 <li class="toctree-l4 current active"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.gui</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.pva.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.pva</span></code></a></li>
@@ -472,6 +472,7 @@
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.graphql.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.graphql</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.transport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.util</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="fastcs.transports.rest.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -579,7 +580,7 @@
 </div>
 <dl class="py class">
 <dt class="sig sig-object py" id="fastcs.transports.epics.gui.EpicsGUI">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.gui.</span></span><span class="sig-name descname"><span class="pre">EpicsGUI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller_api</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI" title="fastcs.controllers.controller_api.ControllerAPI"><span class="pre">ControllerAPI</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pv_prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/transports/epics/gui.html#EpicsGUI"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.gui.EpicsGUI" title="Link to this definition">#</a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.gui.</span></span><span class="sig-name descname"><span class="pre">EpicsGUI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller_api</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI" title="fastcs.controllers.controller_api.ControllerAPI"><span class="pre">ControllerAPI</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/transports/epics/gui.html#EpicsGUI"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.gui.EpicsGUI" title="Link to this definition">#</a></dt>
 <dd><p>For creating gui in the EPICS transports.</p>
 </dd></dl>
 
@@ -596,12 +597,12 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="fastcs.transports.epics.docs.html"
+       href="fastcs.transports.epics.emission.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.docs</span></code></p>
+        <p class="prev-next-title"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.emission</span></code></p>
       </div>
     </a>
     <a class="right-next"

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.tango.util &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.tango.util &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -449,7 +449,8 @@
                 <article class="bd-article">
                   
   <h1>Source code for fastcs.transports.tango.util</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">asdict</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">tango</span><span class="w"> </span><span class="kn">import</span> <span class="n">AttrDataFormat</span>
@@ -468,6 +469,51 @@
 <span class="p">)</span>
 
 <span class="n">TANGO_ALLOWED_DATATYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">Bool</span><span class="p">,</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">Waveform</span><span class="p">)</span>
+
+<span class="n">_TANGO_ID_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^[A-Za-z0-9_-]+$&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="validate_tango_id">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.validate_tango_id">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_tango_id</span><span class="p">(</span><span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reject controller ids that wouldn&#39;t be safe in a Tango device-name segment.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">id</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Controller id is empty; ids must be non-empty&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_TANGO_ID_RE</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="nb">id</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Controller id </span><span class="si">{</span><span class="nb">id</span><span class="si">!r}</span><span class="s2"> is not a valid Tango id; &quot;</span>
+            <span class="s2">&quot;only alphanumerics, &#39;-&#39; and &#39;_&#39; are allowed&quot;</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="tango_dev_class_name">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.tango_dev_class_name">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tango_dev_class_name</span><span class="p">(</span><span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map a controller id to a valid Python class name for a Tango device class.</span>
+
+<span class="sd">    Hyphens are replaced with underscores; a leading digit is prefixed with ``X``.</span>
+<span class="sd">    Assumes ``id`` has already been accepted by ``validate_tango_id``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sanitized</span> <span class="o">=</span> <span class="nb">id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sanitized</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+        <span class="n">sanitized</span> <span class="o">=</span> <span class="s2">&quot;X&quot;</span> <span class="o">+</span> <span class="n">sanitized</span>
+    <span class="k">return</span> <span class="n">sanitized</span></div>
+
+
+
+<div class="viewcode-block" id="tango_dev_name">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.tango_dev_name">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tango_dev_name</span><span class="p">(</span><span class="nb">id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dsr_instance</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the three-segment Tango device name for a controller.</span>
+
+<span class="sd">    The id forms the leading segment, followed by the per-id Tango device class</span>
+<span class="sd">    and the DSR instance name. Assumes ``id`` has been accepted by</span>
+<span class="sd">    ``validate_tango_id``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">tango_dev_class_name</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dsr_instance</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+
 
 <span class="n">DATATYPE_FIELD_TO_SERVER_FIELD</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="s2">&quot;unit&quot;</span><span class="p">,</span>

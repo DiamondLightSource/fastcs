@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>fastcs.transports.tango.util &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.tango.util &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../_static/documentation_options.js?v=8120534f"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -461,7 +461,7 @@
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="fastcs.transports.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports</span></code></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3 has-children"><a class="reference internal" href="fastcs.transports.epics.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.ca.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.ca</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.docs.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.docs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.emission.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.emission</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.gui.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.gui</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.epics.pva.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.pva</span></code></a></li>
@@ -472,6 +472,7 @@
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.graphql.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.graphql</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.transport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fastcs.transports.graphql.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.util</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="fastcs.transports.rest.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -583,9 +584,41 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#fastcs.transports.tango.util.get_server_metadata_from_datatype" title="fastcs.transports.tango.util.get_server_metadata_from_datatype"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_server_metadata_from_datatype</span></code></a></p></td>
 <td><p>Gets the metadata for a Tango field from a FastCS datatype.</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#fastcs.transports.tango.util.tango_dev_class_name" title="fastcs.transports.tango.util.tango_dev_class_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tango_dev_class_name</span></code></a></p></td>
+<td><p>Map a controller id to a valid Python class name for a Tango device class.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#fastcs.transports.tango.util.tango_dev_name" title="fastcs.transports.tango.util.tango_dev_name"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tango_dev_name</span></code></a></p></td>
+<td><p>Build the three-segment Tango device name for a controller.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#fastcs.transports.tango.util.validate_tango_id" title="fastcs.transports.tango.util.validate_tango_id"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate_tango_id</span></code></a></p></td>
+<td><p>Reject controller ids that wouldn't be safe in a Tango device-name segment.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
+<dl class="py function">
+<dt class="sig sig-object py" id="fastcs.transports.tango.util.validate_tango_id">
+<span class="sig-prename descclassname"><span class="pre">fastcs.transports.tango.util.</span></span><span class="sig-name descname"><span class="pre">validate_tango_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fastcs/transports/tango/util.html#validate_tango_id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.tango.util.validate_tango_id" title="Link to this definition">#</a></dt>
+<dd><p>Reject controller ids that wouldn’t be safe in a Tango device-name segment.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fastcs.transports.tango.util.tango_dev_class_name">
+<span class="sig-prename descclassname"><span class="pre">fastcs.transports.tango.util.</span></span><span class="sig-name descname"><span class="pre">tango_dev_class_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/fastcs/transports/tango/util.html#tango_dev_class_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.tango.util.tango_dev_class_name" title="Link to this definition">#</a></dt>
+<dd><p>Map a controller id to a valid Python class name for a Tango device class.</p>
+<p>Hyphens are replaced with underscores; a leading digit is prefixed with <code class="docutils literal notranslate"><span class="pre">X</span></code>.
+Assumes <code class="docutils literal notranslate"><span class="pre">id</span></code> has already been accepted by <code class="docutils literal notranslate"><span class="pre">validate_tango_id</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fastcs.transports.tango.util.tango_dev_name">
+<span class="sig-prename descclassname"><span class="pre">fastcs.transports.tango.util.</span></span><span class="sig-name descname"><span class="pre">tango_dev_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">dsr_instance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/fastcs/transports/tango/util.html#tango_dev_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.tango.util.tango_dev_name" title="Link to this definition">#</a></dt>
+<dd><p>Build the three-segment Tango device name for a controller.</p>
+<p>The id forms the leading segment, followed by the per-id Tango device class
+and the DSR instance name. Assumes <code class="docutils literal notranslate"><span class="pre">id</span></code> has been accepted by
+<code class="docutils literal notranslate"><span class="pre">validate_tango_id</span></code>.</p>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="fastcs.transports.tango.util.get_server_metadata_from_attribute">
 <span class="sig-prename descclassname"><span class="pre">fastcs.transports.tango.util.</span></span><span class="sig-name descname"><span class="pre">get_server_metadata_from_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attribute</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fastcs.attributes.attribute.html#fastcs.attributes.attribute.Attribute" title="fastcs.attributes.attribute.Attribute"><span class="pre">Attribute</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="fastcs.datatypes.enum.html#fastcs.datatypes.enum.Enum" title="fastcs.datatypes.enum.Enum"><span class="pre">Enum</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="fastcs.attributes.attribute_io_ref.html#fastcs.attributes.attribute_io_ref.AttributeIORef" title="fastcs.attributes.attribute_io_ref.AttributeIORef"><span class="pre">AttributeIORef</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fastcs/transports/tango/util.html#get_server_metadata_from_attribute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.tango.util.get_server_metadata_from_attribute" title="Link to this definition">#</a></dt>
@@ -659,6 +692,9 @@
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.tango.util.validate_tango_id"><code class="docutils literal notranslate"><span class="pre">validate_tango_id()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.tango.util.tango_dev_class_name"><code class="docutils literal notranslate"><span class="pre">tango_dev_class_name()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.tango.util.tango_dev_name"><code class="docutils literal notranslate"><span class="pre">tango_dev_name()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.tango.util.get_server_metadata_from_attribute"><code class="docutils literal notranslate"><span class="pre">get_server_metadata_from_attribute()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.tango.util.get_server_metadata_from_datatype"><code class="docutils literal notranslate"><span class="pre">get_server_metadata_from_datatype()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.tango.util.cast_to_tango_type"><code class="docutils literal notranslate"><span class="pre">cast_to_tango_type()</span></code></a></li>

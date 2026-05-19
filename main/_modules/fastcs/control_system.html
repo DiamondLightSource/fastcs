@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.control_system &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.control_system &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -458,7 +458,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">IPython.terminal.embed</span><span class="w"> </span><span class="kn">import</span> <span class="n">InteractiveShellEmbed</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span><span class="p">,</span> <span class="n">ControllerAPI</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScanCallback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.tracer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tracer</span>
@@ -467,27 +467,51 @@
 <span class="n">tracer</span> <span class="o">=</span> <span class="n">Tracer</span><span class="p">()</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_context_key</span><span class="p">(</span><span class="n">controller</span><span class="p">:</span> <span class="n">Controller</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Key used for a controller in IPython context dicts.</span>
+
+<span class="sd">    Falls back to the class name when no path has been seeded so</span>
+<span class="sd">    direct-construction callers (without launch()) still get a sensible key.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">controller</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">controller</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+
+
 <div class="viewcode-block" id="FastCS">
 <a class="viewcode-back" href="../../_api/fastcs.control_system.html#fastcs.control_system.FastCS">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">FastCS</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Entrypoint for a FastCS application.</span>
 
-<span class="sd">    This class takes a `Controller`, creates asyncio tasks to run its update loops and</span>
-<span class="sd">    builds its API to serve over the given `Transport`s.</span>
+<span class="sd">    This class takes one or more `Controller`s, creates asyncio tasks to run their</span>
+<span class="sd">    update loops and builds their APIs to serve over the given `Transport`s.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        controller: The controller to serve in the control system</span>
+<span class="sd">        controllers: The controller(s) to serve in the control system. Accepts</span>
+<span class="sd">            either a single ``Controller`` or a sequence of them.</span>
 <span class="sd">        transports: A list of transports to serve the API over</span>
 <span class="sd">        loop: Optional event loop to run the control system in</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">controller</span><span class="p">:</span> <span class="n">Controller</span><span class="p">,</span>
+        <span class="n">controllers</span><span class="p">:</span> <span class="n">Controller</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Controller</span><span class="p">],</span>
         <span class="n">transports</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Transport</span><span class="p">],</span>
         <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span> <span class="o">=</span> <span class="n">controller</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">controllers</span><span class="p">,</span> <span class="n">Controller</span><span class="p">):</span>
+            <span class="n">controllers</span> <span class="o">=</span> <span class="p">[</span><span class="n">controllers</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Controller</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">controllers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;FastCS requires at least one controller&quot;</span><span class="p">)</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">_context_key</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">keys</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">):</span>
+            <span class="n">duplicates</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span> <span class="k">if</span> <span class="n">keys</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">})</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;FastCS received controllers with duplicate context keys &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">duplicates</span><span class="si">}</span><span class="s2">; ensure each controller has a unique id&quot;</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_transports</span> <span class="o">=</span> <span class="n">transports</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">loop</span> <span class="ow">or</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
 
@@ -495,6 +519,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_initial_coros</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ScanCallback</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_scan_tasks</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="n">asyncio</span><span class="o">.</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="FastCS.run">
 <a class="viewcode-back" href="../../_api/fastcs.control_system.html#fastcs.control_system.FastCS.run">[docs]</a>
@@ -551,16 +576,25 @@
 <span class="sd">            interactive: Whether to create an interactive IPython shell</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">initialise</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">post_initialise</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">controller</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">initialise</span><span class="p">()</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">post_initialise</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">controller_api</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_coros</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initial_coros</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">create_api_and_tasks</span><span class="p">()</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">controller_apis</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scan_coros</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initial_coros</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">controller</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">:</span>
+            <span class="n">api</span><span class="p">,</span> <span class="n">scan_coros</span><span class="p">,</span> <span class="n">initial_coros</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">create_api_and_tasks</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">controller_apis</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">api</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scan_coros</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">scan_coros</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_initial_coros</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">initial_coros</span><span class="p">)</span>
 
         <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;controller&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="p">,</span>
-            <span class="s2">&quot;controller_api&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller_api</span><span class="p">,</span>
+            <span class="s2">&quot;controllers&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">_context_key</span><span class="p">(</span><span class="n">c</span><span class="p">):</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">},</span>
+            <span class="s2">&quot;controller_apis&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="n">_context_key</span><span class="p">(</span><span class="n">c</span><span class="p">):</span> <span class="n">api</span>
+                <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">api</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller_apis</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="p">},</span>
             <span class="s2">&quot;transports&quot;</span><span class="p">:</span> <span class="p">[</span>
                 <span class="n">transport</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">transport</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transports</span>
             <span class="p">],</span>
@@ -568,7 +602,7 @@
 
         <span class="n">coros</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Coroutine</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">transport</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transports</span><span class="p">:</span>
-            <span class="n">transport</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">controller_api</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">controller_api</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+            <span class="n">transport</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">controller_apis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">controller_apis</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
             <span class="n">coros</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">transport</span><span class="o">.</span><span class="n">serve</span><span class="p">())</span>
             <span class="n">common_context</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">&amp;</span> <span class="n">transport</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">common_context</span><span class="p">:</span>
@@ -592,11 +626,12 @@
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s2">&quot;Starting FastCS&quot;</span><span class="p">,</span>
-            <span class="n">controller</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="p">,</span>
+            <span class="n">controllers</span><span class="o">=</span><span class="p">[</span><span class="n">_context_key</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">],</span>
             <span class="n">transports</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">_transports</span><span class="p">)</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">controller</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_initial_coros</span><span class="p">()</span>
         <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_scan_tasks</span><span class="p">()</span>
 
@@ -609,7 +644,14 @@
         <span class="k">finally</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Shutting down FastCS&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_stop_scan_tasks</span><span class="p">()</span>
-            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span></div>
+            <span class="k">for</span> <span class="n">controller</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controllers</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+                        <span class="s2">&quot;Exception during disconnect&quot;</span><span class="p">,</span>
+                        <span class="n">controller</span><span class="o">=</span><span class="n">_context_key</span><span class="p">(</span><span class="n">controller</span><span class="p">),</span>
+                    <span class="p">)</span></div>
 
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_interactive_shell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>

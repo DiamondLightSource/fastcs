@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.pva.ioc &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.epics.pva.ioc &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -455,7 +455,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.attributes</span><span class="w"> </span><span class="kn">import</span> <span class="n">AttrR</span><span class="p">,</span> <span class="n">AttrRW</span><span class="p">,</span> <span class="n">AttrW</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ControllerAPI</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">controller_pv_prefix</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">pv_prefix_from_path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">snake_to_pascal</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">._pv_handlers</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_command_pv</span><span class="p">,</span> <span class="n">make_shared_read_pv</span><span class="p">,</span> <span class="n">make_shared_write_pv</span>
@@ -464,14 +464,12 @@
 
 <div class="viewcode-block" id="parse_attributes">
 <a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.ioc.html#fastcs.transports.epics.pva.ioc.parse_attributes">[docs]</a>
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">parse_attributes</span><span class="p">(</span>
-    <span class="n">root_pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">root_controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StaticProvider</span><span class="p">:</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">parse_attributes</span><span class="p">(</span><span class="n">root_controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StaticProvider</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Parses `Attribute` s into p4p signals in handlers.&quot;&quot;&quot;</span>
-    <span class="n">provider</span> <span class="o">=</span> <span class="n">StaticProvider</span><span class="p">(</span><span class="n">root_pv_prefix</span><span class="p">)</span>
+    <span class="n">provider</span> <span class="o">=</span> <span class="n">StaticProvider</span><span class="p">(</span><span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">root_controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">))</span>
 
     <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">root_controller_api</span><span class="o">.</span><span class="n">walk_api</span><span class="p">():</span>
-        <span class="n">pv_prefix</span> <span class="o">=</span> <span class="n">controller_pv_prefix</span><span class="p">(</span><span class="n">root_pv_prefix</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">)</span>
+        <span class="n">pv_prefix</span> <span class="o">=</span> <span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
         <span class="n">add_pvi_info</span><span class="p">(</span>
             <span class="n">provider</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>
             <span class="n">pv_prefix</span><span class="o">=</span><span class="n">pv_prefix</span><span class="p">,</span>
@@ -506,17 +504,23 @@
 <div class="viewcode-block" id="P4PIOC">
 <a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.ioc.html#fastcs.transports.epics.pva.ioc.P4PIOC">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">P4PIOC</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A P4P IOC which handles a controller&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A P4P IOC which handles one or more controllers.</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">pv_prefix</span> <span class="o">=</span> <span class="n">pv_prefix</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">controller_api</span> <span class="o">=</span> <span class="n">controller_api</span>
+<span class="sd">    Each controller gets its own ``StaticProvider`` so it exposes an independent</span>
+<span class="sd">    ``:PVI`` root with no super-parent.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span> <span class="o">=</span> <span class="n">controller_apis</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_build_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">StaticProvider</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="k">await</span> <span class="n">parse_attributes</span><span class="p">(</span><span class="n">api</span><span class="p">)</span> <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span><span class="p">]</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">provider</span> <span class="o">=</span> <span class="k">await</span> <span class="n">parse_attributes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pv_prefix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller_api</span><span class="p">)</span>
+        <span class="n">providers</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_providers</span><span class="p">()</span>
 
         <span class="n">endless_event</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
-        <span class="k">with</span> <span class="n">Server</span><span class="p">([</span><span class="n">provider</span><span class="p">]):</span>
+        <span class="k">with</span> <span class="n">Server</span><span class="p">(</span><span class="n">providers</span><span class="p">):</span>
             <span class="k">await</span> <span class="n">endless_event</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span></div>
 
 </pre></div>

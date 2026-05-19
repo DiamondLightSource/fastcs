@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Index &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>Index &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=f59b4589"></script>
+    <script src="_static/documentation_options.js?v=8120534f"></script>
     <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
@@ -454,7 +454,7 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="_api/fastcs.transports.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3 has-children"><a class="reference internal" href="_api/fastcs.transports.epics.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.ca.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.ca</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.docs.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.docs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.emission.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.emission</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.gui.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.gui</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.epics.pva.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.epics.pva</span></code></a></li>
@@ -465,6 +465,7 @@
 <li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.graphql.graphql.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.graphql</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.graphql.options.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.options</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.graphql.transport.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.transport</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_api/fastcs.transports.graphql.util.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.graphql.util</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="_api/fastcs.transports.rest.html"><code class="docutils literal notranslate"><span class="pre">fastcs.transports.rest</span></code></a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -649,10 +650,10 @@
 </li>
       <li><a href="_api/fastcs.controllers.controller_api.html#fastcs.controllers.controller_api.ControllerAPI.command_methods">command_methods (fastcs.controllers.controller_api.ControllerAPI attribute)</a>
 </li>
-      <li><a href="_api/fastcs.methods.command.html#fastcs.methods.command.CommandCallback">CommandCallback (in module fastcs.methods.command)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.methods.command.html#fastcs.methods.command.CommandCallback">CommandCallback (in module fastcs.methods.command)</a>
+</li>
       <li><a href="_api/fastcs.logging.html#fastcs.logging.configure_logging">configure_logging() (in module fastcs.logging)</a>
 </li>
       <li><a href="_api/fastcs.controllers.controller.html#fastcs.controllers.controller.Controller.connect">connect() (fastcs.controllers.controller.Controller method)</a>
@@ -678,8 +679,6 @@
       <li><a href="_api/fastcs.transports.rest.util.html#fastcs.transports.rest.util.convert_datatype">convert_datatype() (in module fastcs.transports.rest.util)</a>
 </li>
       <li><a href="_api/fastcs.controllers.controller.html#fastcs.controllers.controller.Controller.create_api_and_tasks">create_api_and_tasks() (fastcs.controllers.controller.Controller method)</a>
-</li>
-      <li><a href="_api/fastcs.transports.graphql.graphql.html#fastcs.transports.graphql.graphql.GraphQLAPI.create_schema">create_schema() (fastcs.transports.graphql.graphql.GraphQLAPI method)</a>
 </li>
       <li><a href="_api/fastcs.transports.epics.ca.util.html#fastcs.transports.epics.ca.util.create_state_keys">create_state_keys() (in module fastcs.transports.epics.ca.util)</a>
 </li>
@@ -719,22 +718,28 @@
 <h2 id="E">E</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.epics.emission.html#fastcs.transports.epics.emission.emit_docs_files">emit_docs_files() (in module fastcs.transports.epics.emission)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.emission.html#fastcs.transports.epics.emission.emit_gui_files">emit_gui_files() (in module fastcs.transports.epics.emission)</a>
+</li>
       <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.enable_tracing">enable_tracing() (fastcs.tracer.Tracer method)</a>
 </li>
       <li><a href="_api/fastcs.datatypes.enum.html#fastcs.datatypes.enum.Enum">Enum (class in fastcs.datatypes.enum)</a>
 </li>
       <li><a href="_api/fastcs.datatypes.enum.html#fastcs.datatypes.enum.Enum_T">Enum_T (class in fastcs.datatypes.enum)</a>
 </li>
+      <li><a href="_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.EPICS_MAX_NAME_LENGTH">EPICS_MAX_NAME_LENGTH (in module fastcs.transports.epics.util)</a>
+</li>
       <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport.epicsca">epicsca (fastcs.transports.epics.ca.transport.EpicsCATransport attribute)</a>
 </li>
       <li><a href="_api/fastcs.transports.epics.ca.ioc.html#fastcs.transports.epics.ca.ioc.EpicsCAIOC">EpicsCAIOC (class in fastcs.transports.epics.ca.ioc)</a>
 </li>
-      <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport">EpicsCATransport (class in fastcs.transports.epics.ca.transport)</a>
-</li>
-      <li><a href="_api/fastcs.transports.epics.docs.html#fastcs.transports.epics.docs.EpicsDocs">EpicsDocs (class in fastcs.transports.epics.docs)</a>
+      <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsCAOptions">EpicsCAOptions (class in fastcs.transports.epics.options)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport">EpicsCATransport (class in fastcs.transports.epics.ca.transport)</a>
+</li>
       <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsDocsOptions">EpicsDocsOptions (class in fastcs.transports.epics.options)</a>
 </li>
       <li><a href="_api/fastcs.transports.epics.gui.html#fastcs.transports.epics.gui.EpicsGUI">EpicsGUI (class in fastcs.transports.epics.gui)</a>
@@ -743,7 +748,9 @@
 </li>
       <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsGUIOptions">EpicsGUIOptions (class in fastcs.transports.epics.options)</a>
 </li>
-      <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsIOCOptions">EpicsIOCOptions (class in fastcs.transports.epics.options)</a>
+      <li><a href="_api/fastcs.transports.epics.pva.transport.html#fastcs.transports.epics.pva.transport.EpicsPVATransport.epicspva">epicspva (fastcs.transports.epics.pva.transport.EpicsPVATransport attribute)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsPVAOptions">EpicsPVAOptions (class in fastcs.transports.epics.options)</a>
 </li>
       <li><a href="_api/fastcs.transports.epics.pva.transport.html#fastcs.transports.epics.pva.transport.EpicsPVATransport">EpicsPVATransport (class in fastcs.transports.epics.pva.transport)</a>
 </li>
@@ -1009,8 +1016,6 @@
         <li><a href="_api/fastcs.methods.html#module-fastcs.methods">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     fastcs.methods.command
 
@@ -1018,6 +1023,8 @@
         <li><a href="_api/fastcs.methods.command.html#module-fastcs.methods.command">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     fastcs.methods.method
 
@@ -1082,10 +1089,10 @@
 </li>
       </ul></li>
       <li>
-    fastcs.transports.epics.docs
+    fastcs.transports.epics.emission
 
       <ul>
-        <li><a href="_api/fastcs.transports.epics.docs.html#module-fastcs.transports.epics.docs">module</a>
+        <li><a href="_api/fastcs.transports.epics.emission.html#module-fastcs.transports.epics.emission">module</a>
 </li>
       </ul></li>
       <li>
@@ -1145,6 +1152,13 @@
 </li>
       </ul></li>
       <li>
+    fastcs.transports.epics.pva.util
+
+      <ul>
+        <li><a href="_api/fastcs.transports.epics.pva.util.html#module-fastcs.transports.epics.pva.util">module</a>
+</li>
+      </ul></li>
+      <li>
     fastcs.transports.epics.util
 
       <ul>
@@ -1177,6 +1191,13 @@
 
       <ul>
         <li><a href="_api/fastcs.transports.graphql.transport.html#module-fastcs.transports.graphql.transport">module</a>
+</li>
+      </ul></li>
+      <li>
+    fastcs.transports.graphql.util
+
+      <ul>
+        <li><a href="_api/fastcs.transports.graphql.util.html#module-fastcs.transports.graphql.util">module</a>
 </li>
       </ul></li>
       <li>
@@ -1294,6 +1315,8 @@
       <li><a href="_api/fastcs.logging.html#fastcs.logging.GraylogEndpoint">GraylogEndpoint (class in fastcs.logging)</a>
 </li>
       <li><a href="_api/fastcs.transports.epics.ca.transport.html#fastcs.transports.epics.ca.transport.EpicsCATransport.gui">gui (fastcs.transports.epics.ca.transport.EpicsCATransport attribute)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.emission.html#fastcs.transports.epics.emission.GUIBuilder">GUIBuilder (in module fastcs.transports.epics.emission)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1455,7 +1478,7 @@
 </li>
         <li><a href="_api/fastcs.transports.epics.ca.util.html#module-fastcs.transports.epics.ca.util">fastcs.transports.epics.ca.util</a>
 </li>
-        <li><a href="_api/fastcs.transports.epics.docs.html#module-fastcs.transports.epics.docs">fastcs.transports.epics.docs</a>
+        <li><a href="_api/fastcs.transports.epics.emission.html#module-fastcs.transports.epics.emission">fastcs.transports.epics.emission</a>
 </li>
         <li><a href="_api/fastcs.transports.epics.gui.html#module-fastcs.transports.epics.gui">fastcs.transports.epics.gui</a>
 </li>
@@ -1473,6 +1496,8 @@
 </li>
         <li><a href="_api/fastcs.transports.epics.pva.types.html#module-fastcs.transports.epics.pva.types">fastcs.transports.epics.pva.types</a>
 </li>
+        <li><a href="_api/fastcs.transports.epics.pva.util.html#module-fastcs.transports.epics.pva.util">fastcs.transports.epics.pva.util</a>
+</li>
         <li><a href="_api/fastcs.transports.epics.util.html#module-fastcs.transports.epics.util">fastcs.transports.epics.util</a>
 </li>
         <li><a href="_api/fastcs.transports.graphql.html#module-fastcs.transports.graphql">fastcs.transports.graphql</a>
@@ -1482,6 +1507,8 @@
         <li><a href="_api/fastcs.transports.graphql.options.html#module-fastcs.transports.graphql.options">fastcs.transports.graphql.options</a>
 </li>
         <li><a href="_api/fastcs.transports.graphql.transport.html#module-fastcs.transports.graphql.transport">fastcs.transports.graphql.transport</a>
+</li>
+        <li><a href="_api/fastcs.transports.graphql.util.html#module-fastcs.transports.graphql.util">fastcs.transports.graphql.util</a>
 </li>
         <li><a href="_api/fastcs.transports.rest.html#module-fastcs.transports.rest">fastcs.transports.rest</a>
 </li>
@@ -1558,6 +1585,8 @@
 </li>
       <li><a href="_api/fastcs.attributes.attr_w.html#fastcs.attributes.attr_w.AttrW.put">put() (fastcs.attributes.attr_w.AttrW method)</a>
 </li>
+      <li><a href="_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.pv_prefix_from_path">pv_prefix_from_path() (in module fastcs.transports.epics.util)</a>
+</li>
       <li><a href="_api/fastcs.transports.epics.pva.gui.html#fastcs.transports.epics.pva.gui.PvaEpicsGUI">PvaEpicsGUI (class in fastcs.transports.epics.pva.gui)</a>
 </li>
   </ul></td>
@@ -1570,12 +1599,14 @@
 </li>
       <li><a href="_api/fastcs.attributes.attribute_io.html#fastcs.attributes.attribute_io.AttributeIO.ref_type">ref_type (fastcs.attributes.attribute_io.AttributeIO attribute)</a>
 </li>
-      <li><a href="_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.register_dev">register_dev() (in module fastcs.transports.tango.dsr)</a>
+      <li><a href="_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.register_controller_devs">register_controller_devs() (in module fastcs.transports.tango.dsr)</a>
 </li>
-      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.remove_tracing_filter">remove_tracing_filter() (fastcs.tracer.Tracer method)</a>
+      <li><a href="_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.register_dev">register_dev() (in module fastcs.transports.tango.dsr)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.tracer.html#fastcs.tracer.Tracer.remove_tracing_filter">remove_tracing_filter() (fastcs.tracer.Tracer method)</a>
+</li>
       <li><a href="_api/fastcs.transports.rest.rest.html#fastcs.transports.rest.rest.RestServer">RestServer (class in fastcs.transports.rest.rest)</a>
 </li>
       <li><a href="_api/fastcs.transports.rest.options.html#fastcs.transports.rest.options.RestServerOptions">RestServerOptions (class in fastcs.transports.rest.options)</a>
@@ -1642,14 +1673,18 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="_api/fastcs.datatypes.table.html#fastcs.datatypes.table.Table">Table (class in fastcs.datatypes.table)</a>
 </li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.tango_dev_class_name">tango_dev_class_name() (in module fastcs.transports.tango.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.tango_dev_name">tango_dev_name() (in module fastcs.transports.tango.util)</a>
+</li>
       <li><a href="_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.TangoDSR">TangoDSR (class in fastcs.transports.tango.dsr)</a>
 </li>
       <li><a href="_api/fastcs.transports.tango.options.html#fastcs.transports.tango.options.TangoDSROptions">TangoDSROptions (class in fastcs.transports.tango.options)</a>
 </li>
-      <li><a href="_api/fastcs.transports.tango.transport.html#fastcs.transports.tango.transport.TangoTransport">TangoTransport (class in fastcs.transports.tango.transport)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.tango.transport.html#fastcs.transports.tango.transport.TangoTransport">TangoTransport (class in fastcs.transports.tango.transport)</a>
+</li>
       <li><a href="_api/fastcs.demo.simulation.device.html#fastcs.demo.simulation.device.TempController">TempController (class in fastcs.demo.simulation.device)</a>
 </li>
       <li><a href="_api/fastcs.demo.controllers.html#fastcs.demo.controllers.TemperatureControllerAttributeIORef">TemperatureControllerAttributeIORef (class in fastcs.demo.controllers)</a>
@@ -1696,6 +1731,20 @@
         <li><a href="_api/fastcs.datatypes.string.html#fastcs.datatypes.string.String.validate">(fastcs.datatypes.string.String method)</a>
 </li>
       </ul></li>
+      <li><a href="_api/fastcs.transports.epics.ca.util.html#fastcs.transports.epics.ca.util.validate_ca_id">validate_ca_id() (in module fastcs.transports.epics.ca.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.util.html#fastcs.transports.epics.util.validate_epics_pv_id">validate_epics_pv_id() (in module fastcs.transports.epics.util)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="_api/fastcs.transports.graphql.util.html#fastcs.transports.graphql.util.validate_graphql_id">validate_graphql_id() (in module fastcs.transports.graphql.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.epics.pva.util.html#fastcs.transports.epics.pva.util.validate_pva_id">validate_pva_id() (in module fastcs.transports.epics.pva.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.rest.util.html#fastcs.transports.rest.util.validate_rest_id">validate_rest_id() (in module fastcs.transports.rest.util)</a>
+</li>
+      <li><a href="_api/fastcs.transports.tango.util.html#fastcs.transports.tango.util.validate_tango_id">validate_tango_id() (in module fastcs.transports.tango.util)</a>
+</li>
   </ul></td>
 </tr></table>
 

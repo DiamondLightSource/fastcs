@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.graphql.graphql &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.graphql.graphql &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -470,18 +470,44 @@
 <div class="viewcode-block" id="GraphQLServer">
 <a class="viewcode-back" href="../../../../_api/fastcs.transports.graphql.graphql.html#fastcs.transports.graphql.graphql.GraphQLServer">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GraphQLServer</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A GraphQL server which handles a controller&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A GraphQL server which serves one combined schema for N controllers.</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span> <span class="o">=</span> <span class="n">controller_api</span>
+<span class="sd">    Each top-level controller is exposed as a Query (and, where applicable,</span>
+<span class="sd">    Mutation) field keyed by the controller&#39;s id, so a single endpoint serves</span>
+<span class="sd">    every configured device.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span> <span class="o">=</span> <span class="n">controller_apis</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_app</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_app</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GraphQL</span><span class="p">:</span>
-        <span class="n">api</span> <span class="o">=</span> <span class="n">GraphQLAPI</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">)</span>
-        <span class="n">schema</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">create_schema</span><span class="p">()</span>
-        <span class="n">app</span> <span class="o">=</span> <span class="n">GraphQL</span><span class="p">(</span><span class="n">schema</span><span class="p">)</span>
+        <span class="n">queries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StrawberryField</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">mutations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StrawberryField</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">sub_tree</span> <span class="o">=</span> <span class="n">GraphQLAPI</span><span class="p">(</span><span class="n">controller_api</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sub_tree</span><span class="o">.</span><span class="n">queries</span><span class="p">:</span>
+                <span class="n">queries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">_wrap_as_field</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">create_type</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">Query&quot;</span><span class="p">,</span> <span class="n">sub_tree</span><span class="o">.</span><span class="n">queries</span><span class="p">))</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">sub_tree</span><span class="o">.</span><span class="n">mutations</span><span class="p">:</span>
+                <span class="n">mutations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">_wrap_as_field</span><span class="p">(</span>
+                        <span class="n">name</span><span class="p">,</span> <span class="n">create_type</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">Mutation&quot;</span><span class="p">,</span> <span class="n">sub_tree</span><span class="o">.</span><span class="n">mutations</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">app</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">queries</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">FastCSError</span><span class="p">(</span>
+                <span class="s2">&quot;Can&#39;t create GraphQL transport from ControllerAPIs with no read &quot;</span>
+                <span class="s2">&quot;attributes&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">query</span> <span class="o">=</span> <span class="n">create_type</span><span class="p">(</span><span class="s2">&quot;Query&quot;</span><span class="p">,</span> <span class="n">queries</span><span class="p">)</span>
+        <span class="n">mutation</span> <span class="o">=</span> <span class="n">create_type</span><span class="p">(</span><span class="s2">&quot;Mutation&quot;</span><span class="p">,</span> <span class="n">mutations</span><span class="p">)</span> <span class="k">if</span> <span class="n">mutations</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="n">strawberry</span><span class="o">.</span><span class="n">Schema</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">mutation</span><span class="o">=</span><span class="n">mutation</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">GraphQL</span><span class="p">(</span><span class="n">schema</span><span class="p">)</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">serve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">GraphQLServerOptions</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">options</span> <span class="o">=</span> <span class="n">options</span> <span class="ow">or</span> <span class="n">GraphQLServerOptions</span><span class="p">()</span>
@@ -504,7 +530,11 @@
 <div class="viewcode-block" id="GraphQLAPI">
 <a class="viewcode-back" href="../../../../_api/fastcs.transports.graphql.graphql.html#fastcs.transports.graphql.graphql.GraphQLAPI">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">GraphQLAPI</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A Strawberry API built dynamically from a `ControllerAPI`&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A Strawberry sub-tree built dynamically from a single `ControllerAPI`.</span>
+
+<span class="sd">    Produces the per-controller queries and mutations; the combined top-level</span>
+<span class="sd">    schema is assembled by `GraphQLServer`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">queries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StrawberryField</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -543,36 +573,25 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_process_sub_apis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root_controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Recursively add fields from the queries and mutations of sub apis&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">root_controller_api</span><span class="o">.</span><span class="n">sub_apis</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">field_name</span> <span class="o">=</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="c1"># Type name is path-joined so subs sharing a local name across two</span>
+            <span class="c1"># top-level controllers produce distinct GraphQL types.</span>
+            <span class="n">type_stem</span> <span class="o">=</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
             <span class="n">child_tree</span> <span class="o">=</span> <span class="n">GraphQLAPI</span><span class="p">(</span><span class="n">controller_api</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">child_tree</span><span class="o">.</span><span class="n">queries</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">queries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">_wrap_as_field</span><span class="p">(</span>
-                        <span class="n">name</span><span class="p">,</span> <span class="n">create_type</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">Query&quot;</span><span class="p">,</span> <span class="n">child_tree</span><span class="o">.</span><span class="n">queries</span><span class="p">)</span>
+                        <span class="n">field_name</span><span class="p">,</span>
+                        <span class="n">create_type</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">type_stem</span><span class="si">}</span><span class="s2">_Query&quot;</span><span class="p">,</span> <span class="n">child_tree</span><span class="o">.</span><span class="n">queries</span><span class="p">),</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="n">child_tree</span><span class="o">.</span><span class="n">mutations</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">mutations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="n">_wrap_as_field</span><span class="p">(</span>
-                        <span class="n">name</span><span class="p">,</span> <span class="n">create_type</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">Mutation&quot;</span><span class="p">,</span> <span class="n">child_tree</span><span class="o">.</span><span class="n">mutations</span><span class="p">)</span>
+                        <span class="n">field_name</span><span class="p">,</span>
+                        <span class="n">create_type</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">type_stem</span><span class="si">}</span><span class="s2">_Mutation&quot;</span><span class="p">,</span> <span class="n">child_tree</span><span class="o">.</span><span class="n">mutations</span><span class="p">),</span>
                     <span class="p">)</span>
-                <span class="p">)</span>
-
-<div class="viewcode-block" id="GraphQLAPI.create_schema">
-<a class="viewcode-back" href="../../../../_api/fastcs.transports.graphql.graphql.html#fastcs.transports.graphql.graphql.GraphQLAPI.create_schema">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">strawberry</span><span class="o">.</span><span class="n">Schema</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a Strawberry Schema to load into a GraphQL application.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">queries</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">FastCSError</span><span class="p">(</span>
-                <span class="s2">&quot;Can&#39;t create GraphQL transport from ControllerAPI with no read &quot;</span>
-                <span class="s2">&quot;attributes&quot;</span>
-            <span class="p">)</span>
-
-        <span class="n">query</span> <span class="o">=</span> <span class="n">create_type</span><span class="p">(</span><span class="s2">&quot;Query&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">queries</span><span class="p">)</span>
-        <span class="n">mutation</span> <span class="o">=</span> <span class="n">create_type</span><span class="p">(</span><span class="s2">&quot;Mutation&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutations</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutations</span> <span class="k">else</span> <span class="kc">None</span>
-
-        <span class="k">return</span> <span class="n">strawberry</span><span class="o">.</span><span class="n">Schema</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">mutation</span><span class="o">=</span><span class="n">mutation</span><span class="p">)</span></div>
-</div>
+                <span class="p">)</span></div>
 
 
 

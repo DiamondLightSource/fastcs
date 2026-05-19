@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.tango.dsr &#8212; fastcs 0.12.1.dev6+gfb032636f documentation</title>
+    <title>fastcs.transports.tango.dsr &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=f59b4589"></script>
+    <script src="../../../../_static/documentation_options.js?v=8120534f"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -467,7 +467,11 @@
     <span class="n">cast_to_tango_type</span><span class="p">,</span>
     <span class="n">get_server_metadata_from_attribute</span><span class="p">,</span>
     <span class="n">get_server_metadata_from_datatype</span><span class="p">,</span>
+    <span class="n">tango_dev_class_name</span><span class="p">,</span>
+    <span class="n">tango_dev_name</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="n">FASTCS_TANGO_SERVER_NAME</span> <span class="o">=</span> <span class="s2">&quot;FastCS&quot;</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_wrap_updater_fget</span><span class="p">(</span>
@@ -511,8 +515,11 @@
     <span class="n">root_controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span> <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="n">collection</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">root_depth</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">root_controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">root_controller_api</span><span class="o">.</span><span class="n">walk_api</span><span class="p">():</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span>
+        <span class="c1"># Path relative to the device root: the controller id (path[0]) is the</span>
+        <span class="c1"># Tango device name, not part of attribute names.</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="n">root_depth</span><span class="p">:]</span>
 
         <span class="k">for</span> <span class="n">attr_name</span><span class="p">,</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">attr_name</span> <span class="o">=</span> <span class="n">attr_name</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
@@ -575,8 +582,9 @@
     <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="n">collection</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">root_depth</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">root_controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">root_controller_api</span><span class="o">.</span><span class="n">walk_api</span><span class="p">():</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="n">root_depth</span><span class="p">:]</span>
 
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">command_methods</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">cmd_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
@@ -621,30 +629,36 @@
 <div class="viewcode-block" id="TangoDSR">
 <a class="viewcode-back" href="../../../../_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.TangoDSR">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TangoDSR</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;For controlling a controller with tango&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Hosts one Tango device per controller in a single Device Server.</span>
+
+<span class="sd">    Each controller in ``controller_apis`` becomes its own Tango device class,</span>
+<span class="sd">    named after the controller&#39;s id, with ``{id}/{dev_class}/{dsr_instance}`` as</span>
+<span class="sd">    its three-segment Tango device name.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span>
+        <span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">],</span>
         <span class="n">loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span> <span class="o">=</span> <span class="n">controller_api</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span> <span class="o">=</span> <span class="n">controller_apis</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">loop</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dev_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_device</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_devices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_create_device</span><span class="p">(</span><span class="n">api</span><span class="p">)</span> <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="n">controller_apis</span>
+        <span class="p">]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_create_device</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_device</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">:</span>
         <span class="n">class_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="o">**</span><span class="n">_collect_dev_attributes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">),</span>
-            <span class="o">**</span><span class="n">_collect_dev_commands</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">),</span>
-            <span class="o">**</span><span class="n">_collect_dev_properties</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">),</span>
-            <span class="o">**</span><span class="n">_collect_dev_init</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">),</span>
-            <span class="o">**</span><span class="n">_collect_dev_flags</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller_api</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">_collect_dev_attributes</span><span class="p">(</span><span class="n">controller_api</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">_collect_dev_commands</span><span class="p">(</span><span class="n">controller_api</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">_collect_dev_properties</span><span class="p">(</span><span class="n">controller_api</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">_collect_dev_init</span><span class="p">(</span><span class="n">controller_api</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">_collect_dev_flags</span><span class="p">(</span><span class="n">controller_api</span><span class="p">),</span>
         <span class="p">}</span>
 
         <span class="n">class_bases</span> <span class="o">=</span> <span class="p">(</span><span class="n">server</span><span class="o">.</span><span class="n">Device</span><span class="p">,)</span>
-        <span class="n">pytango_class</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dev_class</span><span class="p">,</span> <span class="n">class_bases</span><span class="p">,</span> <span class="n">class_dict</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">pytango_class</span>
+        <span class="n">dev_class</span> <span class="o">=</span> <span class="n">tango_dev_class_name</span><span class="p">(</span><span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">dev_class</span><span class="p">,</span> <span class="n">class_bases</span><span class="p">,</span> <span class="n">class_dict</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">TangoDSROptions</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -653,8 +667,8 @@
         <span class="n">dsr_args</span> <span class="o">=</span> <span class="n">_collect_dsr_args</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
 
         <span class="n">server</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,),</span>
-            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dev_class</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">dsr_instance</span><span class="p">,</span> <span class="o">*</span><span class="n">dsr_args</span><span class="p">],</span>
+            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_devices</span><span class="p">),</span>
+            <span class="p">[</span><span class="n">FASTCS_TANGO_SERVER_NAME</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">dsr_instance</span><span class="p">,</span> <span class="o">*</span><span class="n">dsr_args</span><span class="p">],</span>
             <span class="n">green_mode</span><span class="o">=</span><span class="n">server</span><span class="o">.</span><span class="n">GreenMode</span><span class="o">.</span><span class="n">Asyncio</span><span class="p">,</span>
         <span class="p">)</span></div>
 
@@ -662,12 +676,22 @@
 
 <div class="viewcode-block" id="register_dev">
 <a class="viewcode-back" href="../../../../_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.register_dev">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">register_dev</span><span class="p">(</span><span class="n">dev_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dev_class</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dsr_instance</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a device instance in the tango server.&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_dev</span><span class="p">(</span>
+    <span class="n">dev_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">dev_class</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">dsr_instance</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">server_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a device instance in the tango server.</span>
+
+<span class="sd">    ``server_name`` defaults to ``dev_class`` for backward compatibility with</span>
+<span class="sd">    callers from before multi-controller support. For FastCS-hosted multi-class</span>
+<span class="sd">    DSRs, pass ``server_name=FASTCS_TANGO_SERVER_NAME``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">dev_info</span> <span class="o">=</span> <span class="n">DbDevInfo</span><span class="p">()</span>
     <span class="n">dev_info</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">dev_name</span>
     <span class="n">dev_info</span><span class="o">.</span><span class="n">_class</span> <span class="o">=</span> <span class="n">dev_class</span>  <span class="c1"># noqa: SLF001</span>
-    <span class="n">dev_info</span><span class="o">.</span><span class="n">server</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dev_class</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dsr_instance</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">dev_info</span><span class="o">.</span><span class="n">server</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">server_name</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">dev_class</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dsr_instance</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">()</span>
     <span class="n">db</span><span class="o">.</span><span class="n">delete_device</span><span class="p">(</span><span class="n">dev_name</span><span class="p">)</span>  <span class="c1"># Remove existing device entry</span>
@@ -680,6 +704,23 @@
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - Device: </span><span class="si">{</span><span class="n">read_dev_info</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - Class: </span><span class="si">{</span><span class="n">read_dev_info</span><span class="o">.</span><span class="n">class_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; - Device server: </span><span class="si">{</span><span class="n">read_dev_info</span><span class="o">.</span><span class="n">ds_full_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="register_controller_devs">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.tango.dsr.html#fastcs.transports.tango.dsr.register_controller_devs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_controller_devs</span><span class="p">(</span>
+    <span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">],</span> <span class="n">options</span><span class="p">:</span> <span class="n">TangoDSROptions</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register every controller&#39;s Tango device under the FastCS server name.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="n">controller_apis</span><span class="p">:</span>
+        <span class="nb">id</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">register_dev</span><span class="p">(</span>
+            <span class="n">dev_name</span><span class="o">=</span><span class="n">tango_dev_name</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">dsr_instance</span><span class="p">),</span>
+            <span class="n">dev_class</span><span class="o">=</span><span class="n">tango_dev_class_name</span><span class="p">(</span><span class="nb">id</span><span class="p">),</span>
+            <span class="n">dsr_instance</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">dsr_instance</span><span class="p">,</span>
+            <span class="n">server_name</span><span class="o">=</span><span class="n">FASTCS_TANGO_SERVER_NAME</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 </pre></div>
 
