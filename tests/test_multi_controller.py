@@ -364,7 +364,10 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
             assert "/beta/bar" in paths
     finally:
         task.cancel()
-        await asyncio.sleep(0.1)
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
     for controller in (a, b):
         assert not controller.connected
