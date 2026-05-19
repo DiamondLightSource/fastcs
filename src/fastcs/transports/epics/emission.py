@@ -33,7 +33,7 @@ GUIBuilder = Callable[[ControllerAPI], EpicsGUI]
 INDEX_STEM = "index"
 
 
-def _coerce_pascal_name(controller_id: str) -> str:
+def _coerce_pascal_name(name: str) -> str:
     """Coerce an arbitrary controller id into a valid pvi ``PascalStr``.
 
     pvi's :py:class:`DeviceRef` constrains ``name`` to ``PascalStr`` (regex
@@ -50,14 +50,14 @@ def _coerce_pascal_name(controller_id: str) -> str:
     ``ValueError`` instead -- a silent fallback would produce nonsense
     GUI names that the user can't trace back to the offending id.
     """
-    stripped = NON_PASCAL_CHARS_RE.sub("", controller_id)
+    stripped = NON_PASCAL_CHARS_RE.sub("", name)
     if not stripped:
         raise ValueError(
-            f"Controller id {controller_id!r} contains no characters usable "
+            f"Controller id {name!r} contains no characters usable "
             "in a Pascal-case name; pick an id with at least one ASCII "
             "letter or digit"
         )
-    candidate = enforce_pascal_case(controller_id)
+    candidate = enforce_pascal_case(name)
     if not candidate[0].isupper():
         candidate = "X" + candidate
     return candidate
@@ -89,8 +89,8 @@ def emit_gui_files(
 
     refs: list[DeviceRef] = []
     for api in controller_apis:
-        controller_id = api.path[0]
-        ui_filename = f"{controller_id}{ext}"
+        name = api.path[0]
+        ui_filename = f"{name}{ext}"
         controller_path = (output_dir / ui_filename).resolve()
 
         device = gui_builder(api).build_device(options.title)
@@ -98,9 +98,9 @@ def emit_gui_files(
 
         refs.append(
             DeviceRef(
-                name=_coerce_pascal_name(controller_id),
-                label=controller_id,
-                pv=controller_id,
+                name=_coerce_pascal_name(name),
+                label=name,
+                pv=name,
                 ui=ui_filename,
                 macros={},
             )
@@ -127,8 +127,8 @@ def emit_docs_files(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for api in controller_apis:
-        controller_id = api.path[0]
-        path = output_dir / f"{controller_id}{DOCS_EXT}"
+        name = api.path[0]
+        path = output_dir / f"{name}{DOCS_EXT}"
         path.write_text(_render_controller_md(api, options.depth))
 
     index_path = output_dir / f"{INDEX_STEM}{DOCS_EXT}"
@@ -138,8 +138,8 @@ def emit_docs_files(
 def _render_index_md(controller_apis: list[ControllerAPI], title: str) -> str:
     lines = [f"# {title}", ""]
     for api in controller_apis:
-        controller_id = api.path[0]
-        lines.append(f"- [{controller_id}]({controller_id}{DOCS_EXT})")
+        name = api.path[0]
+        lines.append(f"- [{name}]({name}{DOCS_EXT})")
     lines.append("")
     return "\n".join(lines)
 
