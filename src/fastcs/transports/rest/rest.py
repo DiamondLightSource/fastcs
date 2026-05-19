@@ -20,16 +20,17 @@ from .util import (
 
 
 class RestServer:
-    """A Rest Server which handles a controller"""
+    """A Rest Server which handles one or more controllers."""
 
-    def __init__(self, controller_api: ControllerAPI):
-        self._controller_api = controller_api
+    def __init__(self, controller_apis: list[ControllerAPI]):
+        self._controller_apis = controller_apis
         self._app = self._create_app()
 
     def _create_app(self):
         app = FastAPI()
-        _add_attribute_api_routes(app, self._controller_api)
-        _add_command_api_routes(app, self._controller_api)
+        for controller_api in self._controller_apis:
+            _add_attribute_api_routes(app, controller_api)
+            _add_command_api_routes(app, controller_api)
 
         return app
 
@@ -154,7 +155,7 @@ def _add_command_api_routes(app: FastAPI, root_controller_api: ControllerAPI) ->
     for controller_api in root_controller_api.walk_api():
         path = controller_api.path
 
-        for name, method in root_controller_api.command_methods.items():
+        for name, method in controller_api.command_methods.items():
             cmd_name = name.replace("_", "-")
             route = f"/{'/'.join(path)}/{cmd_name}" if path else cmd_name
             app.add_api_route(

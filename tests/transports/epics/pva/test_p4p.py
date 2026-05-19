@@ -18,7 +18,6 @@ from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command
-from fastcs.transports.epics import EpicsIOCOptions
 from fastcs.transports.epics.pva.transport import EpicsPVATransport
 
 
@@ -211,9 +210,8 @@ async def test_numeric_alarms(p4p_subprocess: tuple[str, Queue]):
 
 
 def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
-    return FastCS(
-        controller, [EpicsPVATransport(epicspva=EpicsIOCOptions(pv_prefix=pv_prefix))]
-    )
+    controller.set_path([pv_prefix])
+    return FastCS(controller, [EpicsPVATransport()])
 
 
 def test_read_signal_set():
@@ -300,7 +298,9 @@ def test_pvi_grouping():
     controller.additional_child = sub_controller
     sub_controller.child_child = ChildChildController()
 
-    pv_prefix = str(uuid4())
+    # Short id keeps the deepest prefix (`<id>:AdditionalChild:ChildChild`)
+    # under the 60-char EPICS PV name limit enforced by validate_pva_id.
+    pv_prefix = uuid4().hex[:8]
     fastcs = make_fastcs(pv_prefix, controller)
 
     ctxt = ThreadContext("pva")

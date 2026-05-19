@@ -12,7 +12,7 @@ from fastcs.datatypes import Enum, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.logging import LogLevel, configure_logging, logger
 from fastcs.methods import command, scan
-from fastcs.transports.epics import EpicsGUIOptions, EpicsIOCOptions
+from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
 
 NumberT = TypeVar("NumberT", int, float)
@@ -112,13 +112,13 @@ class TemperatureController(Controller):
 
 configure_logging(LogLevel.TRACE)
 
-gui_options = EpicsGUIOptions(
-    output_path=Path(".") / "demo.bob", title="Demo Temperature Controller"
-)
-epics_ca = EpicsCATransport(gui=gui_options, epicsca=EpicsIOCOptions(pv_prefix="DEMO"))
+gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
+epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
 logger.info("Configuring connection settings", connection_settings=connection_settings)
-fastcs = FastCS(TemperatureController(4, connection_settings), [epics_ca])
+controller = TemperatureController(4, connection_settings)
+controller.set_path(["DEMO"])
+fastcs = FastCS(controller, [epics_ca])
 
 if __name__ == "__main__":
     fastcs.run()

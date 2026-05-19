@@ -53,8 +53,8 @@ async def test_controller_api_methods():
     await controller.do_nothing_static()
     await controller.do_nothing_dynamic()
 
-    await fastcs.controller_api.command_methods["do_nothing_static"]()
-    await fastcs.controller_api.command_methods["do_nothing_dynamic"]()
+    await fastcs.controller_apis[0].command_methods["do_nothing_static"]()
+    await fastcs.controller_apis[0].command_methods["do_nothing_dynamic"]()
 
 
 @pytest.mark.asyncio

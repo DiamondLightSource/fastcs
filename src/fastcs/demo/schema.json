@@ -1,26 +1,54 @@
 {
   "$defs": {
     "EpicsCAOptions": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "EpicsCAOptions",
+      "type": "object"
+    },
+    "EpicsCATransport": {
+      "additionalProperties": false,
       "properties": {
+        "epicsca": {
+          "$ref": "#/$defs/EpicsCAOptions"
+        },
         "docs": {
-          "$ref": "#/$defs/EpicsDocsOptions"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EpicsDocsOptions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "gui": {
-          "$ref": "#/$defs/EpicsGUIOptions"
-        },
-        "ioc": {
-          "$ref": "#/$defs/EpicsIOCOptions"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EpicsGUIOptions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
-      "title": "EpicsCAOptions",
+      "title": "EpicsCATransport",
       "type": "object"
     },
     "EpicsDocsOptions": {
       "properties": {
-        "path": {
+        "output_dir": {
           "default": ".",
           "format": "path",
-          "title": "Path",
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "title": {
+          "default": "FastCS Devices",
+          "title": "Title",
           "type": "string"
         },
         "depth": {
@@ -50,10 +78,10 @@
     },
     "EpicsGUIOptions": {
       "properties": {
-        "output_path": {
-          "default": "output.bob",
+        "output_dir": {
+          "default": ".",
           "format": "path",
-          "title": "Output Path",
+          "title": "Output Dir",
           "type": "string"
         },
         "file_format": {
@@ -61,7 +89,7 @@
           "default": ".bob"
         },
         "title": {
-          "default": "Simple Device",
+          "default": "FastCS Devices",
           "title": "Title",
           "type": "string"
         }
@@ -69,39 +97,42 @@
       "title": "EpicsGUIOptions",
       "type": "object"
     },
-    "EpicsIOCOptions": {
-      "properties": {
-        "pv_prefix": {
-          "default": "MY-DEVICE-PREFIX",
-          "title": "Pv Prefix",
-          "type": "string"
-        }
-      },
-      "title": "EpicsIOCOptions",
-      "type": "object"
-    },
     "EpicsPVAOptions": {
-      "properties": {
-        "docs": {
-          "$ref": "#/$defs/EpicsDocsOptions"
-        },
-        "gui": {
-          "$ref": "#/$defs/EpicsGUIOptions"
-        },
-        "ioc": {
-          "$ref": "#/$defs/EpicsIOCOptions"
-        }
-      },
+      "additionalProperties": false,
+      "properties": {},
       "title": "EpicsPVAOptions",
       "type": "object"
     },
-    "GraphQLOptions": {
+    "EpicsPVATransport": {
+      "additionalProperties": false,
       "properties": {
-        "gql": {
-          "$ref": "#/$defs/GraphQLServerOptions"
+        "epicspva": {
+          "$ref": "#/$defs/EpicsPVAOptions"
+        },
+        "docs": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EpicsDocsOptions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "gui": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EpicsGUIOptions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
-      "title": "GraphQLOptions",
+      "title": "EpicsPVATransport",
       "type": "object"
     },
     "GraphQLServerOptions": {
@@ -125,6 +156,16 @@
       "title": "GraphQLServerOptions",
       "type": "object"
     },
+    "GraphQLTransport": {
+      "additionalProperties": false,
+      "properties": {
+        "graphql": {
+          "$ref": "#/$defs/GraphQLServerOptions"
+        }
+      },
+      "title": "GraphQLTransport",
+      "type": "object"
+    },
     "IPConnectionSettings": {
       "properties": {
         "ip": {
@@ -139,15 +180,6 @@
         }
       },
       "title": "IPConnectionSettings",
-      "type": "object"
-    },
-    "RestOptions": {
-      "properties": {
-        "rest": {
-          "$ref": "#/$defs/RestServerOptions"
-        }
-      },
-      "title": "RestOptions",
       "type": "object"
     },
     "RestServerOptions": {
@@ -171,13 +203,18 @@
       "title": "RestServerOptions",
       "type": "object"
     },
+    "RestTransport": {
+      "additionalProperties": false,
+      "properties": {
+        "rest": {
+          "$ref": "#/$defs/RestServerOptions"
+        }
+      },
+      "title": "RestTransport",
+      "type": "object"
+    },
     "TangoDSROptions": {
       "properties": {
-        "dev_name": {
-          "default": "MY/DEVICE/NAME",
-          "title": "Dev Name",
-          "type": "string"
-        },
         "dsr_instance": {
           "default": "MY_SERVER_INSTANCE",
           "title": "Dsr Instance",
@@ -192,17 +229,28 @@
       "title": "TangoDSROptions",
       "type": "object"
     },
-    "TangoOptions": {
+    "TangoTransport": {
+      "additionalProperties": false,
       "properties": {
         "tango": {
           "$ref": "#/$defs/TangoDSROptions"
         }
       },
-      "title": "TangoOptions",
+      "title": "TangoTransport",
       "type": "object"
     },
-    "TempControllerSettings": {
+    "TemperatureControllerEntry": {
+      "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "fastcs.TemperatureController",
+          "title": "Type",
+          "type": "string"
+        },
         "num_ramp_controllers": {
           "title": "Num Ramp Controllers",
           "type": "integer"
@@ -212,35 +260,41 @@
         }
       },
       "required": [
+        "id",
+        "type",
         "num_ramp_controllers",
         "ip_settings"
       ],
-      "title": "TempControllerSettings",
+      "title": "TemperatureControllerEntry",
       "type": "object"
     }
   },
   "additionalProperties": false,
   "properties": {
-    "controller": {
-      "$ref": "#/$defs/TempControllerSettings"
+    "controllers": {
+      "items": {
+        "$ref": "#/$defs/TemperatureControllerEntry"
+      },
+      "title": "Controllers",
+      "type": "array"
     },
     "transport": {
       "items": {
         "anyOf": [
           {
-            "$ref": "#/$defs/EpicsPVAOptions"
+            "$ref": "#/$defs/EpicsCATransport"
           },
           {
-            "$ref": "#/$defs/EpicsCAOptions"
+            "$ref": "#/$defs/EpicsPVATransport"
           },
           {
-            "$ref": "#/$defs/TangoOptions"
+            "$ref": "#/$defs/GraphQLTransport"
           },
           {
-            "$ref": "#/$defs/RestOptions"
+            "$ref": "#/$defs/RestTransport"
           },
           {
-            "$ref": "#/$defs/GraphQLOptions"
+            "$ref": "#/$defs/TangoTransport"
           }
         ]
       },
@@ -249,9 +303,9 @@
     }
   },
   "required": [
-    "controller",
+    "controllers",
     "transport"
   ],
-  "title": "TempController",
+  "title": "TemperatureController",
   "type": "object"
 }

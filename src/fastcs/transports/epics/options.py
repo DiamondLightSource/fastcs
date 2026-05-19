@@ -1,13 +1,17 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import ClassVar
+
+from pydantic import ConfigDict
 
 
 @dataclass
 class EpicsDocsOptions:
     """Docs options for EPICS."""
 
-    path: Path = Path(".")
+    output_dir: Path = Path(".")
+    title: str = "FastCS Devices"
     depth: int | None = None
 
 
@@ -22,13 +26,28 @@ class EpicsGUIFormat(Enum):
 class EpicsGUIOptions:
     """Epics GUI options for use in both CA and PVA transports."""
 
-    output_path: Path = Path(".") / "output.bob"
+    output_dir: Path = Path(".")
     file_format: EpicsGUIFormat = EpicsGUIFormat.bob
-    title: str = "Simple Device"
+    title: str = "FastCS Devices"
 
 
 @dataclass
-class EpicsIOCOptions:
-    """Epics IOC options for use in both CA and PVA transports."""
+class EpicsCAOptions:
+    """Channel-Access-specific options.
 
-    pv_prefix: str = "MY-DEVICE-PREFIX"
+    Currently empty: present so ``epicsca:`` survives in fastcs.yaml as the
+    transport discriminator key. Reserved for future CA-specific knobs.
+    """
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+
+@dataclass
+class EpicsPVAOptions:
+    """PVAccess-specific options.
+
+    Currently empty: present so ``epicspva:`` survives in fastcs.yaml as the
+    transport discriminator key. Reserved for future PVA-specific knobs.
+    """
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
