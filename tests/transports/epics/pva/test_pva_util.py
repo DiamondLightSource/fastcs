@@ -4,15 +4,15 @@ from fastcs.controllers import ControllerAPI
 from fastcs.transports.epics.pva.util import validate_pva_id
 
 
-@pytest.mark.parametrize("id", ["DEVICE", "my-id", "name_1", "ABC-123_xyz"])
-def test_validate_pva_id_accepts_valid(id):
-    validate_pva_id(ControllerAPI(path=[id]))
+@pytest.mark.parametrize("name", ["DEVICE", "my-id", "name_1", "ABC-123_xyz"])
+def test_validate_pva_id_accepts_valid(name):
+    validate_pva_id(ControllerAPI(path=[name]))
 
 
-@pytest.mark.parametrize("id", ["bad/id", "with space", "colons:in:id", ""])
-def test_validate_pva_id_rejects_illegal_characters(id):
+@pytest.mark.parametrize("name", ["bad/id", "with space", "colons:in:id", ""])
+def test_validate_pva_id_rejects_illegal_characters(name):
     with pytest.raises(ValueError, match="EPICS PVA id"):
-        validate_pva_id(ControllerAPI(path=[id]))
+        validate_pva_id(ControllerAPI(path=[name]))
 
 
 def test_validate_pva_id_rejects_overlong_prefix():

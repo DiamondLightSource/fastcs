@@ -32,10 +32,10 @@ def validate_epics_pv_id(
     transport-specific tag (e.g. ``"EPICS CA id"``) that appears in the
     illegal-characters error message.
     """
-    id = controller_api.path[0]
-    if not id_re.fullmatch(id):
+    name = controller_api.path[0]
+    if not id_re.fullmatch(name):
         raise ValueError(
-            f"Controller id {id!r} is not a valid {transport_label}; "
+            f"Controller id {name!r} is not a valid {transport_label}; "
             "only alphanumerics, '-' and '_' are allowed"
         )
     longest_prefix = max(
@@ -43,7 +43,7 @@ def validate_epics_pv_id(
     )
     if longest_prefix > EPICS_MAX_NAME_LENGTH:
         raise ValueError(
-            f"Controller id {id!r} produces a PV prefix of "
+            f"Controller id {name!r} produces a PV prefix of "
             f"{longest_prefix} characters, which exceeds the EPICS "
             f"{EPICS_MAX_NAME_LENGTH}-character PV name limit"
         )

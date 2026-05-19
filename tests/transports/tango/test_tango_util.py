@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from fastcs.transports.tango.util import (
@@ -9,23 +11,23 @@ from fastcs.transports.tango.util import (
 
 class TestValidateTangoId:
     @pytest.mark.parametrize(
-        "id",
+        "name",
         ["DEVICE", "DEV-1", "dev_1", "ALPHA", "BENCHMARK-DEVICE", "0LEAD"],
     )
-    def test_accepts_valid_ids(self, id: str):
-        validate_tango_id(id)
+    def test_accepts_valid_ids(self, name: str):
+        validate_tango_id(name)
 
     def test_rejects_empty(self):
         with pytest.raises(ValueError, match="empty"):
             validate_tango_id("")
 
     @pytest.mark.parametrize(
-        "id",
+        "name",
         ["bad/id", "bad id", "bad.id", "bad:id", "bad!id"],
     )
-    def test_rejects_illegal_chars(self, id: str):
-        with pytest.raises(ValueError, match=id):
-            validate_tango_id(id)
+    def test_rejects_illegal_chars(self, name: str):
+        with pytest.raises(ValueError, match=re.escape(name)):
+            validate_tango_id(name)
 
 
 class TestTangoDevClassName:

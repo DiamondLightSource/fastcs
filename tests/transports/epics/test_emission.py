@@ -31,9 +31,9 @@ class _Beta(Controller):
     bar = AttrR(Int())
 
 
-def _api_with_id(controller_class: type[Controller], id: str):
+def _api_with_id(controller_class: type[Controller], name: str):
     controller = controller_class()
-    controller.set_path([id])
+    controller.set_path([name])
     api, _, _ = controller.create_api_and_tasks()
     return api
 

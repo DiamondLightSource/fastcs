@@ -32,15 +32,17 @@ class GraphQLServer:
         queries: list[StrawberryField] = []
         mutations: list[StrawberryField] = []
         for controller_api in self._controller_apis:
-            id = controller_api.path[0]
+            name = controller_api.path[0]
             sub_tree = GraphQLAPI(controller_api)
             if sub_tree.queries:
                 queries.append(
-                    _wrap_as_field(id, create_type(f"{id}Query", sub_tree.queries))
+                    _wrap_as_field(name, create_type(f"{name}Query", sub_tree.queries))
                 )
             if sub_tree.mutations:
                 mutations.append(
-                    _wrap_as_field(id, create_type(f"{id}Mutation", sub_tree.mutations))
+                    _wrap_as_field(
+                        name, create_type(f"{name}Mutation", sub_tree.mutations)
+                    )
                 )
 
         if not queries:
