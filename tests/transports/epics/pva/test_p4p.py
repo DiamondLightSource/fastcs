@@ -209,8 +209,7 @@ async def test_numeric_alarms(p4p_subprocess: tuple[str, Queue]):
         a_monitor.close()
 
 
-def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
-    controller.set_path([pv_prefix])
+def make_fastcs(controller: Controller) -> FastCS:
     return FastCS(controller, [EpicsPVATransport()])
 
 
@@ -219,9 +218,9 @@ def test_read_signal_set():
         a: AttrRW = AttrRW(Int(max=400_000, max_alarm=40_000))
         b: AttrR = AttrR(Float(min=-1, min_alarm=-0.5, prec=2))
 
-    controller = SomeController()
     pv_prefix = str(uuid4())
-    fastcs = make_fastcs(pv_prefix, controller)
+    controller = SomeController(path=[pv_prefix])
+    fastcs = make_fastcs(controller)
 
     ctxt = ThreadContext("pva")
 
@@ -272,36 +271,27 @@ def test_pvi_grouping():
         another_attr_1000: AttrRW = AttrRW(Int())
         a_third_attr: AttrW = AttrW(Int())
 
-    controller = SomeController()
-
-    sub_controller_vector = ControllerVector({i: ChildController() for i in range(3)})
-
-    controller.add_sub_controller("child", sub_controller_vector)
-
-    sub_controller = ChildController()
-    controller.child0 = sub_controller
-    sub_controller.child_child = ChildChildController()
-
-    sub_controller = ChildController()
-    controller.child1 = sub_controller
-    sub_controller.child_child = ChildChildController()
-
-    sub_controller = ChildController()
-    controller.child2 = sub_controller
-    sub_controller.child_child = ChildChildController()
-
-    sub_controller = ChildController()
-    controller.another_child = sub_controller
-    sub_controller.child_child = ChildChildController()
-
-    sub_controller = ChildController()
-    controller.additional_child = sub_controller
-    sub_controller.child_child = ChildChildController()
-
     # Short id keeps the deepest prefix (`<id>:AdditionalChild:ChildChild`)
     # under the 60-char EPICS PV name limit enforced by validate_pva_id.
     pv_prefix = uuid4().hex[:8]
-    fastcs = make_fastcs(pv_prefix, controller)
+    controller = SomeController(path=[pv_prefix])
+
+    child_path = [pv_prefix, "child"]
+    sub_controller_vector = ControllerVector(
+        {i: ChildController(path=child_path + [str(i)]) for i in range(3)},
+        path=child_path,
+    )
+    controller.add_sub_controller("child", sub_controller_vector)
+
+    for name in ("child0", "child1", "child2", "another_child", "additional_child"):
+        sub_path = [pv_prefix, name]
+        sub_controller = ChildController(path=sub_path)
+        setattr(controller, name, sub_controller)
+        sub_controller.child_child = ChildChildController(
+            path=sub_path + ["child_child"]
+        )
+
+    fastcs = make_fastcs(controller)
 
     ctxt = ThreadContext("pva")
 
@@ -411,9 +401,9 @@ async def test_more_exotic_datatypes():
         some_table: AttrRW = AttrRW(Table(table_columns))
         some_enum: AttrRW = AttrRW(Enum(AnEnum))
 
-    controller = SomeController()
     pv_prefix = str(uuid4())
-    fastcs = make_fastcs(pv_prefix, controller)
+    controller = SomeController(path=[pv_prefix])
+    fastcs = make_fastcs(controller)
 
     ctxt = ThreadContext("pva", nt=False)
 
@@ -550,9 +540,9 @@ def test_command_method_put_twice(caplog):
 
             asyncio.create_task(some_task())
 
-    controller = SomeController()
     pv_prefix = str(uuid4())
-    fastcs = make_fastcs(pv_prefix, controller)
+    controller = SomeController(path=[pv_prefix])
+    fastcs = make_fastcs(controller)
     expected_error_string = (
         "RuntimeError: Received request to run command but it is "
         "already in progress. Maybe the command should spawn an asyncio task?"
@@ -619,9 +609,9 @@ def test_block_flag_waits_for_callback_completion():
         async def command_runs_for_a_while(self):
             await asyncio.sleep(0.2)
 
-    controller = SomeController()
     pv_prefix = str(uuid4())
-    fastcs = make_fastcs(pv_prefix, controller)
+    controller = SomeController(path=[pv_prefix])
+    fastcs = make_fastcs(controller)
     command_runs_for_a_while_times = []
 
     async def put_pvs():

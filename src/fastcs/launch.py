@@ -198,15 +198,15 @@ def _launch(
 def _instantiate_controllers(
     controllers_options: list[Any],
 ) -> list[Controller]:
-    """Instantiate each entry under `controllers:` and seed its path.
+    """Instantiate each entry under `controllers:` with its path seeded.
 
     Each item in ``controllers_options`` is a dynamically-built Pydantic
     model that exposes ``id``, ``type`` and the controller's options fields
     inlined as siblings. The originating Controller class and its
     options-type are looked up in ``_ENTRY_REGISTRY`` (populated by
-    ``_build_entry_model``). The entry's ``id`` is seeded into the
-    controller's ``_path`` via ``set_path([id])`` so that
-    ``ControllerAPI.path`` is rooted at the YAML id.
+    ``_build_entry_model``). The entry's ``id`` is passed as ``path=[id]``
+    to the controller constructor so that ``ControllerAPI.path`` is rooted
+    at the YAML id.
     """
     seen_ids: set[str] = set()
     duplicates: list[str] = []
@@ -229,10 +229,11 @@ def _instantiate_controllers(
                 for name in entry_cls.model_fields
                 if name not in ("id", "type")
             }
-            controller = registered.cls(registered.options_type(**field_values))
+            controller = registered.cls(
+                registered.options_type(**field_values), path=[entry.id]
+            )
         else:
-            controller = registered.cls()
-        controller.set_path([entry.id])
+            controller = registered.cls(path=[entry.id])
         controllers.append(controller)
     return controllers
 

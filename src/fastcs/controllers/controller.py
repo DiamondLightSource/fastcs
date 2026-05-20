@@ -19,8 +19,10 @@ class Controller(BaseController):
         self,
         description: str | None = None,
         ios: Sequence[AnyAttributeIO] | None = None,
+        *,
+        path: list[str] | None = None,
     ) -> None:
-        super().__init__(description=description, ios=ios)
+        super().__init__(description=description, ios=ios, path=path)
         self._connected = False
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
@@ -70,7 +72,7 @@ class Controller(BaseController):
             tuple[ControllerAPI, list[ScanCallback], list[ScanCallback]]
 
         """
-        controller_api = self._build_api(self._path)
+        controller_api = self._build_api()
 
         scan_dict: dict[float, list[ScanCallback]] = defaultdict(list)
         initial_coros: list[ScanCallback] = []

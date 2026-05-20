@@ -35,37 +35,37 @@ class OtherConfig:
 
 
 class SingleArg(Controller):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *, path=None):
+        super().__init__(path=path)
 
 
 class NotHinted(Controller):
-    def __init__(self, arg):
-        super().__init__()
+    def __init__(self, arg, *, path=None):
+        super().__init__(path=path)
 
 
 class IsHinted(Controller):
     read = AttrR(Int())
 
-    def __init__(self, arg: SomeConfig) -> None:
-        super().__init__()
+    def __init__(self, arg: SomeConfig, *, path=None) -> None:
+        super().__init__(path=path)
 
 
 class ManyArgs(Controller):
-    def __init__(self, arg: SomeConfig, too_many):
-        super().__init__()
+    def __init__(self, arg: SomeConfig, too_many, *, path=None):
+        super().__init__(path=path)
 
 
 class OtherHinted(Controller):
-    def __init__(self, arg: OtherConfig) -> None:
-        super().__init__()
+    def __init__(self, arg: OtherConfig, *, path=None) -> None:
+        super().__init__(path=path)
 
 
 class Aliased(Controller):
     type_name: ClassVar[str] = "aliased-controller"
 
-    def __init__(self, arg: SomeConfig) -> None:
-        super().__init__()
+    def __init__(self, arg: SomeConfig, *, path=None) -> None:
+        super().__init__(path=path)
 
 
 runner = CliRunner()
@@ -121,7 +121,7 @@ def test_is_hinted_schema(data):
 def test_not_hinted_schema():
     error = (
         "Expected typehinting in 'NotHinted.__init__' but received "
-        "(self, arg). Add a typehint for `arg`."
+        "(self, arg, *, path=None). Add a typehint for `arg`."
     )
 
     with pytest.raises(LaunchError) as exc_info:
@@ -133,7 +133,8 @@ def test_over_defined_schema():
     error = (
         ""
         "Expected no more than 2 arguments for 'ManyArgs.__init__' "
-        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, too_many)`"
+        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, too_many, "
+        "*, path=None)`"
     )
 
     with pytest.raises(LaunchError) as exc_info:
