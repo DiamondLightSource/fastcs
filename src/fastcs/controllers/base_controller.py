@@ -349,13 +349,6 @@ class BaseController(Tracer):
                     f"'{sub_controller.__class__.__name__}'."
                 )
 
-        expected = self.path + [name]
-        if sub_controller.path != expected:
-            raise ValueError(
-                f"Sub controller path {sub_controller.path} does not match "
-                f"parent path {self.path} + [{name!r}]. Construct the sub "
-                f"controller with `path={expected!r}`."
-            )
         self.__sub_controllers[name] = sub_controller
         super().__setattr__(name, sub_controller)
 
