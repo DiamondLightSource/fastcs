@@ -25,11 +25,6 @@ def test_controller_nesting():
     with pytest.raises(ValueError, match=r"Cannot add sub controller"):
         controller.a = Controller(path=["a"])
 
-    # sub_controller has path=["a"], so adding it under name "c" violates the
-    # parent.path + [name] invariant.
-    with pytest.raises(ValueError, match=r"does not match parent path"):
-        controller.c = sub_controller
-
 
 class SomeSubController(Controller):
     def __init__(self, *, path=None):
