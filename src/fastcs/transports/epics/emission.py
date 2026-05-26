@@ -149,7 +149,8 @@ def emit_docs_files(
         _render_index_md(
             controller_apis,
             options.title
-            or (
+            if options.title is not None
+            else (
                 controller_apis[0].path[0]
                 if controller_apis and controller_apis[0].path
                 else "FastCS Devices"

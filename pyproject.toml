@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fastcs"
 authors = [
-    {name = "Martin Gaughran", email = "martin.gaughran@diamond.ac.uk"},
-    {name = "Gary Yendell", email = "gary.yendell@diamond.ac.uk"},
+    { name = "Martin Gaughran", email = "martin.gaughran@diamond.ac.uk" },
+    { name = "Gary Yendell", email = "gary.yendell@diamond.ac.uk" },
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -34,8 +34,8 @@ requires-python = ">=3.11"
 
 [project.optional-dependencies]
 demo = ["tickit~=0.4.3"]
-epicsca = ["pvi>=0.14.0b1", "softioc>=4.5.0"]
-epicspva = ["p4p", "pvi>=0.14.0b1"]
+epicsca = ["pvi==0.14.0b1", "softioc>=4.5.0"]
+epicspva = ["p4p", "pvi==0.14.0b1"]
 epics = ["fastcs[epicsca]", "fastcs[epicspva]"]
 tango = ["pytango"]
 graphql = ["strawberry-graphql", "uvicorn[standard]>=0.12.0"]

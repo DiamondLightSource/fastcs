@@ -42,7 +42,8 @@ class ControllerAPI:
     description: str | None = None
     """A description to display in the `Transport` layer"""
     group_layout: GroupLayout = GroupLayout.SUBSCREEN
-    """How this controller's children are laid out when rendered inside a parent screen."""
+    """How this controller's children are laid out when rendered \
+        inside a parent screen."""
 
     def walk_api(self) -> Iterator["ControllerAPI"]:
         """Walk through all the nested `ControllerAPI` s of this `ControllerAPI`.
