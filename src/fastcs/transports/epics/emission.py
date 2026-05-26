@@ -93,7 +93,11 @@ def emit_gui_files(
         ui_filename = f"{name}{ext}"
         controller_path = (output_dir / ui_filename).resolve()
 
-        device = gui_builder(api).build_device(options.title)
+        device = gui_builder(api).build_device(
+            options.title
+            if options.title is not None
+            else (api.path[0] if api.path else "FastCS Devices")
+        )
         formatter.format(device, controller_path)
 
         refs.append(
@@ -107,7 +111,16 @@ def emit_gui_files(
         )
 
     index_path = (output_dir / f"{INDEX_STEM}{ext}").resolve()
-    formatter.format(Device(label=options.title, children=refs), index_path)
+    index_title = (
+        options.title
+        if options.title is not None
+        else (
+            controller_apis[0].path[0]
+            if controller_apis and controller_apis[0].path
+            else "FastCS Devices"
+        )
+    )
+    formatter.format(Device(label=index_title, children=refs), index_path)
 
 
 DOCS_EXT = ".md"
@@ -132,7 +145,17 @@ def emit_docs_files(
         path.write_text(_render_controller_md(api, options.depth))
 
     index_path = output_dir / f"{INDEX_STEM}{DOCS_EXT}"
-    index_path.write_text(_render_index_md(controller_apis, options.title))
+    index_path.write_text(
+        _render_index_md(
+            controller_apis,
+            options.title
+            or (
+                controller_apis[0].path[0]
+                if controller_apis and controller_apis[0].path
+                else "FastCS Devices"
+            ),
+        )
+    )
 
 
 def _render_index_md(controller_apis: list[ControllerAPI], title: str) -> str:

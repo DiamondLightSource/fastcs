@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import Any, Literal
 
 from softioc import builder, softioc
@@ -101,8 +102,11 @@ def _add_sub_controller_pvi_info(parent: ControllerAPI):
             if child.path[-1].isdigit()
             else child.path[-1]
         )
+        # Sanitize for PVA field names: replace any non-alphanumeric, non-underscore
+        # character (e.g. hyphens from beamline PV prefixes) with underscores.
+        child_pvi_field = re.sub(r"[^a-zA-Z0-9_]", "_", child_name).lower()
 
-        _add_pvi_info(child_pvi, parent_pvi, child_name.lower())
+        _add_pvi_info(child_pvi, parent_pvi, child_pvi_field)
 
         _add_sub_controller_pvi_info(child)
 

@@ -28,7 +28,8 @@ class EpicsGUIOptions:
 
     output_dir: Path = Path(".")
     file_format: EpicsGUIFormat = EpicsGUIFormat.bob
-    title: str = "FastCS Devices"
+    title: str | None = None
+    """Screen title. Defaults to the controller id when not provided."""
 
 
 @dataclass
