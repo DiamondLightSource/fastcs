@@ -24,6 +24,7 @@ from pydantic import ValidationError
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
+from fastcs.controllers.controller_api import GroupLayout
 from fastcs.datatypes import (
     Bool,
     Enum,
@@ -153,11 +154,12 @@ class EpicsGUI:
         for name, api in controller_api.sub_apis.items():
             if name.isdigit():
                 name = f"{controller_api.path[-1]}{name}"
+            layout = Grid() if api.group_layout is GroupLayout.INLINE else SubScreen()
             components.append(
                 Group(
                     name=snake_to_pascal(name),
                     label=api.path[-1] if api.path else None,
-                    layout=SubScreen(),
+                    layout=layout,
                     children=self.extract_api_components(api),
                 )
             )

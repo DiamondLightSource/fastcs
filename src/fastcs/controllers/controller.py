@@ -6,7 +6,7 @@ from fastcs.attributes import AnyAttributeIO
 from fastcs.attributes.attr_r import AttrR
 from fastcs.attributes.attribute_io_ref import AttributeIORef
 from fastcs.controllers.base_controller import BaseController
-from fastcs.controllers.controller_api import ControllerAPI
+from fastcs.controllers.controller_api import ControllerAPI, GroupLayout
 from fastcs.logging import logger
 from fastcs.methods import ScanCallback
 from fastcs.util import ONCE
@@ -21,8 +21,11 @@ class Controller(BaseController):
         ios: Sequence[AnyAttributeIO] | None = None,
         *,
         path: list[str] | None = None,
+        group_layout: GroupLayout | None = None,
     ) -> None:
-        super().__init__(description=description, ios=ios, path=path)
+        super().__init__(
+            description=description, ios=ios, path=path, group_layout=group_layout
+        )
         self._connected = False
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
