@@ -156,6 +156,7 @@ class EpicsGUI:
             components.append(
                 Group(
                     name=snake_to_pascal(name),
+                    label=api.path[-1] if api.path else None,
                     layout=SubScreen(),
                     children=self.extract_api_components(api),
                 )
