@@ -309,7 +309,7 @@ def test_pvi_grouping():
         f"{pv_prefix}:Child:0:PVI", child_child_controller_pvi.append
     )
     child_child_child_controller_monitor = ctxt.monitor(
-        f"{pv_prefix}Child:0:ChildChild:PVI", child_child_child_controller_pvi.append
+        f"{pv_prefix}:Child:0:ChildChild:PVI", child_child_child_controller_pvi.append
     )
     serve = asyncio.ensure_future(fastcs.serve(interactive=False))
 
