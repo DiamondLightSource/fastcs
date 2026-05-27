@@ -322,3 +322,31 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     controllers_arg = init_spy.call_args.args[1]
     assert [c.path[0] for c in controllers_arg] == ["one", "two"]
     assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]
+
+
+def test_launch_single_arg_no_options(mocker: MockerFixture, tmp_path):
+    """Test launching a controller that takes no options (no type hints).
+
+    This exercises the code path where a controller doesn't expect options,
+    ensuring registered.cls() is called with only path=[entry.id].
+    """
+    init_spy = mocker.spy(FastCS, "__init__")
+    mocker.patch("fastcs.launch.FastCS.run")
+
+    cfg = tmp_path / "single_arg.yaml"
+    cfg.write_text(
+        "controllers:\n"
+        "  - id: my-controller\n"
+        "    type: tests.SingleArg\n"
+        "transport:\n"
+        "  - rest: {}\n"
+    )
+    app = _launch(SingleArg)
+    result = runner.invoke(app, ["run", str(cfg)])
+    assert result.exit_code == 0, result.output
+
+    init_spy.assert_called_once()
+    controllers_arg = init_spy.call_args.args[1]
+    assert len(controllers_arg) == 1
+    assert isinstance(controllers_arg[0], SingleArg)
+    assert controllers_arg[0].path == ["my-controller"]

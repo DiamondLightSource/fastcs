@@ -4,7 +4,7 @@ import enum
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.controllers import Controller, ControllerVector, GroupLayout
 from fastcs.datatypes import Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
 
@@ -290,3 +290,12 @@ async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+
+def test_controller_with_group_layout():
+    """Test that group_layout parameter is properly set on a controller."""
+    controller = Controller(group_layout=GroupLayout.INLINE)
+    assert controller.group_layout == GroupLayout.INLINE
+
+    controller_default = Controller()
+    assert controller_default.group_layout == GroupLayout.SUBSCREEN
