@@ -1,3 +1,5 @@
+from typing import cast
+
 from pvi.device import (
     LED,
     ArrayTrace,
@@ -8,6 +10,7 @@ from pvi.device import (
     Grid,
     Group,
     ReadWidgetUnion,
+    ResolvedTree,
     SignalR,
     SignalRW,
     SignalW,
@@ -148,7 +151,7 @@ class EpicsGUI:
         components = self.extract_api_components(self._controller_api)
         return Device(label=title, children=components)
 
-    def extract_api_components(self, controller_api: ControllerAPI) -> Tree:
+    def extract_api_components(self, controller_api: ControllerAPI) -> ResolvedTree:
         components: Tree = []
 
         for name, api in controller_api.sub_apis.items():
@@ -206,4 +209,4 @@ class EpicsGUI:
         for name, children in groups.items():
             components.append(Group(name=name, layout=Grid(), children=children))
 
-        return components
+        return cast(ResolvedTree, components)
