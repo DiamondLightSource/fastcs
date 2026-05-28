@@ -628,7 +628,7 @@ def test_non_1d_waveforms_discarded(mocker: MockerFixture):
     EpicsCAIOC([api], {})
 
     create_mock.assert_called_once_with(
-        DEVICE, "Waveform1d", "waveform_1d", api.attributes["waveform_1d"]
+        DEVICE, "Waveform1d", "waveform_1d", None, api.attributes["waveform_1d"]
     )
 
 
