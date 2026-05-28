@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import ClassVar
@@ -40,6 +40,8 @@ class EpicsCAOptions:
     """
 
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    aliases: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

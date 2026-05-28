@@ -26,14 +26,14 @@ tracer = Tracer()
 class EpicsCAIOC:
     """A softioc which handles one or more controllers."""
 
-    def __init__(self, controller_apis: list[ControllerAPI]):
+    def __init__(self, controller_apis: list[ControllerAPI], aliases: dict[str, str]):
         self._controller_apis = controller_apis
         for controller_api in controller_apis:
             root_pv_prefix = pv_prefix_from_path(controller_api.path)
             _add_pvi_info(f"{root_pv_prefix}:PVI")
             _add_sub_controller_pvi_info(controller_api)
 
-            _create_and_link_attribute_pvs(controller_api)
+            _create_and_link_attribute_pvs(controller_api, aliases)
             _create_and_link_command_pvs(controller_api)
 
     def run(
@@ -107,7 +107,9 @@ def _add_sub_controller_pvi_info(parent: ControllerAPI):
         _add_sub_controller_pvi_info(child)
 
 
-def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
+def _create_and_link_attribute_pvs(
+    root_controller_api: ControllerAPI, aliases: dict[str, str]
+) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
@@ -133,6 +135,7 @@ def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
                 )
                 continue
 
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
             match attribute:
                 case AttrRW():
                     if full_pv_name_length > (EPICS_MAX_NAME_LENGTH - 4):
@@ -144,19 +147,31 @@ def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
                         attribute.enabled = False
                     else:
                         _create_and_link_read_pv(
-                            pv_prefix, f"{pv_name}_RBV", attr_name, attribute
+                            pv_prefix, f"{pv_name}_RBV", attr_name, alias, attribute
                         )
                         _create_and_link_write_pv(
-                            pv_prefix, pv_name, attr_name, attribute
+                            pv_prefix, pv_name, attr_name, alias, attribute
                         )
                 case AttrR():
-                    _create_and_link_read_pv(pv_prefix, pv_name, attr_name, attribute)
+                    _create_and_link_read_pv(
+                        pv_prefix,
+                        pv_name,
+                        attr_name,
+                        alias,
+                        attribute,
+                    )
                 case AttrW():
-                    _create_and_link_write_pv(pv_prefix, pv_name, attr_name, attribute)
+                    _create_and_link_write_pv(
+                        pv_prefix, pv_name, attr_name, alias, attribute
+                    )
 
 
 def _create_and_link_read_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, attribute: AttrR[DType_T]
+    pv_prefix: str,
+    pv_name: str,
+    attr_name: str,
+    alias: str | None,
+    attribute: AttrR[DType_T],
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -168,13 +183,22 @@ def _create_and_link_read_pv(
         record.set(cast_to_epics_type(attribute.datatype, value))
 
     record = _make_in_record(pv, attribute)
+
+    if alias:
+        suffix = "_RBV" if pv_name.endswith("_RBV") else ""
+        record.add_alias(f"{alias}{suffix}")
+
     _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
 
     attribute.add_on_update_callback(async_record_set)
 
 
 def _create_and_link_write_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, attribute: AttrW[DType_T]
+    pv_prefix: str,
+    pv_name: str,
+    attr_name: str,
+    alias: str | None,
+    attribute: AttrW[DType_T],
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -191,6 +215,8 @@ def _create_and_link_write_pv(
         record.set(cast_to_epics_type(attribute.datatype, value), process=False)
 
     record = _make_out_record(pv, attribute, on_update=on_update)
+    if alias:
+        record.add_alias(alias)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
 
