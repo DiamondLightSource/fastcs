@@ -1,0 +1,25 @@
+``fastcs.attributes.attr_w``
+============================
+        
+        
+        
+
+.. automodule:: fastcs.attributes.attr_w
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        AttrOnPutCallback
+        AttrSyncSetpointCallback
+        AttrW
+    
+    
