@@ -34,7 +34,7 @@ class EpicsCAIOC:
             _add_sub_controller_pvi_info(controller_api)
 
             _create_and_link_attribute_pvs(controller_api, aliases)
-            _create_and_link_command_pvs(controller_api)
+            _create_and_link_command_pvs(controller_api, aliases)
 
     def run(
         self,
@@ -223,12 +223,15 @@ def _create_and_link_write_pv(
     attribute.add_sync_setpoint_callback(set_setpoint_without_process)
 
 
-def _create_and_link_command_pvs(root_controller_api: ControllerAPI) -> None:
+def _create_and_link_command_pvs(
+    root_controller_api: ControllerAPI, aliases: dict[str, str]
+) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, method in controller_api.command_methods.items():
             pv_name = snake_to_pascal(attr_name)
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
 
             if len(f"{pv_prefix}:{pv_name}") > EPICS_MAX_NAME_LENGTH:
                 print(
@@ -241,12 +244,13 @@ def _create_and_link_command_pvs(root_controller_api: ControllerAPI) -> None:
                     pv_prefix,
                     pv_name,
                     attr_name,
+                    alias,
                     method,
                 )
 
 
 def _create_and_link_command_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, method: Command
+    pv_prefix: str, pv_name: str, attr_name: str, alias: str | None, method: Command
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -263,6 +267,9 @@ def _create_and_link_command_pv(
         ZNAM="Idle",
         ONAM="Active",
     )
+
+    if alias:
+        record.add_alias(alias)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "x")
 

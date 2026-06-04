@@ -23,6 +23,7 @@ from fastcs.transports.epics.ca.ioc import (
     _add_attr_pvi_info,
     _add_pvi_info,
     _add_sub_controller_pvi_info,
+    _create_and_link_command_pv,
     _create_and_link_read_pv,
     _create_and_link_write_pv,
 )
@@ -90,6 +91,26 @@ async def test_create_and_link_read_pv_adds_alias_with_rbv(mocker: MockerFixture
 
     make_record.assert_called_once_with("PREFIX:PV_RBV", attribute)
     record.add_alias.assert_called_once_with("alias_RBV")
+
+
+@pytest.mark.asyncio
+async def test_create_and_link_command_pv_adds_alias(mocker: MockerFixture):
+    make_action = mocker.patch("fastcs.transports.epics.ca.ioc.builder.Action")
+    record = make_action.return_value
+    record.add_alias = mocker.MagicMock()
+    command = mocker.MagicMock()
+
+    _create_and_link_command_pv("PREFIX", "Command", "command", "alias", command)
+
+    make_action.assert_called_once_with(
+        "PREFIX:Command",
+        on_update=mocker.ANY,
+        blocking=True,
+        initial_value=0,
+        ZNAM="Idle",
+        ONAM="Active",
+    )
+    record.add_alias.assert_called_once_with("alias")
 
 
 @pytest.mark.parametrize(
