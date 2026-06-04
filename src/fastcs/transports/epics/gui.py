@@ -155,6 +155,10 @@ class EpicsGUI:
         components: Tree = []
 
         for name, api in controller_api.sub_apis.items():
+            # Sub-controllers with a single-segment path have their own top-level
+            # screen file, so they are omitted from the parent screen entirely.
+            if len(api.path) == 1:
+                continue
             if name.isdigit():
                 name = f"{controller_api.path[-1]}{name}"
             layout = Grid() if api.group_layout is GroupLayout.INLINE else SubScreen()
