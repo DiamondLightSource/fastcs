@@ -121,9 +121,7 @@ def emit_gui_files(
         controller_path = (output_dir / ui_filename).resolve()
 
         device = gui_builder(api).build_device(
-            options.title
-            if options.title is not None
-            else (api.path[0] if api.path else "FastCS Devices")
+            api.path[0] if api.path else "FastCS Devices"
         )
         formatter.format(device, controller_path)
 
@@ -138,15 +136,13 @@ def emit_gui_files(
         )
 
     index_path = (output_dir / f"{INDEX_STEM}{ext}").resolve()
-    index_title = (
-        options.title
-        if options.title is not None
-        else (
-            controller_apis[0].path[0]
-            if controller_apis and controller_apis[0].path
-            else "FastCS Devices"
-        )
-    )
+    if options.title is not None:
+        # Explicit title: use as-is (empty string suppresses the title widget)
+        index_title = options.title
+    elif controller_apis and controller_apis[0].path:
+        index_title = controller_apis[0].path[0]
+    else:
+        index_title = "FastCS Devices"
     formatter.format(Device(label=index_title, children=refs), index_path)
 
 
