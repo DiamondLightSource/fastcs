@@ -273,7 +273,7 @@ class EpicsController(MyTestController):
 
 @pytest.fixture()
 def epics_controller_api(class_mocker: MockerFixture):
-    return AssertableControllerAPI(EpicsController(), class_mocker, path=[DEVICE])
+    return AssertableControllerAPI(EpicsController(path=[DEVICE]), class_mocker)
 
 
 def test_ioc(mocker: MockerFixture, epics_controller_api: ControllerAPI):
@@ -504,7 +504,7 @@ def test_long_pv_names_discarded(mocker: MockerFixture):
     util_builder = mocker.patch("fastcs.transports.epics.ca.util.builder")
     ioc_builder = mocker.patch("fastcs.transports.epics.ca.ioc.builder")
     long_name_controller_api = AssertableControllerAPI(
-        ControllerLongNames(), mocker, path=[DEVICE]
+        ControllerLongNames(path=[DEVICE]), mocker
     )
     long_attr_name = "attr_r_with_reallyreallyreallyreallyreallyreallyreally_long_name"
     long_rw_name = "attr_rw_with_a_reallyreally_long_name_that_is_too_long_for_RBV"

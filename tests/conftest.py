@@ -57,7 +57,7 @@ def controller():
 
 @pytest.fixture
 def controller_api(controller):
-    return controller._build_api([])
+    return controller._build_api()
 
 
 DATA_PATH = Path(__file__).parent / "data"

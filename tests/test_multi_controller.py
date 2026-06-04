@@ -34,10 +34,9 @@ class _OtherAttrController(Controller):
 
 
 def test_controller_api_path_uses_id():
-    controller = _IdController()
-    sub = _IdController()
+    controller = _IdController(path=["X"])
+    sub = _IdController(path=["X", "Sub"])
     controller.add_sub_controller("Sub", sub)
-    controller.set_path(["X"])
 
     api, _, _ = controller.create_api_and_tasks()
 
@@ -46,8 +45,7 @@ def test_controller_api_path_uses_id():
 
 
 def _api_with_id(controller_class: type[Controller], id: str):
-    controller = controller_class()
-    controller.set_path([id])
+    controller = controller_class(path=[id])
     api, _, _ = controller.create_api_and_tasks()
     return api
 
@@ -305,8 +303,8 @@ class _LifecycleController(Controller):
 
     foo = AttrR(Int())
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *, path: list[str] | None = None):
+        super().__init__(path=path)
         self.connected = False
         self.initialised = False
         self.post_initialised = False
@@ -332,10 +330,8 @@ class _OtherLifecycleController(_LifecycleController):
 async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     """FastCS.serve drives lifecycle on every controller and routes REST traffic
     per-id; combined OpenAPI describes both prefixes."""
-    a = _LifecycleController()
-    a.set_path(["alpha"])
-    b = _OtherLifecycleController()
-    b.set_path(["beta"])
+    a = _LifecycleController(path=["alpha"])
+    b = _OtherLifecycleController(path=["beta"])
 
     transport = RestTransport()
     # Stop RestTransport from binding to a real port; we exercise the FastAPI

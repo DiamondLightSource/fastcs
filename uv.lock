@@ -1002,8 +1002,8 @@ requires-dist = [
     { name = "numpy" },
     { name = "numpy", marker = "extra == 'rest'" },
     { name = "p4p", marker = "extra == 'epicspva'" },
-    { name = "pvi", marker = "extra == 'epicsca'", specifier = "~=0.12.0" },
-    { name = "pvi", marker = "extra == 'epicspva'", specifier = "~=0.12.0" },
+    { name = "pvi", marker = "extra == 'epicsca'", specifier = "==0.14.0b3" },
+    { name = "pvi", marker = "extra == 'epicspva'", specifier = "==0.14.0b3" },
     { name = "pydantic" },
     { name = "pygelf" },
     { name = "pytango", marker = "extra == 'tango'" },
@@ -2147,7 +2147,7 @@ wheels = [
 
 [[package]]
 name = "pvi"
-version = "0.12.0"
+version = "0.14.0b3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
@@ -2157,9 +2157,9 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fc/91/3808872d96de8dac33069bf97f94f6ff430841ceaa8398db122ffe9d4244/pvi-0.12.0.tar.gz", hash = "sha256:1fb288dd863f31c276c0e119b57a36788f2b6c2e1324f88f1fac2c8ae1a8bb03", size = 189219, upload-time = "2025-12-22T14:11:02.545Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/12/bd82d129d8981d46bf8fbd0b2fe6d2054e2fa21e406245856759eaa08839/pvi-0.14.0b3.tar.gz", hash = "sha256:20f3e7e865a9f607a00a34d8d4c07083a9a9ba4468013cf36e8f307ab8e04a60", size = 287449, upload-time = "2026-06-04T21:22:13.046Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/b9/ffdd156df74460300c7e0483662670ed2826b7c09c59ba6a3a1b8c83b05d/pvi-0.12.0-py3-none-any.whl", hash = "sha256:b578a513fbbfe2368623eb6a75d84daf8b3176d4e46d3bc506f0ee3a1dbbfd80", size = 57072, upload-time = "2025-12-22T14:11:01.254Z" },
+    { url = "https://files.pythonhosted.org/packages/37/21/6ca76b5b7eb289e9a50811b15a5c2b46dd31ae7e828b512523734c21b959/pvi-0.14.0b3-py3-none-any.whl", hash = "sha256:4fbc461fb6edd9274f48cd6853991ee1062d5d559311eaa4a64b7b7af69f98de", size = 58773, upload-time = "2026-06-04T21:22:12.085Z" },
 ]
 
 [[package]]

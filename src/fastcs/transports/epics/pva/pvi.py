@@ -7,6 +7,7 @@ from p4p.server import StaticProvider
 from p4p.server.asyncio import SharedPV
 
 from fastcs.controllers import ControllerAPI
+from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
 from .types import p4p_alarm_states, p4p_timestamp_now
@@ -55,8 +56,9 @@ def _make_p4p_raw_value(pv_prefix: str, controller_api: ControllerAPI) -> dict:
     p4p_raw_value = defaultdict(dict)
     # Sub-controller api returned if current item is a Controller
     for pv_leaf, sub_controller_api in controller_api.sub_apis.items():
-        # Add Controller entry
-        pv = f"{pv_prefix}:{snake_to_pascal(pv_leaf)}:PVI"
+        # Add Controller entry — use the child's own path so hoisted / cross-root
+        # sub-controllers point to the correct PVI PV rather than a constructed name.
+        pv = f"{pv_prefix_from_path(sub_controller_api.path)}:PVI"
         if sub_controller_api.path[-1].isdigit():
             # Sub-device of a ControllerVector
             p4p_raw_value[f"__{int(pv_leaf)}"]["d"] = pv

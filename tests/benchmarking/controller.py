@@ -21,8 +21,7 @@ def run():
         EpicsCATransport(),
         TangoTransport(),
     ]
-    controller = MyTestController()
-    controller.set_path(["BENCHMARK-DEVICE"])
+    controller = MyTestController(path=["BENCHMARK-DEVICE"])
     instance = FastCS(controller, transport_options, asyncio.get_event_loop())
     instance.run()
 
