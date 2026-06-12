@@ -1009,7 +1009,7 @@ requires-dist = [
     { name = "pytango", marker = "extra == 'tango'" },
     { name = "ruamel-yaml" },
     { name = "softioc", marker = "extra == 'epicsca'", specifier = ">=4.5.0" },
-    { name = "stdio-socket" },
+    { name = "stdio-socket", git = "https://github.com/hyperrealist/stdio-socket.git?rev=26-stdio-expose-hang-bugfix" },
     { name = "strawberry-graphql", marker = "extra == 'graphql'" },
     { name = "tickit", marker = "extra == 'demo'", specifier = "~=0.4.3" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'graphql'", specifier = ">=0.12.0" },
@@ -3205,14 +3205,10 @@ wheels = [
 
 [[package]]
 name = "stdio-socket"
-version = "1.4.0"
-source = { registry = "https://pypi.org/simple" }
+version = "0.1.dev50+g5657e3374"
+source = { git = "https://github.com/hyperrealist/stdio-socket.git?rev=26-stdio-expose-hang-bugfix#5657e337496b10dd9fb2412923a9fbe7c4af4102" }
 dependencies = [
     { name = "typer" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/7b/ea34ec394e3ca4b60de1538f2e80ec1e1f8c1acdc4cde61c30debf953298/stdio_socket-1.4.0.tar.gz", hash = "sha256:a7c0735624365031dbe1df9d23f38331261b1bda40c2f40916f42f70cb4e7a21", size = 74805, upload-time = "2026-01-14T08:45:44.484Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/16/dec7ff35833eef742791aa48fee09a6873689dd9a0e72a11195167ce06aa/stdio_socket-1.4.0-py3-none-any.whl", hash = "sha256:8443cac5f742dfe97580b46c3948535202acf1daa0165bea190370402733de30", size = 16307, upload-time = "2026-01-14T08:45:43.505Z" },
 ]
 
 [[package]]

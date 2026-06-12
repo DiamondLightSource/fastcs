@@ -25,7 +25,7 @@ dependencies = [
     "IPython",
     "loguru~=0.7",
     "pygelf",
-    "stdio-socket",
+    "stdio-socket @ git+https://github.com/hyperrealist/stdio-socket.git@26-stdio-expose-hang-bugfix",
 ]
 dynamic = ["version"]
 license.file = "LICENSE"
