@@ -1,4 +1,5 @@
 import asyncio
+from collections import Counter
 from typing import Any, Literal
 
 from softioc import builder, softioc
@@ -22,19 +23,29 @@ from fastcs.util import snake_to_pascal
 
 tracer = Tracer()
 
+RBV_SUFFIX = "_RBV"
+
 
 class EpicsCAIOC:
     """A softioc which handles one or more controllers."""
 
-    def __init__(self, controller_apis: list[ControllerAPI]):
+    def __init__(self, controller_apis: list[ControllerAPI], aliases: dict[str, str]):
+        if duplicate_aliases := [
+            alias for alias, count in Counter(aliases.values()).items() if count > 1
+        ]:
+            raise RuntimeError(
+                "Failed to create EPICS CA IOC, as duplicate aliases were provided:"
+                f" {duplicate_aliases}"
+            )
+
         self._controller_apis = controller_apis
         for controller_api in controller_apis:
             root_pv_prefix = pv_prefix_from_path(controller_api.path)
             _add_pvi_info(f"{root_pv_prefix}:PVI")
             _add_sub_controller_pvi_info(controller_api)
 
-            _create_and_link_attribute_pvs(controller_api)
-            _create_and_link_command_pvs(controller_api)
+            _create_and_link_attribute_pvs(controller_api, aliases)
+            _create_and_link_command_pvs(controller_api, aliases)
 
     def run(
         self,
@@ -107,7 +118,9 @@ def _add_sub_controller_pvi_info(parent: ControllerAPI):
         _add_sub_controller_pvi_info(child)
 
 
-def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
+def _create_and_link_attribute_pvs(
+    root_controller_api: ControllerAPI, aliases: dict[str, str]
+) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
@@ -133,6 +146,7 @@ def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
                 )
                 continue
 
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
             match attribute:
                 case AttrRW():
                     if full_pv_name_length > (EPICS_MAX_NAME_LENGTH - 4):
@@ -143,20 +157,47 @@ def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
                         )
                         attribute.enabled = False
                     else:
+                        alias_rbv = aliases.get(
+                            f"{pv_prefix}:{pv_name}{RBV_SUFFIX}", None
+                        )
                         _create_and_link_read_pv(
-                            pv_prefix, f"{pv_name}_RBV", attr_name, attribute
+                            pv_prefix,
+                            f"{pv_name}{RBV_SUFFIX}",
+                            attr_name,
+                            alias_rbv,
+                            attribute,
                         )
                         _create_and_link_write_pv(
-                            pv_prefix, pv_name, attr_name, attribute
+                            pv_prefix,
+                            pv_name,
+                            attr_name,
+                            alias,
+                            attribute,
                         )
                 case AttrR():
-                    _create_and_link_read_pv(pv_prefix, pv_name, attr_name, attribute)
+                    _create_and_link_read_pv(
+                        pv_prefix,
+                        pv_name,
+                        attr_name,
+                        alias,
+                        attribute,
+                    )
                 case AttrW():
-                    _create_and_link_write_pv(pv_prefix, pv_name, attr_name, attribute)
+                    _create_and_link_write_pv(
+                        pv_prefix,
+                        pv_name,
+                        attr_name,
+                        alias,
+                        attribute,
+                    )
 
 
 def _create_and_link_read_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, attribute: AttrR[DType_T]
+    pv_prefix: str,
+    pv_name: str,
+    attr_name: str,
+    alias: str | None,
+    attribute: AttrR[DType_T],
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -168,13 +209,20 @@ def _create_and_link_read_pv(
         record.set(cast_to_epics_type(attribute.datatype, value))
 
     record = _make_in_record(pv, attribute)
+
+    _add_alias(record, alias)
+
     _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
 
     attribute.add_on_update_callback(async_record_set)
 
 
 def _create_and_link_write_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, attribute: AttrW[DType_T]
+    pv_prefix: str,
+    pv_name: str,
+    attr_name: str,
+    alias: str | None,
+    attribute: AttrW[DType_T],
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -192,17 +240,22 @@ def _create_and_link_write_pv(
 
     record = _make_out_record(pv, attribute, on_update=on_update)
 
+    _add_alias(record, alias)
+
     _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
 
     attribute.add_sync_setpoint_callback(set_setpoint_without_process)
 
 
-def _create_and_link_command_pvs(root_controller_api: ControllerAPI) -> None:
+def _create_and_link_command_pvs(
+    root_controller_api: ControllerAPI, aliases: dict[str, str]
+) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, method in controller_api.command_methods.items():
             pv_name = snake_to_pascal(attr_name)
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
 
             if len(f"{pv_prefix}:{pv_name}") > EPICS_MAX_NAME_LENGTH:
                 print(
@@ -215,12 +268,13 @@ def _create_and_link_command_pvs(root_controller_api: ControllerAPI) -> None:
                     pv_prefix,
                     pv_name,
                     attr_name,
+                    alias,
                     method,
                 )
 
 
 def _create_and_link_command_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, method: Command
+    pv_prefix: str, pv_name: str, attr_name: str, alias: str | None, method: Command
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -237,6 +291,8 @@ def _create_and_link_command_pv(
         ZNAM="Idle",
         ONAM="Active",
     )
+
+    _add_alias(record, alias)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "x")
 
@@ -268,3 +324,14 @@ def _add_attr_pvi_info(
             }
         },
     )
+
+
+def _add_alias(record: RecordWrapper, alias: str | None):
+    if alias is not None:
+        if len(alias) > EPICS_MAX_NAME_LENGTH:
+            logger.warning(
+                f"Not creating alias {alias}, as full name would exceed"
+                f" {EPICS_MAX_NAME_LENGTH} characters"
+            )
+        else:
+            record.add_alias(alias)

@@ -44,3 +44,10 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
         "c": {"w": f"{pv_prefix}:ChildVector:0:C"},
         "d": {"x": f"{pv_prefix}:ChildVector:0:D"},
     }
+
+    # Assert alias. Aliases do not show up in PVI structure
+    assert ctxt.get(f"{pv_prefix}:B") == ctxt.get(f"{pv_prefix}:AliasB") == 0
+    ctxt.put(f"{pv_prefix}:B", 10)
+    assert ctxt.get(f"{pv_prefix}:AliasB") == 10
+    ctxt.put(f"{pv_prefix}:AliasB", 20)
+    assert ctxt.get(f"{pv_prefix}:B") == 20

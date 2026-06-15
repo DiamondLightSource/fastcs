@@ -1,4 +1,5 @@
 import enum
+import re
 from typing import Any
 
 import numpy as np
@@ -20,9 +21,11 @@ from fastcs.methods import Command
 from fastcs.transports.epics.ca import EpicsCATransport
 from fastcs.transports.epics.ca.ioc import (
     EpicsCAIOC,
+    _add_alias,
     _add_attr_pvi_info,
     _add_pvi_info,
     _add_sub_controller_pvi_info,
+    _create_and_link_command_pv,
     _create_and_link_read_pv,
     _create_and_link_write_pv,
 )
@@ -53,7 +56,7 @@ async def test_create_and_link_read_pv(mocker: MockerFixture):
     attribute = AttrR(Int())
     attribute.add_on_update_callback = mocker.MagicMock()
 
-    _create_and_link_read_pv("PREFIX", "PV", "attr", attribute)
+    _create_and_link_read_pv("PREFIX", "PV", "attr", None, attribute)
 
     make_record.assert_called_once_with("PREFIX:PV", attribute)
     add_attr_pvi_info.assert_called_once_with(record, "PREFIX", "attr", "r")
@@ -64,6 +67,85 @@ async def test_create_and_link_read_pv(mocker: MockerFixture):
     await record_set_callback(1)
 
     record.set.assert_called_once_with(1)
+
+
+@pytest.mark.asyncio
+async def test_create_and_link_write_pv_adds_alias(mocker: MockerFixture):
+    make_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
+    record = make_record.return_value
+    record.add_alias = mocker.MagicMock()
+    attribute = mocker.MagicMock()
+
+    _create_and_link_write_pv("PREFIX", "PV", "attr", "alias", attribute)
+
+    make_record.assert_called_once_with("PREFIX:PV", attribute, on_update=mocker.ANY)
+    record.add_alias.assert_called_once_with("alias")
+
+
+@pytest.mark.asyncio
+async def test_create_and_link_read_pv_adds_alias(mocker: MockerFixture):
+    make_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")
+    record = make_record.return_value
+    record.add_alias = mocker.MagicMock()
+    attribute = mocker.MagicMock()
+
+    _create_and_link_read_pv("PREFIX", "PV_RBV", "attr", "alias", attribute)
+
+    make_record.assert_called_once_with("PREFIX:PV_RBV", attribute)
+    record.add_alias.assert_called_once_with("alias")
+
+
+@pytest.mark.asyncio
+async def test_create_and_link_command_pv_adds_alias(mocker: MockerFixture):
+    make_action = mocker.patch("fastcs.transports.epics.ca.ioc.builder.Action")
+    record = make_action.return_value
+    record.add_alias = mocker.MagicMock()
+    command = mocker.MagicMock()
+
+    _create_and_link_command_pv("PREFIX", "Command", "command", "alias", command)
+
+    make_action.assert_called_once_with(
+        "PREFIX:Command",
+        on_update=mocker.ANY,
+        blocking=True,
+        initial_value=0,
+        ZNAM="Idle",
+        ONAM="Active",
+    )
+    record.add_alias.assert_called_once_with("alias")
+
+
+@pytest.mark.asyncio
+async def test_add_alias_skips_alias_if_too_long(mocker: MockerFixture):
+    alias_name = "alias"
+
+    # mock EPICS_MAX_NAME_LENGTH such that length of alias is at this maximum
+    mocker.patch(
+        "fastcs.transports.epics.ca.ioc.EPICS_MAX_NAME_LENGTH",
+        len(alias_name),
+    )
+
+    # lengthen alias name beyond maximum
+    too_long_alias_name = f"long_{alias_name}"
+
+    record = mocker.MagicMock()
+    _add_alias(record, alias_name)
+    record.add_alias.assert_called_once_with(alias_name)
+
+    _add_alias(record, too_long_alias_name)
+
+    with pytest.raises(AssertionError):
+        # assert alias that is too long is not added
+        record.add_alias.assert_called_once_with(too_long_alias_name)
+
+
+@pytest.mark.asyncio
+async def test_ioc_raises_if_duplicate_aliases_provided(mocker: MockerFixture):
+    aliases = {"A": "Alias", "B": "Alias"}
+    with pytest.raises(
+        RuntimeError, match=re.escape("duplicate aliases were provided: ['Alias']")
+    ):
+        EpicsCAIOC(mocker.MagicMock(), aliases)
 
 
 @pytest.mark.parametrize(
@@ -150,7 +232,7 @@ async def test_create_and_link_write_pv(mocker: MockerFixture):
     attribute.put = mocker.AsyncMock()
     attribute.add_sync_setpoint_callback = mocker.MagicMock()
 
-    _create_and_link_write_pv("PREFIX", "PV", "attr", attribute)
+    _create_and_link_write_pv("PREFIX", "PV", "attr", None, attribute)
 
     make_record.assert_called_once_with("PREFIX:PV", attribute, on_update=mocker.ANY)
     add_attr_pvi_info.assert_called_once_with(record, "PREFIX", "attr", "w")
@@ -284,7 +366,7 @@ def test_ioc(mocker: MockerFixture, epics_controller_api: ControllerAPI):
         "fastcs.transports.epics.ca.ioc._add_sub_controller_pvi_info"
     )
 
-    EpicsCAIOC([epics_controller_api])
+    EpicsCAIOC([epics_controller_api], {})
 
     # Check records are created
     util_builder.boolIn.assert_called_once_with(
@@ -510,7 +592,7 @@ def test_long_pv_names_discarded(mocker: MockerFixture):
     long_rw_name = "attr_rw_with_a_reallyreally_long_name_that_is_too_long_for_RBV"
     assert long_name_controller_api.attributes["attr_rw_short_name"].enabled
     assert long_name_controller_api.attributes[long_attr_name].enabled
-    EpicsCAIOC([long_name_controller_api])
+    EpicsCAIOC([long_name_controller_api], {})
     assert long_name_controller_api.attributes["attr_rw_short_name"].enabled
     assert not long_name_controller_api.attributes[long_attr_name].enabled
 
@@ -599,10 +681,10 @@ def test_non_1d_waveforms_discarded(mocker: MockerFixture):
     create_mock = mocker.patch(
         "fastcs.transports.epics.ca.ioc._create_and_link_read_pv"
     )
-    EpicsCAIOC([api])
+    EpicsCAIOC([api], {})
 
     create_mock.assert_called_once_with(
-        DEVICE, "Waveform1d", "waveform_1d", api.attributes["waveform_1d"]
+        DEVICE, "Waveform1d", "waveform_1d", None, api.attributes["waveform_1d"]
     )
 
 
