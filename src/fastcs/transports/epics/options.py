@@ -42,6 +42,10 @@ class EpicsCAOptions:
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     aliases: dict[str, str] = field(default_factory=dict)
+    """Mapping of fastcs PV names to their aliases.
+
+    Setpoint and readback PVs must be aliased separately.
+    """
 
 
 @dataclass

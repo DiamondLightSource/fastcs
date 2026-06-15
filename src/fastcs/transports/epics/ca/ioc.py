@@ -1,4 +1,5 @@
 import asyncio
+from collections import Counter
 from typing import Any, Literal
 
 from softioc import builder, softioc
@@ -29,6 +30,14 @@ class EpicsCAIOC:
     """A softioc which handles one or more controllers."""
 
     def __init__(self, controller_apis: list[ControllerAPI], aliases: dict[str, str]):
+        if duplicate_aliases := [
+            alias for alias, count in Counter(aliases.values()).items() if count > 1
+        ]:
+            raise RuntimeError(
+                "Failed to create EPICS CA IOC, as duplicate aliases were provided:"
+                f" {duplicate_aliases}"
+            )
+
         self._controller_apis = controller_apis
         for controller_api in controller_apis:
             root_pv_prefix = pv_prefix_from_path(controller_api.path)
@@ -319,4 +328,10 @@ def _add_attr_pvi_info(
 
 def _add_alias(record: RecordWrapper, alias: str | None):
     if alias is not None:
-        record.add_alias(alias)
+        if len(alias) > EPICS_MAX_NAME_LENGTH:
+            logger.warning(
+                f"Not creating alias {alias}, as full name would exceed"
+                f" {EPICS_MAX_NAME_LENGTH} characters"
+            )
+        else:
+            record.add_alias(alias)

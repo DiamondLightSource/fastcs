@@ -1,4 +1,5 @@
 import enum
+import re
 from typing import Any
 
 import numpy as np
@@ -20,6 +21,7 @@ from fastcs.methods import Command
 from fastcs.transports.epics.ca import EpicsCATransport
 from fastcs.transports.epics.ca.ioc import (
     EpicsCAIOC,
+    _add_alias,
     _add_attr_pvi_info,
     _add_pvi_info,
     _add_sub_controller_pvi_info,
@@ -111,6 +113,39 @@ async def test_create_and_link_command_pv_adds_alias(mocker: MockerFixture):
         ONAM="Active",
     )
     record.add_alias.assert_called_once_with("alias")
+
+
+@pytest.mark.asyncio
+async def test_add_alias_skips_alias_if_too_long(mocker: MockerFixture):
+    alias_name = "alias"
+
+    # mock EPICS_MAX_NAME_LENGTH such that length of alias is at this maximum
+    mocker.patch(
+        "fastcs.transports.epics.ca.ioc.EPICS_MAX_NAME_LENGTH",
+        len(alias_name),
+    )
+
+    # lengthen alias name beyond maximum
+    too_long_alias_name = f"long_{alias_name}"
+
+    record = mocker.MagicMock()
+    _add_alias(record, alias_name)
+    record.add_alias.assert_called_once_with(alias_name)
+
+    _add_alias(record, too_long_alias_name)
+
+    with pytest.raises(AssertionError):
+        # assert alias that is too long is not added
+        record.add_alias.assert_called_once_with(too_long_alias_name)
+
+
+@pytest.mark.asyncio
+async def test_ioc_raises_if_duplicate_aliases_provided(mocker: MockerFixture):
+    aliases = {"A": "Alias", "B": "Alias"}
+    with pytest.raises(
+        RuntimeError, match=re.escape("duplicate aliases were provided: ['Alias']")
+    ):
+        EpicsCAIOC(mocker.MagicMock(), aliases)
 
 
 @pytest.mark.parametrize(
