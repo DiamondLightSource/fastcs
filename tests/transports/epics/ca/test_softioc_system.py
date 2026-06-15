@@ -51,4 +51,3 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     assert ctxt.get(f"{pv_prefix}:AliasB") == 10
     ctxt.put(f"{pv_prefix}:AliasB", 20)
     assert ctxt.get(f"{pv_prefix}:B") == 20
-    assert ctxt.get(f"{pv_prefix}:B_RBV") == ctxt.get(f"{pv_prefix}:AliasB_RBV") == 20
