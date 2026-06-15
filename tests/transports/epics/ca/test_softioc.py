@@ -81,7 +81,7 @@ async def test_create_and_link_write_pv_adds_alias(mocker: MockerFixture):
 
 
 @pytest.mark.asyncio
-async def test_create_and_link_read_pv_adds_alias_with_rbv(mocker: MockerFixture):
+async def test_create_and_link_read_pv_adds_alias(mocker: MockerFixture):
     make_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")
     record = make_record.return_value
     record.add_alias = mocker.MagicMock()
@@ -90,7 +90,7 @@ async def test_create_and_link_read_pv_adds_alias_with_rbv(mocker: MockerFixture
     _create_and_link_read_pv("PREFIX", "PV_RBV", "attr", "alias", attribute)
 
     make_record.assert_called_once_with("PREFIX:PV_RBV", attribute)
-    record.add_alias.assert_called_once_with("alias_RBV")
+    record.add_alias.assert_called_once_with("alias")
 
 
 @pytest.mark.asyncio
