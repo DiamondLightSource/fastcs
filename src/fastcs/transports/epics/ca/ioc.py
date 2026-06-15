@@ -22,6 +22,8 @@ from fastcs.util import snake_to_pascal
 
 tracer = Tracer()
 
+RBV_SUFFIX = "_RBV"
+
 
 class EpicsCAIOC:
     """A softioc which handles one or more controllers."""
@@ -146,11 +148,22 @@ def _create_and_link_attribute_pvs(
                         )
                         attribute.enabled = False
                     else:
+                        alias_rbv = aliases.get(
+                            f"{pv_prefix}:{pv_name}{RBV_SUFFIX}", None
+                        )
                         _create_and_link_read_pv(
-                            pv_prefix, f"{pv_name}_RBV", attr_name, alias, attribute
+                            pv_prefix,
+                            f"{pv_name}{RBV_SUFFIX}",
+                            attr_name,
+                            alias_rbv,
+                            attribute,
                         )
                         _create_and_link_write_pv(
-                            pv_prefix, pv_name, attr_name, alias, attribute
+                            pv_prefix,
+                            pv_name,
+                            attr_name,
+                            alias,
+                            attribute,
                         )
                 case AttrR():
                     _create_and_link_read_pv(
@@ -162,7 +175,11 @@ def _create_and_link_attribute_pvs(
                     )
                 case AttrW():
                     _create_and_link_write_pv(
-                        pv_prefix, pv_name, attr_name, alias, attribute
+                        pv_prefix,
+                        pv_name,
+                        attr_name,
+                        alias,
+                        attribute,
                     )
 
 
@@ -184,9 +201,7 @@ def _create_and_link_read_pv(
 
     record = _make_in_record(pv, attribute)
 
-    if alias:
-        suffix = "_RBV" if pv_name.endswith("_RBV") else ""
-        record.add_alias(f"{alias}{suffix}")
+    _add_alias(record, alias)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
 
@@ -215,8 +230,8 @@ def _create_and_link_write_pv(
         record.set(cast_to_epics_type(attribute.datatype, value), process=False)
 
     record = _make_out_record(pv, attribute, on_update=on_update)
-    if alias:
-        record.add_alias(alias)
+
+    _add_alias(record, alias)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
 
@@ -268,8 +283,7 @@ def _create_and_link_command_pv(
         ONAM="Active",
     )
 
-    if alias:
-        record.add_alias(alias)
+    _add_alias(record, alias)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "x")
 
@@ -301,3 +315,8 @@ def _add_attr_pvi_info(
             }
         },
     )
+
+
+def _add_alias(record: RecordWrapper, alias: str | None):
+    if alias is not None:
+        record.add_alias(alias)

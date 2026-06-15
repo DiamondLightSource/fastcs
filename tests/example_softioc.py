@@ -35,7 +35,12 @@ def run(id="SOFTIOC_TEST_DEVICE"):
         controller,
         [
             EpicsCATransport(
-                epicsca=EpicsCAOptions(aliases={f"{id}:B": f"{id}:AliasB"}),
+                epicsca=EpicsCAOptions(
+                    aliases={
+                        f"{id}:B": f"{id}:AliasB",
+                        f"{id}:B_RBV": f"{id}:AliasB_RBV",
+                    }
+                ),
                 gui=gui_options,
             )
         ],
