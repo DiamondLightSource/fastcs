@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.ca.transport &#8212; fastcs 0.14.0b3.dev11+gc80a13c9a documentation</title>
+    <title>fastcs.transports.epics.ca.transport &#8212; fastcs 0.14.1.dev9+g508d8af0c documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../../_static/documentation_options.js?v=8120534f"></script>
+    <script src="../../../../../_static/documentation_options.js?v=a2be1642"></script>
     <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -496,7 +496,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span> <span class="o">=</span> <span class="n">controller_apis</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">loop</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pv_prefixes</span> <span class="o">=</span> <span class="p">[</span><span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="n">controller_apis</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_ioc</span> <span class="o">=</span> <span class="n">EpicsCAIOC</span><span class="p">(</span><span class="n">controller_apis</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ioc</span> <span class="o">=</span> <span class="n">EpicsCAIOC</span><span class="p">(</span><span class="n">controller_apis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">epicsca</span><span class="o">.</span><span class="n">aliases</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">docs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">emit_docs_files</span><span class="p">(</span><span class="n">controller_apis</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">docs</span><span class="p">)</span>
