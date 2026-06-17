@@ -10,8 +10,7 @@ class TemperatureController(Controller):
 
 
 epics_ca = EpicsCATransport()
-controller = TemperatureController()
-controller.set_path(["DEMO"])
+controller = TemperatureController(path=["DEMO"])
 fastcs = FastCS(controller, [epics_ca])
 
 if __name__ == "__main__":

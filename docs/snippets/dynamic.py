@@ -98,9 +98,11 @@ class TemperatureRampController(Controller):
         index: int,
         parameters: dict[str, TemperatureControllerParameter],
         io: TemperatureControllerAttributeIO,
+        *,
+        path=None,
     ):
         self._parameters = parameters
-        super().__init__(f"Ramp{index}", ios=[io])
+        super().__init__(f"Ramp{index}", ios=[io], path=path)
 
     async def initialise(self):
         for name, attribute in create_attributes(self._parameters).items():
@@ -108,12 +110,12 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
-    def __init__(self, settings: IPConnectionSettings):
+    def __init__(self, settings: IPConnectionSettings, *, path=None):
         self._ip_settings = settings
         self._connection = IPConnection()
 
         self._io = TemperatureControllerAttributeIO(self._connection)
-        super().__init__(ios=[self._io])
+        super().__init__(ios=[self._io], path=path)
 
     async def connect(self):
         await self._connection.connect(self._ip_settings)
@@ -129,19 +131,19 @@ class TemperatureController(Controller):
             self.add_attribute(name, attribute)
 
         for idx, ramp_parameters in enumerate(ramps_api):
+            name = f"Ramp{idx + 1:02d}"
             ramp_controller = TemperatureRampController(
-                idx + 1, ramp_parameters, self._io
+                idx + 1, ramp_parameters, self._io, path=self.path + [name]
             )
             await ramp_controller.initialise()
-            self.add_sub_controller(f"Ramp{idx + 1:02d}", ramp_controller)
+            self.add_sub_controller(name, ramp_controller)
 
         await self._connection.close()
 
 
 epics_ca = EpicsCATransport()
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
-controller.set_path(["DEMO"])
+controller = TemperatureController(connection_settings, path=["DEMO"])
 fastcs = FastCS(controller, [epics_ca])
 
 

@@ -26,9 +26,12 @@ class ChildController(Controller):
 
 
 def run(id="SOFTIOC_TEST_DEVICE"):
-    controller = ParentController()
-    controller.set_path([id])
-    vector = ControllerVector({i: ChildController() for i in range(2)})
+    controller = ParentController(path=[id])
+    vector_path = [id, "ChildVector"]
+    vector = ControllerVector(
+        {i: ChildController(path=vector_path + [str(i)]) for i in range(2)},
+        path=vector_path,
+    )
     controller.add_sub_controller("ChildVector", vector)
     gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Vector")
     fastcs = FastCS(
