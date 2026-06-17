@@ -1,0 +1,628 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>FastCS &#8212; fastcs 0.14.1 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=3fefa004" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=3a3a8e7f"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=30646c52"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=1ae7504c"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://DiamondLightSource.github.io/fastcs/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.14.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="icon" href="_static/fastcs.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorials" href="tutorials.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.14.1" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/fastcs.svg" class="logo__image only-light" alt=""/>
+    <img src="_static/fastcs.svg" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">fastcs</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="tutorials.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="how-to.html">
+    How-to Guides
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="explanations.html">
+    Explanations
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="reference.html">
+    Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/DiamondLightSource/fastcs" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/fastcs" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fas fa-cube fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <img alt="FastCS Logo" align="right" width="100" height="100" src="https://raw.githubusercontent.com/DiamondLightSource/FastCS/main/docs/images/fastcs.svg" target=https://github.com/DiamondLightSource/FastCS>
+<p><a class="reference external" href="https://github.com/DiamondLightSource/fastcs/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DiamondLightSource/fastcs/actions/workflows/ci.yml/badge.svg" /></a>
+<a class="reference external" href="https://codecov.io/gh/DiamondLightSource/fastcs"><img alt="Coverage" src="https://codecov.io/gh/DiamondLightSource/fastcs/branch/main/graph/badge.svg" /></a>
+<a class="reference external" href="https://pypi.org/project/fastcs"><img alt="PyPI" src="https://img.shields.io/pypi/v/fastcs.svg" /></a>
+<a class="reference external" href="https://www.apache.org/licenses/LICENSE-2.0"><img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" /></a></p>
+<section id="fastcs">
+<h1>FastCS<a class="headerlink" href="#fastcs" title="Link to this heading">#</a></h1>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head text-center"><p>Source</p></th>
+<th class="head text-center"><p><a class="github reference external" href="https://github.com/DiamondLightSource/fastcs">DiamondLightSource/fastcs</a></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p>PyPI</p></td>
+<td class="text-center"><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">fastcs</span></code></p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>Documentation</p></td>
+<td class="text-center"><p><a class="reference external" href="https://diamondlightsource.github.io/fastcs">https://diamondlightsource.github.io/fastcs</a></p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>Releases</p></td>
+<td class="text-center"><p><a class="github reference external" href="https://github.com/DiamondLightSource/fastcs/releases">DiamondLightSource/fastcs</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>FastCS is a control system agnostic framework for building Device support in Python that
+will work for both EPICS and Tango without depending on either.</p>
+<p>See <a class="reference internal" href="explanations/what-is-fastcs.html"><span class="std std-doc">What is FastCS?</span></a> for a high-level overview of the
+architecture and benefits.</p>
+<hr class="docutils" />
+<div style="text-align: center">
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1918.3006370269322 877.001957704196" width="767.32" height="350.80"><!-- svg-source:excalidraw --><metadata><!-- payload-type:application/vnd.excalidraw+json --><!-- payload-version:2 --><!-- payload-start -->eyJ2ZXJzaW9uIjoiMSIsImVuY29kaW5nIjoiYnN0cmluZyIsImNvbXByZXNzZWQiOnRydWUsImVuY29kZWQiOiJ4nO1dWVfbyFx1MDAxMn7Pr+BwX+aeM/St3rvzRlhcdTAwMTJC2LeQmTlcdTAwMWMvMlxijGRsmSX35L/falx1MDAxOSxZi7FBXHTmXHUwMDA2T1x1MDAwZVx1MDAwM2pJbnXXV/VVdVXrv+/m5uaju443/35u3rtt1Np+s1u7mf/TXHUwMDFkv/a6PT9cZrCJxX/3wn63XHUwMDExn3lcdTAwMTZFnd77//yn1umQ5CrSXGIvXHUwMDA3V3pt79JcdTAwMGKiXHUwMDFlnvtcdTAwMTf+PTf33/gntvhNd73x9X7L+2D5/k7TO/5Cd6LV1kF8aXzSQ4fafuAlR29dR5iRxDIqwVrOjZJm2HyHzVx1MDAwYkZzXHUwMDAyUlEqpdSGXHUwMDBiPWy+8ZvRXHUwMDE5nlx1MDAwMsMjZ55/elx1MDAxNuEhIzVcdTAwMDGgVmpccoJaNTyjXHUwMDE2nLa9kWt6UTe88JbCdth1XHUwMDFk/Fx1MDAxN/Xcf0lcdTAwMWbrtcbFaTfsXHUwMDA3zeScmmyaVis5p+W323vRXXxnXHUwMDFjU1x1MDAxY7v5zP2P7vtKM8eHVzVrvTMvdVx1MDAxOX7j6Vng9XojXHUwMDE3hZ1aw4/cuMjkXHRcXO86a814av5J+tStXXprbm6Cfrs9POxcdTAwMDdNz1xy+3zt08iXXHUwMDA1zfsvXHUwMDFiObvnee5cdTAwMGVUU2OZNMl3JoJEgbPs4c0wiKWK4eBcdTAwMWKwxiRz6veWUZSi+LatWrvnJVx1MDAwM+06sZJcdTAwMTKz5Fn6nWYtuu+J5oJxrTWD5KYoVVx1MDAxN9mut8PGRcG3dEI/LcXuk/w2l8hF/Mfw93/+fPzsrMwlXHUwMDE3v8vcZL5d60VL4eWlXHUwMDFm4VNtu1x1MDAxZeVcdTAwMDY+qnWjXHUwMDBmOFl+cJpt84JmSUt81WK3XHUwMDFi3px5tdzU43WlbZ2wfXdcdTAwMWHPZzxcXPHhXHUwMDFmf1x1MDAxNlx1MDAwMZ1Dw/vy6eoo2N/RXHUwMDFmm5+vb8/s8n5cdTAwMWXokXdcdTAwMWJlgG60IYZaoY1kmiueoHJcdTAwMDB0XHUwMDA2XHUwMDA051ZbjSpBXHUwMDE4kzQ/XHUwMDAwnSpFlNSSXHUwMDFirVx1MDAwNM+jXlx0Yoy1eFxu11xuT0lcdTAwMDRkXHUwMDAy2FtNXHUwMDFibCzso24t6HVqXZTPSqGfueox5FN4NvTPXHUwMDBmp8A+VdbifGhRXHUwMDAwfktzR1x1MDAxZrCP+kJzXHUwMDAwZSuGPlxuhrLyKdCPRVx1MDAxMlx1MDAxZr+F6Gv0UlNcdTAwMThcdTAwMDbRnv/ddVpSYimKXHUwMDAyk1x1MDAxNqhAmyNGzlqtXfrtWPuO3HSx7Z9cdTAwMDaxdfNaKdHAXHUwMDAxiXy0pMPmKOwkrVxyvF9ccq1hNz9RYdc/9YNae7+kw7V+XHUwMDE07nq9QZejbt9Lj4b36Vx1MDAwMVx1MDAwZZQwOVx1MDAwNshH9eXFj41cdTAwMWV0edO35nqpfrqyaydcdTAwMDEyqnRNmOCggHIm0lBcdTAwMWNcdTAwMDBcdTAwMTkkQamh+DFcXIqU4DxcdTAwMDCZWUlcdTAwMDQoRLK0kiZcdTAwMTKSIJlcdTAwMTGpXHUwMDE5xX/4XHUwMDA1IGTyXHKPI5m1rCfEb4Lki2mAzK3kgmuTltB7IGtts0dcdTAwMWaAjPiXSoI2yTxWZMSFRUPwfCQvoNR43WI8XHUwMDAzckf8NjTJ0jKuzMhJL1xu52yvq1x1MDAwMfVm/UPrcFx1MDAwNc4vXHUwMDFhsNP77onVztnJ9UTWXHUwMDE5tVx1MDAxZGFMgbHUXHUwMDFhYDqZmFx1MDAxONQoXHUwMDAxRHCmOGOa4oAmnG9onaklnFpcdTAwMGVcdTAwMDbVvuaSXHUwMDE2WGjBXGIwo1x1MDAxY/YpXHUwMDE3aKvfLHQxrm+nwLXEcWSUyVwiXFxzW45rSplVoHWFuFZcdTAwMWF1XHUwMDA1emlMPstCrzp+vFeIaM6JYszi43JcctqmjMdcdTAwMGJcIjrb32qwvLtcdTAwMWOt6W77cHO1eVx1MDAwNSeLR6ec92FcIixLKoiiQktUsai4XHUwMDEzXHUwMDE5jaFMXHUwMDA1XHUwMDEwxangXHUwMDAzXHUwMDFhbvNcdTAwMWU1Ujfi/DpQaOaVSbD+XHUwMDA25KmBPFx1MDAwNdW2OKScXHUwMDBiS9NcdTAwMTJ6XHUwMDBmZGlLmTY1OFx1MDAxM8hYbdLZKYB835BIX0pcdTAwMDL3w4tcdTAwMGYrW0Gj+/n8e91cdTAwMDTs9nAl+Dp8nlx1MDAxMSmsOc9yftjy489x993pe02xvNVcdTAwMGbs7cHpx9ZRa3N7Y3Gy+97/9lPVz1pcdTAwMTB53Voj8q+9vTOv3Z5MXHUwMDExyZGzXkhcdTAwMTOVd71cdTAwMWGddEqbXHUwMDFih1SsXl6c3lx1MDAxY5ngZv2mfsjyOqnrNaKBXCJcdTAwMThVTNxYQoU1XHUwMDE0tYtcdTAwMDCTXHT1SatcdGfWsX5uKZf5XGKAXHUwMDA0Q4BzsMYyJXmB54DKXGKfwFBkKohcYnQxZkoxiczxXHUwMDE3VEx30zBcZmSHOOy8iGFgg85cdTAwMWVcdTAwMWVqJoZTJaWl1Wum+qZdX/9cdTAwMWMt6ejgmKv+2idcdTAwMTGeVqCZTs52XHUwMDE3pVq9Xjlf31o8OPiy9fnwZLOC++6fsYta+1x1MDAxMz/4urja+Ua/Nq86q+bFNN5cdTAwMTiAXHUwMDFmbWq7XFz/snhcdTAwMWS2Plx1MDAwNedr30AuXHUwMDFmyclcdTAwMWNcYk6JZSDRRVx1MDAxMJpnSYdUgkhcdTAwMTdWXHUwMDExXHUwMDFhT1x1MDAwMmFz2Fx1MDAxNkxcdTAwMTKqXFyo2Vx1MDAwNVCV1iqPbmaBSKBWoStcdTAwMDJcXFx0OlvwLo/uhy7S+yvxXYdp4vugjEBcblx1MDAwMapcdTAwMDDghuaOPuBbUIFcdTAwMTPF9Fx1MDAxYvGohnh41zg4J+0w7LyfW3G/f8Ff/1x1MDAwZf5cdTAwMGVcdTAwMWNcdTAwMDPohu22130/tzT83bVcZiQ27Ea993Ntv1x1MDAxN/21/3DgXHUwMDFm11xc7/vt5kmt4//xb/dnt1x1MDAxZvzx70I6w1x1MDAxNDFcdTAwMTbZJ1x1MDAwMDqFiqNvUExn+Einfzad+dVcdTAwMDMyOUlcdTAwMWGjQtX3aH9r9dare1e3d5fL1+ffl+jGxFx1MDAxY4lqt1x1MDAwZaK54IZRMGlvYFx1MDAxMIhBRcqMXHUwMDBi5HGuJKRcdTAwMTY5hopUXHUwMDAxoVqiX8bBMFx1MDAxN2QtUKRGXHUwMDExib5cdTAwMDZlWlx0ZVXyJbNcdTAwMTBgnVx1MDAxZJpUh52plknRJTC2cJlUpVRDRo1Ka1xmeuLwpFXSl2Azza2N/Vx1MDAxM2/162dcdTAwMDM7x9eHzbrpQ1SBXHUwMDFh1cBcdTAwMDCNNFXA0sB7OpvxtkRcdTAwMDTBttfdO77Yv1x0RdBY/n420Vx1MDAxYYfmllx1MDAxOM24YMJwbSCDQk3RVTFcdTAwMDadP66YXHUwMDE2Ou+qMMGQzljgXGZccoNWjFx1MDAxNtCZ50RRXnCZY9pcXIUqYLg7XHUwMDA1XGaRikrBlC1yV1x1MDAxNPAyXHUwMDE4XG6JXHUwMDEzaszTYDhGoJWSTIkpXHUwMDA0OsdcdTAwMGJW3FJBYuZeT2C0tOPVRCMuv3yu7VxiXHUwMDE2bbDrr/Zk5dqsXHUwMDFlbfQng7dkRCG4qaHCOmnJXHUwMDE4WVx1MDAxY02Kjqtb6NBcdTAwMTTNbVx1MDAwZd5cXFE0oOj74i0kt7xgsYNJQ1x1MDAxOONWoVShhjBTOSu/XHUwMDE5vPemgbdhyFNFcUJcdTAwMDKUWllcbjibMr1cdTAwMDY447FcYumfyq/B2lJ0srh+cnXYbG9vrVx1MDAxZldlZZ+vlOJJRZK9XHUwMDE4Rd3do7/8wFx1MDAxMWzvtlx1MDAxM/b6XW94uNVcdTAwMGVrrqFR60R4vHnfcH/630Gte+lcdTAwMTj85WUtaDry7p+eXHUwMDBlOP39kabfXHUwMDFiPeVcdTAwMTV5Ly8+QpW4M8erS1x1MDAxYnstOGt7jVx1MDAwYnPX3fWPor6XV7Il7lxmXHUwMDA3KXFulMap0VarTMhcdTAwMTeZXHUwMDFlQfpcdTAwMGKOIXE8Lc+jXHUwMDA0eipcdTAwMTQsXHUwMDE4ZVxcalhqXTqJ+WpGOKfKSGlAI5maJl2kXHUwMDA1plx1MDAwMfAzXHUwMDE17Sx5M1PkiyhcdTAwMWNKdDJ1oTczLl9cdTAwMDT5MpWgVILBl1e0Y1x1MDAxNWLlQVS52LriX1x1MDAxNr9AcLV0cfvd0jV2PFFqXHUwMDE1R8Xs/HLpOsSlUZksXGapLNFWMFxyUmh07vNZXHUwMDE4jFx1MDAwMVx1MDAwMUWtRC4oXHUwMDFj78jDXHUwMDA1v1x1MDAwMlUl+pxcdTAwMTShgnx3muzon4+WmaIl7cnhgt4gSC1cdTAwMGKzq6hcdTAwMTalcFHIMlx1MDAxOVxiOXtZXHUwMDE4neuTTtdr+bfv53AqnCnq+yedWnT2fm5cdTAwMWJ/vlwiQzzxk1RiMENB/c2G/rZ33deLn9jG8mXQrk+G/oGtVNa6Wlxilk3BXHUwMDEyljBFudDGMkNNflx0XHUwMDA1XHUwMDFkXHUwMDFhYo2LIFJOnTnNg/85IYffXGb8l9OskILLU2VF6ydcYodSU4mTTJ1cdTAwMWF+kqn8qeBf2V5b2ptbWpxcdTAwMWKGz19R1GFM36tcdDyc711cdTAwMWMtbTZb9NPX3b3WxuZieNrpTGjgXHKhllxuxDpcdTAwMDBwluHDXFxcdTAwMGJcIlGYXHUwMDE4TqJFiaL55CzEP1x1MDAwMSFcdTAwMDSaXHJcdTAwMDPozpqC0MObiX/o1KMoXHUwMDBmp1xuLDKGylPlXG6eXFyjhVx1MDAxY1NcdTAwMWXiXFxcImHjSOiqXyh9el7Bn+PuO+NcdTAwMGKlqFxmXHUwMDAy9Df/SEKLi9tr8YJez+tee69qjXOKZ6mEnlxcrG6u7zV35HZYu4u+e9tXx1x1MDAxZv1cdTAwMDLdNZjWXHUwMDEx5cVkvOqhLFx1MDAxYS1ktClOXHUwMDFi6y40XHUwMDAzxMXPUbkprSSkqjaG+VtcdTAwMWF1XHUwMDE3ZVRxbSRPRdpcdTAwMTNfnlx1MDAxOIWm1KI9tWhW+DRcdTAwMGKTv1NiaV2tlGSWJmh+mEt2f+RH0vt7heby5ChiMpfBXHUwMDE1myqR82WS3HGthULCMzvEpdLCzjI5dZ+FnIgmd8vpvpmo9ESp9zOhOa9dXHUwMDBmb1xuRvEyvPY2/EFPe0d+dHY/b/OPXHUwMDA3PT7UL75cdTAwMWVcdTAwMDarnZvrPXt30DxZ9FfaXHUwMDA1qaFcdTAwMDV6XHUwMDA1SbAm6DtcdTAwMWJFnVx1MDAwM81TvvBQsUCcyC4k5UrlOVx1MDAxMZWGuHVcdTAwMTaJ9lm51NC8YkGKStCl4lx1MDAwMslcdTAwMTUoodgr4UQvoFk+Pl+xXGL0LYVOZ+gmikWwMbFDxJWiwJ9ElGZfr1BcdTAwMTCEXHTBuGLSMCuSKKr7SEVcdTAwMTjqXHUwMDFjXG5cdTAwMTIppqbUPHq7MrGPXHUwMDFic1x1MDAwMv9r9FRKTO43jYiFbX7jKPh814ZQNM/tx53zTrB+ZlspSom6p1x1MDAxOUt82K376WxcdTAwMTJE0W3SqZHBJ1xuXHUwMDFmX2mUNVBcXCZcdOODRlx1MDAwZZzitFNpuVx1MDAxMozK3PP/XHUwMDE4fbqJ9WlGh2WU6Vx1MDAxOFx1MDAxZDl+XGbG+Y1cXFx1MDAwMVx1MDAxMZpcdCnR61x1MDAxM4JmVCSVjFx1MDAxOG05yo9wJr2Ae7nokVsh0Vx1MDAwMl1LXHUwMDE0voLgULk3/6ZcIkdV5DTJtZKBQF+cXHUwMDE1kSzGS8t6hFx1MDAwNUVcdTAwMTnwyterx1x1MDAxYupcdTAwMTFBfFx03277sLg2f1Lv7dfGmkZ6W01wabzvPZZIUcqIllx1MDAwZeBcdTAwMWMpbDpvZUCklFtcdTAwMWNCVci4wf/bglxuXHUwMDFijlRMXHUwMDE54+g9SqxcdTAwMDZWoCYo14RZVyus3Jxr80alyvTE5+dTKZxcdTAwMTEjXGaHXCL1oVl5zMlVWTGuaYX6o9A+pSS317xqhp9cdTAwMWGtXHUwMDE287f3Vlx1MDAwZbRcbjf9y1+kPirlaVx1MDAwYpQqwl1cYlx1MDAxNvlcdTAwMDVa3FRk331cXCszmlxu7K+STFxu/uhccstxXHUwMDE13zCHqCq5Wlx1MDAxOSNcdTAwMWJcdTAwMWbFflwiI6PMXHUwMDE4pCmccVx1MDAwYlQnXHUwMDAxgkErXHUwMDBlXHUwMDFh+ng4blxunEU0ucdM5H9cIlI5vlxc6YmPYKRwyfNSc25talxyPp4pguZcXEkjlVx1MDAwMVx0jnr+XCJWWYWLXozPSegnsmhcdTAwMWNcdTAwMTYrmUtkNDa7NGk5oUK4sky3dsF1fmnS1SSwXHUwMDAyt/yNct736XFTMkUluVx1MDAxNFajOslXZs7HgZBSm8GQc0pXYFu5+43+aXLTJ7DCZr39zKh+XHQvbHiuZHpcZjO89JvNdOhslFx1MDAxYz7G1rJ8MfNcdTAwMWPVMMbxdVx1MDAxZWND+tRSV5EtXHUwMDE0Negnm+y2L8Jgs7RcdTAwMDBgtDSuXHUwMDFhXCKHbMYlsSBcdTAwMTH+3OWycFFcdTAwMTDVt1x1MDAwNJ1zNpAtptGgelx1MDAwYilcdTAwMGZ2XHUwMDE2sqFZ5vhLXCL9i3k+a2RMXHUwMDE59Fx1MDAxZVnRUiWT5SpASJfzx1KU/v8qXHUwMDAwVy6s7rNQKKdVUrHXXHUwMDFi3lx1MDAxZr/SPNYrXHUwMDA1XHUwMDFjdK2U1VpR9GNkZuNHgdRcdTAwMThcclx1MDAwNM6Go1ZU5UNXSFx1MDAxOYlBViGo21x1MDAxYdLtYZZXMYxcdTAwMDA1aL5cdTAwMTQyNqbTxXSzQCRmSr1UXHUwMDEw35dcdTAwMDJA8aLUYFx1MDAwNqY0pMWAguRCPK1gfPa1y0K5oMbNOVx1MDAxOX1TLfOP5nWPpS+KUlx1MDAxMm9cdTAwMDdcdTAwMDNuSFlmJ0ouXHUwMDA1UZair6ZxKqQuXGKKa6d7qFvldZWeRbvKXCL3wjugu49erVbplOy3jISMYqlcIiNcdTAwMDH9QCNcbsLi83F4s3QrXG5KLVp1aiss3pwlzVIqp+6Tk9A3tVx1MDAxMquVsZuIPJLoZIlwNUfcWPQsWTaOblxm0cIwt8wtXHUwMDA0N1wiX1x1MDAxZupWX+NFWYmmQODUJaBLxdGBXGIltLBui3TOaMJcdTAwMTLeVMuoatl4tmaxXGa0XHUwMDAxla9cdTAwMGZ1iiVfKp5kJOA0u73GZqc+o1LFYlx1MDAxNHH7qVx0ozlqXHUwMDBmy0b8IVx1MDAwNegsKY2EzVx1MDAwMHWF0I/drVxc6uPWnLz/XHUwMDFhRVVcdTAwMTY8XHUwMDFlv8Hm3NOCx9K41Fx1MDAwZdRcdTAwMWPCcic8I7NB0NfBf9Tt3KLcLnj5OP/sRo9te/9uu75yeL3u6Vx1MDAwZlcgO+2lheW8Pi3d14ZcdTAwMWFcdTAwMTckXHUwMDE2XHUwMDE2Jd9YJrI61VpiXHUwMDAwT3I7+HPGn7avXHJlXHUwMDA2XXhr3UZkXHUwMDAyKfbbvjYlXHUwMDFhVXvFXHUwMDFhtSiajFMm3d6kJZWgpa//kOC2cpS6wljSoHbdrWxPXHUwMDEzTVx1MDAxZSPUmyxcXLysrVx1MDAxZnX2lvtcdTAwMTdf9y6/2aVjOsmSiNtcdTAwMDSbKOHSq9xG91LmfFx1MDAwZkYsTpTFkWNSXHUwMDE1ZS2ySXbWnSaO8XttXHUwMDFhoVuTizDFaVBmpN4mtSdMfiuJxK1QXHUwMDEy1ZWCXG4jXHUwMDE2VW5cbuO2XG7w6/3IW9t6RfVZpT2vZjmkv8/aatur7V9fIJFfvbnd2l2dqDpcdTAwMGKNM6KPO1x1MDAxM1x1MDAwZS7VzmZWQ5hcdTAwMTGEu9przqyR2lx1MDAxNCRcIrO4fpujoCH/XHUwMDAxXHJFXHUwMDAxXHUwMDA1Zlx0qlxma1x1MDAwNHXvM1x1MDAxMTBNROE3g/jpXHUwMDE0XHUwMDEwV0ClXHUwMDExKl+1MOjLmFx1MDAxN1xcIMZccoCusJjh3k5BelxmnoDxwS3/uK9cdTAwMDZcbprut1dU2jS++5VUM43fJGf80qfLiJVcIn4hlU7v4DSw35SO8NGCXHJrXHUwMDE1cVx1MDAxNZrIM4FcdTAwMGKtUlVcdTAwMGJcdNTBvVDITVxid1x1MDAxNTNGTpMp93vx0bNipE/h4aPj6TZhMEX4T4eGcy+qYq5cdTAwMTB3hrZ9q3bFXHUwMDEzxZhyjd0xqFx1MDAxYty+6+nLXHUwMDE3uNtQRFxuytyGLUKnX1tXfL9cdTAwMDUmXGJ6XHUwMDAzSOsl4473wkgsciEv8slcdTAwMWTfZe78fFx1MDAxN378XHUwMDBlcHNPc+E1Q/ONalx1MDAwMSxcdTAwMWFoK0eqKoCgV6kpSGZcdTAwMDHVXHUwMDA2oFx1MDAwNsg93+y68P291r74sFx1MDAwMt5xfUt/3TzYO+tcdTAwMWVcdTAwMTfsh1m+Na2r8ORuo1x1MDAwM/fCXHUwMDE5yFx1MDAxNK9TQJdcdTAwMDdcdTAwMTBPkiHx0elXVkzjw2tJXHUwMDE4XGLtVordT/GmM8t0pj9cdTAwMDU7Msq6l1wiXHUwMDE2akdXdlWmXHUwMDFlJVg58o7PirSjXHUwMDE1LFx1MDAxNVx1MDAxM3+WXHUwMDBmXHUwMDBmYm356LNe713umN7x1s3dhv5cdTAwMTZOyPeVq/M0UqDHrbNhfkdcdTAwMTBcXNG+kJpTR6tcbraBXHUwMDE0MVwiXFx+pJW8MMPxzaGfWJ7Pp3Ho3cvK0DcvSnDSdFxchaGIM3uqlmdjIfVcdTAwMDauXG78+V2vVUj1X4VLP9L5arz6UJ/Xulx1MDAwN99N4/bm5DzqXXT6wW5BXHUwMDAyUiHKhUtLXHUwMDFmLOVorbPvq5SEIzeiyFx1MDAxZYWgnOaZ/iRePWfIXGY0+lxuSI2kTe9g/Vx1MDAwNvO5UZhP89JKQa1cdTAwMDZlis1cdTAwMTbIUrOF3FS78peqY89cdTAwMWHQJ3xWfVu/68fbkL0mPz7X5Up89/HbyI/z3SnOXHUwMDA10eiwKMMst5Ddv1m7rGXliqbAXHUwMDAw51x1MDAwNfs3K1x1MDAwNL3bZE1Lrd2rplxulue5tFx1MDAwNOm/ditcdTAwMWZcdTAwMTb1XHUwMDAzm62M5VlcIqIl+yROtWNA/Fx1MDAwZbvC+Hx6Q4js7omauZdcdTAwMThWXHUwMDFlupv6JVx1MDAwNMPD1SZcdTAwMTSiXGJqY9x+OlxuKPpWo867c7gkqlx0QFx1MDAxOUbjw+Rj95NEUce90UG3QihlRnzbhbzEJzd8l7nx83338e9JmXua71x1MDAwZcYyirbaXG7OUItm199Hm2k+U2omfPd39+M8X+t09lwilMzhKM5f+97Nh7wu+Vcr/rhay/hcdJxcdTAwMWXxYlxi/nj3439xXHUwMDE5mlx1MDAxMyJ9<!-- payload-end --></metadata><defs><style class="style-fonts">
+      @font-face { font-family: Excalifont; src: url(data:font/woff2;base64,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); }
+      @font-face { font-family: Cascadia; src: url(data:font/woff2;base64,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); }</style></defs><g stroke-linecap="round"><g stroke-opacity="0.5" fill-opacity="0.5" transform="translate(652.2163598013021 10) rotate(0 1.2369456640458338 428.500978852098)"><path d="M0 0 C3.2 307.14, 3.4 613.28, 0 857" stroke="#1e1e1e" stroke-width="1.5" fill="none" stroke-dasharray="8 9"></path></g></g><mask></mask><g transform="translate(1245.1143283948 62.713318329346066) rotate(0 83.32876938215009 32.444982868838224)"><text x="0" y="45.73444785191436" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="51.911972590141154px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">fastcs</text></g><g transform="translate(173.53790999990065 77.94000437428724) rotate(0 147.70337679759507 31.286086066202245)"><text x="0" y="44.100866918918754" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="50.05773770592368px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">fastcs-eiger</text></g><g transform="translate(777.5209390654641 232.62348328609744) rotate(0 59.65965415036749 21.014320335674483)"><text x="0" y="29.62178594516676" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="33.62291253707919px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">FastCS</text></g><g transform="translate(880.9096073582173 742.424680284195) rotate(0 128.55160312184103 21.014320335674498)"><text x="0" y="29.62178594516677" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="33.622912537079195px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">InteractiveShell</text></g><g stroke-linecap="round" transform="translate(755.4446609015245 285.72639421869906) rotate(0 254.01654946326948 174.12906317998375)"><path d="M0 0 C172.54 0.28, 344.83 1.51, 508.03 0 M0 0 C136.34 -1.25, 273.42 -0.93, 508.03 0 M508.03 0 C508.97 134.05, 507.57 269.5, 508.03 348.26 M508.03 0 C506.75 122.2, 507.25 242.57, 508.03 348.26 M508.03 348.26 C346.8 349.44, 186.27 349.58, 0 348.26 M508.03 348.26 C352.76 348.25, 198.19 347.84, 0 348.26 M0 348.26 C-0.52 226.77, -0.66 105.04, 0 0 M0 348.26 C1.12 232.73, 1.09 118.36, 0 0" stroke="#1971c2" stroke-width="4" fill="none"></path></g><g transform="translate(798.2154131148172 318.5302107658298) rotate(0 212.5808593852339 145.25098216018208)"><text x="0" y="25.46410266675357" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">event_loop: EventLoop</text><text x="0" y="57.74209870234959" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text><text x="0" y="90.02009473794561" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">controller: Controller</text><text x="0" y="122.29809077354162" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text><text x="0" y="154.57608680913765" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">transports: list[Transport]</text><text x="0" y="186.85408284473365" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text><text x="0" y="219.1320788803297" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">build_api()</text><text x="0" y="251.41007491592572" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text><text x="0" y="283.6880709515217" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">run()</text></g><g stroke-linecap="round" transform="translate(86.66828807828551 218.77077222132993) rotate(0 230.0875671541378 143.26670638234805)"><path d="M0 0 C159.25 0.31, 317.52 0.58, 460.18 0 M0 0 C166.61 -1.27, 333.61 -1.22, 460.18 0 M460.18 0 C460.83 97.21, 463.2 195.83, 460.18 286.53 M460.18 0 C461.44 110.12, 462.47 219.05, 460.18 286.53 M460.18 286.53 C353.61 284.81, 248.68 285.09, 0 286.53 M460.18 286.53 C348.98 285.93, 238.28 285.44, 0 286.53 M0 286.53 C-1.46 222.98, -0.55 157.92, 0 0 M0 286.53 C-0.07 176.07, 0.64 66.3, 0 0" stroke="#2f9e44" stroke-width="4" fill="none"></path></g><g transform="translate(106.1671923512165 165.66786219508708) rotate(0 121.08451633938114 21.014320335674483)"><text x="0" y="29.62178594516676" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="33.62291253707919px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">EigerController</text></g><g transform="translate(118.92906801679055 249.90014183070616) rotate(0 180.7651860926967 129.11198414238407)"><text x="0" y="25.46410266675357" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">frames: AttrRW[int]</text><text x="0" y="57.74209870234959" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">exposure: AttrRW[float]</text><text x="0" y="90.02009473794561" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">captured: AttrR[int]</text><text x="0" y="122.29809077354162" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text><text x="0" y="154.57608680913765" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">arm: Command</text><text x="0" y="186.85408284473365" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">trigger: Command</text><text x="0" y="219.1320788803297" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">disarm: Command</text><text x="0" y="251.41007491592572" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text></g><g stroke-linecap="round" transform="translate(1422.1915501472045 280.45802793393807) rotate(0 243.0545434398639 186.16584279035337)"><path d="M0 0 C104.47 -1.65, 210.07 -1.23, 486.11 0 M0 0 C135.51 1.08, 270.96 0.46, 486.11 0 M486.11 0 C487.14 94.01, 487.62 187.23, 486.11 372.33 M486.11 0 C484.51 102.9, 484.27 205.5, 486.11 372.33 M486.11 372.33 C381.57 370.64, 276.13 370.24, 0 372.33 M486.11 372.33 C316.71 373.32, 147.64 373.2, 0 372.33 M0 372.33 C2.52 226.68, 1.45 82.3, 0 0 M0 372.33 C-2.25 237.69, -2.21 103.27, 0 0" stroke="#f08c00" stroke-width="4" fill="none"></path></g><g transform="translate(1462.828445541023 313.2618450107525) rotate(0 110.03097614714238 48.416994053394035)"><text x="0" y="25.46410266675357" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#f08c00" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">pv_prefix: str</text><text x="0" y="57.74209870234959" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#f08c00" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text><text x="0" y="90.02009473794561" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#f08c00" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">ui_path: Path</text></g><g transform="translate(1422.1915498607632 233.7947676650158) rotate(0 171.49086006569473 21.014320335674483)"><text x="0" y="29.62178594516676" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="33.62291253707919px" fill="#f08c00" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">EPICS CA Transport</text></g><g transform="translate(1464.4862803674691 508.5058859884305) rotate(0 173.52224864018444 48.416994053394035)"><text x="0" y="25.46410266675357" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#f08c00" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">connect(ControllerAPI)</text><text x="0" y="57.74209870234959" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#f08c00" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text><text x="0" y="90.02009473794561" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#f08c00" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">serve()</text></g><g stroke-linecap="round"><g transform="translate(883.6817717423855 591.7681011901841) rotate(0 288.67115197947396 -1.673983299885009)"><path d="M0.92 0.47 C97 -0.24, 481.48 -3.19, 577.41 -3.82 M-0.06 -0.33 C95.81 -0.87, 480.75 -1.42, 576.66 -2.26" stroke="#1971c2" stroke-width="1" fill="none"></path></g><g transform="translate(883.6817717423855 591.7681011901841) rotate(0 288.67115197947396 -1.673983299885009)"><path d="M576.29 -1.86 L561.22 3.55 L562.68 -7.08 L577.42 -2.21" stroke="none" stroke-width="0" fill="#1971c2" fill-rule="evenodd"></path><path d="M576.66 -2.26 C572.17 0.75, 566.52 1.99, 563.1 4.14 M576.66 -2.26 C572.66 -0.71, 568.02 1.96, 563.1 4.14 M563.1 4.14 C563 -1.01, 563.57 -5.09, 563.04 -8.54 M563.1 4.14 C563.3 1.75, 563.11 -0.79, 563.04 -8.54 M563.04 -8.54 C567.64 -5.45, 572.79 -4.18, 576.66 -2.26 M563.04 -8.54 C567.79 -6.11, 571.13 -5.35, 576.66 -2.26 M576.66 -2.26 C576.66 -2.26, 576.66 -2.26, 576.66 -2.26 M576.66 -2.26 C576.66 -2.26, 576.66 -2.26, 576.66 -2.26" stroke="#1971c2" stroke-width="1" fill="none"></path></g></g><mask></mask><g stroke-linecap="round"><g transform="translate(1583.8707116252717 591.9653341064679) rotate(0 79.30234428228437 62.89968622091472)"><path d="M0.96 0.14 C18.56 9.53, 79.13 35.86, 105.4 56.72 C131.68 77.58, 149.58 113.87, 158.61 125.32 M0 -0.83 C17.56 8.16, 78.79 33.62, 105.06 54.86 C131.34 76.1, 148.47 114.68, 157.65 126.63" stroke="#f08c00" stroke-width="1" fill="none"></path></g><g transform="translate(1583.8707116252717 591.9653341064679) rotate(0 79.30234428228437 62.89968622091472)"><path d="M137.97 111.22 C143.81 117.34, 149.96 119.16, 157.65 126.63 M137.97 111.22 C143 115.55, 150.25 120.75, 157.65 126.63" stroke="#f08c00" stroke-width="1" fill="none"></path></g><g transform="translate(1583.8707116252717 591.9653341064679) rotate(0 79.30234428228437 62.89968622091472)"><path d="M152.49 102.17 C154.25 110.96, 156.31 115.34, 157.65 126.63 M152.49 102.17 C153.22 109.22, 156.12 117.14, 157.65 126.63" stroke="#f08c00" stroke-width="1" fill="none"></path></g></g><mask></mask><g transform="translate(1726.7673051478778 730.1767934152182) rotate(0 24.64279372849137 16.811456268539594)"><text x="0" y="23.697428756133412" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="26.898330029663352px" fill="#f08c00" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">PVs</text></g><g mask="url(#mask-Qued4DOun9xUgGfWfNPMA)" stroke-linecap="round"><g transform="translate(1479.049419225165 622.9919031771851) rotate(0 -159.60259401355074 68.60742137728785)"><path d="M-0.14 -0.46 C-19.56 18.99, -63.54 93.68, -116.53 116.67 C-169.53 139.67, -284.42 133.94, -318.09 137.53 M-1.67 -1.75 C-21.27 17.33, -64.67 91.3, -117.58 114.76 C-170.48 138.21, -285.53 135.41, -319.07 138.97" stroke="#f08c00" stroke-width="1" fill="none"></path></g><g transform="translate(1479.049419225165 622.9919031771851) rotate(0 -159.60259401355074 68.60742137728785)"><path d="M-296.02 129.28 C-303.76 131.88, -309.3 134.43, -319.07 138.97 M-296.02 129.28 C-302.63 132.79, -310.86 135.88, -319.07 138.97" stroke="#f08c00" stroke-width="1" fill="none"></path></g><g transform="translate(1479.049419225165 622.9919031771851) rotate(0 -159.60259401355074 68.60742137728785)"><path d="M-295.19 146.36 C-303.17 143.81, -308.96 141.2, -319.07 138.97 M-295.19 146.36 C-301.94 144.42, -310.43 142.05, -319.07 138.97" stroke="#f08c00" stroke-width="1" fill="none"></path></g></g><mask id="mask-Qued4DOun9xUgGfWfNPMA"><rect x="0" y="0" fill="#fff" width="1896.738193907935" height="860.284511845143"></rect><rect x="1332.6299695398811" y="722.467593695171" fill="#000" width="60.125" height="33.62291253707919" opacity="1"></rect></mask><g transform="translate(1332.6299695398802 722.467593695171) rotate(0 -13.183144328266508 -30.86826914069799)"><text x="30.0625" y="23.697428756133412" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="26.898330029663352px" fill="#f08c00" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">dbl()</text></g><g stroke-linecap="round"><g transform="translate(557.4443116834241 401.89711468200045) rotate(0 117.3522180118382 0.16787040308113887)"><path d="M0.22 1.01 C39.64 1, 196.65 -0.64, 235.83 -0.67 M-1.13 0.49 C38.19 0.68, 195.62 0.77, 234.85 0.51" stroke="#2f9e44" stroke-width="2" fill="none"></path></g><g transform="translate(557.4443116834241 401.89711468200045) rotate(0 117.3522180118382 0.16787040308113887)"><path d="M234.1 -0.68 L222.98 8.31 L220.27 -6.59 L234.26 -0.36" stroke="none" stroke-width="0" fill="#2f9e44" fill-rule="evenodd"></path><path d="M234.85 0.51 C232.81 1.98, 227.45 2.87, 221.27 6.88 M234.85 0.51 C230.24 2.26, 225.42 5.63, 221.27 6.88 M221.27 6.88 C222.2 4.13, 222.36 -1.43, 221.24 -5.79 M221.27 6.88 C221.23 1.73, 220.65 -2.51, 221.24 -5.79 M221.24 -5.79 C225.61 -3.98, 228.79 -2.52, 234.85 0.51 M221.24 -5.79 C224.97 -4.27, 228.86 -2.19, 234.85 0.51 M234.85 0.51 C234.85 0.51, 234.85 0.51, 234.85 0.51 M234.85 0.51 C234.85 0.51, 234.85 0.51, 234.85 0.51" stroke="#2f9e44" stroke-width="2" fill="none"></path></g></g><mask></mask><g stroke-linecap="round"><g transform="translate(1402.061827480512 465.2731420372184) rotate(0 -87.59880968101038 -1.357647327832069)"><path d="M-0.33 -0.5 C-29.68 -0.78, -147.67 -2.01, -176.9 -2.22 M1.7 -1.8 C-27.22 -1.85, -145.06 -1.04, -174.74 -0.78" stroke="#f08c00" stroke-width="2" fill="none"></path></g><g transform="translate(1402.061827480512 465.2731420372184) rotate(0 -87.59880968101038 -1.357647327832069)"><path d="M-173.84 -1.42 L-162.13 -8.25 L-162.09 6.03 L-173.81 -1.08" stroke="none" stroke-width="0" fill="#f08c00" fill-rule="evenodd"></path><path d="M-174.74 -0.78 C-172.16 -3.59, -168.6 -3.63, -161.2 -7.23 M-174.74 -0.78 C-170.39 -2.24, -165.37 -5.22, -161.2 -7.23 M-161.2 -7.23 C-162.09 -3.5, -160.99 1.25, -161.1 5.45 M-161.2 -7.23 C-161.37 -3.94, -160.76 -0.58, -161.1 5.45 M-161.1 5.45 C-164.32 3.63, -169.55 0.03, -174.74 -0.78 M-161.1 5.45 C-163.67 4.82, -167.1 3.13, -174.74 -0.78 M-174.74 -0.78 C-174.74 -0.78, -174.74 -0.78, -174.74 -0.78 M-174.74 -0.78 C-174.74 -0.78, -174.74 -0.78, -174.74 -0.78" stroke="#f08c00" stroke-width="2" fill="none"></path></g></g><mask></mask><g stroke-linecap="round"><g transform="translate(977.6047408536592 528.3645468140774) rotate(0 239.5554845804561 0.6677012161731)"><path d="M-0.41 1.06 C79.22 1.26, 397.38 1.73, 477.14 1.62 M1.58 0.57 C81.66 0.37, 400.18 -0.41, 479.52 -0.29" stroke="#1971c2" stroke-width="1" fill="none"></path></g><g transform="translate(977.6047408536592 528.3645468140774) rotate(0 239.5554845804561 0.6677012161731)"><path d="M479.7 0 L466.67 6.51 L467.45 -5.85 L478.63 -2.25" stroke="none" stroke-width="0" fill="#1971c2" fill-rule="evenodd"></path><path d="M479.52 -0.29 C477.48 0.44, 473.28 3.31, 465.93 6.06 M479.52 -0.29 C475.99 0.97, 473.26 2.61, 465.93 6.06 M465.93 6.06 C465.71 0.14, 466.98 -2.49, 465.92 -6.62 M465.93 6.06 C466.07 1.45, 465.67 -2.37, 465.92 -6.62 M465.92 -6.62 C471.54 -3.62, 474.96 -3.55, 479.52 -0.29 M465.92 -6.62 C470.53 -4.24, 475.1 -2.36, 479.52 -0.29 M479.52 -0.29 C479.52 -0.29, 479.52 -0.29, 479.52 -0.29 M479.52 -0.29 C479.52 -0.29, 479.52 -0.29, 479.52 -0.29" stroke="#1971c2" stroke-width="1" fill="none"></path></g></g><mask></mask><g stroke-linecap="round"><g transform="translate(885.7857137607389 594.3079012133962) rotate(0 62.05261411649212 64.88384503228245)"><path d="M0.14 0.02 C14.76 10.24, 66.25 39.68, 87.12 61.31 C107.99 82.94, 118.81 118.28, 125.35 129.81 M-1.25 -1.02 C13.34 8.83, 65.6 37.43, 86.59 59.4 C107.57 81.36, 118.49 118.75, 124.66 130.78" stroke="#1971c2" stroke-width="1" fill="none"></path></g><g transform="translate(885.7857137607389 594.3079012133962) rotate(0 62.05261411649212 64.88384503228245)"><path d="M107.66 112.45 C111.94 118.32, 116.81 121.79, 124.66 130.78 M107.66 112.45 C112.65 116.89, 116.1 121.9, 124.66 130.78" stroke="#1971c2" stroke-width="1" fill="none"></path></g><g transform="translate(885.7857137607389 594.3079012133962) rotate(0 62.05261411649212 64.88384503228245)"><path d="M123.43 105.81 C123.77 113.36, 124.71 118.48, 124.66 130.78 M123.43 105.81 C124.61 111.89, 124.19 118.53, 124.66 130.78" stroke="#1971c2" stroke-width="1" fill="none"></path></g></g><mask></mask><g stroke-linecap="round" transform="translate(84.43934770636088 583.2489265615109) rotate(0 230.08756715413756 64.27999602713805)"><path d="M0 0 C166.35 0.15, 331.45 -0.07, 460.18 0 M0 0 C118.26 1.18, 237.37 1.3, 460.18 0 M460.18 0 C462.65 34.3, 463.3 70, 460.18 128.56 M460.18 0 C459.76 41.88, 460.02 81.99, 460.18 128.56 M460.18 128.56 C323.93 130.79, 188.04 129.78, 0 128.56 M460.18 128.56 C287.38 127.92, 115.18 127.18, 0 128.56 M0 128.56 C0.44 78.32, -0.96 31.03, 0 0 M0 128.56 C0.74 101.73, 0.1 74.87, 0 0" stroke="#2f9e44" stroke-width="4" fill="none"></path></g><g transform="translate(103.93825197929164 530.146016535268) rotate(0 141 21.014320335674483)"><text x="0" y="29.62178594516676" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="33.62291253707919px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">EigerAttributeIO</text></g><g transform="translate(108.33067489199607 598.685572259256) rotate(0 63.266666412353516 64.55599207119204)"><text x="0" y="25.46410266675357" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">update()</text><text x="0" y="57.74209870234959" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text><text x="0" y="90.02009473794561" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">send()</text><text x="0" y="122.29809077354162" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic"></text></g><g stroke-linecap="round"><g transform="translate(515.5497977253694 571.2489265615109) rotate(0 -1.4292595105052897 -50.892793490140946)"><path d="M-0.99 -0.7 C2.67 -7.19, 26.49 -22.31, 22.51 -39.08 C18.53 -55.85, -17.14 -90.95, -24.89 -101.31 M0.69 1.55 C4.2 -5.28, 26.35 -23.34, 21.93 -40.82 C17.51 -58.3, -18.25 -92.89, -25.82 -103.34" stroke="#2f9e44" stroke-width="4" fill="none"></path></g><g transform="translate(515.5497977253694 571.2489265615109) rotate(0 -1.4292595105052897 -50.892793490140946)"><path d="M-3.98 -91.17 C-12.72 -94.42, -17.94 -100.31, -25.82 -103.34 M-3.98 -91.17 C-12.56 -94.61, -19.1 -99.66, -25.82 -103.34" stroke="#2f9e44" stroke-width="4" fill="none"></path></g><g transform="translate(515.5497977253694 571.2489265615109) rotate(0 -1.4292595105052897 -50.892793490140946)"><path d="M-16.91 -79.98 C-21.15 -87.01, -21.88 -96.79, -25.82 -103.34 M-16.91 -79.98 C-21.02 -87.41, -23.03 -96.38, -25.82 -103.34" stroke="#2f9e44" stroke-width="4" fill="none"></path></g></g><mask></mask><g stroke-linecap="round" transform="translate(87.57789248868721 780.1468902874587) rotate(0 230.0875671541378 37.60236537736523)"><path d="M0 0 C140.05 0.46, 278.63 0.76, 460.18 0 M0 0 C127.63 -0.07, 255.38 0.56, 460.18 0 M460.18 0 C459.81 28.93, 461.76 52.48, 460.18 75.2 M460.18 0 C460.26 22.56, 458.65 45.39, 460.18 75.2 M460.18 75.2 C346.85 73.9, 232.11 75.18, 0 75.2 M460.18 75.2 C349.81 76.58, 239.62 76.97, 0 75.2 M0 75.2 C0.4 60.06, 0.33 43.04, 0 0 M0 75.2 C-0.36 55.53, -0.58 37.61, 0 0" stroke="#2f9e44" stroke-width="4" fill="none"></path></g><g transform="translate(112.30770473216148 733.3210698258683) rotate(0 170.64166259765636 21.01432033567449)"><text x="0" y="29.62178594516676" font-family="Excalifont, Xiaolai, sans-serif, Segoe UI Emoji" font-size="33.62291253707919px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">EigerAttributeIORef</text></g><g transform="translate(110.4230380802137 797.6758991734215) rotate(0 63.266666412353516 16.13899801779801)"><text x="0" y="25.46410266675357" font-family="Cascadia, monospace, Segoe UI Emoji" font-size="26.898330029663352px" fill="#2f9e44" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">uri: str</text></g><g stroke-linecap="round"><g transform="translate(69.05731816134062 811.8992848498008) rotate(0 -26.155030258221927 -179.13817532058823)"><path d="M-0.86 0.87 C-10.77 -16.13, -59.95 -41.84, -58.68 -101.84 C-57.41 -161.85, -3.84 -316.21, 6.75 -359.15 M0.88 0.29 C-9.14 -17.08, -59.99 -43.91, -59.04 -103.59 C-58.09 -163.26, -4.05 -315.28, 6.58 -357.76" stroke="#2f9e44" stroke-width="4" fill="none"></path></g><g transform="translate(69.05731816134062 811.8992848498008) rotate(0 -26.155030258221927 -179.13817532058823)"><path d="M8.03 -332.8 C8.92 -339.97, 8.14 -348.93, 6.58 -357.76 M8.03 -332.8 C6.8 -340.18, 7.34 -348.28, 6.58 -357.76" stroke="#2f9e44" stroke-width="4" fill="none"></path></g><g transform="translate(69.05731816134062 811.8992848498008) rotate(0 -26.155030258221927 -179.13817532058823)"><path d="M-8.35 -337.71 C-1.54 -342.98, 3.59 -350.17, 6.58 -357.76 M-8.35 -337.71 C-4.5 -343.54, 1.15 -350.1, 6.58 -357.76" stroke="#2f9e44" stroke-width="4" fill="none"></path></g></g><mask></mask></svg>
+</div>
+<hr class="docutils" />
+<section id="how-the-documentation-is-structured">
+<h2>How the documentation is structured<a class="headerlink" href="#how-the-documentation-is-structured" title="Link to this heading">#</a></h2>
+<p>Documentation is split into <a class="reference external" href="https://diataxis.fr">four categories</a>, also accessible from links in the top bar.</p>
+<!-- https://sphinx-design.readthedocs.io/en/latest/grids.html -->
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-4 sd-g-xs-4 sd-g-sm-4 sd-g-md-4 sd-g-lg-4 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="4.0.0.63c5cb3" width="2.0em" height="2.0em" class="sd-material-icon sd-material-icon-directions_walk" viewBox="0 0 24 24" aria-hidden="true"><path d="M0 0h24v24H0z" fill="none"></path><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"></path></svg></div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/dynamic-drivers.html">Dynamic FastCS drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/static-drivers.html">Creating a FastCS Driver</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text">Tutorials for installation and typical usage. New users start here.</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="4.0.0.63c5cb3" width="2.0em" height="2.0em" class="sd-material-icon sd-material-icon-directions" viewBox="0 0 24 24" aria-hidden="true"><path d="M0 0h24v24H0z" fill="none"></path><path d="M21.71 11.29l-9-9c-.39-.39-1.02-.39-1.41 0l-9 9c-.39.39-.39 1.02 0 1.41l9 9c.39.39 1.02.39 1.41 0l9-9c.39-.38.39-1.01 0-1.41zM14 14.5V12h-4v3H8v-4c0-.55.45-1 1-1h5V7.5l3.5 3.5-3.5 3.5z"></path></svg></div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="how-to.html">How-to Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="how-to/arrange-epics-screens.html">Arrange EPICS Screens with Groups and Sub-Controllers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/contribute.html">Contribute to the project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/launch-framework.html">Use the Launch Framework for CLI Applications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/migrate-to-multi-controller.html">Migrate to Multi-Controller FastCS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/multiple-transports.html">Run Multiple Transports Simultaneously</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/table-waveform-data.html">Work with Table and Waveform Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/test-logging.html">Testing Log Output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/update-attributes-from-device.html">Update Attribute Values from a Device</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/wait-methods.html">Synchronize Operations with Wait Methods</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text">Practical step-by-step guides for the more experienced user.</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="4.0.0.63c5cb3" width="2.0em" height="2.0em" class="sd-material-icon sd-material-icon-info" viewBox="0 0 24 24" aria-hidden="true"><path d="M0 0h24v24H0z" fill="none"></path><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg></div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="explanations.html">Explanations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="explanations/controllers.html">Controllers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="explanations/datatypes.html">Datatypes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="explanations/decisions.html">Architectural Decision Records</a></li>
+<li class="toctree-l2"><a class="reference internal" href="explanations/transports.html">Transports</a></li>
+<li class="toctree-l2"><a class="reference internal" href="explanations/what-is-fastcs.html">What is FastCS?</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text">Explanations of how it works and why it works that way.</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="4.0.0.63c5cb3" width="2.0em" height="2.0em" class="sd-material-icon sd-material-icon-menu_book" viewBox="0 0 24 24" aria-hidden="true"><g><rect fill="none" height="24" width="24"></rect></g><g><g></rect><g><path d="M21,5c-1.11-0.35-2.33-0.5-3.5-0.5c-1.95,0-4.05,0.4-5.5,1.5c-1.45-1.1-3.55-1.5-5.5-1.5S2.45,4.9,1,6v14.65 c0,0.25,0.25,0.5,0.5,0.5c0.1,0,0.15-0.05,0.25-0.05C3.1,20.45,5.05,20,6.5,20c1.95,0,4.05,0.4,5.5,1.5c1.35-0.85,3.8-1.5,5.5-1.5 c1.65,0,3.35,0.3,4.75,1.05c0.1,0.05,0.15,0.05,0.25,0.05c0.25,0,0.5-0.25,0.5-0.5V6C22.4,5.55,21.75,5.25,21,5z M21,18.5 c-1.1-0.35-2.3-0.5-3.5-0.5c-1.7,0-4.15,0.65-5.5,1.5V8c1.35-0.85,3.8-1.5,5.5-1.5c1.2,0,2.4,0.15,3.5,0.5V18.5z"></path><g><path d="M17.5,10.5c0.88,0,1.73,0.09,2.5,0.26V9.24C19.21,9.09,18.36,9,17.5,9c-1.7,0-3.24,0.29-4.5,0.83v1.66 C14.13,10.85,15.7,10.5,17.5,10.5z"></path><path d="M13,12.49v1.66c1.13-0.64,2.7-0.99,4.5-0.99c0.88,0,1.73,0.09,2.5,0.26V11.9c-0.79-0.15-1.64-0.24-2.5-0.24 C15.8,11.66,14.26,11.96,13,12.49z"></path><path d="M17.5,14.33c-1.7,0-3.24,0.29-4.5,0.83v1.66c1.13-0.64,2.7-0.99,4.5-0.99c0.88,0,1.73,0.09,2.5,0.26v-1.52 C19.21,14.41,18.36,14.33,17.5,14.33z"></path></g></g></g></svg></div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="_api/fastcs.html">API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="genindex.html">Index</a></li>
+<li class="toctree-l2"><a class="reference external" href="https://github.com/DiamondLightSource/fastcs/releases">Release Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/projects-using-fastcs.html">Projects Using FastCS</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="sd-card-footer docutils">
+<p class="sd-card-text">Technical reference material including APIs and release notes.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="right-next"
+       href="tutorials.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Tutorials</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
