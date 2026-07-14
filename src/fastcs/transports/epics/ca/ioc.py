@@ -2,7 +2,7 @@ import asyncio
 from collections import Counter
 from typing import Any, Literal
 
-from softioc import builder, softioc
+from softioc import alarm, builder, softioc
 from softioc.asyncio_dispatcher import AsyncioDispatcher
 from softioc.pythonSoftIoc import RecordWrapper
 
@@ -218,18 +218,25 @@ def _create_and_link_read_pv(
 
 
 def _create_and_link_write_pv(
-    pv_prefix: str,
-    pv_name: str,
-    attr_name: str,
-    alias: str | None,
-    attribute: AttrW[DType_T],
-) -> None:
+    pv_prefix,
+    pv_name,
+    attr_name,
+    alias,
+    attribute,
+):
     pv = f"{pv_prefix}:{pv_name}"
 
     async def on_update(value):
         logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
-
-        await attribute.put(cast_from_epics_type(attribute.datatype, value))
+        try:
+            await attribute.put(cast_from_epics_type(attribute.datatype, value))
+        except Exception:
+            record.set(
+                record.get(),
+                process=False,
+                severity=alarm.MAJOR_ALARM,
+                alarm=alarm.MAJOR_ALARM,
+            )
 
     async def set_setpoint_without_process(value: DType_T):
         tracer.log_event(
@@ -281,7 +288,15 @@ def _create_and_link_command_pv(
     async def wrapped_method(_: Any):
         tracer.log_event("Command PV put", topic=method, pv=pv)
 
-        await method.fn()
+        try:
+            await method.fn()
+        except Exception:
+            record.set(
+                record.get(),
+                process=False,
+                severity=alarm.MAJOR_ALARM,
+                alarm=alarm.MAJOR_ALARM,
+            )
 
     record = builder.Action(
         f"{pv_prefix}:{pv_name}",

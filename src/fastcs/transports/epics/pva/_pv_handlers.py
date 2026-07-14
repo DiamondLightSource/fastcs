@@ -53,8 +53,16 @@ class WritePvHandler:
         else:
             pv.post(value)
 
-        await self._attr_w.put(cast_value)
-        op.done()
+        try:
+            await self._attr_w.put(cast_value)
+            op.done()
+        except Exception as e:
+            error_msg = f"Exception raised during put operation: {e!r}"
+            op.done(error=error_msg)
+            alarm_states = p4p_alarm_states(
+                MAJOR_ALARM_SEVERITY, RECORD_ALARM_STATUS, error_msg
+            )
+            pv.post({**alarm_states})
 
 
 class CommandPvHandler:
@@ -68,8 +76,9 @@ class CommandPvHandler:
         try:
             await self._command()
         except Exception as e:
+            error_msg = f"Exception raised during command put: {e!r}"
             alarm_states = p4p_alarm_states(
-                MAJOR_ALARM_SEVERITY, RECORD_ALARM_STATUS, str(e)
+                MAJOR_ALARM_SEVERITY, RECORD_ALARM_STATUS, error_msg
             )
         else:
             alarm_states = p4p_alarm_states()
@@ -102,7 +111,11 @@ class CommandPvHandler:
             alarm_states = await self._run_command()
             pv.post({"value": False, **p4p_timestamp_now(), **alarm_states})
             if blocking:
-                op.done()
+                # Check if we are in alarm
+                if msg := alarm_states["alarm"]["message"]:
+                    op.done(error=msg)
+                else:
+                    op.done()
         else:
             raise RuntimeError("Commands should only take the value `True`.")
 
