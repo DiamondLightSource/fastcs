@@ -48,10 +48,11 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
 
     # Assert alias. Aliases do not show up in PVI structure
     assert ctxt.get(f"{pv_prefix}:B") == ctxt.get(f"{pv_prefix}:AliasB") == 0
-    ctxt.put(f"{pv_prefix}:B", 10)
+    ctxt.put(f"{pv_prefix}:B", 10, wait=True)
     assert ctxt.get(f"{pv_prefix}:AliasB") == 10
-    ctxt.put(f"{pv_prefix}:AliasB", 20)
+    ctxt.put(f"{pv_prefix}:AliasB", 20, wait=True)
     assert ctxt.get(f"{pv_prefix}:B") == 20
+    assert ctxt.get(f"{pv_prefix}:B_RBV") == ctxt.get(f"{pv_prefix}:AliasB_RBV") == 20
 
     # Assert command exceptions set record alarm states
     ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
@@ -59,5 +60,4 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     # where second put will propogates first put's alarm
     ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
     d_alarm = ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR")
-
     assert d_alarm == alarm.MAJOR_ALARM
