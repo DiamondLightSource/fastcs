@@ -148,7 +148,9 @@ async def test_command_method(p4p_subprocess: tuple[str, Queue]):
         assert after_command_value["value"] is False
         assert after_command_value["alarm"]["severity"] == 2
         assert (
-            after_command_value["alarm"]["message"] == "I: FAILED WITH THIS WEIRD ERROR"
+            after_command_value["alarm"]["message"]
+            == "Exception raised during command put: "
+            "RuntimeError('I: FAILED WITH THIS WEIRD ERROR')"
         )
         # Failed I process does not increment J
         assert j_values.empty()
