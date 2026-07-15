@@ -1,5 +1,6 @@
 import asyncio
 import enum
+from dataclasses import dataclass
 from datetime import datetime
 from multiprocessing import Queue
 from unittest.mock import ANY
@@ -13,9 +14,9 @@ from p4p.client.asyncio import Context
 from p4p.client.thread import Context as ThreadContext
 from p4p.nt import NTTable
 
-from fastcs.attributes import AttrR, AttrRW, AttrW
+from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Bool, Enum, Float, Int, String, Table, Waveform
+from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, String, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command
 from fastcs.transports.epics.pva.transport import EpicsPVATransport
@@ -209,6 +210,37 @@ async def test_numeric_alarms(p4p_subprocess: tuple[str, Queue]):
 
     finally:
         a_monitor.close()
+
+
+def test_alarms_set_if_put_fails(caplog):
+    @dataclass
+    class SimpleAttributeIORef(AttributeIORef):
+        pass
+
+    class SimpleAttributeIO(AttributeIO[DType_T, SimpleAttributeIORef]):
+        async def send(self, attr: AttrW[DType_T, SimpleAttributeIORef], value):
+            raise ValueError("Failed")
+
+    class SomeController(Controller):
+        a = AttrW(Int(), io_ref=SimpleAttributeIORef())
+
+    controller = SomeController(ios=[SimpleAttributeIO()])
+    pv_prefix = str(uuid4())
+    fastcs = make_fastcs(pv_prefix, controller)
+
+    async def put_pvs():
+        await asyncio.sleep(0.1)
+        ctxt = Context("pva")
+        await ctxt.put(f"{pv_prefix}:A", 1)
+
+    serve = asyncio.ensure_future(fastcs.serve(interactive=False))
+    try:
+        asyncio.get_event_loop().run_until_complete(
+            asyncio.wait_for(asyncio.gather(serve, put_pvs()), timeout=1)
+        )
+    except RuntimeError as exc:
+        assert str(exc) == "Exception raised during put operation: ValueError('Failed')"
+    serve.cancel()
 
 
 def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:

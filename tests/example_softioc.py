@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
@@ -18,11 +19,19 @@ class ParentController(Controller):
 
 
 class ChildController(Controller):
+    fail_on_next_e: bool = True
     c: AttrW = AttrW(Int())
 
     @command()
     async def d(self):
-        pass
+        print("D: RUNNING")
+        await asyncio.sleep(0.1)
+        if self.fail_on_next_e:
+            self.fail_on_next_e = False
+            raise RuntimeError("D: FAILED WITH THIS WEIRD ERROR")
+        else:
+            self.fail_on_next_e = True
+            print("D: FINISHED")
 
 
 def run(id="SOFTIOC_TEST_DEVICE"):

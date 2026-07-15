@@ -55,7 +55,6 @@ class WritePvHandler:
 
         try:
             await self._attr_w.put(cast_value)
-            op.done()
         except Exception as e:
             error_msg = f"Exception raised during put operation: {e!r}"
             op.done(error=error_msg)
@@ -63,6 +62,8 @@ class WritePvHandler:
                 MAJOR_ALARM_SEVERITY, RECORD_ALARM_STATUS, error_msg
             )
             pv.post({**alarm_states})
+        else:
+            op.done()
 
 
 class CommandPvHandler:
