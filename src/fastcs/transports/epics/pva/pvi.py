@@ -61,7 +61,7 @@ def _make_p4p_raw_value(pv_prefix: str, controller_api: ControllerAPI) -> dict:
             # Sub-device of a ControllerVector
             p4p_raw_value[f"__{int(pv_leaf)}"]["d"] = pv
         else:
-            p4p_raw_value[pv_leaf]["d"] = pv
+            p4p_raw_value[pv_leaf.lower()]["d"] = pv
     for pv_leaf, attribute in controller_api.attributes.items():
         # Add attribute entry
         pv = f"{pv_prefix}:{snake_to_pascal(pv_leaf)}"

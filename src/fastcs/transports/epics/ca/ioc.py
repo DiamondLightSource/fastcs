@@ -230,13 +230,9 @@ def _create_and_link_write_pv(
         logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
         try:
             await attribute.put(cast_from_epics_type(attribute.datatype, value))
+            _set_alarm(record, alarm.NO_ALARM)
         except Exception:
-            record.set(
-                record.get(),
-                process=False,
-                severity=alarm.MAJOR_ALARM,
-                alarm=alarm.MAJOR_ALARM,
-            )
+            _set_alarm(record, alarm.MAJOR_ALARM)
 
     async def set_setpoint_without_process(value: DType_T):
         tracer.log_event(
@@ -290,13 +286,9 @@ def _create_and_link_command_pv(
 
         try:
             await method.fn()
+            _set_alarm(record, alarm.NO_ALARM)
         except Exception:
-            record.set(
-                record.get(),
-                process=False,
-                severity=alarm.MAJOR_ALARM,
-                alarm=alarm.MAJOR_ALARM,
-            )
+            _set_alarm(record, alarm.MAJOR_ALARM)
 
     record = builder.Action(
         f"{pv_prefix}:{pv_name}",
@@ -350,3 +342,12 @@ def _add_alias(record: RecordWrapper, alias: str | None):
             )
         else:
             record.add_alias(alias)
+
+
+def _set_alarm(record: RecordWrapper, alarm_state: int):
+    record.set(
+        record.get(),
+        process=False,
+        severity=alarm_state,
+        alarm=alarm_state,
+    )

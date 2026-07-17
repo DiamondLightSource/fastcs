@@ -51,7 +51,7 @@ class WritePvHandler:
         if isinstance(self._attr_w.datatype, Enum):
             pv.post(cast_to_p4p_value(self._attr_w, cast_value))
         else:
-            pv.post(value)
+            pv.post({"value": cast_value, **p4p_alarm_states()})
 
         try:
             await self._attr_w.put(cast_value)
