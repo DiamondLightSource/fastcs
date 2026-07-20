@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 from p4p import Value
 from p4p.nt import NTEnum, NTNDArray, NTScalar, NTTable
@@ -7,7 +9,7 @@ from p4p.server import ServerOperation
 from p4p.server.asyncio import SharedPV
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
-from fastcs.datatypes import Enum, Table
+from fastcs.datatypes import DataType, Enum, Table, Waveform
 from fastcs.methods import CommandCallback
 from fastcs.tracer import Tracer
 
@@ -48,10 +50,15 @@ class WritePvHandler:
 
         tracer.log_event("PV put", topic=self._attr_w, pv=pv, value=cast_value)
 
-        if isinstance(self._attr_w.datatype, Enum):
+        datatype = self._attr_w.datatype
+
+        if isinstance(datatype, Enum):
             pv.post(cast_to_p4p_value(self._attr_w, cast_value))
         else:
-            pv.post({"value": cast_value, **p4p_alarm_states()})
+            pv.post(value)
+
+        # Reset alarm on successful post
+        _set_alarm(pv, datatype, value, p4p_alarm_states())
 
         try:
             await self._attr_w.put(cast_value)
@@ -61,7 +68,8 @@ class WritePvHandler:
             alarm_states = p4p_alarm_states(
                 MAJOR_ALARM_SEVERITY, RECORD_ALARM_STATUS, error_msg
             )
-            pv.post({**alarm_states})
+            # Raise alarm on failed put
+            _set_alarm(pv, datatype, value, alarm_states)
         else:
             op.done()
 
@@ -179,3 +187,13 @@ def make_command_pv(command: CommandCallback) -> SharedPV:
     )
 
     return shared_pv
+
+
+def _set_alarm(pv: SharedPV, dtype: DataType, value: Any, alarm_states: dict):
+    sub_states = alarm_states["alarm"]
+    # NTTable and NTNDArray don't accept 'status'
+    sub_states.pop("status", None)
+    if isinstance(dtype, Table | Waveform):
+        pv.post(value=value, **sub_states)
+    else:
+        pv.post({**alarm_states})

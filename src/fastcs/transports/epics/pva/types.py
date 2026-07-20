@@ -184,14 +184,10 @@ def cast_to_p4p_value(attribute: Attribute[DType_T], value: DType_T) -> object:
     """Converts a FastCS ``Attribute`` value to a p4p value"""
     match attribute.datatype:
         case Enum():
-            record_fields = {
-                "value": {
-                    "index": attribute.datatype.index_of(value),
-                    "choices": attribute.datatype.names,
-                },
-                **p4p_alarm_states(),
+            return {
+                "index": attribute.datatype.index_of(value),
+                "choices": attribute.datatype.names,
             }
-            return record_fields
         case Waveform():
             return attribute.datatype.validate(value)
         case Table():
