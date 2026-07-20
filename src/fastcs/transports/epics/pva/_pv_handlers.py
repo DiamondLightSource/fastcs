@@ -52,13 +52,13 @@ class WritePvHandler:
 
         datatype = self._attr_w.datatype
 
-        if isinstance(datatype, Enum):
-            pv.post(cast_to_p4p_value(self._attr_w, cast_value))
-        else:
-            pv.post(value)
+        value_to_post = (
+            cast_to_p4p_value(self._attr_w, cast_value)
+            if isinstance(datatype, Waveform | Table | Enum)
+            else cast_value
+        )
 
-        # Reset alarm on successful post
-        _set_alarm(pv, datatype, value, p4p_alarm_states())
+        _post_with_alarm_states(pv, datatype, value_to_post, p4p_alarm_states())
 
         try:
             await self._attr_w.put(cast_value)
@@ -69,7 +69,7 @@ class WritePvHandler:
                 MAJOR_ALARM_SEVERITY, RECORD_ALARM_STATUS, error_msg
             )
             # Raise alarm on failed put
-            _set_alarm(pv, datatype, value, alarm_states)
+            _post_with_alarm_states(pv, datatype, value_to_post, alarm_states)
         else:
             op.done()
 
@@ -189,11 +189,13 @@ def make_command_pv(command: CommandCallback) -> SharedPV:
     return shared_pv
 
 
-def _set_alarm(pv: SharedPV, dtype: DataType, value: Any, alarm_states: dict):
+def _post_with_alarm_states(
+    pv: SharedPV, dtype: DataType, value: Any, alarm_states: dict
+):
     sub_states = alarm_states["alarm"]
-    # NTTable and NTNDArray don't accept 'status'
-    sub_states.pop("status", None)
     if isinstance(dtype, Table | Waveform):
+        # NTTable and NTNDArray don't accept 'status'
+        sub_states.pop("status", None)
         pv.post(value=value, **sub_states)
     else:
-        pv.post({**alarm_states})
+        pv.post({"value": value, **alarm_states})
