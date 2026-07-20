@@ -232,6 +232,8 @@ def _create_and_link_write_pv(
             await attribute.put(cast_from_epics_type(attribute.datatype, value))
             _set_alarm(record, alarm.NO_ALARM)
         except Exception:
+            # No need to log, as AttrW.put already logs exceptions
+            # So just need to set alarm
             _set_alarm(record, alarm.MAJOR_ALARM)
 
     async def set_setpoint_without_process(value: DType_T):
@@ -288,6 +290,8 @@ def _create_and_link_command_pv(
             await method.fn()
             _set_alarm(record, alarm.NO_ALARM)
         except Exception:
+            # No need to log, as Command.fn() already logs exceptions
+            # So just need to set alarm
             _set_alarm(record, alarm.MAJOR_ALARM)
 
     record = builder.Action(
