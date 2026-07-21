@@ -105,10 +105,42 @@ declared without a boilerplate `__init__`.
   `CallbackWriteIO` classes. The same `attr` covers the read-only and
   read/write callback cases, so the two adapters are not shipped.
 
-> Datatype spelling: the `Float()` etc. in the examples below predate
-> [ADR 17](0017-naming-pass.md); read them as the ADR-17 python-type + `*Meta`
-> form (`AttrRW(float, precision=3, io=...)`), since the `DataType` family is
-> removed.
+### Datatype metadata: the `*Meta` TypedDicts
+
+`DataType` classes are gone (ADR 15/17). The metadata they carried (precision,
+units, nested limits, …) moves to a per-datatype `TypedDict` — `FloatMeta`,
+`IntMeta`, `StrMeta`, `BoolMeta`, `EnumMeta`, `Array1DMeta`, `TableMeta` — and
+**the resolved metadata is stored on the `Attribute` itself** (`attr.meta`),
+not on a separate datatype object. Every transport/connector that read
+`attr.datatype.precision`/`.units`/`.limits`/`.choices` now reads `attr.meta`
+(enum `choices` come from the python type; `EnumMeta` is display-only).
+
+Two spellings, two validation layers:
+
+- **Procedural (statically checked):** the `Attr*` constructors are overloaded
+  per datatype so the right `*Meta` is unpacked into `**kwargs`:
+
+  ```python
+  # conceptually, one overload per datatype:
+  def AttrRW(dtype: type[float], *, io=..., **kwargs: Unpack[FloatMeta]) -> AttrRW[float]: ...
+
+  self.temperature = AttrRW(float, precision=3, units="deg", io=TempIO(...))
+  # AttrRW(str, precision=3) is a static type error
+  ```
+
+- **Declarative (runtime-checked by the filler):**
+  `Annotated[AttrRW[float], FloatMeta(precision=3)]` (rare) or
+  `Annotated[AttrRW[float], SCPIParam("P", precision=3)]` (common). Neither
+  ties the metadata to the `AttrRW[...]` type param statically, so
+  [ADR 13](0013-declarative-procedural-split-and-controller-filler.md)'s
+  `ControllerFiller` validates it against the datatype at fill time. A generic
+  extras object takes the **superset** `Meta` TypedDict —
+  `SCPIParam(param: str, **kwargs: Unpack[Meta])` (`Meta` being the union of
+  `FloatMeta`/`StrMeta`/… fields, all optional) — stores a `.meta`, and the
+  filler passes that `.meta` into the constructed `AttrRW`.
+
+The `*Meta` module location is deferred to the public-API-namespace decision
+(#406); land it provisionally until then.
 
 Migration is mechanical for the common case (an old `AttributeIO` subclass
 absorbs its `AttributeIORef`'s fields into its own `__init__` and is

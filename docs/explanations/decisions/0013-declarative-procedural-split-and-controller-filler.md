@@ -77,6 +77,12 @@ bare type hints only; instance scope = procedural construction.** Concretely:
   own extras vocabulary the same way ophyd-async's `PvSuffix`/`TangoPolling`
   do. Core FastCS defines **no** extras vocabulary for 1.0 (decision 3 of
   #388).
+- When a child is filled from an `Annotated[Attr[T], extras]` hint, the filler
+  **runtime-validates** the metadata the extras carries (`FloatMeta`, or a
+  protocol object's `.meta` such as `SCPIParam(...).meta`) against the datatype
+  `T` — e.g. `precision` supplied for a `str` raises. This is the runtime
+  counterpart to the static `Unpack[FloatMeta]` check on the procedural `Attr*`
+  constructors (see [ADR 14](0014-attribute-io-rw-rework.md)).
 - The refined rule from decision 14 of #388: *class body = declarations +
   decorated behaviour; instance scope = construction with data.* This keeps
   `@command`/`@scan`, and the new `@attr_r`/`@attr_rw` sugar, as class-body
@@ -96,22 +102,29 @@ class TemperatureRampController(Controller):
         self.start = AttrRW(Int(), io=TempIO(conn, "S", suffix))
 ```
 
-**Declarative hint + filler** — the value is *promised* by a hint and
-provisioned by introspection at connect time (the Eiger-like case):
+**Declarative hint + filler** — the value is *promised* by a hint; the
+`ControllerFiller` (run from `Controller.__init__`) creates it as an
+**unfilled** `Attribute` so it **exists as soon as `__init__` returns**, and
+`initialise()` later *fills* it (provisions `io` + metadata) by introspection:
 
 ```python
 class OdinDetector(Controller):
-    frames: AttrRW[int]          # must exist by the end of initialise()
+    frames: AttrRW[int]     # created UNFILLED by the filler in __init__;
+                            # self.frames EXISTS after __init__, before initialise()
 
     async def initialise(self) -> None:
+        # introspection FILLS the already-created hinted attrs (io + metadata),
+        # and may add wholly-undeclared dynamic attrs (which carry no hint)
         for name, meta in await self._query_parameter_tree():
-            self.filler.fill_attribute(name, ...)
+            self.filler.fill_attribute(name, ...)   # validates meta vs datatype
+        self.filler.check_filled()
 ```
 
 **The rule** (identical to ophyd-async's rule for `Signal`s): *at the end of
 `__init__`, any Attribute referenced in code — and therefore carrying a type
-hint — must exist.* Only `__init__` is serial; `initialise()` may then run in
-parallel across controllers.
+hint — must exist* (the filler guarantees this for hinted children by creating
+them unfilled during `__init__`). Only `__init__` is serial; `initialise()`
+may then run in parallel across controllers.
 
 Introspecting controllers keep working as today's `initialise()` +
 `add_attribute` pattern. The fully-dynamic case — where the *set* of

@@ -41,6 +41,11 @@ after 1.0 when they become a deprecation cycle.
 > issue #392) rather than a separate late PR. `Array1D`/`Table` become *both*
 > the hint and the runtime structure passed around as the datatype — there is
 > no separate `Waveform`/`DataType` object to map to.
+>
+> The concrete `*Meta` mechanism (per-datatype `TypedDict`s, the superset
+> `Meta` for extras, `attr.meta` storage on the attribute, `Unpack` overloads)
+> is specified in [ADR 14](0014-attribute-io-rw-rework.md); the module home for
+> these public names is decided in #406.
 
 1. **`prec` → `precision`.** Rename across `_Numeric`/`Float`/wherever
    `prec` appears (transports, docs, snippets). No behaviour change.

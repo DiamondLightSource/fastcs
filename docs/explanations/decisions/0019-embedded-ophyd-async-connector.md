@@ -104,7 +104,7 @@ Backend mappings (from #388 §5, grounded against the researched
 | `SignalBackend.set_callback` | `AttrR.add_on_update_callback(cb, always=True)`; stamped per [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md) |
 | `SignalBackend.put` | `AttrW.put(value)` |
 | `SignalBackend.get_setpoint` | `AttrW` cached setpoint, [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md) |
-| `SignalBackend.get_datakey` | `Attribute.datatype` → `SignalMetadata` (units, precision, limits, choices) + `make_datakey` |
+| `SignalBackend.get_datakey` | `attr.meta` (units, precision, limits) + python-type/enum choices → `SignalMetadata` + `make_datakey` |
 | `CommandBackend.execute`/`.signature` | `Command.__call__` / captured `Signature`, [ADR 15](0015-typed-commands.md) |
 | `SignalBackend.source` | e.g. `fastcs://.` |
 | child `Device` / `DeviceVector` | sub-`Controller` / `ControllerVector` |

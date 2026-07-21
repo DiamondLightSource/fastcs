@@ -117,8 +117,9 @@ class PowerSupply(Controller):
 1. **Decorator is `@attr` + `@x.setter`** (property-mirroring), not
    `@attr_r`/`@attr_rw`/`.send`. No dedicated write-only decorator — `AttrW`
    alone is rare, written longhand.
-2. **Datatype/limits metadata passes via decorator kwargs** (`precision`,
-   `units`, limits — the ADR 17 `*Meta` fields).
+2. **Datatype/limits metadata passes via decorator kwargs**, typed with
+   `Unpack[…Meta]` (`precision`, `units`, limits — the ADR 14/17 `*Meta`
+   fields), validated against the getter's return type.
 3. **Supports the ADR 17 `Array1D`/`Table` hints.**
 4. **`@attr`-decorated attrs are treated specially by the filler** — already
    defined, so not shadowed; a clash between an introspected name and a
