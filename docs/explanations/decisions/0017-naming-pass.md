@@ -34,6 +34,14 @@ after 1.0 when they become a deprecation cycle.
 
 ## Decision
 
+> **Review update (#402): `DataType` is dropped** (see
+> [ADR 15](0015-typed-commands.md)). The renames below now live on python
+> types + `*Meta` typed dicts, not on `DataType` classes, and this pass folds
+> into the `AttributeIO` rework ([ADR 14](0014-attribute-io-rw-rework.md) /
+> issue #392) rather than a separate late PR. `Array1D`/`Table` become *both*
+> the hint and the runtime structure passed around as the datatype — there is
+> no separate `Waveform`/`DataType` object to map to.
+
 1. **`prec` → `precision`.** Rename across `_Numeric`/`Float`/wherever
    `prec` appears (transports, docs, snippets). No behaviour change.
 2. **Limits alignment.** Align `min`/`max`/`min_alarm`/`max_alarm` naming
@@ -76,30 +84,15 @@ mechanism — not part of this ADR.
   attribute declarations; procedural construction with `Waveform(...)`/
   `Table(...)` DataType instances is unchanged.
 
-## Open questions
+## Resolved in review (#402)
 
-1. Does the Limits alignment keep four flat fields (just renamed to match
-   event-model terms) or restructure into an actual `Limits`-like nested
-   object? The latter is a bigger, more disruptive change to
-   `DataType.validate` and every downstream driver constructing `Float(...)`
-   with keyword limits.
-2. Which event-model `Limits` categories does FastCS need —
-   control/display/alarm/warning all four, or a subset? EPICS records only
-   naturally distinguish alarm vs. display/control limits; does the mapping
-   from four FastCS fields to N event-model categories lose or need to
-   invent information for some transports?
-3. Is `precision` an `int` (decimal places, as `prec` is today) or does
-   aligning with event-model conventions change its meaning/type too?
-4. For `Array1D`/`Table` hints: is `Array1D[np.int32]` a real usable type at
-   both class-definition time (for `ControllerFiller` to scan) and at
-   type-checking time (for pyright), or a `TypeAlias`/`Annotated` wrapper
-   around `Waveform`? What does the two-way mapping (hint → `ControllerFiller`
-   constructs a `Waveform`; introspection-provisioned `Waveform` → does the
-   hint still validate it, per decision in
-   [ADR 13](0013-declarative-procedural-split-and-controller-filler.md)
-   open question 1) look like precisely?
-5. Should this rename land in the same PR as
-   [ADR 14](0014-attribute-io-rw-rework.md) (since both touch `DataType`-
-   adjacent code and every downstream driver already has to touch these
-   files), or stay a separate, later PR per §8 work-plan ordering (item 5,
-   after items 1-4)?
+1. **Limits are nested**, not four flat fields.
+2. **All four categories (control/display/alarm/warning), all optional**, with
+   inheritance: supply none ⇒ all unbounded; Display but not Control ⇒ Control
+   inherits Display (for writeable); Alarm but not Warning ⇒ Warning inherits
+   Alarm; both ⇒ assert Warning ⊆ Alarm; otherwise unspecified ⇒ unbounded.
+3. **`precision` stays an `int`** (decimal places).
+4. **`Array1D` is both the hint and the runtime structure** — with `DataType`
+   dropped it falls out in the wash; there is no `Waveform` object to map to.
+5. **Where it lands is the implementer's choice** — folds naturally into the
+   `AttributeIO`/DataType-drop PR (#392).

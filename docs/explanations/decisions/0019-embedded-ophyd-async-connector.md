@@ -86,8 +86,10 @@ Mechanics, directly mirroring `PviDeviceConnector`/`TangoDeviceConnector`:
   usage stays free (no FastCS controller/connection is instantiated at all).
 - Lifecycle (decision 8 of #388): the connector owns the runner; shutdown
   via an `atexit` hook plus an explicit `await connector.shutdown()`, which
-  cancels scan tasks and calls `Controller.disconnect()`. Upstream
-  `Device.disconnect()` is a follow-up (item 8 in #388 §8), not blocking.
+  cancels scan tasks and calls `Controller.disconnect()`. **The
+  `Device.disconnect()` proposal is dropped** — reconnect is
+  `Device.connect(force_reconnect=True)`, and the only disconnect we want is
+  `atexit` (review #402).
 - Embedded + transports simultaneously (decision 9 of #388, e.g. a CA GUI
   running next to a bluesky plan) is explicitly out of scope for the first
   cut, but the `ControllerRunner` is designed so a transport list can be
@@ -111,14 +113,15 @@ Backend mappings (from #388 §5, grounded against the researched
 Datatype mapping: `Int`/`Float`/`Bool`/`String` → `int`/`float`/`bool`/`str`;
 `Waveform(array_dtype, shape)`/`Array1D` hint (per
 [ADR 17](0017-naming-pass.md)) → ophyd-async `Array1D[dtype]`; `Enum(cls)` →
-the enum class itself. Two mismatches flagged as **prototype risk** in #388
-and carried into this ADR unresolved:
+the enum class itself. Resolved in review (#402):
 
-- ophyd-async constrains enums to `EnumTypes` (`StrictEnum`/`SubsetEnum`/
-  `SupersetEnum`); FastCS accepts any `enum.Enum`.
-- fastcs `Table` vs. ophyd-async `Table` (pydantic-based) — mapping is
-  best-effort, mismatches should be flagged early rather than silently
-  coerced.
+- **Enums:** un-hinted enum classes introspect at runtime and drop to a string
+  datatype retaining the choices as metadata; hint-typed enums require the
+  author to duplicate as a `StrictEnum`/`SubsetEnum`/`SupersetEnum` (as they
+  would for remote FastCS) for now — revisit once there are use cases.
+- **`Table`:** a real bidirectional converter **is in scope for the first
+  cut**, used as the opportunity to bring the FastCS and ophyd-async `Table`
+  implementations closer together.
 
 ## Consequences
 
@@ -140,29 +143,23 @@ and carried into this ADR unresolved:
   (`fastcs.demo.simulation`) is the existing sim device ophyd-async tests
   against — no new simulated device is needed for the first cut.
 
-## Open questions
+## Resolved in review (#402)
 
-1. Enum conversion: does the connector require FastCS `Enum` datatypes used
-   with embedding to be `StrictEnum`/`SubsetEnum`/`SupersetEnum` subclasses
-   (pushing a constraint back onto FastCS driver authors who want embedding
-   support), or does it do runtime conversion/wrapping, and what happens to
-   values that don't fit ophyd-async's stricter model?
-2. `Table` mapping: is a real bidirectional pydantic-model ↔ fastcs-`Table`
-   converter in scope for the first cut, or is `Table` explicitly
-   unsupported/best-effort-only initially, with a hard error on mismatch
-   rather than silent coercion?
-3. Where does `@scan`-derived state that isn't exposed as a `Signal` go —
-   is it simply invisible to ophyd-async (server-side only, as the mapping
-   table states), or does some `@scan` output need a path to surface as a
-   `SignalR` (e.g. `fastcs-eiger`'s `update_voltages` `@scan` feeding
-   per-ramp `AttrR`s — those `AttrR`s are visible, but would a *pure*
-   `@scan`-only value ever need exposing)?
-4. How does `embedded_fastcs_connector` handle a `Controller` that raises
-   during `initialise()` (e.g. a device that's unreachable at embed time)
-   — does `connect_real` propagate the exception directly to
-   `Device.connect()`, retry, or something else?
-5. Should the embedded connector's shutdown (`atexit` + explicit
-   `await connector.shutdown()`) also be triggered by ophyd-async's own
-   `Device.disconnect()` once that upstream work lands (#388 §8 item 8), and
-   does that imply `ControllerRunner.stop()` needs to be safely callable
-   from a synchronous `atexit` context as well as an async one?
+- **Enums:** un-hinted → runtime-introspect, drop to string keeping choices as
+  metadata; hinted → require `StrictEnum`/`SubsetEnum`/`SupersetEnum`
+  duplication for now, revisit with use cases.
+- **`Table`:** bidirectional converter in scope for the first cut; use it to
+  converge the two `Table` implementations.
+- **Errors:** FastCS gains a `ConnectionFailedError` (raised when the device
+  doesn't respond); the connector converts it to `NotConnectedError` and keeps
+  retrying to connect in the background. All other errors surface unconverted.
+- **Disconnect dropped:** reconnect is `Device.connect(force_reconnect=True)`;
+  the only disconnect is `atexit`. No `Device.disconnect()` proposal (so #388
+  §8 item 8 / issue #401 is rewritten accordingly).
+
+## Open questions (awaiting input)
+
+1. Where does `@scan`-derived state that isn't exposed as a `Signal` go? All
+   attribute data already lives in `Attr` instances mapped to `Signal`s, so it
+   may be that `@scan` only drives updates and nothing extra needs surfacing —
+   needs confirming. *(awaiting @shihab-dls)*

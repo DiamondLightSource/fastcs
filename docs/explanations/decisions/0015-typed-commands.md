@@ -60,6 +60,19 @@ class Ramp(Controller):
     stop: Command[[], None]                 # void/void: served everywhere
 ```
 
+**Argument and return typing are independent** (not all-or-nothing):
+
+- *Args*: `[]` (none) · `[DT1, DT2, …]` (positional, known types — validated) ·
+  `Any` (must be a command, signature introspected at runtime).
+- *Returns*: `None` · `DT` (a single typed value) · `Any` (introspected).
+
+Following the [ADR 17](0017-naming-pass.md) `DataType` drop, command
+arguments/returns use plain python types + `*Meta` exactly as attributes do
+(no metadata ⇒ "use the python type"), and the serialisation machinery is
+**shared** with `Attribute`, not duplicated. **Keyword-argument** commands
+need a `TYPE_CHECKING` stub trick and are prototyped separately in the spike
+[#403](https://github.com/DiamondLightSource/fastcs/issues/403), not here.
+
 ## Consequences
 
 - `Command.__call__` gains real `*args`/`**kwargs` forwarding instead of a
@@ -76,27 +89,28 @@ class Ramp(Controller):
   signatures is not achievable for introspection-driven drivers, only for
   statically-declared ones. This mirrors the same "hint vs. no-hint" tension
   as [ADR 13](0013-declarative-procedural-split-and-controller-filler.md).
-- Command args/return values need datatype validation analogous to
-  `Attribute`'s `DataType.validate` — whether they reuse the `DataType`
-  family directly or a separate mechanism is an open question.
+- Command args/return values validate through the **same** python-type +
+  `*Meta` mechanism as attributes (the `DataType` family is removed, ADR 17) —
+  one shared validation/serialisation path, no command-specific duplicate.
 
-## Open questions
+## Resolved in review (#402)
 
-1. Do command arguments/return values validate through the same `DataType`
-   family attributes use, or is a separate (lighter-weight, since there's no
-   "current value" to cache) validation path introduced?
-2. For `fastcs-secop`-style dynamically-typed commands, what's the
-   recommended pattern — `Command[Any, Any]` with manual validation inside
-   the handler, or a documented way to construct a `Command[P, T]` with `P`/
-   `T` determined at runtime (which conflicts with normal generic typing)?
-3. Exactly what should the EPICS skip-with-warning message say, and where —
-   at controller construction, at `post_initialise`, or lazily the first
-   time a typed command is looked up by the transport?
-4. Should typed commands support partial typing (e.g. typed arguments but
-   void return, or vice versa), or is it all-or-nothing relative to
-   `Command[[], None]`?
-5. Does the REST/GraphQL/Tango serialisation of complex argument/return
-   types (numpy arrays, `Enum`, `Table`) reuse existing `DataType`
-   serialisation code from attributes, and if so does that argue for
-   sharing more machinery between `Attribute` and `Command` than they do
-   today?
+- **Validation shares the attribute path.** With `DataType` dropped (ADR 17),
+  command args/returns use python types + `*Meta` like attributes; no separate
+  mechanism, and complex-type serialisation (arrays, `Enum`, `Table`) is shared
+  with `Attribute`.
+- **Args and returns are typed independently** — Args `[]` / `[DT…]` / `Any`;
+  Returns `None` / `DT` / `Any` (see Decision). Not all-or-nothing.
+- **EPICS skip-with-warning fires at IOC startup** — post controller
+  construction, when the fully populated controllers are handed to the
+  transports to serve.
+- **Keyword-arg commands → spike [#403](https://github.com/DiamondLightSource/fastcs/issues/403)**
+  (interactive/Opus; needs a `TYPE_CHECKING` stub). Out of scope for core
+  typed-command work.
+
+## Open questions (awaiting input)
+
+1. Are there real `fastcs-secop` devices where you know something is a
+   `Command` but not its signature until runtime? Determines whether
+   `Command[Any, Any]` + runtime introspection suffices, or the kw-arg trick
+   (#403) is truly needed. *(awaiting @Tom-Willemsen)*

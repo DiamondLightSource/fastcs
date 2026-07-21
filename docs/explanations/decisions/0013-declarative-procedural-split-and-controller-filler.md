@@ -83,35 +83,44 @@ bare type hints only; instance scope = procedural construction.** Concretely:
   citizens, since none of them require per-instance deepcopy — they bind a
   method to `self` at construction time instead.
 
-Example, before and after:
+Two patterns follow, and the class body distinguishes them:
+
+**Procedural, no hint** — the value is fully constructed in `__init__`, so it
+needs no class-body declaration at all (the temperature controller):
 
 ```python
-# Before: class-scope instance, deepcopy'd per-instance
 class TemperatureRampController(Controller):
-    start = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="S"))
-
-# After: bare hint, filled procedurally
-class TemperatureRampController(Controller):
-    start: AttrRW[int]
-
     def __init__(self, index: int, conn: IPConnection) -> None:
         super().__init__()
         suffix = f"{index:02d}"
         self.start = AttrRW(Int(), io=TempIO(conn, "S", suffix))
 ```
 
-Introspecting controllers (`fastcs-eiger`, `fastcs-secop`,
-`fastcs-PandABlocks`, `fastcs-catio`'s dynamic path) keep working exactly as
-today's `initialise()` + `add_attribute` pattern, but the fully-dynamic case
-where the *set* of attributes is not known until a network round-trip
-completes (`fastcs-PandABlocks`, `fastcs-secop`) needs `ControllerFiller` to
-support filling children that were never hinted at all — mirroring
-`DeviceFiller.fill_child_signal`'s "no annotation existed, introspection
-added an undeclared attribute" path. This is a harder requirement than most
-of ophyd-async's own connectors exercise (PVI and Tango both fill *some*
-undeclared children, but FastCS's dynamic drivers may have **zero** static
-hints and still need to build a full attribute tree from nothing) and is
-called out below as an open question.
+**Declarative hint + filler** — the value is *promised* by a hint and
+provisioned by introspection at connect time (the Eiger-like case):
+
+```python
+class OdinDetector(Controller):
+    frames: AttrRW[int]          # must exist by the end of initialise()
+
+    async def initialise(self) -> None:
+        for name, meta in await self._query_parameter_tree():
+            self.filler.fill_attribute(name, ...)
+```
+
+**The rule** (identical to ophyd-async's rule for `Signal`s): *at the end of
+`__init__`, any Attribute referenced in code — and therefore carrying a type
+hint — must exist.* Only `__init__` is serial; `initialise()` may then run in
+parallel across controllers.
+
+Introspecting controllers keep working as today's `initialise()` +
+`add_attribute` pattern. The fully-dynamic case — where the *set* of
+attributes is not known until a network round-trip completes
+(`fastcs-PandABlocks`, `fastcs-secop`) — needs `ControllerFiller` to fill
+children that were never hinted at all. This is **no harder than ophyd-async
+already supports**: `Device(connector=PviConnector(prefix))` fills a whole
+`Signal` tree from introspection with no hints required, and `ControllerFiller`
+mirrors that `DeviceFiller` path directly.
 
 ## Consequences
 
@@ -130,29 +139,20 @@ called out below as an open question.
   it interacts with the stable `ControllerAPI` surface consumed by the
   embedded ophyd-async connector.
 
-## Open questions
+## Resolved in review (#402)
 
-1. Does `ControllerFiller` need to support "no hints exist at all — build the
-   entire attribute tree from introspected data" (the `fastcs-PandABlocks`
-   and `fastcs-secop` case), or is some minimal static shape (even just a
-   marker on the `Controller` subclass) always required? `DeviceFiller` has
-   no precedent for the fully-hint-free case.
-2. `fastcs-catio`'s dynamic path builds whole controller *classes* at runtime
-   via `type(...)` from YAML definitions, before any instance (and hence any
-   `ControllerFiller`) exists. Is that pattern still supported, unsupported,
-   or does it need to move to instance-level dynamic attribute construction
-   under the new model?
-3. `fastcs-eiger`'s `OdinController.initialise()` constructs new attributes
-   that reference sibling sub-controllers' attributes, assuming those
-   sub-controllers already exist. Does `ControllerFiller` impose an
-   ordering/dependency mechanism between sibling children, or is this left
-   as an `initialise()` implementation detail (call `super().initialise()`
-   first)?
-4. Should `check_filled` be able to distinguish "this hinted child is
-   optional" (ophyd-async's `Optional[X]` convention), or does FastCS treat
-   every hint as required for 1.0?
-5. Exact `ControllerFiller` method names/signatures are left to the
-   prototype — should they mirror `DeviceFiller`'s names 1:1
-   (`fill_child_signal` → `fill_child_attribute`?) for discoverability by
-   developers who know both libraries, or diverge where FastCS's vocabulary
-   (`Attribute` vs `Signal`) differs?
+1. **`ControllerFiller` must support "no hints at all"** — build the whole
+   attribute tree from introspected data (`fastcs-PandABlocks`, `fastcs-secop`).
+2. **`fastcs-catio`'s runtime `type(...)` class-building is *not* supported.**
+   A bare `Controller` instead allows attributes to be added onto it from the
+   outside — which is exactly what the fillers do — so catio moves to
+   instance-level dynamic attribute construction.
+3. **No sibling-ordering mechanism.** The rule "any hint-referenced Attribute
+   must exist by the end of `__init__`" makes `initialise()` parallelisable;
+   sibling dependencies are an `initialise()` implementation detail (call
+   `super().initialise()` first).
+4. **`Optional[X]` hints are supported** — `check_filled` treats an optional
+   hint as not-required.
+5. **Follow `DeviceFiller`'s structure, not its names.** Architectural
+   similarity matters; method names match only where FastCS's vocabulary
+   (`Attribute` vs `Signal`) makes them fit.

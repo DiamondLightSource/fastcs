@@ -42,8 +42,15 @@ removes the latter but keeps `@command`/`@scan`.
 
 ## Decision
 
-Add `@attr_r`/`@attr_rw` (and, for symmetry, whatever `@attr_w`-only case
-makes sense) as pure sugar over `AttrR`/`AttrW`/`AttrRW` plus a generated
+> **Review update (#402): the decorator is `@attr`, mirroring `@property`.**
+> `@attr` on the getter, `@voltage.setter` on the writer (not `@attr_r`/
+> `@attr_rw`/`.send`). It unifies with the callback IO from
+> [ADR 14](0014-attribute-io-rw-rework.md): `self.x = attr(getter=…, setter=…)`
+> is the `__init__` spelling of the same thing. `AttrW`-only (write with no
+> paired getter) is rare, so it is written longhand rather than given its own
+> decorator.
+
+Add `@attr` as pure sugar over `AttrR`/`AttrRW` plus a generated
 callback-based `io=`, built on the same `Unbound*`-style bind machinery as
 `@command`/`@scan` — fresh objects per instance, no prototype/deepcopy
 hazard, consistent with keeping this a class-body citizen under
@@ -51,11 +58,11 @@ hazard, consistent with keeping this a class-body citizen under
 
 ```python
 class PowerSupply(Controller):
-    @attr_rw(units="V", update_period=0.5)   # dtype inferred from -> float
+    @attr(units="V", update_period=0.5)   # dtype inferred from -> float
     async def voltage(self) -> float:
         return await self._conn.query("V?")
 
-    @voltage.send
+    @voltage.setter
     async def voltage(self, value: float) -> None:
         await self._conn.send(f"V={value}")
 ```
@@ -70,10 +77,9 @@ class PowerSupply(Controller):
   etc.) map onto the equivalent `DataType`/`ReadIO`/`WriteIO` constructor
   arguments from [ADR 14](0014-attribute-io-rw-rework.md) — this is sugar
   over that mechanism, not a parallel one.
-- `@attr_rw`'s `.send` decorator mirrors the `@voltage.send` pattern shown
-  above (property-style, matching `@property`/`@x.setter`), giving the
+- `@attr`'s `.setter` decorator mirrors `@property`/`@x.setter`, giving the
   read+write pair a single logical name (`voltage`) with two decorated
-  methods.
+  methods. (`.send` is not used.)
 - This degrades gracefully into the full `io=` object form for protocol
   families with more complex needs, and into
   [ADR 13](0013-declarative-procedural-split-and-controller-filler.md)'s
@@ -92,11 +98,10 @@ class PowerSupply(Controller):
 
 - New driver code for the common "one attribute, one device call" case gets
   noticeably shorter — closing the gap #388 §7.5 identifies against PyTango.
-- The generated `io=` object needs a name/shape (an internal
-  `CallbackReadIO`/`CallbackWriteIO`-alike, per
-  [ADR 14](0014-attribute-io-rw-rework.md)'s open question 5) — this ADR's
-  sugar and that ADR's escape hatch should likely share the same underlying
-  callback-IO implementation rather than duplicating it.
+- The generated callback `io=` **is** the unified callback mechanism from
+  [ADR 14](0014-attribute-io-rw-rework.md) (which no longer ships separate
+  `CallbackReadIO`/`CallbackWriteIO`): `@attr` and `attr(getter=…)` are two
+  spellings over one implementation.
 - Adds a third way to declare an attribute (bare hint + filler; explicit
   `AttrRW(..., io=...)`; `@attr_rw` sugar) — the docs need to be clear about
   when to reach for which, so this doesn't become three equally-weighted
@@ -107,25 +112,16 @@ class PowerSupply(Controller):
   small and independent of the `ControllerFiller` work — so it can land
   early and not block on [ADR 13](0013-declarative-procedural-split-and-controller-filler.md).
 
-## Open questions
+## Resolved in review (#402)
 
-1. Exact decorator names — `@attr_r`/`@attr_rw` as #388 proposes, or
-   something more explicit (`@readable_attribute`?) — and whether a
-   write-only `@attr_w` variant is worth adding for symmetry given `AttrW`
-   without a paired getter is a rarer shape in practice.
-2. How are `min`/`max`/`precision` (post [ADR 17](0017-naming-pass.md))
-   and other `DataType`-level metadata passed through the decorator's
-   keyword arguments — do they get their own decorator kwargs, or does the
-   decorator only take IO-shaped kwargs (`update_period`) and require
-   dropping to explicit `AttrRW(...)` construction for richer datatype
-   metadata?
-3. Does `@attr_rw` support the `Array1D`/`Table` hint spellings from
-   [ADR 17](0017-naming-pass.md), or is decorator sugar scoped to scalar
-   datatypes only for 1.0?
-4. Should `ControllerFiller` treat `@attr_rw`-decorated methods specially
-   (they don't need filling — they're already fully constructed at bind
-   time), or are they simply invisible to the filler the same way
-   `@command`/`@scan` are today?
-5. Does the getter's docstring become the attribute's `description`,
-   mirroring how `Method._docstring` already captures `getdoc(fn)` for
-   `@command`/`@scan`?
+1. **Decorator is `@attr` + `@x.setter`** (property-mirroring), not
+   `@attr_r`/`@attr_rw`/`.send`. No dedicated write-only decorator — `AttrW`
+   alone is rare, written longhand.
+2. **Datatype/limits metadata passes via decorator kwargs** (`precision`,
+   `units`, limits — the ADR 17 `*Meta` fields).
+3. **Supports the ADR 17 `Array1D`/`Table` hints.**
+4. **`@attr`-decorated attrs are treated specially by the filler** — already
+   defined, so not shadowed; a clash between an introspected name and a
+   decorated name raises.
+5. **Yes — the getter's docstring becomes the attribute's `description`**
+   (as `@command`/`@scan` already do).

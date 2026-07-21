@@ -73,7 +73,9 @@ class ReadWriteIO(ReadIO[DType_T], WriteIO[DType_T], ABC): ...
 
 (Working names per #388; exact naming — `ReadIO`/`WriteIO`/`ReadWriteIO` vs.
 `AttrRIO`/`AttrWIO`/`AttrRWIO` — is an open question below and in
-[ADR 17](0017-naming-pass.md).)
+[ADR 17](0017-naming-pass.md).) Concrete IO classes are **dataclasses**, so
+per-attribute fields (register name, command string, `update_period`) are
+declared without a boilerplate `__init__`.
 
 - `AttrR(dt, io: ReadIO[DType_T] | None)`, `AttrW(dt, io: WriteIO[DType_T] |
   None)`, `AttrRW(dt, io: ReadWriteIO[DType_T] | None)`. Passing a
@@ -97,10 +99,16 @@ class ReadWriteIO(ReadIO[DType_T], WriteIO[DType_T], ABC): ...
   setpoint→readback via `_internal_update`, and the sync-setpoint machinery
   is unaffected. This remains the analogue of ophyd-async's
   `soft_signal_rw`.
-- A concrete `CallbackReadIO`/`CallbackWriteIO` pair ships in core as an
-  escape hatch for one-off attributes, mirroring `soft_command` — e.g.
-  `CallbackReadIO(update=cb, update_period=0.2)` — without requiring a full
-  subclass.
+- The one-off "no subclass needed" case is served by the unified `attr`
+  factory (see [ADR 18](0018-attr-decorator-sugar.md)) — `self.x =
+  attr(getter=cb)` / `@attr` — **not** by separate `CallbackReadIO`/
+  `CallbackWriteIO` classes. The same `attr` covers the read-only and
+  read/write callback cases, so the two adapters are not shipped.
+
+> Datatype spelling: the `Float()` etc. in the examples below predate
+> [ADR 17](0017-naming-pass.md); read them as the ADR-17 python-type + `*Meta`
+> form (`AttrRW(float, precision=3, io=...)`), since the `DataType` family is
+> removed.
 
 Migration is mechanical for the common case (an old `AttributeIO` subclass
 absorbs its `AttributeIORef`'s fields into its own `__init__` and is
@@ -159,28 +167,25 @@ a public method on `AttrW`/`ReadWriteIO` — exact shape is an open question.
   get a shorter driver-local name) still applies to the new `ReadIO`/
   `WriteIO`/`ReadWriteIO` names.
 
-## Open questions
+## Resolved in review (#402)
 
-1. Final class names: `ReadIO`/`WriteIO`/`ReadWriteIO` vs. `AttrRIO`/
-   `AttrWIO`/`AttrRWIO` (mirroring the `Attr` family) vs. something else
-   entirely — see [ADR 17](0017-naming-pass.md).
-2. What is the public replacement for `fastcs-secop`'s
-   `_call_sync_setpoint_callbacks` workaround? Does `WriteIO.send` get an
-   optional `sync_setpoint` callback argument, or does `AttrW.put` grow a
-   public method IO authors can call from `send`?
-3. Should there be a runtime check (e.g. at `post_initialise`) that
-   catches "read-only IO passed to a write-capable `Attr`" for cases the
-   static type checker cannot see (e.g. an `Any`-typed IO built
-   dynamically, as in `fastcs-secop`'s and `fastcs-PandABlocks`'s
-   introspection-driven construction)? Both of those drivers build
-   attributes and their IO from runtime data where static checking cannot
-   help.
-4. `fastcs-PandABlocks`'s `UnitsIO.send` mutates a sibling attribute's
-   datatype and `fastcs-catio` recovers per-attribute metadata via
-   `attribute.io_ref` from *outside* the attribute's own `send`/`update`
-   (`panda_controller.py:_coerce_value_to_panda_type`). With `io_ref`
-   removed, what is the sanctioned way to recover an attribute's IO-specific
-   metadata (e.g. `attr.io` becoming a public, typed property)?
-5. Do we ship `CallbackReadIO`/`CallbackWriteIO` in `fastcs` core for 1.0, or
-   leave the "no subclass needed" one-off case entirely to driver authors
-   using `io=None` plus manual `set_update_callback`?
+- **Runtime check: yes.** Alongside the static type error, a runtime check
+  (e.g. at `post_initialise`) catches a read-only IO on a write-capable `Attr`
+  for the dynamically-built `Any`-typed case (`fastcs-secop`,
+  `fastcs-PandABlocks`).
+- **`attr.io` becomes a public, typed property** — the sanctioned way to
+  recover an attribute's IO-specific metadata from *outside* its `send`/
+  `update` (replaces `fastcs-catio`'s `attribute.io_ref` access).
+- **No `CallbackReadIO`/`CallbackWriteIO` in core.** The one-off callback case
+  folds into the unified `attr` factory ([ADR 18](0018-attr-decorator-sugar.md));
+  the same decorator/factory covers the read-only and read/write cases.
+
+## Open questions (awaiting input)
+
+1. Final class names: `ReadIO`/`WriteIO`/`ReadWriteIO` vs. `AttrRIO`/`AttrWIO`/
+   `AttrRWIO` vs. something else — see [ADR 17](0017-naming-pass.md).
+   *(awaiting @shihab-dls)*
+2. Public replacement for `fastcs-secop`'s `_call_sync_setpoint_callbacks`:
+   an optional `sync_setpoint` argument on `WriteIO.send`, or a public method
+   on `AttrW` an IO author can call from `send`? *(awaiting @shihab-dls /
+   @Tom-Willemsen)*
