@@ -64,9 +64,7 @@ class TemperatureAttrController(Controller):
         self.connection = IPConnection()
         self._settings = settings
 
-        super().__init__(
-            ios=[RampRateIO(self.connection), PowerIO(self.connection)]
-        )
+        super().__init__(ios=[RampRateIO(self.connection), PowerIO(self.connection)])
 
         self.ramp_rate = AttrRW(Float(), io_ref=RampRateIORef(update_period=0.2))
         self.power = AttrR(Float(), io_ref=PowerIORef(update_period=0.2))
