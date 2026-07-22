@@ -97,6 +97,43 @@ The dispatch-by-type registry has real costs in our downstream drivers:
 > `AttrRW` directly. The `io=` prose below is kept for the `AttributeIORef`→callable
 > migration context; read `getter=`/`setter=` for the final shape.
 
+### Runtime surface (review update, 2026-07-22)
+
+The `get()` / `update(value)` / `put(value)` method trio is renamed and split so
+that both **access mode** and **whether a call touches the device** are legible
+from the member set:
+
+| Member | Kind | AttrR | AttrW | AttrRW | Device IO? |
+|---|---|---|---|---|---|
+| `.readback` | property (sync) | ✓ | — | ✓ | no (cached) |
+| `.setpoint` | property (sync) | — | ✓ | ✓ | no (cached) |
+| `poll()` | async method | ✓ | — | ✓ | **yes** (getter) |
+| `update(value)` | async method | ✓ | — | ✓ | no (cache push) |
+| `set(value)` | async method | — | ✓ | ✓ | **yes** (setter) |
+
+- **`.readback` / `.setpoint` replace `.value`.** Two explicitly-named cached
+  properties instead of one whose meaning shifted per class. Each class exposes
+  only the ones it has (AttrR has no `.setpoint`, AttrW no `.readback`), so
+  access mode reads off the surface — and the pair mirrors bluesky / ophyd-async's
+  `Location(setpoint, readback)` exactly, so `AttrRW` maps 1:1 onto `locate()`
+  and the embedded connector's `get_value`/`get_setpoint`. Both are **read-only**
+  properties: writes are async (validate + `await` callbacks) and so cannot be
+  property setters.
+- **`poll()` replaces the no-arg `update()`; `update_period` → `poll_period`.**
+  `poll()` does a live getter read, caches it, and **returns** the value (so an
+  on-demand read is `await attr.poll()`, mirroring ophyd's live `get_value()`);
+  `poll_period` (`ONCE` / float / `None`) is only the *schedule* the framework
+  calls it on. This deletes the `set_update_callback` / `bind_update_callback`
+  plumbing — the getter lives on the attr and `poll()` calls it.
+- **`update(value)` is now purely a cache push** — a `value` or `Update[T]` from a
+  `@scan`/subscription — with no device IO and no `None` sentinel.
+- **`set(value)` replaces `put()`** (the bluesky/ophyd verb): it caches
+  `.setpoint` immediately (decision 10a), then runs the setter; the setter's
+  `T | Update[T]` return feeds `.readback` via `update()`. The old
+  `sync_setpoint=` kwarg and `_call_sync_setpoint_callbacks` are gone.
+
+So `poll()`/`set()` touch the device; `.readback`/`.setpoint`/`update()` do not.
+
 Replace `AttributeIO`/`AttributeIORef` with three focused, per-attribute IO
 base classes with abstract `update`/`send` methods, passed as a single `io=`
 constructor argument:
