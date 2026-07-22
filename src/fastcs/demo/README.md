@@ -8,40 +8,56 @@ mirror ophyd-async, so the examples install with `fastcs[demo]` and can be run,
 imported, and — crucially — used as the **single source of the tutorial code**.
 
 These modules are the canonical source the tutorials `literalinclude` from
-(one tutorial per example, see the docs `tutorials/`). They are kept green
-under `uv run --locked tox`, so the tutorials cannot drift from the framework:
-every framework PR that changes an API updates the example(s) it affects in the
-*same* PR. This replaces the old "hand-authored `docs/snippets/` that drift"
-approach — the examples are the docs.
+(see the docs `tutorials/`). They are kept green under `uv run --locked tox`,
+so the tutorials cannot drift from the framework: every framework PR that
+changes an API updates the example(s) it affects in the *same* PR. This
+replaces the old "hand-authored `docs/snippets/` that drift" approach — the
+examples are the docs.
 
-## The five examples — a hello-world → complicated-device ladder
+## The example modules — a hello-world → complicated-device ladder
 
-Two hardware backends: a temperature-controller sim (steps 1–4) and a
-cut-down Eiger REST sim (step 5). Step 1 is pure-soft (no backend). Each rung
-introduces exactly one new concept.
+Two hardware backends: a temperature-controller sim and a cut-down Eiger REST
+sim. The hello-world is pure-soft (no backend). IO is supplied as plain
+`getter`/`setter` callables on `AttrR`/`AttrW`/`AttrRW` (or the `@attr`
+decorator) — there is no `io=` object and no `DataType`.
 
-| # | Module | Concept | Backend | Issue |
-|---|--------|---------|---------|-------|
-| 1 | `hello_world.py` | pure-soft `@attr`/`@attr_rw` decorator over in-memory values | none (soft) | [#398](https://github.com/DiamondLightSource/fastcs/issues/398) |
-| 2 | `temperature_attr.py` | callback getter/setter via the `attr` factory in `__init__` | temperature sim | [#404](https://github.com/DiamondLightSource/fastcs/issues/404) |
-| 3 | `controllers.py` | reusable per-attribute `io=` `ReadWriteIO` objects, sub-controllers/vectors, `@scan`/`@command` | temperature sim | [#390](https://github.com/DiamondLightSource/fastcs/issues/390) |
-| 4 | `temperature_scpi.py` (+ `scpi.py`) | declarative annotated attributes; `ControllerFiller` builds each `io` from **static** `SCPIParam` extras metadata | temperature sim | [#405](https://github.com/DiamondLightSource/fastcs/issues/405) |
-| 5 | `eiger.py` (+ `simulation/eiger.py`) | introspectable device: bare hints filled from a **runtime** REST parameter tree | Eiger REST sim | [#391](https://github.com/DiamondLightSource/fastcs/issues/391) |
+| Module | Concept | Backend | Issue |
+|--------|---------|---------|-------|
+| `hello_world.py` | pure-soft `@attr` decorator over in-memory values | none (soft) | [#398](https://github.com/DiamondLightSource/fastcs/issues/398) |
+| `temperature_attr.py` | `getter`/`setter` callables in `__init__` (`AttrRW(getter=…, setter=…)`) | temperature sim | [#404](https://github.com/DiamondLightSource/fastcs/issues/404) |
+| `controllers.py` | composition & methods: sub-controllers / `ControllerVector`, `@scan`, `@command` (getter/setter IO) | temperature sim | [#390](https://github.com/DiamondLightSource/fastcs/issues/390) |
+| `temperature_scpi.py` (+ `scpi.py`) | declarative annotated attributes; `ControllerFiller` builds each getter/setter from **static** `SCPIParam` extras metadata | temperature sim | [#405](https://github.com/DiamondLightSource/fastcs/issues/405) |
+| `eiger.py` (+ `simulation/eiger.py`) | introspectable device: bare hints filled from a **runtime** REST parameter tree | Eiger REST sim | [#391](https://github.com/DiamondLightSource/fastcs/issues/391) |
+
+## The four tutorials
+
+Five modules, **four** tutorials (the old "reusable `io=` object" rung is gone —
+`io=` objects were replaced by getter/setter callables, so there is nothing to
+factor into):
+
+1. **hello world** — `hello_world.py` (soft `@attr`).
+2. **getter/setter** — `temperature_attr.py`; closes with *"when the shared
+   pattern is worth naming, reach for the declarative style →"*.
+3. **declarative** — `temperature_scpi.py` (annotated `SCPIParam` + filler),
+   and this is where **composition + `@scan` + `@command`** are shown, walking
+   the full multi-ramp temperature controller (`controllers.py`, #390).
+4. **introspectable** — `eiger.py`.
 
 Notes:
 
-- **Steps 2 vs 3** are the same device wired two ways — inline per-attribute
-  getter/setter, then the same IO factored into a reusable `io=` object — a
-  natural refactoring story on one backend.
-- **Step 4 is deliberately *not* introspectable.** A SCPI device does not
-  describe itself, which is exactly why you hand-annotate: the metadata lives
-  in your Python (`SCPIParam("P", precision=3, …)`), not on the wire. Do **not**
-  invent SCPI introspection — that would erase the contrast with step 5. The
-  example `SCPIController`/`SCPIParam` vocabulary lives *here in the demo*, not
-  in core FastCS (decision 3: core ships no extras vocabulary for 1.0); it
-  demonstrates how a protocol layer builds on the filler's `(child, extras)`
-  mechanism.
-- **Step 5 uses a separate Eiger REST backend on purpose.** Introspection earns
+- **The declarative style is the DRY answer for a real protocol family**, not
+  a reusable IO object. Recommend it when the shared wire pattern is worth
+  naming (a protocol you'll reuse); for a handful of bespoke attributes,
+  getter/setter in `__init__` is lighter and fine.
+- **`temperature_scpi.py` is deliberately *not* introspectable.** A SCPI device
+  does not describe itself, which is exactly why you hand-annotate: the metadata
+  lives in your Python (`SCPIParam("P", precision=3, …)`), not on the wire. Do
+  **not** invent SCPI introspection — that would erase the contrast with the
+  Eiger example. The `SCPIController`/`SCPIParam` vocabulary lives *here in the
+  demo*, not in core FastCS (decision 3: core ships no extras vocabulary for
+  1.0); it demonstrates how a protocol layer builds on the filler's
+  `(child, extras)` mechanism.
+- **`eiger.py` uses a separate REST backend on purpose.** Introspection earns
   its complexity only when a device's parameters aren't knowable at author time
   (a detector, not a fixed-command temp controller). The backend switch *is*
   the lesson — "small & known → declare; large & self-describing → introspect"
@@ -51,10 +67,11 @@ Notes:
 
 ## Baselines vs framework PRs
 
-Steps 2, 3, 5 have current-API baselines that can be written **now**
-(deliberately messy against the pre-refactor API) and are cleaned up as each
-framework PR lands. Steps 1 and 4 need framework work first (`attr` factory
-#397; `ControllerFiller` #394). See each issue's `Blocked by:` line.
+`temperature_attr.py`, `controllers.py`, and `eiger.py` have current-API
+baselines that can be written **now** (deliberately messy against the
+pre-refactor API) and are cleaned up as each framework PR lands. `hello_world.py`
+and `temperature_scpi.py` need framework work first (`@attr` #397;
+`ControllerFiller` #394). See each issue's `Blocked by:` line.
 
 `literalinclude` region markers are added to each module as part of writing its
 tutorial (the umbrella docs pass,

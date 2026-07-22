@@ -1,4 +1,4 @@
-# 18. Attr-from-Method Decorator Sugar (@attr_r / @attr_rw)
+# 18. Attr-from-Method Decorator Sugar (`@attr` + `@x.setter`)
 
 Date: 2026-07-20
 
@@ -73,17 +73,20 @@ class PowerSupply(Controller):
   keyword the way PyTango does — decision 14 of #388 explicitly calls this
   out as *better* than PyTango's `dtype=` kwarg since it's one real
   annotation, checked statically.
-- `@attr_r`/`@attr_rw` decorator keyword arguments (`units`, `update_period`,
-  etc.) map onto the equivalent `DataType`/`ReadIO`/`WriteIO` constructor
-  arguments from [ADR 14](0014-attribute-io-rw-rework.md) — this is sugar
-  over that mechanism, not a parallel one.
+- `@attr` comes in two forms: bare `@attr` and parameterised `@attr(precision=3,
+  units="V", update_period=0.5)`; the keyword arguments map onto the same `*Meta`
+  fields and the `getter`/`setter` + `update_period` constructor arguments of
+  `AttrR`/`AttrRW` ([ADR 14](0014-attribute-io-rw-rework.md)) — sugar over that
+  mechanism, not a parallel one. There is **no** free-function `attr()` factory:
+  the procedural spelling is `AttrR(getter=…)` / `AttrRW(getter=…, setter=…)`
+  directly.
 - `@attr`'s `.setter` decorator mirrors `@property`/`@x.setter`, giving the
   read+write pair a single logical name (`voltage`) with two decorated
   methods. (`.send` is not used.)
-- This degrades gracefully into the full `io=` object form for protocol
-  families with more complex needs, and into
+- This degrades gracefully into the procedural `AttrR`/`AttrRW(getter=…,
+  setter=…)` form for protocol families with more complex needs, and into
   [ADR 13](0013-declarative-procedural-split-and-controller-filler.md)'s
-  filler for introspection-driven attributes — `@attr_rw` is explicitly the
+  filler for introspection-driven attributes — `@attr` is explicitly the
   *simple* case, not a replacement for either.
 - Refines the class-body rule stated in
   [ADR 13](0013-declarative-procedural-split-and-controller-filler.md) to:
@@ -103,7 +106,7 @@ class PowerSupply(Controller):
   `CallbackReadIO`/`CallbackWriteIO`): `@attr` and `attr(getter=…)` are two
   spellings over one implementation.
 - Adds a third way to declare an attribute (bare hint + filler; explicit
-  `AttrRW(..., io=...)`; `@attr_rw` sugar) — the docs need to be clear about
+  `AttrRW(getter=…, setter=…)`; `@attr` sugar) — the docs need to be clear about
   when to reach for which, so this doesn't become three equally-weighted
   options with no guidance, undermining the "harsh split" clarity
   [ADR 13](0013-declarative-procedural-split-and-controller-filler.md) is

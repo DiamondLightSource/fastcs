@@ -51,6 +51,52 @@ The dispatch-by-type registry has real costs in our downstream drivers:
 
 ## Decision
 
+> **Review update (#402, 2026-07-22): `io=` objects replaced by `getter`/`setter` callables.**
+> The `ReadIO`/`WriteIO`/`ReadWriteIO` hierarchy and the `io=` argument described
+> below are **superseded.** Per-attribute IO is supplied as plain callables on the
+> constructors, which *is* the procedural spelling of the `@attr` decorator
+> ([ADR 18](0018-attr-decorator-sugar.md)):
+>
+> - `AttrR(getter=g)`, `AttrW(setter=s)`, `AttrRW(getter=g, setter=s)`. Access mode
+>   is enforced by **which parameters exist** (an `AttrR` has no `setter`), so the
+>   three-class IO hierarchy and its abstract-method enforcement are dropped
+>   entirely — and `getter=` on a read-only attr is honest where `io=` was a false
+>   friend.
+> - **The getter returns the value; the framework applies it** — `getter() -> T |
+>   Update[T]` — instead of the old imperative `io.update(attr)`. Imperative /
+>   multi-attribute periodic logic stays with `@scan`, which is *why* per-attribute
+>   IO shrinks to "one value in / out". The **setter** returns `None | T |
+>   Update[T]`: `None` = fire-and-forget (readback catches up on the next poll / the
+>   setpoint cache); a returned value is the device's *accepted* value (clamp/echo)
+>   and updates the readback + `AttrW` setpoint cache immediately — the sanctioned
+>   replacement for `fastcs-secop`'s private `_call_sync_setpoint_callbacks`.
+> - `Update[T]` = `value: T`, `timestamp: float | None` (epoch seconds; `None` ⇒
+>   framework stamps receive-time), `severity: Severity = OK` (the decision-10b
+>   severity enum); used for both the getter return and a value-returning setter —
+>   this is how device-native timestamps/severity reach `attr.update()`.
+> - **Datatype is optional when a getter/setter is given** — inferred from the
+>   getter's return annotation (or the setter's param), unwrapping `Update[T]` to
+>   `T`, so `AttrR(getter=g)` yields `AttrR[float]` with no restated type (parity
+>   with `@attr`). Only the bare python type is optional; `precision`/`units`/… stay
+>   explicit kwargs, and the per-datatype `Unpack[*Meta]` static check keys off the
+>   inferred return type. Not inferable (`-> Any`, unannotated lambda) ⇒ the
+>   positional datatype is required (fail-fast at construction).
+> - `update_period` is a read-side kwarg: `ONCE` = read once at connect (the default
+>   when a getter is given); a float = poll at that rate; `None` = **on-demand only**
+>   (read when a client asks, never auto-polled). **No getter** = soft, value pushed
+>   via `attr.update()` from a `@scan`/callback.
+> - Soft is now simply the *absence* of getter/setter (`AttrRW(float)` self-wires
+>   setpoint→readback as before); the `io=None` sentinel is gone.
+> - The declarative/filler path lowers to the **same** getter/setter (a
+>   `SCPIController`'s filler builds the callables from `SCPIParam`); getter/setter
+>   are where the old `_connect_attribute_ios` wiring now lives, so transports and
+>   the embedded connector are unaffected.
+>
+> `attr` is a **decorator only** (`@attr` / `@attr(precision=3)` + `@my_attr.setter`);
+> there is no free-function `attr()` factory — the procedural spelling is `AttrR`/
+> `AttrRW` directly. The `io=` prose below is kept for the `AttributeIORef`→callable
+> migration context; read `getter=`/`setter=` for the final shape.
+
 Replace `AttributeIO`/`AttributeIORef` with three focused, per-attribute IO
 base classes with abstract `update`/`send` methods, passed as a single `io=`
 constructor argument:
@@ -241,10 +287,10 @@ a public method on `AttrW`/`ReadWriteIO` — exact shape is an open question.
 
 ## Open questions (awaiting input)
 
-1. Final class names: `ReadIO`/`WriteIO`/`ReadWriteIO` vs. `AttrRIO`/`AttrWIO`/
-   `AttrRWIO` vs. something else — see [ADR 17](0017-naming-pass.md).
-   *(awaiting @shihab-dls)*
-2. Public replacement for `fastcs-secop`'s `_call_sync_setpoint_callbacks`:
-   an optional `sync_setpoint` argument on `WriteIO.send`, or a public method
-   on `AttrW` an IO author can call from `send`? *(awaiting @shihab-dls /
-   @Tom-Willemsen)*
+Both original open questions are closed by the 2026-07-22 getter/setter model:
+
+1. ~~Final IO class names (`ReadIO`/`WriteIO`/`ReadWriteIO` vs …)~~ — **moot**: the
+   IO class hierarchy is gone; IO is plain `getter`/`setter` callables.
+2. ~~Public replacement for `fastcs-secop`'s `_call_sync_setpoint_callbacks`~~ —
+   **resolved**: a `setter` returning `T | Update[T]` *is* the sanctioned setpoint
+   echo (updates readback + `AttrW` setpoint cache).

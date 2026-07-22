@@ -58,7 +58,7 @@ bare type hints only; instance scope = procedural construction.** Concretely:
   io=...)` may no longer be assigned directly in a class body.
 - Remove the deepcopy half of `_bind_attrs`. Method binding for `@command`/
   `@scan` (the `UnboundCommand`/`UnboundScan` machinery) is unaffected and
-  stays, since it does not require deepcopy — see decision 14 (`@attr_rw`
+  stays, since it does not require deepcopy — see decision 14 (`@attr`
   decorator sugar).
 - Remove `HintedAttribute` and `_validate_type_hints`/`_validate_hinted_*` as
   a *separate* validation-only pass. Their job — "this hinted child must
@@ -85,7 +85,7 @@ bare type hints only; instance scope = procedural construction.** Concretely:
   constructors (see [ADR 14](0014-attribute-io-rw-rework.md)).
 - The refined rule from decision 14 of #388: *class body = declarations +
   decorated behaviour; instance scope = construction with data.* This keeps
-  `@command`/`@scan`, and the new `@attr_r`/`@attr_rw` sugar, as class-body
+  `@command`/`@scan`, and the new `@attr`/`@x.setter` sugar, as class-body
   citizens, since none of them require per-instance deepcopy — they bind a
   method to `self` at construction time instead.
 
