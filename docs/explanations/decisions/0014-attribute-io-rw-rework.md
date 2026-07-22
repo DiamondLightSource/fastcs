@@ -139,6 +139,33 @@ Two spellings, two validation layers:
   `FloatMeta`/`StrMeta`/… fields, all optional) — stores a `.meta`, and the
   filler passes that `.meta` into the constructed `AttrRW`.
 
+**One spec object per declaratively-filled attribute.** A protocol extra like
+`SCPIParam` is the *single place* an attribute's whole specification is
+written: both the protocol binding (the command token, `"P"`) and all its
+generic metadata (`description`, `precision`, `units`, limits…) via
+`**Unpack[Meta]`. The filler treats that extra as the **exclusive** spec
+source for its attribute — it does **not** also merge a separate
+`FloatMeta`/`Meta` extra sitting on the same `Annotated[...]` hint, so there
+is no precedence question to resolve. The trade this accepts is deliberate:
+routing metadata through the superset `Meta` (not a per-datatype
+`Unpack[FloatMeta]`) means correctness is the filler's **runtime** job, not a
+static check — a separate `Annotated` extra cannot tie its `**Meta` to the
+`AttrRW[...]` datatype param, and making the extra generic
+(`SCPIParam[float](...)`) only forces the user to restate a type already in
+the hint. So the declarative path pays for its ergonomics with runtime
+validation; the filler's error must name the attribute and field (e.g.
+"`precision` is not valid for `str` attribute `device_id`").
+
+Naming: the extra is `SCPIParam` (a binding object you *instantiate* as an
+`Annotated` extra), **not** `SCPIMeta` — the `*Meta` suffix is reserved for
+the metadata TypedDicts you `Unpack` (`FloatMeta`, `Meta`), a different kind
+of Python object. `SCPIParam` is a sibling of ophyd-async's
+`PvSuffix`/`TangoPolling`, not of `SignalMetadata`. It is **not** part of core
+FastCS (decision 3: core defines no extras vocabulary for 1.0) — it lives in a
+protocol layer; the demo package ships an example `SCPIController` +
+`SCPIParam` to show how a third party builds one on the filler's
+`(child, extras)` mechanism.
+
 The `*Meta` module location is deferred to the public-API-namespace decision
 (#406); land it provisionally until then.
 
