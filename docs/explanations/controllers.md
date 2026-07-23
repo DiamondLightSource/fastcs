@@ -28,8 +28,9 @@ lifecycle, if required.
 ### Scan task behaviour
 
 When used as the root controller, FastCS collects all `@scan` methods and readable
-attributes with `update_period` set, across the whole controller hierarchy to be run as
-background tasks by FastCS. Scan tasks are gated on the `_connected` flag: if a scan
+attributes with a `getter` and a `poll_period` set, across the whole controller
+hierarchy, to be run as background tasks by FastCS. Scan tasks are gated on the
+`_connected` flag: if a scan
 raises an exception, `_connected` is set to `False` and tasks pause until `reconnect`
 sets it back to `True`.
 
@@ -154,7 +155,7 @@ distinct components with different types or roles.
 
 `BaseController` is the common base class for both `Controller` and `ControllerVector`.
 It handles the creation and validation of attributes, scan methods, command methods, and
-sub controllers, including type hint introspection and IO connection.
+sub controllers, including type hint introspection.
 
 `BaseController` is public for use in **type hints only**. It should not be subclassed
 directly when implementing a device driver. Use `Controller` or `ControllerVector`

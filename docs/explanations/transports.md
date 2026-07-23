@@ -99,9 +99,8 @@ layer.
 | Callback | Registered with | Triggered By | Direction | Purpose |
 |----------|-----------------|--------------|-----------|---------|
 | On Update | `add_on_update_callback()` | `attr.update(value)` | Publish ↑ | Update protocol representation when attribute value changes |
-| Sync Setpoint | `add_sync_setpoint_callback()` | `attr.put(value, sync_setpoint=True)` | Publish ↑ | Update transport's setpoint display without device communication |
 | Update Datatype | `add_update_datatype_callback()` | `datatype` property changes | Publish ↑ | Update protocol metadata when datatype changes |
-| Put | `attr.put(value)` | Transport receives user input | Put ↓ | Forward write requests from protocol to attribute |
+| Set | `attr.set(value)` | Transport receives user input | Set ↓ | Forward write requests from protocol to attribute |
 
 ### On Update Callbacks
 
@@ -140,13 +139,15 @@ def create_read(name, attribute):
 
 The callback receives the new `DataType` instance and should update the protocol's metadata representation (e.g., EPICS record fields like `EGU`, `HOPR`, `LOPR`).
 
-### Put
+### Set
 
 When the transport receives a write request from the protocol, call `await
-attribute.put(value)` to forward it to the attribute. This triggers validation and
-propagates the value to the device via the IO layer. The transport should also update
-its own setpoint display directly rather than relying on the sync setpoint callback
-being called.
+attribute.set(value)` to forward it to the attribute. This triggers validation, caches
+the value as the attribute's `.setpoint`, and (if the attribute has one) runs its
+`setter` to propagate the value to the device. If the setter returns a non-`None` value,
+that becomes the attribute's new `.setpoint`/readback - the device's accepted or
+clamped value. The transport should also update its own setpoint display directly
+rather than relying on a callback.
 
 ```python
 def create_write(name, attribute):
@@ -154,35 +155,39 @@ def create_write(name, attribute):
 
     async def handle_write(value):
         protocol_setpoint.post(value)
-        await attribute.put(value)
+        await attribute.set(value)
 ```
 
-### Sync Setpoint Callbacks
+### Seeding a Setpoint Display from the Readback
 
-Use `add_sync_setpoint_callback()` to update the protocol layer's setpoint
-representation when the transport receives a write request. This is called when
-`AttrW.put` is called with `sync_setpoint=True`.
-
-Each transport is responsible for updating its own setpoint display while actioning the
-change and should not rely on its sync setpoint callback being called by the attribute,
-nor should it call `AttrW.put` with `sync_setpoint=True`. Setpoints should not be synced
-between transports in this case - this is intentional to show which transport the change
-came from.
+An `AttrRW`'s setpoint starts out equal to its datatype's default, which may not match
+the device's actual current value until the first poll happens. To avoid a write PV
+briefly displaying a stale default, seed it once the first readback value is known,
+using a one-shot `add_on_update_callback()` on the readback side:
 
 ```python
+from fastcs.attributes import AttrR
+
+
 def create_write(name, attribute):
+    protocol_setpoint = Protocol(name)
+
     ...
 
-    async def update_setpoint_display(value):
-        protocol_setpoint.post(value)
+    if isinstance(attribute, AttrR):
+        seeded = False
 
-    attribute.add_sync_setpoint_callback(update_setpoint_display)
+        async def seed_setpoint_once(value):
+            nonlocal seeded
+            if not seeded:
+                seeded = True
+                protocol_setpoint.post(value)
+
+        attribute.add_on_update_callback(seed_setpoint_once)
 ```
 
-Sync setpoint callbacks are used in specific cases:
-
-- When an attribute delegates to other attributes that actually communicate with the device
-- During the first update of an `AttrRW`, to initialize the setpoint with the first readback value
+This only applies to `AttrRW` (readable and writable) - a pure `AttrW` has no readback
+to seed a setpoint display from.
 
 ## Commands
 

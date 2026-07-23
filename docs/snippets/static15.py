@@ -11,14 +11,16 @@ from fastcs.datatypes import Enum, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.logging import LogLevel, configure_logging, logger
 from fastcs.methods import command, scan
+from fastcs.tracer import Tracer
 from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
 
 ValueT = TypeVar("ValueT")
 
 
-class TemperatureProtocol:
+class TemperatureProtocol(Tracer):
     def __init__(self, connection: IPConnection, suffix: str = ""):
+        super().__init__()
         self._connection = connection
         self._suffix = suffix
 
@@ -29,12 +31,14 @@ class TemperatureProtocol:
 
         await self._connection.send_command(f"{command}\r\n")
 
-    async def send_query(self, param: str, dtype: type[ValueT]) -> ValueT:
+    async def send_query(
+        self, param: str, dtype: type[ValueT], topic: Tracer | None = None
+    ) -> ValueT:
         query = f"{param}{self._suffix}?"
         response = await self._connection.send_query(f"{query}\r\n")
         value = dtype(response.strip("\r\n"))  # type: ignore[call-arg]
 
-        logger.trace("Query for attribute", query=query, response=value)
+        self.log_event("Query for attribute", topic=topic, query=query, response=value)
 
         return value
 
@@ -67,28 +71,28 @@ class TemperatureRampController(Controller):
         self.voltage = AttrR(Float())
 
     async def _get_start(self) -> int:
-        return await self._protocol.send_query("S", int)
+        return await self._protocol.send_query("S", int, topic=self.start)
 
     async def _set_start(self, value: int) -> None:
         await self._protocol.send_command("S", value, int)
 
     async def _get_end(self) -> int:
-        return await self._protocol.send_query("E", int)
+        return await self._protocol.send_query("E", int, topic=self.end)
 
     async def _set_end(self, value: int) -> None:
         await self._protocol.send_command("E", value, int)
 
     async def _get_enabled(self) -> OnOffEnum:
-        return OnOffEnum(await self._protocol.send_query("N", str))
+        return OnOffEnum(await self._protocol.send_query("N", str, topic=self.enabled))
 
     async def _set_enabled(self, value: OnOffEnum) -> None:
         await self._protocol.send_command("N", value.value, str)
 
     async def _get_target(self) -> float:
-        return await self._protocol.send_query("T", float)
+        return await self._protocol.send_query("T", float, topic=self.target)
 
     async def _get_actual(self) -> float:
-        return await self._protocol.send_query("A", float)
+        return await self._protocol.send_query("A", float, topic=self.actual)
 
 
 class TemperatureController(Controller):
@@ -115,13 +119,13 @@ class TemperatureController(Controller):
             self.add_sub_controller(f"R{index}", controller)
 
     async def _get_device_id(self) -> str:
-        return await self._protocol.send_query("ID", str)
+        return await self._protocol.send_query("ID", str, topic=self.device_id)
 
     async def _get_power(self) -> float:
-        return await self._protocol.send_query("P", float)
+        return await self._protocol.send_query("P", float, topic=self.power)
 
     async def _get_ramp_rate(self) -> float:
-        return await self._protocol.send_query("R", float)
+        return await self._protocol.send_query("R", float, topic=self.ramp_rate)
 
     async def _set_ramp_rate(self, value: float) -> None:
         await self._protocol.send_command("R", value, float)
