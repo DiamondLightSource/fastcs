@@ -33,7 +33,7 @@ async def test_attr_r_update_logs_validation_error(loguru_caplog):
     attr = AttrR(Int())
 
     with pytest.raises(ValueError):
-        await attr.update("not_an_int")
+        await attr.update("not_an_int")  # type: ignore[arg-type]
 
     assert "Failed to validate value" in loguru_caplog.text
 

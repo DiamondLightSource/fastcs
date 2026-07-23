@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
-from collections.abc import Sequence
 from copy import deepcopy
 from typing import (
     TypeVar,
@@ -11,7 +9,7 @@ from typing import (
     get_type_hints,
 )
 
-from fastcs.attributes import AnyAttributeIO, Attribute, AttrR, AttrW, HintedAttribute
+from fastcs.attributes import Attribute, HintedAttribute
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.logging import logger
 from fastcs.methods import Command, Method, Scan, UnboundCommand, UnboundScan
@@ -41,7 +39,6 @@ class BaseController(Tracer):
         self,
         path: list[str] | None = None,
         description: str | None = None,
-        ios: Sequence[AnyAttributeIO] | None = None,
     ) -> None:
         super().__init__()
 
@@ -64,10 +61,6 @@ class BaseController(Tracer):
 
         self._bind_attrs()
 
-        ios = ios or []
-        self._attribute_ref_io_map = {io.ref_type: io for io in ios}
-        self._validate_io(ios)
-
     def _find_type_hints(self):
         """Find `Attribute` and `Controller` type hints for introspection validation"""
         for name, hint in get_type_hints(type(self)).items():
@@ -81,7 +74,7 @@ class BaseController(Tracer):
                 if args is None:
                     dtype = None
                 else:
-                    if len(args) == 2:
+                    if len(args) == 1:
                         dtype = args[0]
                     else:
                         raise TypeError(
@@ -156,16 +149,6 @@ class BaseController(Tracer):
                 ):
                     self.add_scan(attr_name, unbound_scan.bind(self))
 
-    def _validate_io(self, ios: Sequence[AnyAttributeIO]):
-        """Validate that there is exactly one AttributeIO class registered to the
-        controller for each type of AttributeIORef belonging to the attributes of the
-        controller"""
-        for ref_type, count in Counter([io.ref_type for io in ios]).items():
-            if count > 1:
-                raise RuntimeError(
-                    f"More than one AttributeIO class handles {ref_type.__name__}"
-                )
-
     def __repr__(self):
         name = self.__class__.__name__
         path = ".".join(self.path) or None
@@ -192,7 +175,6 @@ class BaseController(Tracer):
     def post_initialise(self):
         """Hook to call after all attributes added, before serving the application"""
         self._validate_type_hints()
-        self._connect_attribute_ios()
 
     def _validate_type_hints(self):
         """Validate all type-hints were introspected"""
@@ -259,28 +241,6 @@ class BaseController(Tracer):
             controller=self,
             sub_controller=controller,
         )
-
-    def _connect_attribute_ios(self) -> None:
-        """Connect ``Attribute`` callbacks to ``AttributeIO``s"""
-        for attr in self.__attributes.values():
-            ref = attr.io_ref if attr.has_io_ref() else None
-            if ref is None:
-                continue
-
-            io = self._attribute_ref_io_map.get(type(ref))
-            if io is None:
-                raise ValueError(
-                    f"{self.__class__.__name__} does not have an AttributeIO "
-                    f"to handle {attr.io_ref.__class__.__name__}"
-                )
-
-            if isinstance(attr, AttrW):
-                attr.set_on_put_callback(io.send)
-            if isinstance(attr, AttrR):
-                attr.set_update_callback(io.update)
-
-        for controller in self.sub_controllers.values():
-            controller._connect_attribute_ios()  # noqa: SLF001
 
     @property
     def path(self) -> list[str]:

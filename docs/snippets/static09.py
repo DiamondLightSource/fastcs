@@ -1,8 +1,7 @@
-from dataclasses import KW_ONLY, dataclass
 from pathlib import Path
 from typing import TypeVar
 
-from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
+from fastcs.attributes import AttrR, AttrRW
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.datatypes import Float, String
@@ -10,48 +9,52 @@ from fastcs.launch import FastCS
 from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
 
-NumberT = TypeVar("NumberT", int, float)
+ValueT = TypeVar("ValueT")
 
 
-@dataclass
-class TemperatureControllerAttributeIORef(AttributeIORef):
-    name: str
-    _: KW_ONLY
-    update_period: float | None = 0.2
-
-
-class TemperatureControllerAttributeIO(
-    AttributeIO[NumberT, TemperatureControllerAttributeIORef]
-):
-    def __init__(self, connection: IPConnection):
-        super().__init__()
-
+class TemperatureProtocol:
+    def __init__(self, connection: IPConnection, suffix: str = ""):
         self._connection = connection
+        self._suffix = suffix
 
-    async def update(self, attr: AttrR[NumberT, TemperatureControllerAttributeIORef]):
-        query = f"{attr.io_ref.name}?"
-        response = await self._connection.send_query(f"{query}\r\n")
-        value = response.strip("\r\n")
-
-        await attr.update(attr.dtype(value))
-
-    async def send(
-        self, attr: AttrW[NumberT, TemperatureControllerAttributeIORef], value: NumberT
-    ) -> None:
-        command = f"{attr.io_ref.name}={attr.dtype(value)}"
+    async def send_command(self, param: str, value: ValueT, dtype: type[ValueT]):
+        command = f"{param}{self._suffix}={dtype(value)}"  # type: ignore[call-arg]
         await self._connection.send_command(f"{command}\r\n")
+
+    async def send_query(self, param: str, dtype: type[ValueT]) -> ValueT:
+        query = f"{param}{self._suffix}?"
+        response = await self._connection.send_query(f"{query}\r\n")
+        return dtype(response.strip("\r\n"))  # type: ignore[call-arg]
 
 
 class TemperatureController(Controller):
-    device_id = AttrR(String(), io_ref=TemperatureControllerAttributeIORef("ID"))
-    power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("P"))
-    ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef("R"))
-
     def __init__(self, settings: IPConnectionSettings):
         self._ip_settings = settings
         self._connection = IPConnection()
+        self._protocol = TemperatureProtocol(self._connection)
 
-        super().__init__(ios=[TemperatureControllerAttributeIO(self._connection)])
+        super().__init__()
+
+        self.device_id = AttrR(String(), getter=self._get_device_id, poll_period=0.2)
+        self.power = AttrR(Float(), getter=self._get_power, poll_period=0.2)
+        self.ramp_rate = AttrRW(
+            Float(),
+            getter=self._get_ramp_rate,
+            setter=self._set_ramp_rate,
+            poll_period=0.2,
+        )
+
+    async def _get_device_id(self) -> str:
+        return await self._protocol.send_query("ID", str)
+
+    async def _get_power(self) -> float:
+        return await self._protocol.send_query("P", float)
+
+    async def _get_ramp_rate(self) -> float:
+        return await self._protocol.send_query("R", float)
+
+    async def _set_ramp_rate(self, value: float) -> None:
+        await self._protocol.send_command("R", value, float)
 
     async def connect(self):
         await self._connection.connect(self._ip_settings)

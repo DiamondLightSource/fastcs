@@ -2,14 +2,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Generic, Literal
 
-from fastcs.attributes.attribute_io_ref import AttributeIORefT
 from fastcs.datatypes import DataType, DType, DType_T
 from fastcs.tracer import Tracer
 
 AttributeAccessMode = Literal["r", "w", "rw"]
 
 
-class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
+class Attribute(Generic[DType_T], Tracer, ABC):
     """Base FastCS attribute.
 
     Instances of this class added to a ``Controller`` will be used by the FastCS class.
@@ -18,7 +17,6 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
     def __init__(
         self,
         datatype: DataType[DType_T],
-        io_ref: AttributeIORefT | None = None,
         group: str | None = None,
         description: str | None = None,
     ) -> None:
@@ -27,7 +25,6 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
         assert issubclass(datatype.dtype, DType), (
             f"Attr type must be one of {DType}, received type {datatype.dtype}"
         )
-        self._io_ref = io_ref
         self._datatype: DataType[DType_T] = datatype
         self._group = group
         self.enabled = True
@@ -40,15 +37,6 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
         # Path and name to be filled in by Controller it is bound to
         self._name = ""
         self._path = []
-
-    @property
-    def io_ref(self) -> AttributeIORefT:
-        if self._io_ref is None:
-            raise RuntimeError(f"{self} has no AttributeIORef")
-        return self._io_ref
-
-    def has_io_ref(self):
-        return self._io_ref is not None
 
     @property
     def datatype(self) -> DataType[DType_T]:
@@ -115,4 +103,4 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
         full_name = self.full_name or None
         datatype = self._datatype.__class__.__name__
 
-        return f"{name}(name={full_name}, datatype={datatype}, io_ref={self._io_ref})"
+        return f"{name}(name={full_name}, datatype={datatype})"

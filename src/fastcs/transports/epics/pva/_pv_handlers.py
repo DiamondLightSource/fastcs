@@ -53,7 +53,7 @@ class WritePvHandler:
         else:
             pv.post(value)
 
-        await self._attr_w.put(cast_value)
+        await self._attr_w.set(cast_value)
         op.done()
 
 
@@ -121,7 +121,7 @@ def _make_shared_pv_arguments(attribute: Attribute) -> dict[str, object]:
 
 def make_shared_read_pv(attribute: AttrR) -> SharedPV:
     shared_pv = SharedPV(
-        initial=cast_to_p4p_value(attribute, attribute.get()),
+        initial=cast_to_p4p_value(attribute, attribute.readback),
         **_make_shared_pv_arguments(attribute),
     )
 
@@ -145,7 +145,18 @@ def make_shared_write_pv(attribute: AttrW) -> SharedPV:
         tracer.log_event("PV set setpoint", topic=attribute, value=value)
         shared_pv.post(cast_to_p4p_value(attribute, value))
 
-    attribute.add_sync_setpoint_callback(set_setpoint)
+    if isinstance(attribute, AttrR):
+        # AttrRW: seed the setpoint PV with the first known readback value (e.g.
+        # from a getter poll), in case it differs from the datatype default.
+        seeded = False
+
+        async def seed_setpoint_once(value):
+            nonlocal seeded
+            if not seeded:
+                seeded = True
+                await set_setpoint(value)
+
+        attribute.add_on_update_callback(seed_setpoint_once)
 
     return shared_pv
 
