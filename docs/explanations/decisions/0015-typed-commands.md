@@ -106,25 +106,27 @@ need a `TYPE_CHECKING` stub trick and are prototyped separately in the spike
   `*Meta` mechanism as attributes (the `DataType` family is removed, ADR 17) —
   one shared validation/serialisation path, no command-specific duplicate.
 
-## Resolved in review (#402)
+## Questions resolved in review (#402)
 
-- **Validation shares the attribute path.** With `DataType` dropped (ADR 17),
-  command args/returns use python types + `*Meta` like attributes; no separate
-  mechanism, and complex-type serialisation (arrays, `Enum`, `Table`) is shared
-  with `Attribute`.
-- **Args and returns are typed independently** — Args `[]` / `[DT…]`;
-  Returns `None` / `DT` (see Decision). Not all-or-nothing, but each is fully
-  known — there is no `Any` middle case.
-- **No partial `Command[Any, Any]`.** @Tom-Willemsen confirmed on
-  [#402](https://github.com/DiamondLightSource/fastcs/pull/402#discussion_r3621453680)
-  that SECoP devices are discovered entirely from an over-the-wire `describe`:
-  you never statically know something is a command but not its signature — you
-  either know the full `Command[P, T]` or you know nothing at all and build the
-  whole controller at runtime. `P`/`T` are therefore completely known or the
-  whole structure is unknown, with no in-between.
-- **EPICS skip-with-warning fires at IOC startup** — post controller
-  construction, when the fully populated controllers are handed to the
-  transports to serve.
-- **Keyword-arg commands → spike [#403](https://github.com/DiamondLightSource/fastcs/issues/403)**
-  (interactive/Opus; needs a `TYPE_CHECKING` stub). Out of scope for core
-  typed-command work.
+1. **Do commands need their own type/serialisation mechanism?** No — they share
+   the attribute path. With `DataType` dropped ([ADR 17](0017-naming-pass.md)),
+   command args/returns use python types + `*Meta` like attributes, and
+   complex-type serialisation (arrays, `Enum`, `Table`) is shared with
+   `Attribute`.
+2. **Are args and returns typed all-or-nothing?** No — independently: args `[]`
+   / `[DT…]`; returns `None` / `DT` (see Decision). Each is fully known — there
+   is no `Any` middle case.
+3. **Is there a partial `Command[Any, Any]`?** No. @Tom-Willemsen confirmed on
+   [#402](https://github.com/DiamondLightSource/fastcs/pull/402#discussion_r3621453680)
+   that SECoP devices are discovered entirely from an over-the-wire `describe`:
+   you never statically know something is a command but not its signature — you
+   either know the full `Command[P, T]` or you know nothing at all and build the
+   whole controller at runtime. `P`/`T` are therefore completely known or the
+   whole structure is unknown, with no in-between.
+4. **When does the EPICS skip-with-warning fire?** At IOC startup — post
+   controller construction, when the fully populated controllers are handed to
+   the transports to serve.
+5. **What about keyword-argument commands?** Deferred to spike
+   [#403](https://github.com/DiamondLightSource/fastcs/issues/403)
+   (interactive/Opus; needs a `TYPE_CHECKING` stub). Out of scope for core
+   typed-command work.

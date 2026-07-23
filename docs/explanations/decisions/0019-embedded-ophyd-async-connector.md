@@ -2,7 +2,10 @@
 
 Date: 2026-07-20
 
-**Related:** [Issue #388](https://github.com/DiamondLightSource/fastcs/issues/388)
+**Related:** [Issue #388](https://github.com/DiamondLightSource/fastcs/issues/388),
+[ADR 13](0013-declarative-procedural-split-and-controller-filler.md),
+[ADR 14](0014-attribute-io-rw-rework.md), [ADR 15](0015-typed-commands.md),
+[ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md)
 
 ## Status
 
@@ -32,8 +35,9 @@ for [ADR 13](0013-declarative-procedural-split-and-controller-filler.md)'s
   than trying to fill eagerly.
 - `SignalBackend`'s methods (`get_value`, `get_setpoint`, `set_callback`,
   `put`, `get_datakey`) are the exact surface a `FastCSSignalBackend` needs
-  to implement in terms of FastCS's `AttrR.get`/`AttrW.put`/setpoint cache/
-  native timestamps (from [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md)).
+  to implement in terms of FastCS's `.readback`/`.set()`/setpoint cache/native
+  timestamps (from [ADR 14](0014-attribute-io-rw-rework.md) and
+  [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md)).
 - `CommandBackend.execute`/`.signature` is the equivalent surface for typed
   commands (from [ADR 15](0015-typed-commands.md)).
 
@@ -86,10 +90,12 @@ Mechanics, directly mirroring `PviDeviceConnector`/`TangoDeviceConnector`:
   usage stays free (no FastCS controller/connection is instantiated at all).
 - Lifecycle (decision 8 of #388): the connector owns the runner; shutdown
   via an `atexit` hook plus an explicit `await connector.shutdown()`, which
-  cancels scan tasks and calls `Controller.disconnect()`. **The
-  `Device.disconnect()` proposal is dropped** — reconnect is
-  `Device.connect(force_reconnect=True)`, and the only disconnect we want is
-  `atexit` (review #402).
+  cancels scan tasks and calls `Controller.disconnect()`. Reconnect is
+  `Device.connect(force_reconnect=True)`; there is no `Device.disconnect()`
+  proposal, and the only disconnect we want is `atexit`.
+- Errors: FastCS gains a `ConnectionFailedError` (raised when the device
+  doesn't respond); the connector converts it to `NotConnectedError` and keeps
+  retrying to connect in the background. All other errors surface unconverted.
 - Embedded + transports simultaneously (decision 9 of #388, e.g. a CA GUI
   running next to a bluesky plan) is explicitly out of scope for the first
   cut, but the `ControllerRunner` is designed so a transport list can be
@@ -100,20 +106,20 @@ Backend mappings (from #388 §5, grounded against the researched
 
 | ophyd-async | FastCS |
 |---|---|
-| `SignalBackend.get_value` | `AttrR.get()` |
-| `SignalBackend.set_callback` | `AttrR.add_on_update_callback(cb, always=True)`; stamped per [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md) |
-| `SignalBackend.put` | `AttrW.put(value)` |
-| `SignalBackend.get_setpoint` | `AttrW` cached setpoint, [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md) |
+| `SignalBackend.get_value` | `AttrR.readback` |
+| `SignalBackend.set_callback` | update-callback registration (`always=True`); stamped per [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md) |
+| `SignalBackend.put` | `AttrW.set(value)` |
+| `SignalBackend.get_setpoint` | `AttrW.setpoint` cache, [ADR 14](0014-attribute-io-rw-rework.md)/[ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md) |
 | `SignalBackend.get_datakey` | `attr.meta` (units, precision, limits) + python-type/enum choices → `SignalMetadata` + `make_datakey` |
 | `CommandBackend.execute`/`.signature` | `Command.__call__` / captured `Signature`, [ADR 15](0015-typed-commands.md) |
 | `SignalBackend.source` | e.g. `fastcs://.` |
 | child `Device` / `DeviceVector` | sub-`Controller` / `ControllerVector` |
 | (not exposed) | `@scan` methods — purely-internal periodic coroutines, bound to no `Attr`, not surfaced to ophyd-async (@shihab-dls, #402) |
 
-Datatype mapping: `Int`/`Float`/`Bool`/`String` → `int`/`float`/`bool`/`str`;
-`Waveform(array_dtype, shape)`/`Array1D` hint (per
-[ADR 17](0017-naming-pass.md)) → ophyd-async `Array1D[dtype]`; `Enum(cls)` →
-the enum class itself. Resolved in review (#402):
+Datatype mapping: `int`/`float`/`bool`/`str` map straight across; the
+`Array1D[dtype]` hint/runtime type (per [ADR 17](0017-naming-pass.md)) →
+ophyd-async `Array1D[dtype]`; an enum class → the enum class itself. Two cases
+needed a decision:
 
 - **Enums:** un-hinted enum classes introspect at runtime and drop to a string
   datatype retaining the choices as metadata; hint-typed enums require the
@@ -142,28 +148,32 @@ the enum class itself. Resolved in review (#402):
 - `fastcs-demo`'s temperature controller simulation
   (`fastcs.demo.simulation`) is the existing sim device ophyd-async tests
   against — no new simulated device is needed for the first cut.
+- Dropping `Device.disconnect()` means #388 §8 item 8 / issue #401 is
+  rewritten accordingly (reconnect via `force_reconnect=True`, disconnect via
+  `atexit` only).
 
-## Resolved in review (#402)
+## Questions resolved in review (#402)
 
-- **Enums:** un-hinted → runtime-introspect, drop to string keeping choices as
-  metadata; hinted → require `StrictEnum`/`SubsetEnum`/`SupersetEnum`
-  duplication for now, revisit with use cases.
-- **`Table`:** bidirectional converter in scope for the first cut; use it to
-  converge the two `Table` implementations.
-- **Errors:** FastCS gains a `ConnectionFailedError` (raised when the device
-  doesn't respond); the connector converts it to `NotConnectedError` and keeps
-  retrying to connect in the background. All other errors surface unconverted.
-- **Disconnect dropped:** reconnect is `Device.connect(force_reconnect=True)`;
-  the only disconnect is `atexit`. No `Device.disconnect()` proposal (so #388
-  §8 item 8 / issue #401 is rewritten accordingly).
-- **`@scan` surfaces nothing; `@command` does (@shihab-dls, #402):** confirmed —
-  a `@scan`-decorated method is a **purely internal** coroutine run periodically;
-  it is *not* bound to an `Attr` and produces **no** `Signal`. All exposed state
-  already lives in `Attr` instances: a getter-based `AttrR` schedules its getter
-  as a scan-style task *and* is bound to the Attr (→ `Signal`), and a soft `AttrR`
-  fed by `@scan` via `update()` is likewise the exposed Signal — so `@scan` needs
-  nothing extra surfaced. A `@command` method **is** different: it creates an
-  `AttrW` and **is** exposed (the `CommandBackend` row above). Both `@scan` and
-  getter/update coroutines are collected onto the running loop in
-  `create_api_and_tasks()`; the connector schedules `@scan` coroutines as internal
-  tasks but never maps them to Signals.
+1. **How are enums mapped?** Un-hinted → runtime-introspect, drop to string
+   keeping choices as metadata; hinted → require
+   `StrictEnum`/`SubsetEnum`/`SupersetEnum` duplication for now, revisit with
+   use cases.
+2. **Is `Table` supported in the first cut?** Yes — a bidirectional converter,
+   used to converge the two `Table` implementations.
+3. **How are connection errors handled?** FastCS gains a
+   `ConnectionFailedError`; the connector converts it to `NotConnectedError` and
+   keeps retrying to connect in the background. All other errors surface
+   unconverted.
+4. **Is there a `Device.disconnect()`?** No — reconnect is
+   `Device.connect(force_reconnect=True)`; the only disconnect is `atexit`.
+5. **Where does `@scan`-derived state that isn't a `Signal` go?** (@shihab-dls.)
+   Nowhere extra is needed. A `@scan`-decorated method is a **purely internal**
+   coroutine run periodically; it is *not* bound to an `Attr` and produces **no**
+   `Signal`. All exposed state already lives in `Attr` instances: a getter-based
+   `AttrR` schedules its getter as a scan-style task *and* is bound to the Attr
+   (→ `Signal`), and a soft `AttrR` fed by `@scan` via `update()` is likewise
+   the exposed Signal — so `@scan` surfaces nothing extra. A `@command` method
+   **is** different: it creates an `AttrW` and **is** exposed (the
+   `CommandBackend` row above). Both `@scan` and getter/update coroutines are
+   collected onto the running loop in `create_api_and_tasks()`; the connector
+   schedules `@scan` coroutines as internal tasks but never maps them to Signals.

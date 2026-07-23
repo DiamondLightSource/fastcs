@@ -1,9 +1,10 @@
-# 14. AttributeIO R/W/RW Rework and Removal of AttributeIORef
+# 14. Per-Attribute IO as getter/setter Callables
 
 Date: 2026-07-20
 
 **Related:** [Issue #388](https://github.com/DiamondLightSource/fastcs/issues/388),
-[ADR 9](0009-handler-to-attribute-io-pattern.md), [ADR 12](0012-attribute-io-naming-convention.md)
+[ADR 9](0009-handler-to-attribute-io-pattern.md), [ADR 12](0012-attribute-io-naming-convention.md),
+[ADR 18](0018-attr-decorator-sugar.md)
 
 ## Status
 
@@ -38,8 +39,8 @@ The dispatch-by-type registry has real costs in our downstream drivers:
 - `fastcs-catio` registers **three** separate `AttributeIO`/`AttributeIORef`
   pairs on one `Controller` (`ios=[poll_io, symbol_io, coe_io]`) purely so
   each attribute's `io_ref` type can select the right one at
-  `_connect_attribute_ios` time — indirection that a direct `io=` argument
-  removes outright.
+  `_connect_attribute_ios` time — indirection that a direct per-attribute
+  callable removes outright.
 - `fastcs-secop` needs a private escape hatch,
   `attr._call_sync_setpoint_callbacks`, to push setpoint echoes from its
   `send()` implementation, because the current `AttributeIO.send` signature
@@ -51,57 +52,79 @@ The dispatch-by-type registry has real costs in our downstream drivers:
 
 ## Decision
 
-> **Review update (#402, 2026-07-22): `io=` objects replaced by `getter`/`setter` callables.**
-> The `ReadIO`/`WriteIO`/`ReadWriteIO` hierarchy and the `io=` argument described
-> below are **superseded.** Per-attribute IO is supplied as plain callables on the
-> constructors, which *is* the procedural spelling of the `@attr` decorator
-> ([ADR 18](0018-attr-decorator-sugar.md)):
->
-> - `AttrR(getter=g)`, `AttrW(setter=s)`, `AttrRW(getter=g, setter=s)`. Access mode
->   is enforced by **which parameters exist** (an `AttrR` has no `setter`), so the
->   three-class IO hierarchy and its abstract-method enforcement are dropped
->   entirely — and `getter=` on a read-only attr is honest where `io=` was a false
->   friend.
-> - **The getter returns the value; the framework applies it** — `getter() -> T |
->   Update[T]` — instead of the old imperative `io.update(attr)`. Imperative /
->   multi-attribute periodic logic stays with `@scan`, which is *why* per-attribute
->   IO shrinks to "one value in / out". The **setter** returns `None | T |
->   Update[T]`: `None` = fire-and-forget (readback catches up on the next poll / the
->   setpoint cache); a returned value is the device's *accepted* value (clamp/echo)
->   and updates the readback + `AttrW` setpoint cache immediately — the sanctioned
->   replacement for `fastcs-secop`'s private `_call_sync_setpoint_callbacks`.
-> - `Update[T]` = `value: T`, `timestamp: float | None` (epoch seconds; `None` ⇒
->   framework stamps receive-time), `severity: Severity = OK` (the decision-10b
->   severity enum); used for both the getter return and a value-returning setter —
->   this is how device-native timestamps/severity reach `attr.update()`.
-> - **Datatype is optional when a getter/setter is given** — inferred from the
->   getter's return annotation (or the setter's param), unwrapping `Update[T]` to
->   `T`, so `AttrR(getter=g)` yields `AttrR[float]` with no restated type (parity
->   with `@attr`). Only the bare python type is optional; `precision`/`units`/… stay
->   explicit kwargs, and the per-datatype `Unpack[*Meta]` static check keys off the
->   inferred return type. Not inferable (`-> Any`, unannotated lambda) ⇒ the
->   positional datatype is required (fail-fast at construction).
-> - `update_period` is a read-side kwarg: `ONCE` = read once at connect (the default
->   when a getter is given); a float = poll at that rate; `None` = **on-demand only**
->   (read when a client asks, never auto-polled). **No getter** = soft, value pushed
->   via `attr.update()` from a `@scan`/callback.
-> - Soft is now simply the *absence* of getter/setter (`AttrRW(float)` self-wires
->   setpoint→readback as before); the `io=None` sentinel is gone.
-> - The declarative/filler path lowers to the **same** getter/setter (a
->   `SCPIController`'s filler builds the callables from `SCPIParam`); getter/setter
->   are where the old `_connect_attribute_ios` wiring now lives, so transports and
->   the embedded connector are unaffected.
->
-> `attr` is a **decorator only** (`@attr` / `@attr(precision=3)` + `@my_attr.setter`);
-> there is no free-function `attr()` factory — the procedural spelling is `AttrR`/
-> `AttrRW` directly. The `io=` prose below is kept for the `AttributeIORef`→callable
-> migration context; read `getter=`/`setter=` for the final shape.
+Delete `AttributeIO` and `AttributeIORef` and their whole dispatch machinery.
+Per-attribute IO is supplied as plain **`getter`/`setter` callables** on the
+`Attr*` constructors — which *is* the procedural spelling of the `@attr`
+decorator ([ADR 18](0018-attr-decorator-sugar.md)):
 
-### Runtime surface (review update, 2026-07-22)
+- `AttrR(getter=g)`, `AttrW(setter=s)`, `AttrRW(getter=g, setter=s)`. Access
+  mode is enforced by **which parameters exist** (an `AttrR` has no `setter`),
+  so there is no IO class hierarchy and no abstract-method enforcement to
+  carry — and `getter=` on a read-only attr is honest where `io=` was a false
+  friend.
+- **The getter returns the value; the framework applies it** —
+  `getter() -> T | Update[T]` — instead of the old imperative `io.update(attr)`.
+  Imperative / multi-attribute periodic logic stays with `@scan`, which is
+  *why* per-attribute IO shrinks to "one value in / out".
+- The **setter** returns `None | T | Update[T]`: `None` = fire-and-forget
+  (readback catches up on the next poll / the setpoint cache); a returned value
+  is the device's *accepted* value (a clamp or echo) and updates the readback +
+  the `AttrW` setpoint cache immediately — the sanctioned replacement for
+  `fastcs-secop`'s private `_call_sync_setpoint_callbacks`.
+- `Update[T]` carries `value: T`, `timestamp: float | None` (epoch seconds;
+  `None` ⇒ framework stamps receive-time), and `severity: Severity = OK` (the
+  decision-10b severity enum, see
+  [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md)). It is
+  used for both the getter return and a value-returning setter — this is how
+  device-native timestamps/severity reach `attr.update()`.
+- **Datatype is optional when a getter/setter is given** — inferred from the
+  getter's return annotation (or the setter's parameter), unwrapping `Update[T]`
+  to `T`, so `AttrR(getter=g)` yields `AttrR[float]` with no restated type
+  (parity with `@attr`). Only the bare python type is optional;
+  `precision`/`units`/… stay explicit kwargs, and the per-datatype
+  `Unpack[*Meta]` static check keys off the inferred return type. Not inferable
+  (`-> Any`, an unannotated lambda) ⇒ the positional datatype is required
+  (fail-fast at construction).
+- `poll_period` is a read-side kwarg: `ONCE` = read once at connect (the
+  default when a getter is given); a float = poll at that rate; `None` =
+  **on-demand only** (read when a client asks, never auto-polled). **No
+  getter** = soft, value pushed via `attr.update()` from a `@scan`/callback.
+- Soft is now simply the *absence* of a getter/setter (`AttrRW(float)`
+  self-wires setpoint→readback as before, the analogue of ophyd-async's
+  `soft_signal_rw`); the old `io=None` sentinel is gone.
+- The declarative/filler path lowers to the **same** getter/setter (a
+  `SCPIController`'s filler builds the callables from a `SCPIParam`). getter and
+  setter are where the old `_connect_attribute_ios` wiring now lives, so
+  transports and the embedded connector are unaffected.
 
-The `get()` / `update(value)` / `put(value)` method trio is renamed and split so
-that both **access mode** and **whether a call touches the device** are legible
-from the member set:
+`attr` is a **decorator only** (`@attr` / `@attr(precision=3)` +
+`@voltage.setter`, [ADR 18](0018-attr-decorator-sugar.md)); there is no
+free-function `attr()` factory — the procedural spelling is `AttrR`/`AttrRW`
+directly.
+
+```python
+class TemperatureRampController(Controller):
+    def __init__(self, index: int, conn: IPConnection) -> None:
+        super().__init__()
+        name = f"R{index:02d}"
+
+        async def get_ramp_rate() -> float:
+            return float(await conn.send_query(f"{name}?\r\n"))
+
+        async def set_ramp_rate(value: float) -> None:
+            await conn.send_command(f"{name}={value}\r\n")
+
+        # datatype float inferred from get_ramp_rate's return annotation
+        self.ramp_rate = AttrRW(
+            getter=get_ramp_rate, setter=set_ramp_rate, units="deg", poll_period=0.2
+        )
+```
+
+### Runtime surface
+
+The old `get()` / `update(value)` / `put(value)` method trio is renamed and
+split so that both **access mode** and **whether a call touches the device**
+are legible from the member set:
 
 | Member | Kind | AttrR | AttrW | AttrRW | Device IO? |
 |---|---|---|---|---|---|
@@ -113,91 +136,41 @@ from the member set:
 
 - **`.readback` / `.setpoint` replace `.value`.** Two explicitly-named cached
   properties instead of one whose meaning shifted per class. Each class exposes
-  only the ones it has (AttrR has no `.setpoint`, AttrW no `.readback`), so
-  access mode reads off the surface — and the pair mirrors bluesky / ophyd-async's
-  `Location(setpoint, readback)` exactly, so `AttrRW` maps 1:1 onto `locate()`
-  and the embedded connector's `get_value`/`get_setpoint`. Both are **read-only**
-  properties: writes are async (validate + `await` callbacks) and so cannot be
-  property setters.
+  only the ones it has (`AttrR` has no `.setpoint`, `AttrW` no `.readback`), so
+  access mode reads off the surface — and the pair mirrors bluesky /
+  ophyd-async's `Location(setpoint, readback)` exactly, so `AttrRW` maps 1:1
+  onto `locate()` and the embedded connector's `get_value`/`get_setpoint`. Both
+  are **read-only** properties: writes are async (validate + `await` callbacks)
+  and so cannot be property setters.
 - **`poll()` replaces the no-arg `update()`; `update_period` → `poll_period`.**
   `poll()` does a live getter read, caches it, and **returns** the value (so an
   on-demand read is `await attr.poll()`, mirroring ophyd's live `get_value()`);
   `poll_period` (`ONCE` / float / `None`) is only the *schedule* the framework
   calls it on. This deletes the `set_update_callback` / `bind_update_callback`
   plumbing — the getter lives on the attr and `poll()` calls it.
-- **`update(value)` is now purely a cache push** — a `value` or `Update[T]` from a
-  `@scan`/subscription — with no device IO and no `None` sentinel.
+- **`update(value)` is now purely a cache push** — a `value` or `Update[T]`
+  from a `@scan`/subscription — with no device IO and no `None` sentinel.
 - **`set(value)` replaces `put()`** (the bluesky/ophyd verb): it caches
   `.setpoint` immediately (decision 10a), then runs the setter; the setter's
   `T | Update[T]` return feeds `.readback` via `update()`. The old
-  `sync_setpoint=` kwarg and `_call_sync_setpoint_callbacks` are gone. (Caching
-  `.setpoint` first is an *attribute-cache* guarantee; *when a remote client sees
-  it* is transport-dependent and differs between CA and PVA — see *Resolved in
-  review* below.)
+  `sync_setpoint=` kwarg and `_call_sync_setpoint_callbacks` are gone. Caching
+  `.setpoint` first is an *attribute-cache* guarantee only; *when a remote
+  client sees it* is transport-dependent and differs between CA and PVA — see
+  the Questions resolved below.
 
-So `poll()`/`set()` touch the device; `.readback`/`.setpoint`/`update()` do not.
-
-Replace `AttributeIO`/`AttributeIORef` with three focused, per-attribute IO
-base classes with abstract `update`/`send` methods, passed as a single `io=`
-constructor argument:
-
-```python
-class ReadIO(Generic[DType_T], ABC):
-    def __init__(self, update_period: float | None = None): ...
-
-    @abstractmethod
-    async def update(self, attr: AttrR[DType_T]) -> None: ...
-
-
-class WriteIO(Generic[DType_T], ABC):
-    @abstractmethod
-    async def send(self, attr: AttrW[DType_T], value: DType_T) -> None: ...
-
-
-class ReadWriteIO(ReadIO[DType_T], WriteIO[DType_T], ABC): ...
-```
-
-(Working names per #388; exact naming — `ReadIO`/`WriteIO`/`ReadWriteIO` vs.
-`AttrRIO`/`AttrWIO`/`AttrRWIO` — is an open question below and in
-[ADR 17](0017-naming-pass.md).) Concrete IO classes are **dataclasses**, so
-per-attribute fields (register name, command string, `update_period`) are
-declared without a boilerplate `__init__`.
-
-- `AttrR(dt, io: ReadIO[DType_T] | None)`, `AttrW(dt, io: WriteIO[DType_T] |
-  None)`, `AttrRW(dt, io: ReadWriteIO[DType_T] | None)`. Passing a
-  read-only IO to an `AttrRW` is a **static** type error, not a runtime
-  `_validate_io` check — the abstract methods force a subclass to implement
-  the right surface for the `Attr` flavour it is attached to.
-- `update_period` moves onto `ReadIO` — it describes the IO's polling
-  behaviour, not a property of the attribute. `Controller.create_api_and_tasks`
-  schedules from `attr.io.update_period` instead of pattern-matching on
-  `AttributeIORef` (`control_system.py`/`controller.py`'s
-  `case AttrR(_io_ref=AttributeIORef(update_period=update_period))` becomes a
-  direct attribute access).
-- **Delete:** `AttributeIORef`, the `ios=` constructor kwarg on
-  `BaseController`/`Controller`/`ControllerVector`, `_validate_io`,
-  `_connect_attribute_ios`, `_attribute_ref_io_map`, `__init_subclass__`'s
-  generic-arg sniffing in `AttributeIO`, and the second TypeVar —
-  `Attribute[DType_T, AttributeIORefT]` collapses to `Attribute[DType_T]`,
-  making `AttrRW[float]` structurally isomorphic to ophyd-async's
-  `SignalRW[float]`.
-- `io=None` keeps today's soft-attribute behaviour: `AttrRW` self-wires
-  setpoint→readback via `_internal_update`, and the sync-setpoint machinery
-  is unaffected. This remains the analogue of ophyd-async's
-  `soft_signal_rw`.
-- The one-off "no subclass needed" case is served by the unified `attr`
-  factory (see [ADR 18](0018-attr-decorator-sugar.md)) — `self.x =
-  attr(getter=cb)` / `@attr` — **not** by separate `CallbackReadIO`/
-  `CallbackWriteIO` classes. The same `attr` covers the read-only and
-  read/write callback cases, so the two adapters are not shipped.
+So `poll()`/`set()` touch the device; `.readback`/`.setpoint`/`update()` do
+not. `Attribute` also loses its second generic parameter —
+`Attribute[DType_T, AttributeIORefT]` collapses to `Attribute[DType_T]`, making
+`AttrRW[float]` structurally isomorphic to ophyd-async's `SignalRW[float]`.
 
 ### Datatype metadata: the `*Meta` TypedDicts
 
-`DataType` classes are gone (ADR 15/17). The metadata they carried (precision,
-units, nested limits, …) moves to a per-datatype `TypedDict` — `FloatMeta`,
-`IntMeta`, `StrMeta`, `BoolMeta`, `EnumMeta`, `Array1DMeta`, `TableMeta` — and
-**the resolved metadata is stored on the `Attribute` itself** (`attr.meta`),
-not on a separate datatype object. Every transport/connector that read
+`DataType` classes are gone ([ADR 15](0015-typed-commands.md) /
+[ADR 17](0017-naming-pass.md)). The metadata they carried (precision, units,
+nested limits, …) moves to a per-datatype `TypedDict` — `FloatMeta`, `IntMeta`,
+`StrMeta`, `BoolMeta`, `EnumMeta`, `Array1DMeta`, `TableMeta` — and **the
+resolved metadata is stored on the `Attribute` itself** (`attr.meta`), not on a
+separate datatype object. Every transport/connector that read
 `attr.datatype.precision`/`.units`/`.limits`/`.choices` now reads `attr.meta`
 (enum `choices` come from the python type; `EnumMeta` is display-only).
 
@@ -208,11 +181,15 @@ Two spellings, two validation layers:
 
   ```python
   # conceptually, one overload per datatype:
-  def AttrRW(dtype: type[float], *, io=..., **kwargs: Unpack[FloatMeta]) -> AttrRW[float]: ...
+  def AttrRW(dtype: type[float], *, getter=..., setter=...,
+            **kwargs: Unpack[FloatMeta]) -> AttrRW[float]: ...
 
-  self.temperature = AttrRW(float, precision=3, units="deg", io=TempIO(...))
+  self.temperature = AttrRW(float, precision=3, units="deg", setter=apply_temp)
   # AttrRW(str, precision=3) is a static type error
   ```
+
+  (The `dtype` positional is only needed when it cannot be inferred from a
+  getter/setter annotation, as above.)
 
 - **Declarative (runtime-checked by the filler):**
   `Annotated[AttrRW[float], FloatMeta(precision=3)]` (rare) or
@@ -250,14 +227,14 @@ of Python object. `SCPIParam` is a sibling of ophyd-async's
 FastCS (decision 3: core defines no extras vocabulary for 1.0) — it lives in a
 protocol layer; the demo package ships an example `SCPIController` +
 `SCPIParam` to show how a third party builds one on the filler's
-`(child, extras)` mechanism.
+`(child, extras)` mechanism. The `*Meta` module location is deferred to the
+public-API-namespace decision (#406); land it provisionally until then.
 
-The `*Meta` module location is deferred to the public-API-namespace decision
-(#406); land it provisionally until then.
+### Migration
 
-Migration is mechanical for the common case (an old `AttributeIO` subclass
-absorbs its `AttributeIORef`'s fields into its own `__init__` and is
-constructed once per attribute instead of once per controller):
+Migration collapses an `AttributeIO`/`AttributeIORef` pair into two callables:
+the old `update`/`send` method bodies become the `getter`/`setter`, constructed
+once per attribute instead of once per controller.
 
 ```python
 # Before (ADR 9 shape)
@@ -269,81 +246,75 @@ class TempIO(AttributeIO[float, TempIORef]):
         resp = await self._conn.send_query(f"{attr.io_ref.name}?\r\n")
         await attr.update(float(resp))
 
+    async def send(self, attr: AttrW[float, TempIORef], value: float) -> None:
+        await self._conn.send_command(f"{attr.io_ref.name}={value}\r\n")
+
 ramp_rate = AttrRW(Float(), io_ref=TempIORef(name="R"))
 # ... elsewhere: Controller(ios=[TempIO(conn)])
 
 # After
-class TempIO(ReadWriteIO[float]):
-    def __init__(self, conn: IPConnection, name: str, update_period=0.2):
-        super().__init__(update_period=update_period)
-        self._conn, self._name = conn, name
+def temp_io(conn: IPConnection, name: str):
+    async def getter() -> float:
+        return float(await conn.send_query(f"{name}?\r\n"))
 
-    async def update(self, attr: AttrR[float]) -> None:
-        resp = await self._conn.send_query(f"{self._name}?\r\n")
-        await attr.update(float(resp))
+    async def setter(value: float) -> None:
+        await conn.send_command(f"{name}={value}\r\n")
 
-    async def send(self, attr: AttrW[float], value: float) -> None:
-        await self._conn.send_command(f"{self._name}={value}\r\n")
+    return getter, setter
 
-self.ramp_rate = AttrRW(Float(), io=TempIO(conn, "R"))
+get_ramp, set_ramp = temp_io(conn, "R")
+self.ramp_rate = AttrRW(getter=get_ramp, setter=set_ramp, poll_period=0.2)
 ```
 
-`fastcs-catio`'s three-IO-per-controller pattern becomes three IO
-*instances*, one per relevant attribute, with no registry needed at all.
-`fastcs-secop`'s private `_call_sync_setpoint_callbacks` call is replaced by
-a public method on `AttrW`/`ReadWriteIO` — exact shape is an open question.
+`fastcs-catio`'s three-IO-per-controller pattern becomes per-attribute
+callables with no registry needed at all. `fastcs-secop`'s private
+`_call_sync_setpoint_callbacks` call is replaced by a value-returning setter.
 
 ## Consequences
 
-- Every driver that declared `AttributeIORef` subclasses must migrate them
-  into `AttributeIO.__init__` fields — see the affected §9 files in the
-  sub-issues of #388 (`attributes/`, `controllers/base_controller.py`,
-  `controllers/controller.py`) and the corresponding downstream repo issues.
+- Every driver that declared `AttributeIO`/`AttributeIORef` subclasses migrates
+  their `update`/`send` bodies into `getter`/`setter` callables — see the
+  affected §9 files in the sub-issues of #388 (`attributes/`,
+  `controllers/base_controller.py`, `controllers/controller.py`) and the
+  corresponding downstream repo issues. The migration is mechanical.
 - `Attribute` loses its second generic parameter, simplifying every type
   hint in downstream code (`AttrR[float, MyRef]` → `AttrR[float]`).
-- Access-mode compatibility between an `Attr` and its `io=` argument is
-  caught by the type checker instead of at runtime in `_validate_io` —
-  earlier feedback for driver authors, at the cost of losing the runtime
-  "no AttributeIO registered for this ref type" error message; a
-  misconfigured `io=None` on an attribute that needed IO now simply behaves
-  as a soft attribute rather than raising loudly. Whether this needs a
-  runtime check as well (e.g. in `post_initialise`) is an open question.
-- [ADR 12](0012-attribute-io-naming-convention.md)'s guidance (subclass to
-  get a shorter driver-local name) still applies to the new `ReadIO`/
-  `WriteIO`/`ReadWriteIO` names.
+- Access-mode compatibility is enforced by the parameter set — an `AttrR` has
+  no `setter`, so there is no `_validate_io` runtime check and no way to attach
+  a read-only IO to a write-capable attr statically. For the dynamically-built
+  `Any`-typed case (`fastcs-secop`, `fastcs-PandABlocks`) a runtime check at
+  `post_initialise` still catches a missing setter on a write-capable attr.
+- The IO no longer has a place to hang per-attribute metadata that
+  `fastcs-catio` used to read off `attribute.io_ref`; `attr.meta` and the
+  attribute's own attributes replace that access.
 
-## Resolved in review (#402)
+## Questions resolved in review (#402)
 
-- **Runtime check: yes.** Alongside the static type error, a runtime check
-  (e.g. at `post_initialise`) catches a read-only IO on a write-capable `Attr`
-  for the dynamically-built `Any`-typed case (`fastcs-secop`,
-  `fastcs-PandABlocks`).
-- **`attr.io` becomes a public, typed property** — the sanctioned way to
-  recover an attribute's IO-specific metadata from *outside* its `send`/
-  `update` (replaces `fastcs-catio`'s `attribute.io_ref` access).
-- **No `CallbackReadIO`/`CallbackWriteIO` in core.** The one-off callback case
-  folds into the unified `attr` factory ([ADR 18](0018-attr-decorator-sugar.md));
-  the same decorator/factory covers the read-only and read/write cases.
-- **Setpoint echo is an attribute-cache guarantee, not a transport one
-  (@Tom-Willemsen / @shihab-dls, #402):** `set()` caching `.setpoint` before it
-  runs the setter fixes the *framework*-level report that a setpoint PV didn't
-  reflect the just-written value, and is the sanctioned secop echo. Whether a
-  *remote client* sees that value immediately is transport-dependent, and the two
-  transports differ. **PVA** posts the setpoint as soon as it is written, then the
-  record may later go into alarm if the setter rejects it. **CA** posts the PV
-  update only *after* the update callback — where alarms are set — completes, so a
-  long-running setter delays the CA-visible setpoint until the send returns. This
-  means the `set()` semantics above are **not** a cross-transport "instantly
-  visible" guarantee. Realigning CA to PVA's post-before-send ordering (so GUIs
-  get immediate feedback on CA too) is a **transport-layer** follow-up, tracked
-  separately from this attribute-IO rework and not gating it.
-
-## Open questions (awaiting input)
-
-Both original open questions are closed by the 2026-07-22 getter/setter model:
-
-1. ~~Final IO class names (`ReadIO`/`WriteIO`/`ReadWriteIO` vs …)~~ — **moot**: the
-   IO class hierarchy is gone; IO is plain `getter`/`setter` callables.
-2. ~~Public replacement for `fastcs-secop`'s `_call_sync_setpoint_callbacks`~~ —
-   **resolved**: a `setter` returning `T | Update[T]` *is* the sanctioned setpoint
-   echo (updates readback + `AttrW` setpoint cache).
+1. **What replaces the `io=` object and the `ReadIO`/`WriteIO`/`ReadWriteIO`
+   hierarchy?** Plain `getter`/`setter` callables on the constructors. The IO
+   class hierarchy and its abstract-method enforcement are dropped entirely;
+   access mode is enforced by which parameters exist.
+2. **Do we still need a runtime access-mode check?** Yes, in addition to the
+   static shape: a runtime check (e.g. at `post_initialise`) catches a missing
+   setter on a write-capable `Attr` for the dynamically-built `Any`-typed case.
+3. **What is the public replacement for `fastcs-secop`'s
+   `_call_sync_setpoint_callbacks`?** A `setter` returning `T | Update[T]` *is*
+   the sanctioned setpoint echo — the returned value updates the readback and
+   the `AttrW` setpoint cache.
+4. **Are there `CallbackReadIO`/`CallbackWriteIO` classes in core?** No. The
+   one-off callback case folds into `@attr` / `AttrR(getter=…)`
+   ([ADR 18](0018-attr-decorator-sugar.md)); the same spelling covers the
+   read-only and read/write cases.
+5. **How is per-attribute IO metadata recovered from outside `getter`/`setter`?**
+   Through `attr.meta` and the attribute's own public members, replacing
+   `fastcs-catio`'s `attribute.io_ref` access.
+6. **Is the setpoint echo a cross-transport "instantly visible" guarantee?**
+   (@Tom-Willemsen / @shihab-dls.) No — caching `.setpoint` before running the
+   setter is an *attribute-cache* guarantee (and the sanctioned secop echo);
+   whether a *remote client* sees it immediately is transport-dependent. **PVA**
+   posts the setpoint as soon as it is written, then the record may later go
+   into alarm if the setter rejects it. **CA** posts the PV update only *after*
+   the update callback (where alarms are set) completes, so a long-running
+   setter delays the CA-visible setpoint until the send returns. Realigning CA
+   to PVA's post-before-send ordering is a **transport-layer** follow-up,
+   tracked separately and not gating this rework.

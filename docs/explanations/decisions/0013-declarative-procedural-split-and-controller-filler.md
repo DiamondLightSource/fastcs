@@ -52,60 +52,69 @@ introspecting drivers use.
 ## Decision
 
 Adopt a single declarative mechanism, matching ophyd-async: **class body =
-bare type hints only; instance scope = procedural construction.** Concretely:
+declarations + decorated behaviour; instance scope = construction with data.**
+Concretely:
 
-- Remove class-scope `Attribute` **instances** entirely. `AttrRW(Float(),
-  io=...)` may no longer be assigned directly in a class body.
+- Remove class-scope `Attribute` **instances** entirely. `AttrRW(getter=...,
+  setter=...)` may no longer be assigned directly in a class body.
 - Remove the deepcopy half of `_bind_attrs`. Method binding for `@command`/
-  `@scan` (the `UnboundCommand`/`UnboundScan` machinery) is unaffected and
-  stays, since it does not require deepcopy — see decision 14 (`@attr`
-  decorator sugar).
+  `@scan` — and the new `@attr`/`@x.setter` sugar
+  ([ADR 18](0018-attr-decorator-sugar.md)) — is unaffected and stays, since it
+  does not require deepcopy: it binds a method to `self` at construction time
+  via the `UnboundCommand`/`UnboundScan` machinery rather than deepcopying a
+  prototype.
 - Remove `HintedAttribute` and `_validate_type_hints`/`_validate_hinted_*` as
   a *separate* validation-only pass. Their job — "this hinted child must
   exist with the right type after initialisation" — is subsumed into the new
   `ControllerFiller`.
 - Introduce `ControllerFiller`, a direct structural port of ophyd-async's
   `DeviceFiller`. It scans class-body type hints (`AttrR/W/RW[T]`,
-  `Command[P, T]` — see [ADR 15](0015-typed-commands.md), nested `Controller`
-  / `ControllerVector[T]`), creates children **unfilled**, and tracks
-  filled/unfilled state per child. `check_filled(source)` raises, listing by
-  name, anything a `Controller`'s `initialise()` promised via a hint but did
-  not provision.
+  `Command[P, T]` — see [ADR 15](0015-typed-commands.md) — and nested
+  `Controller` / `ControllerVector[T]`), creates children **unfilled**, and
+  tracks filled/unfilled state per child. `check_filled(source)` raises,
+  listing by name, anything a `Controller`'s `initialise()` promised via a hint
+  but did not provision.
 - `ControllerFiller` yields `(child, extras)` for each created child — the
   `extras` being anything else found in an `Annotated[...]` hint — so that
   protocol libraries (a future SCPI package, for example) can define their
   own extras vocabulary the same way ophyd-async's `PvSuffix`/`TangoPolling`
   do. Core FastCS defines **no** extras vocabulary for 1.0 (decision 3 of
   #388).
-- When a child is filled from an `Annotated[Attr[T], extras]` hint, the filler
-  **runtime-validates** the metadata the extras carries (`FloatMeta`, or a
+- When a child is filled from an `Annotated[AttrRW[T], extras]` hint, the filler
+  **runtime-validates** the metadata the extras carries (a `FloatMeta`, or a
   protocol object's `.meta` such as `SCPIParam(...).meta`) against the datatype
   `T` — e.g. `precision` supplied for a `str` raises. This is the runtime
   counterpart to the static `Unpack[FloatMeta]` check on the procedural `Attr*`
   constructors (see [ADR 14](0014-attribute-io-rw-rework.md)).
-- The refined rule from decision 14 of #388: *class body = declarations +
-  decorated behaviour; instance scope = construction with data.* This keeps
-  `@command`/`@scan`, and the new `@attr`/`@x.setter` sugar, as class-body
-  citizens, since none of them require per-instance deepcopy — they bind a
-  method to `self` at construction time instead.
 
-Two patterns follow, and the class body distinguishes them:
+Two patterns follow, and the class body distinguishes them.
 
 **Procedural, no hint** — the value is fully constructed in `__init__`, so it
-needs no class-body declaration at all (the temperature controller):
+needs no class-body declaration at all. Per-attribute IO is a `getter`/`setter`
+pair of callables ([ADR 14](0014-attribute-io-rw-rework.md)); the datatype is
+inferred from the getter's return annotation:
 
 ```python
 class TemperatureRampController(Controller):
     def __init__(self, index: int, conn: IPConnection) -> None:
         super().__init__()
         suffix = f"{index:02d}"
-        self.start = AttrRW(Int(), io=TempIO(conn, "S", suffix))
+
+        async def get_start() -> int:
+            return int(await conn.send_query(f"S{suffix}?\r\n"))
+
+        async def set_start(value: int) -> None:
+            await conn.send_command(f"S{suffix}={value}\r\n")
+
+        # datatype int is inferred from get_start's return annotation
+        self.start = AttrRW(getter=get_start, setter=set_start, poll_period=0.2)
 ```
 
 **Declarative hint + filler** — the value is *promised* by a hint; the
 `ControllerFiller` (run from `Controller.__init__`) creates it as an
 **unfilled** `Attribute` so it **exists as soon as `__init__` returns**, and
-`initialise()` later *fills* it (provisions `io` + metadata) by introspection:
+`initialise()` later *fills* it (provisions the getter/setter + metadata) by
+introspection:
 
 ```python
 class OdinDetector(Controller):
@@ -113,10 +122,10 @@ class OdinDetector(Controller):
                             # self.frames EXISTS after __init__, before initialise()
 
     async def initialise(self) -> None:
-        # introspection FILLS the already-created hinted attrs (io + metadata),
-        # and may add wholly-undeclared dynamic attrs (which carry no hint)
-        for name, meta in await self._query_parameter_tree():
-            self.filler.fill_attribute(name, ...)   # validates meta vs datatype
+        # introspection FILLS the already-created hinted attrs (getter/setter +
+        # metadata), and may add wholly-undeclared dynamic attrs (no hint)
+        for name, spec in await self._query_parameter_tree():
+            self.filler.fill_attribute(name, spec)   # validates meta vs datatype
         self.filler.check_filled()
 ```
 
@@ -150,22 +159,24 @@ mirrors that `DeviceFiller` path directly.
 - `ControllerFiller` becomes a new stable, documented surface — see
   [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md) for how
   it interacts with the stable `ControllerAPI` surface consumed by the
-  embedded ophyd-async connector.
+  embedded ophyd-async connector ([ADR 19](0019-embedded-ophyd-async-connector.md)).
 
-## Resolved in review (#402)
+## Questions resolved in review (#402)
 
-1. **`ControllerFiller` must support "no hints at all"** — build the whole
-   attribute tree from introspected data (`fastcs-PandABlocks`, `fastcs-secop`).
-2. **`fastcs-catio`'s runtime `type(...)` class-building is *not* supported.**
-   A bare `Controller` instead allows attributes to be added onto it from the
+1. **Must `ControllerFiller` support "no hints at all"?** Yes — it must build
+   the whole attribute tree from introspected data with nothing declared in the
+   class body (`fastcs-PandABlocks`, `fastcs-secop`), exactly as
+   `DeviceFiller` does for a `PviConnector`.
+2. **Is `fastcs-catio`'s runtime `type(...)` class-building supported?** No. A
+   bare `Controller` instead allows attributes to be added onto it from the
    outside — which is exactly what the fillers do — so catio moves to
    instance-level dynamic attribute construction.
-3. **No sibling-ordering mechanism.** The rule "any hint-referenced Attribute
-   must exist by the end of `__init__`" makes `initialise()` parallelisable;
-   sibling dependencies are an `initialise()` implementation detail (call
-   `super().initialise()` first).
-4. **`Optional[X]` hints are supported** — `check_filled` treats an optional
-   hint as not-required.
-5. **Follow `DeviceFiller`'s structure, not its names.** Architectural
-   similarity matters; method names match only where FastCS's vocabulary
-   (`Attribute` vs `Signal`) makes them fit.
+3. **Is there a sibling-ordering mechanism?** No. The rule "any hint-referenced
+   Attribute must exist by the end of `__init__`" makes `initialise()`
+   parallelisable; sibling dependencies are an `initialise()` implementation
+   detail (call `super().initialise()` first).
+4. **Are `Optional[X]` hints supported?** Yes — `check_filled` treats an
+   optional hint as not-required.
+5. **Do we follow `DeviceFiller`'s names?** Follow its *structure*, not its
+   names. Architectural similarity matters; method names match only where
+   FastCS's vocabulary (`Attribute` vs `Signal`) makes them fit.

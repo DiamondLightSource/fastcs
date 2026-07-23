@@ -2,7 +2,8 @@
 
 Date: 2026-07-20
 
-**Related:** [Issue #388](https://github.com/DiamondLightSource/fastcs/issues/388)
+**Related:** [Issue #388](https://github.com/DiamondLightSource/fastcs/issues/388),
+[ADR 14](0014-attribute-io-rw-rework.md), [ADR 15](0015-typed-commands.md)
 
 ## Status
 
@@ -28,76 +29,81 @@ hints are now load-bearing (they are what `ControllerFiller` scans), so
 having ophyd-async-compatible hint spellings for array/table attributes
 becomes more valuable than it was when hints were validation-only.
 
+This pass now lives on python types + `*Meta` typed dicts, not on `DataType`
+classes: the `DataType` family is dropped ([ADR 14](0014-attribute-io-rw-rework.md),
+[ADR 15](0015-typed-commands.md)), so these renames fold into the per-attribute
+IO rework (issue #392) rather than landing as a separate late PR. The concrete
+`*Meta` mechanism (per-datatype `TypedDict`s, the superset `Meta` for extras,
+`attr.meta` storage, the `Unpack` overloads) is specified in
+[ADR 14](0014-attribute-io-rw-rework.md); the module home for these public
+names is decided in #406.
+
 Since this is a pre-1.0 breaking-change window (per #388's framing —
 "while breaking pre-1.0"), this is the point to make these renames, not
 after 1.0 when they become a deprecation cycle.
 
 ## Decision
 
-> **Review update (#402): `DataType` is dropped** (see
-> [ADR 15](0015-typed-commands.md)). The renames below now live on python
-> types + `*Meta` typed dicts, not on `DataType` classes, and this pass folds
-> into the `AttributeIO` rework ([ADR 14](0014-attribute-io-rw-rework.md) /
-> issue #392) rather than a separate late PR. `Array1D`/`Table` become *both*
-> the hint and the runtime structure passed around as the datatype — there is
-> no separate `Waveform`/`DataType` object to map to.
->
-> The concrete `*Meta` mechanism (per-datatype `TypedDict`s, the superset
-> `Meta` for extras, `attr.meta` storage on the attribute, `Unpack` overloads)
-> is specified in [ADR 14](0014-attribute-io-rw-rework.md); the module home for
-> these public names is decided in #406.
+1. **`prec` → `precision`.** Rename across the numeric metadata (`FloatMeta`,
+   transports, docs, snippets) wherever `prec` appears. `precision` stays an
+   `int` (decimal places). No behaviour change.
 
-1. **`prec` → `precision`.** Rename across `_Numeric`/`Float`/wherever
-   `prec` appears (transports, docs, snippets). No behaviour change.
-2. **Limits alignment.** Align `min`/`max`/`min_alarm`/`max_alarm` naming
-   with event-model `Limits` naming. This ADR records the *intent*
-   (converge with bluesky event-model naming so alarm/control/display limits
-   read the same way in FastCS and ophyd-async docs); the exact target
-   shape (keep four flat fields renamed, or restructure into a `Limits`-like
-   object) is an open question for the prototype, since it interacts with
-   how `DataType.validate` currently accesses these fields directly as
-   dataclass attributes.
-3. **`Array1D`/`Table` hint spellings.** Adopt `Array1D[np.int32]` and
-   `Table` as the FastCS *hint* spellings a `ControllerFiller`-scanned class
-   body uses, mapping internally to the existing `Waveform`/table `DataType`
-   runtime objects (constructed the same way as today via
-   `AttrRW(Waveform(np.int32, shape=(4,)), io=...)` in procedural code) —
-   the hint is sugar for `ControllerFiller`'s type-hint scan, not a
-   replacement for the runtime `DataType` classes, matching decision 7 of
-   #388 (`DataType` classes stay as the procedural/runtime value; hints are
-   what `ControllerFiller` reads).
+2. **Limits alignment — nested, not flat.** Replace the flat
+   `min`/`max`/`min_alarm`/`max_alarm` fields with a nested `Limits` structure
+   aligned to the bluesky event-model, so alarm/control/display limits read the
+   same way in FastCS and ophyd-async docs. **All four categories** — control,
+   display, alarm, warning — are present and **all optional**, with inheritance:
+
+   - supply none ⇒ all unbounded;
+   - Display but not Control ⇒ Control inherits Display (for a writeable attr);
+   - Alarm but not Warning ⇒ Warning inherits Alarm;
+   - both Alarm and Warning ⇒ assert Warning ⊆ Alarm;
+   - otherwise unspecified ⇒ unbounded.
+
+3. **`Array1D`/`Table` hint spellings, which are also the runtime structure.**
+   Adopt `Array1D[np.int32]` and `Table` as the FastCS *hint* spellings a
+   `ControllerFiller`-scanned class body uses. With `DataType` dropped, these
+   are **both** the hint and the runtime structure passed around as the
+   datatype — there is no separate `Waveform`/table `DataType` object to map to.
+   Procedural construction passes the same types plus `*Meta` (e.g.
+   `AttrRW(Array1D[np.int32], shape=(4,), getter=...)`), and shape/array
+   metadata rides on `Array1DMeta` exactly as `precision`/`units` ride on
+   `FloatMeta`.
 
 This is explicitly the smallest naming-pass scope agreed in #388 for 1.0. A
 `Prec`/`Units`/`Shape` `Annotated` extras vocabulary (letting a hint carry
-precision/units/shape without a full `DataType` instance) is called out in
-#388 as a **post-1.0** option enabled by, but not required by, the
+precision/units/shape without a spec object) is called out in #388 as a
+**post-1.0** option enabled by, but not required by, the
 [ADR 13](0013-declarative-procedural-split-and-controller-filler.md) extras
 mechanism — not part of this ADR.
 
 ## Consequences
 
 - Every driver using `Float(prec=...)`, `.min`/`.max`/`.min_alarm`/
-  `.max_alarm` needs a mechanical rename. This is a wide, shallow diff
-  across all downstream repos (`fastcs-eiger`, `fastcs-catio`,
-  `fastcs-secop`, `fastcs-PandABlocks` all use `Float`/numeric limits
-  somewhere) but not a structural one, unless the Limits restructuring
-  (open question 2) turns out to be more than a rename.
+  `.max_alarm` needs a rename to `precision` and the nested `Limits`
+  structure. This is a wide diff across all downstream repos (`fastcs-eiger`,
+  `fastcs-catio`, `fastcs-secop`, `fastcs-PandABlocks` all use numeric
+  limits somewhere); the flat→nested Limits change is structural, not purely a
+  rename.
 - Transports serving `precision`/limits metadata (EPICS record fields,
-  Tango attribute properties, REST/GraphQL schema) need their field-name
-  mapping updated to read from the renamed dataclass fields.
-- `Array1D`/`Table` hint spellings only affect declarative (hinted)
-  attribute declarations; procedural construction with `Waveform(...)`/
-  `Table(...)` DataType instances is unchanged.
+  Tango attribute properties, REST/GraphQL schema) read these from `attr.meta`
+  ([ADR 14](0014-attribute-io-rw-rework.md)) and need their field-name mapping
+  updated to the renamed / nested fields.
+- `Array1D`/`Table` become the single array/table representation for both
+  hinted and procedural attributes, so there is no hint-vs-runtime mapping
+  layer to keep in sync.
 
-## Resolved in review (#402)
+## Questions resolved in review (#402)
 
-1. **Limits are nested**, not four flat fields.
-2. **All four categories (control/display/alarm/warning), all optional**, with
-   inheritance: supply none ⇒ all unbounded; Display but not Control ⇒ Control
-   inherits Display (for writeable); Alarm but not Warning ⇒ Warning inherits
-   Alarm; both ⇒ assert Warning ⊆ Alarm; otherwise unspecified ⇒ unbounded.
-3. **`precision` stays an `int`** (decimal places).
-4. **`Array1D` is both the hint and the runtime structure** — with `DataType`
-   dropped it falls out in the wash; there is no `Waveform` object to map to.
-5. **Where it lands is the implementer's choice** — folds naturally into the
-   `AttributeIO`/DataType-drop PR (#392).
+1. **Flat or nested limits?** Nested — a `Limits` structure, not four flat
+   fields.
+2. **Which limit categories, and how do they combine?** All four
+   (control/display/alarm/warning), all optional, with the inheritance rules in
+   Decision point 2 (Control inherits Display, Warning inherits Alarm, assert
+   Warning ⊆ Alarm, otherwise unbounded).
+3. **Is `precision` an int or a float?** An `int` (decimal places).
+4. **Do `Array1D`/`Table` map onto a separate runtime `DataType`?** No — with
+   `DataType` dropped they *are* both the hint and the runtime structure; there
+   is no `Waveform` object to map to.
+5. **Where does this land?** It folds naturally into the per-attribute IO /
+   `DataType`-drop PR (#392) — the implementer's choice, not a separate late PR.
