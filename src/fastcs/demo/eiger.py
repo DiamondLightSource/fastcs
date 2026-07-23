@@ -27,6 +27,9 @@ _DATATYPES: dict[ValueType, type[DataType]] = {
     "bool": Bool,
 }
 
+# Poll period (seconds) for read-only status params that change on the device.
+UPDATE_PERIOD = 0.2
+
 
 @dataclass
 class EigerConnectionSettings:
@@ -106,6 +109,11 @@ class EigerDetector(Controller):
     count_time: AttrRW[float]
     state: AttrR[str]
 
+    # Derived (soft): built on top of the introspected ``state`` param. Declaring
+    # ``state`` as a checked attribute is what lets us reference it in code and
+    # publish something computed from it - here, whether the detector is idle.
+    idle = AttrR(Bool())
+
     def __init__(
         self,
         settings: EigerConnectionSettings | None = None,
@@ -129,11 +137,22 @@ class EigerDetector(Controller):
             for param in await self.connection.keys(subsystem):
                 data = await self.connection.get(subsystem, param)
                 datatype_cls = _DATATYPES[data["value_type"]]
-                io_ref = EigerAttributeIORef(subsystem=subsystem, param=param)
 
                 if data["access_mode"] == "rw":
+                    io_ref = EigerAttributeIORef(subsystem=subsystem, param=param)
                     attr = AttrRW(datatype_cls(), io_ref=io_ref)
                 else:
+                    # Read-only params are status values that change on the device,
+                    # so poll them periodically rather than reading once.
+                    io_ref = EigerAttributeIORef(
+                        subsystem=subsystem, param=param, update_period=UPDATE_PERIOD
+                    )
                     attr = AttrR(datatype_cls(), io_ref=io_ref)
 
                 self.add_attribute(param, attr)
+
+        # Keep the derived ``idle`` flag in sync with the introspected ``state``.
+        self.state.add_on_update_callback(self._update_idle)
+
+    async def _update_idle(self, state: str) -> None:
+        await self.idle.update(state == "idle")

@@ -1,11 +1,14 @@
+import asyncio
+
 import httpx
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.demo.eiger import EigerDetector
+from fastcs.demo.eiger import UPDATE_PERIOD, EigerDetector
 from fastcs.demo.simulation.eiger import API_PREFIX, create_eiger_sim_app
+from fastcs.util import ONCE
 
 
 @pytest.fixture
@@ -87,3 +90,42 @@ async def test_write_attribute_to_device(detector: EigerDetector):
 
     response = await detector.connection.get("config", "count_time")
     assert response["value"] == 0.5
+
+
+@pytest.mark.asyncio
+async def test_idle_derived_from_state(detector: EigerDetector):
+    # ``idle`` is soft and starts at its default, tracking ``state`` once polled.
+    assert detector.idle.get() is False
+
+    await detector.state.update("idle")
+    assert detector.idle.get() is True
+
+    await detector.state.update("acquire")
+    assert detector.idle.get() is False
+
+
+@pytest.mark.asyncio
+async def test_read_only_params_poll_but_rw_read_once(detector: EigerDetector):
+    for name in ("state", "temperature", "humidity", "description"):
+        attr = detector.attributes[name]
+        assert isinstance(attr, AttrR) and not isinstance(attr, AttrRW)
+        assert attr.io_ref.update_period == UPDATE_PERIOD
+
+    assert detector.count_time.io_ref.update_period is ONCE
+
+
+@pytest.mark.asyncio
+async def test_sim_temperature_oscillates():
+    # The background task only runs under the app lifespan (a real server), not the
+    # bare ASGI transport used elsewhere, so drive the lifespan explicitly here.
+    app = create_eiger_sim_app()
+    transport = httpx.ASGITransport(app=app)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(base_url="http://sim", transport=transport) as c:
+            readings = []
+            for _ in range(4):
+                await asyncio.sleep(0.3)
+                response = await c.get(f"{API_PREFIX}/status/temperature")
+                readings.append(response.json()["value"])
+
+    assert len(set(readings)) > 1, f"temperature did not change: {readings}"
