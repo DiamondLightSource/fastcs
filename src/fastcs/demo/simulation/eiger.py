@@ -8,8 +8,6 @@ self-describing backend to introspect.
 """
 
 import asyncio
-import math
-import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -22,6 +20,10 @@ AccessMode = Literal["r", "rw"]
 Subsystem = Literal["config", "status"]
 
 API_PREFIX = "/detector/api/1.8.0"
+
+# The sim flips its temperature between these two values so the front end has
+# something visibly changing to poll.
+TEMPERATURES = (20.0, 30.0)
 
 
 @dataclass
@@ -48,26 +50,20 @@ def _initial_state() -> dict[Subsystem, dict[str, EigerParameter]]:
 
 
 async def _oscillate_temperature(
-    parameter: EigerParameter,
-    low: float = 20.0,
-    high: float = 30.0,
-    period: float = 10.0,
+    parameter: EigerParameter, period: float = 0.5
 ) -> None:
-    """Slowly sweep a temperature parameter between two values, forever.
+    """Flip a temperature parameter between two known values forever.
 
-    Gives the front end something visibly changing to poll. Runs as a background
-    task under the app's lifespan (started by a real server, e.g. uvicorn; not by
-    the in-process ASGI transport used in tests, which keeps those deterministic).
+    Runs as a background task under the app's lifespan (started by a real server,
+    e.g. uvicorn). The in-process ASGI transport used by the controller in tests
+    does not start lifespan events, so a test that wants the task running drives
+    the lifespan explicitly.
     """
-    mid = (low + high) / 2
-    amplitude = (high - low) / 2
-    start = time.monotonic()
+    index = 0
     while True:
-        elapsed = time.monotonic() - start
-        parameter.value = round(
-            mid + amplitude * math.sin(2 * math.pi * elapsed / period), 1
-        )
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(period)
+        index = 1 - index
+        parameter.value = TEMPERATURES[index]
 
 
 def create_eiger_sim_app() -> FastAPI:
@@ -85,6 +81,9 @@ def create_eiger_sim_app() -> FastAPI:
             task.cancel()
 
     app = FastAPI(lifespan=lifespan)
+    # Backdoor: expose the parameter tree so tests can set read-only values (e.g.
+    # ``state``, which has no PUT route) and then poll them through the controller.
+    app.state.sim = state
 
     def _subsystem(subsystem: str) -> dict[str, EigerParameter]:
         try:

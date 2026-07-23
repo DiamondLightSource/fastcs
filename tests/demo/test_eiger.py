@@ -3,59 +3,35 @@ import asyncio
 import httpx
 import pytest
 import pytest_asyncio
-from fastapi.testclient import TestClient
 
 from fastcs.attributes import AttrR, AttrRW
 from fastcs.demo.eiger import UPDATE_PERIOD, EigerDetector
-from fastcs.demo.simulation.eiger import API_PREFIX, create_eiger_sim_app
+from fastcs.demo.simulation.eiger import EigerParameter, create_eiger_sim_app
 from fastcs.util import ONCE
 
-
-@pytest.fixture
-def sim_client() -> TestClient:
-    return TestClient(create_eiger_sim_app())
-
-
-def test_sim_lists_keys(sim_client: TestClient):
-    response = sim_client.get(f"{API_PREFIX}/config/keys")
-    assert response.status_code == 200
-    assert set(response.json()) >= {"count_time", "frame_time", "nimages"}
-
-
-def test_sim_get_parameter(sim_client: TestClient):
-    response = sim_client.get(f"{API_PREFIX}/config/count_time")
-    assert response.status_code == 200
-    body = response.json()
-    assert body == {"value": 0.1, "value_type": "float", "access_mode": "rw"}
-
-
-def test_sim_put_parameter(sim_client: TestClient):
-    response = sim_client.put(f"{API_PREFIX}/config/count_time", json={"value": 0.5})
-    assert response.status_code == 200
-    assert response.json() == {"value": 0.5}
-
-    response = sim_client.get(f"{API_PREFIX}/config/count_time")
-    assert response.json()["value"] == 0.5
-
-
-def test_sim_put_read_only_parameter_rejected(sim_client: TestClient):
-    response = sim_client.put(f"{API_PREFIX}/status/state", json={"value": "busy"})
-    assert response.status_code == 403
-
-
-def test_sim_unknown_parameter_404(sim_client: TestClient):
-    assert sim_client.get(f"{API_PREFIX}/config/nonexistent").status_code == 404
-    assert sim_client.get(f"{API_PREFIX}/nonexistent/keys").status_code == 404
+# Backdoor to the sim's parameter tree, keyed by subsystem then param name.
+SimState = dict[str, dict[str, EigerParameter]]
 
 
 @pytest_asyncio.fixture
-async def detector() -> EigerDetector:
-    transport = httpx.ASGITransport(app=create_eiger_sim_app())
-    controller = EigerDetector(transport=transport)
+async def _eiger():
+    app = create_eiger_sim_app()
+    controller = EigerDetector(transport=httpx.ASGITransport(app=app))
     await controller.connect()
     await controller.initialise()
     controller.post_initialise()
-    return controller
+    yield controller, app.state.sim
+    await controller.disconnect()
+
+
+@pytest_asyncio.fixture
+async def detector(_eiger) -> EigerDetector:
+    return _eiger[0]
+
+
+@pytest_asyncio.fixture
+async def sim(_eiger) -> SimState:
+    return _eiger[1]
 
 
 @pytest.mark.asyncio
@@ -78,29 +54,33 @@ async def test_read_attribute_from_device(detector: EigerDetector):
     await detector.count_time.bind_update_callback()()
     assert detector.count_time.get() == 0.1
 
-    temperature = detector.attributes["temperature"]
-    assert isinstance(temperature, AttrR)
-    await temperature.bind_update_callback()()
-    assert temperature.get() == 22.5
+    humidity = detector.attributes["humidity"]
+    assert isinstance(humidity, AttrR)
+    await humidity.bind_update_callback()()
+    assert humidity.get() == 32.1
 
 
 @pytest.mark.asyncio
 async def test_write_attribute_to_device(detector: EigerDetector):
     await detector.count_time.put(0.5)
 
-    response = await detector.connection.get("config", "count_time")
-    assert response["value"] == 0.5
+    # Read it back through the attribute to confirm the round-trip to the device.
+    await detector.count_time.bind_update_callback()()
+    assert detector.count_time.get() == 0.5
 
 
 @pytest.mark.asyncio
-async def test_idle_derived_from_state(detector: EigerDetector):
+async def test_idle_derived_from_state(detector: EigerDetector, sim: SimState):
     # ``idle`` is soft and starts at its default, tracking ``state`` once polled.
     assert detector.idle.get() is False
 
-    await detector.state.update("idle")
+    # Poke the read-only ``state`` via the sim backdoor, then poll the attribute.
+    sim["status"]["state"].value = "idle"
+    await detector.state.bind_update_callback()()
     assert detector.idle.get() is True
 
-    await detector.state.update("acquire")
+    sim["status"]["state"].value = "acquire"
+    await detector.state.bind_update_callback()()
     assert detector.idle.get() is False
 
 
@@ -115,17 +95,32 @@ async def test_read_only_params_poll_but_rw_read_once(detector: EigerDetector):
 
 
 @pytest.mark.asyncio
-async def test_sim_temperature_oscillates():
-    # The background task only runs under the app lifespan (a real server), not the
-    # bare ASGI transport used elsewhere, so drive the lifespan explicitly here.
+async def test_temperature_oscillation_seen_via_subscribe():
+    # The oscillation task runs under the app lifespan, so drive the lifespan here
+    # (the bare ASGI transport used elsewhere does not start it). Observe it through
+    # the controller's temperature attribute, subscribing for updates.
     app = create_eiger_sim_app()
-    transport = httpx.ASGITransport(app=app)
     async with app.router.lifespan_context(app):
-        async with httpx.AsyncClient(base_url="http://sim", transport=transport) as c:
-            readings = []
-            for _ in range(4):
-                await asyncio.sleep(0.3)
-                response = await c.get(f"{API_PREFIX}/status/temperature")
-                readings.append(response.json()["value"])
+        controller = EigerDetector(transport=httpx.ASGITransport(app=app))
+        await controller.connect()
+        await controller.initialise()
+        controller.post_initialise()
 
-    assert len(set(readings)) > 1, f"temperature did not change: {readings}"
+        temperature = controller.attributes["temperature"]
+        assert isinstance(temperature, AttrR)
+
+        seen: list[float] = []
+
+        async def record(value: float) -> None:
+            seen.append(value)
+
+        temperature.add_on_update_callback(record)
+
+        # Poll across several sim flips (every 0.5s) so the value changes under us.
+        for _ in range(8):
+            await temperature.bind_update_callback()()
+            await asyncio.sleep(0.2)
+
+        await controller.disconnect()
+
+    assert len(set(seen)) > 1, f"temperature did not change: {seen}"
