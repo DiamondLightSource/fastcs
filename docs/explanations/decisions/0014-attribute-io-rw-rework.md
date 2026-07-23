@@ -130,7 +130,10 @@ from the member set:
 - **`set(value)` replaces `put()`** (the bluesky/ophyd verb): it caches
   `.setpoint` immediately (decision 10a), then runs the setter; the setter's
   `T | Update[T]` return feeds `.readback` via `update()`. The old
-  `sync_setpoint=` kwarg and `_call_sync_setpoint_callbacks` are gone.
+  `sync_setpoint=` kwarg and `_call_sync_setpoint_callbacks` are gone. (Caching
+  `.setpoint` first is an *attribute-cache* guarantee; *when a remote client sees
+  it* is transport-dependent and differs between CA and PVA — see *Resolved in
+  review* below.)
 
 So `poll()`/`set()` touch the device; `.readback`/`.setpoint`/`update()` do not.
 
@@ -321,6 +324,19 @@ a public method on `AttrW`/`ReadWriteIO` — exact shape is an open question.
 - **No `CallbackReadIO`/`CallbackWriteIO` in core.** The one-off callback case
   folds into the unified `attr` factory ([ADR 18](0018-attr-decorator-sugar.md));
   the same decorator/factory covers the read-only and read/write cases.
+- **Setpoint echo is an attribute-cache guarantee, not a transport one
+  (@Tom-Willemsen / @shihab-dls, #402):** `set()` caching `.setpoint` before it
+  runs the setter fixes the *framework*-level report that a setpoint PV didn't
+  reflect the just-written value, and is the sanctioned secop echo. Whether a
+  *remote client* sees that value immediately is transport-dependent, and the two
+  transports differ. **PVA** posts the setpoint as soon as it is written, then the
+  record may later go into alarm if the setter rejects it. **CA** posts the PV
+  update only *after* the update callback — where alarms are set — completes, so a
+  long-running setter delays the CA-visible setpoint until the send returns. This
+  means the `set()` semantics above are **not** a cross-transport "instantly
+  visible" guarantee. Realigning CA to PVA's post-before-send ordering (so GUIs
+  get immediate feedback on CA too) is a **transport-layer** follow-up, tracked
+  separately from this attribute-IO rework and not gating it.
 
 ## Open questions (awaiting input)
 

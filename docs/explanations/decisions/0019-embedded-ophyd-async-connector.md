@@ -108,7 +108,7 @@ Backend mappings (from #388 §5, grounded against the researched
 | `CommandBackend.execute`/`.signature` | `Command.__call__` / captured `Signature`, [ADR 15](0015-typed-commands.md) |
 | `SignalBackend.source` | e.g. `fastcs://.` |
 | child `Device` / `DeviceVector` | sub-`Controller` / `ControllerVector` |
-| (not exposed) | `@scan` methods — server-side only, not surfaced to ophyd-async |
+| (not exposed) | `@scan` methods — purely-internal periodic coroutines, bound to no `Attr`, not surfaced to ophyd-async (@shihab-dls, #402) |
 
 Datatype mapping: `Int`/`Float`/`Bool`/`String` → `int`/`float`/`bool`/`str`;
 `Waveform(array_dtype, shape)`/`Array1D` hint (per
@@ -156,10 +156,14 @@ the enum class itself. Resolved in review (#402):
 - **Disconnect dropped:** reconnect is `Device.connect(force_reconnect=True)`;
   the only disconnect is `atexit`. No `Device.disconnect()` proposal (so #388
   §8 item 8 / issue #401 is rewritten accordingly).
-
-## Open questions (awaiting input)
-
-1. Where does `@scan`-derived state that isn't exposed as a `Signal` go? All
-   attribute data already lives in `Attr` instances mapped to `Signal`s, so it
-   may be that `@scan` only drives updates and nothing extra needs surfacing —
-   needs confirming. *(awaiting @shihab-dls)*
+- **`@scan` surfaces nothing; `@command` does (@shihab-dls, #402):** confirmed —
+  a `@scan`-decorated method is a **purely internal** coroutine run periodically;
+  it is *not* bound to an `Attr` and produces **no** `Signal`. All exposed state
+  already lives in `Attr` instances: a getter-based `AttrR` schedules its getter
+  as a scan-style task *and* is bound to the Attr (→ `Signal`), and a soft `AttrR`
+  fed by `@scan` via `update()` is likewise the exposed Signal — so `@scan` needs
+  nothing extra surfaced. A `@command` method **is** different: it creates an
+  `AttrW` and **is** exposed (the `CommandBackend` row above). Both `@scan` and
+  getter/update coroutines are collected onto the running loop in
+  `create_api_and_tasks()`; the connector schedules `@scan` coroutines as internal
+  tasks but never maps them to Signals.
