@@ -75,3 +75,4 @@ class TemperatureAttrController(Controller):
 
     async def close(self) -> None:
         await self.connection.close()
+        self._connected = False
