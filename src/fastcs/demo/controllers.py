@@ -80,7 +80,7 @@ class TemperatureController(Controller):
 
         self._settings = settings
 
-        self.ramps: ControllerVector[TemperatureRampController] = ControllerVector(
+        self.ramps = ControllerVector(
             {
                 index: TemperatureRampController(index, self.connection)
                 for index in range(1, settings.num_ramp_controllers + 1)
