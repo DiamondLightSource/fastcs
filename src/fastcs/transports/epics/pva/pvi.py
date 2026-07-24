@@ -41,7 +41,7 @@ def _make_p4p_value(
         return Value(
             p4p_type,
             {
-                **p4p_alarm_states(),
+                **p4p_alarm_states().model_dump(),
                 **p4p_timestamp_now(),
                 **display,
                 "value": raw_value,

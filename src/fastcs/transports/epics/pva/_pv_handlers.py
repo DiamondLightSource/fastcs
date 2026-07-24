@@ -14,8 +14,9 @@ from fastcs.methods import CommandCallback
 from fastcs.tracer import Tracer
 
 from .types import (
-    MAJOR_ALARM_SEVERITY,
-    RECORD_ALARM_STATUS,
+    P4PAlarmState,
+    Severity,
+    Status,
     cast_from_p4p_value,
     cast_to_p4p_value,
     make_p4p_type,
@@ -65,9 +66,7 @@ class WritePvHandler:
         except Exception as e:
             error_msg = f"Exception raised during put operation: {e!r}"
             op.done(error=error_msg)
-            alarm_states = p4p_alarm_states(
-                MAJOR_ALARM_SEVERITY, RECORD_ALARM_STATUS, error_msg
-            )
+            alarm_states = p4p_alarm_states(Severity.MAJOR, Status.RECORD, error_msg)
             # Raise alarm on failed put
             _post_with_alarm_states(pv, datatype, value_to_post, alarm_states)
         else:
@@ -79,16 +78,14 @@ class CommandPvHandler:
         self._command = command
         self._task_in_progress = False
 
-    async def _run_command(self) -> dict:
+    async def _run_command(self) -> P4PAlarmState:
         self._task_in_progress = True
 
         try:
             await self._command()
         except Exception as e:
             error_msg = f"Exception raised during command put: {e!r}"
-            alarm_states = p4p_alarm_states(
-                MAJOR_ALARM_SEVERITY, RECORD_ALARM_STATUS, error_msg
-            )
+            alarm_states = p4p_alarm_states(Severity.MAJOR, Status.RECORD, error_msg)
         else:
             alarm_states = p4p_alarm_states()
 
@@ -114,14 +111,22 @@ class CommandPvHandler:
                     blocking = False
 
             # Flip to true once command task starts
-            pv.post({"value": True, **p4p_timestamp_now(), **p4p_alarm_states()})
+            pv.post(
+                {
+                    "value": True,
+                    **p4p_timestamp_now(),
+                    **p4p_alarm_states().model_dump(),
+                }
+            )
             if not blocking:
                 op.done()
             alarm_states = await self._run_command()
-            pv.post({"value": False, **p4p_timestamp_now(), **alarm_states})
+            pv.post(
+                {"value": False, **p4p_timestamp_now(), **alarm_states.model_dump()}
+            )
             if blocking:
                 # Check if we are in alarm
-                if msg := alarm_states["alarm"]["message"]:
+                if msg := alarm_states.model_dump()["alarm"]["message"]:
                     op.done(error=msg)
                 else:
                     op.done()
@@ -175,7 +180,7 @@ def make_shared_write_pv(attribute: AttrW) -> SharedPV:
 def make_command_pv(command: CommandCallback) -> SharedPV:
     type_ = NTScalar.buildType("?", display=True, control=True)
 
-    initial = Value(type_, {"value": False, **p4p_alarm_states()})
+    initial = Value(type_, {"value": False, **p4p_alarm_states().model_dump()})
 
     def _wrap(value: dict):
         return Value(type_, value)
@@ -190,12 +195,12 @@ def make_command_pv(command: CommandCallback) -> SharedPV:
 
 
 def _post_with_alarm_states(
-    pv: SharedPV, dtype: DataType, value: Any, alarm_states: dict
+    pv: SharedPV, dtype: DataType, value: Any, alarm_states: P4PAlarmState
 ):
-    sub_states = alarm_states["alarm"]
+    sub_states = alarm_states.model_dump()["alarm"]
     if isinstance(dtype, Table | Waveform):
         # NTTable and NTNDArray don't accept 'status'
         sub_states.pop("status", None)
         pv.post(value=value, **sub_states)
     else:
-        pv.post({"value": value, **alarm_states})
+        pv.post({"value": value, **alarm_states.model_dump()})
