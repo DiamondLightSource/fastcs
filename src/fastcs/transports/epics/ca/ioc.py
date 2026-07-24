@@ -1,7 +1,6 @@
 import asyncio
 from collections import Counter
 from collections.abc import Awaitable
-from enum import IntEnum
 from typing import Any, Literal
 
 from softioc import alarm, builder, softioc
@@ -339,7 +338,7 @@ def _add_alias(record: RecordWrapper, alias: str | None):
             record.add_alias(alias)
 
 
-def _set_alarm(record: RecordWrapper, alarm_state: IntEnum):
+def _set_alarm(record: RecordWrapper, alarm_state: int):
     record.set(
         record.get(),
         process=False,
