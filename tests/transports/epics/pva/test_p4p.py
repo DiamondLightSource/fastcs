@@ -235,11 +235,13 @@ def test_alarms_set_if_put_fails():
 
     serve = asyncio.ensure_future(fastcs.serve(interactive=False))
 
-    with pytest.raises(RuntimeError, match="Exception raised during put operation"):
-        asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(asyncio.gather(serve, put_pvs()), timeout=1)
-        )
-    serve.cancel()
+    try:
+        with pytest.raises(RuntimeError, match="Exception raised during put operation"):
+            asyncio.get_event_loop().run_until_complete(
+                asyncio.wait_for(asyncio.gather(serve, put_pvs()), timeout=1)
+            )
+    finally:
+        serve.cancel()
 
 
 def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
