@@ -105,16 +105,27 @@ def cast_from_p4p_value(attribute: Attribute[DType_T], value: object) -> DType_T
             raise ValueError(f"Unsupported datatype {attribute.datatype}")
 
 
-# https://epics-base.github.io/pvxs/nt.html#alarm-t
 class Severity(IntEnum):
+    """Alarm severity for a PV, as defined by the PVXS alarm_t normative type.
+
+    Whether MINOR or MAJOR applies is context-dependent and can vary per PV.
+    INVALID indicates the current value should not be treated as a meaningful
+    reading (e.g. of the underlying measured quantity) and typically reflects
+    the last known good value rather than a fresh one."""
+
     NO_ALARM = 0
     MINOR = 1
     MAJOR = 2
     INVALID = 3
 
 
-# https://epics-base.github.io/pvxs/nt.html#alarm-t
 class Status(IntEnum):
+    """Alarm status for a PV.
+
+    Identifies which part of the system raised the alarm, as defined by the
+    PVXS alarm_t normative type.
+    """
+
     NO_ALARM = 0
     DEVICE = 1
     DRIVER = 2
@@ -126,12 +137,19 @@ class Status(IntEnum):
 
 
 class AlarmInfo(BaseModel):
+    """The alarm state of a PV, following the PVXS alarm_t normative type.
+
+    See https://epics-base.github.io/pvxs/nt.html#alarm-t.
+    """
+
     severity: Severity = Severity.NO_ALARM
     status: Status = Status.NO_ALARM
     message: str = ""
 
 
 class P4PAlarmState(BaseModel):
+    """Wraps AlarmInfo as the alarm sub-structure of a p4p NT* Value."""
+
     alarm: AlarmInfo
 
 
