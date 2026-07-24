@@ -204,7 +204,7 @@ def p4p_display(attribute: Attribute) -> dict:
 
 def _p4p_check_numeric_for_alarm_states(
     datatype: Int | Float, value: DType
-) -> P4PAlarmState:
+) -> dict[str, dict[str, int | str]]:
     low = None if datatype.min_alarm is None else value < datatype.min_alarm  # type: ignore
     high = None if datatype.max_alarm is None else value > datatype.max_alarm  # type: ignore
     severity = (
@@ -224,7 +224,7 @@ def _p4p_check_numeric_for_alarm_states(
             f"Above maximum alarm limit: {datatype.max_alarm}",
         )
 
-    return p4p_alarm_states(severity, status, message)
+    return p4p_alarm_states(severity, status, message).model_dump()
 
 
 def cast_to_p4p_value(attribute: Attribute[DType_T], value: DType_T) -> object:
