@@ -9,7 +9,7 @@ from p4p.server import ServerOperation
 from p4p.server.asyncio import SharedPV
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
-from fastcs.datatypes import DataType, Enum, Table, Waveform
+from fastcs.datatypes import DataType, Table, Waveform
 from fastcs.methods import CommandCallback
 from fastcs.tracer import Tracer
 
@@ -53,13 +53,7 @@ class WritePvHandler:
 
         datatype = self._attr_w.datatype
 
-        value_to_post = (
-            cast_to_p4p_value(self._attr_w, cast_value)
-            if isinstance(datatype, Waveform | Table | Enum)
-            else cast_value
-        )
-
-        _post_with_alarm_states(pv, datatype, value_to_post, p4p_alarm_states())
+        _post_with_alarm_states(pv, datatype, raw_value, p4p_alarm_states())
 
         try:
             await self._attr_w.put(cast_value)
@@ -68,7 +62,8 @@ class WritePvHandler:
             op.done(error=error_msg)
             alarm_states = p4p_alarm_states(Severity.MAJOR, Status.RECORD, error_msg)
             # Raise alarm on failed put
-            _post_with_alarm_states(pv, datatype, value_to_post, alarm_states)
+            _post_with_alarm_states(pv, datatype, raw_value, alarm_states)
+
         else:
             op.done()
 
