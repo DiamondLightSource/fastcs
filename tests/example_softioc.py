@@ -25,7 +25,7 @@ class ChildController(Controller):
     @command()
     async def d(self):
         print("D: RUNNING")
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
         if self.fail_on_next_e:
             self.fail_on_next_e = False
             raise RuntimeError("D: FAILED WITH THIS WEIRD ERROR")

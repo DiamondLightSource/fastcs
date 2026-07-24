@@ -151,7 +151,7 @@ def p4p_alarm_states(
     )
 
 
-def p4p_timestamp_now() -> dict:
+def p4p_timestamp_now() -> dict[str, dict[str, int]]:
     """The p4p timestamp structure for the current time."""
     now = time.time()
     seconds_past_epoch = int(now)

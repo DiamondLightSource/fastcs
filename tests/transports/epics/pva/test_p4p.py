@@ -212,7 +212,7 @@ async def test_numeric_alarms(p4p_subprocess: tuple[str, Queue]):
         a_monitor.close()
 
 
-def test_alarms_set_if_put_fails(caplog):
+def test_alarms_set_if_put_fails():
     @dataclass
     class SimpleAttributeIORef(AttributeIORef):
         pass
@@ -229,17 +229,16 @@ def test_alarms_set_if_put_fails(caplog):
     fastcs = make_fastcs(pv_prefix, controller)
 
     async def put_pvs():
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
         ctxt = Context("pva")
         await ctxt.put(f"{pv_prefix}:A", 1)
 
     serve = asyncio.ensure_future(fastcs.serve(interactive=False))
-    try:
+
+    with pytest.raises(RuntimeError, match="Exception raised during put operation"):
         asyncio.get_event_loop().run_until_complete(
             asyncio.wait_for(asyncio.gather(serve, put_pvs()), timeout=1)
         )
-    except RuntimeError as exc:
-        assert str(exc) == "Exception raised during put operation: ValueError('Failed')"
     serve.cancel()
 
 
