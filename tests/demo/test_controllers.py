@@ -6,6 +6,7 @@ import pytest
 from fastcs.connections import IPConnectionSettings
 from fastcs.controllers import ControllerVector
 from fastcs.demo.controllers import (
+    OnOffEnum,
     TemperatureController,
     TemperatureControllerSettings,
     TemperatureRampController,
@@ -33,15 +34,15 @@ def test_ramps_is_controller_vector(controller: TemperatureController):
 
 @pytest.mark.asyncio
 async def test_cancel_all_disables_every_ramp(controller: TemperatureController):
-    controller.connection.send_command = AsyncMock()  # type: ignore[method-assign]
+    puts = {}
+    for index, ramp in controller.ramps.items():
+        puts[index] = AsyncMock()
+        ramp.enabled.put = puts[index]  # type: ignore[method-assign]
 
     await controller.cancel_all()
 
-    sent_commands = [
-        call.args[0] for call in controller.connection.send_command.call_args_list
-    ]
-    for index in controller.ramps:
-        assert f"N{index:02d}=0\r\n" in sent_commands
+    for put in puts.values():
+        put.assert_awaited_once_with(OnOffEnum.Off, sync_setpoint=True)
 
 
 @pytest.mark.asyncio
