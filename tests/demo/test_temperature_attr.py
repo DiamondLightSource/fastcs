@@ -21,7 +21,7 @@ def controller() -> TemperatureAttrController:
 
 @pytest.mark.asyncio
 async def test_ramp_rate_read_from_device(controller: TemperatureAttrController):
-    controller.connection.send_query = AsyncMock(return_value="1.5\r\n")  # type: ignore[method-assign]
+    controller.connection.send_query = AsyncMock(return_value="1.5\r\n")
 
     await controller.ramp_rate.bind_update_callback()()
 
@@ -31,7 +31,7 @@ async def test_ramp_rate_read_from_device(controller: TemperatureAttrController)
 
 @pytest.mark.asyncio
 async def test_ramp_rate_written_to_device(controller: TemperatureAttrController):
-    controller.connection.send_command = AsyncMock()  # type: ignore[method-assign]
+    controller.connection.send_command = AsyncMock()
 
     await controller.ramp_rate.put(2.5)
 
@@ -40,7 +40,7 @@ async def test_ramp_rate_written_to_device(controller: TemperatureAttrController
 
 @pytest.mark.asyncio
 async def test_power_read_from_device(controller: TemperatureAttrController):
-    controller.connection.send_query = AsyncMock(return_value="10.25\r\n")  # type: ignore[method-assign]
+    controller.connection.send_query = AsyncMock(return_value="10.25\r\n")
 
     await controller.power.bind_update_callback()()
 
