@@ -31,6 +31,12 @@ class EigerParameter:
     value: Any
     value_type: ValueType
     access_mode: AccessMode = "r"
+    allowed_values: list[str] | None = None
+    """The permitted values of a discrete parameter, as the real detector reports them.
+
+    Only discrete parameters carry this, and it is the metadata a client needs to
+    introspect the parameter as an enum rather than a bare string.
+    """
 
 
 def _initial_state() -> dict[Subsystem, dict[str, EigerParameter]]:
@@ -42,7 +48,9 @@ def _initial_state() -> dict[Subsystem, dict[str, EigerParameter]]:
             "description": EigerParameter("Simulated Eiger", "string", "r"),
         },
         "status": {
-            "state": EigerParameter("idle", "string", "r"),
+            "state": EigerParameter(
+                "idle", "string", "r", allowed_values=["idle", "ready", "acquire"]
+            ),
             "temperature": EigerParameter(22.5, "float", "r"),
             "humidity": EigerParameter(32.1, "float", "r"),
         },
@@ -108,11 +116,15 @@ def create_eiger_sim_app() -> FastAPI:
     @app.get(API_PREFIX + "/{subsystem}/{param}")
     async def get_parameter(subsystem: str, param: str) -> dict[str, Any]:
         parameter = _parameter(subsystem, param)
-        return {
+        data: dict[str, Any] = {
             "value": parameter.value,
             "value_type": parameter.value_type,
             "access_mode": parameter.access_mode,
         }
+        # Only discrete parameters report their options, as on the real detector.
+        if parameter.allowed_values is not None:
+            data["allowed_values"] = parameter.allowed_values
+        return data
 
     @app.put(API_PREFIX + "/{subsystem}/{param}")
     async def put_parameter(

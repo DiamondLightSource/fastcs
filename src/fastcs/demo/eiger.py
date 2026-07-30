@@ -9,14 +9,15 @@ its complexity - contrast with the (deliberately non-introspectable) SCPI/temper
 examples.
 """
 
+import enum
 from dataclasses import KW_ONLY, dataclass
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
 from fastcs.attributes import AnyAttributeIO, AttributeIO, AttributeIORef, AttrR, AttrRW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Bool, DataType, Float, Int, String
+from fastcs.datatypes import Bool, DataType, Enum, Float, Int, String
 from fastcs.demo.simulation.eiger import API_PREFIX, Subsystem, ValueType
 from fastcs.util import ONCE
 
@@ -29,6 +30,25 @@ _DATATYPES: dict[ValueType, type[DataType]] = {
 
 # Poll period (seconds) for read-only status params that change on the device.
 UPDATE_PERIOD = 0.2
+
+
+def _datatype(param: str, data: dict[str, Any]) -> DataType:
+    """Build a datatype for a parameter from the metadata the device reports.
+
+    A parameter that reports ``allowed_values`` is discrete, so it becomes an `Enum`
+    over an enum class built from those values. The members are only knowable over the
+    wire, which is exactly the case introspection exists for.
+    """
+    allowed_values = data.get("allowed_values")
+    if allowed_values is None:
+        return _DATATYPES[data["value_type"]]()
+
+    name = "".join(part.title() for part in param.split("_"))
+    # The functional API builds a class; type checkers only see the instance signature.
+    enum_cls = cast(
+        type[enum.Enum], enum.Enum(name, {value: value for value in allowed_values})
+    )
+    return Enum(enum_cls)
 
 
 @dataclass
@@ -95,7 +115,9 @@ class EigerAttributeIO(AttributeIO[Any, EigerAttributeIORef]):
 
     async def update(self, attr: AttrR[Any, EigerAttributeIORef]) -> None:
         data = await self._connection.get(attr.io_ref.subsystem, attr.io_ref.param)
-        await attr.update(attr.dtype(data["value"]))
+        # No cast here - ``update`` validates against the datatype, which is the one
+        # place a bad value from the device should be coerced or complained about.
+        await attr.update(data["value"])
 
     async def send(self, attr, value) -> None:
         await self._connection.put(attr.io_ref.subsystem, attr.io_ref.param, value)
@@ -105,9 +127,11 @@ class EigerDetector(Controller):
     """Cut-down Eiger controller: half declared, half introspected."""
 
     # Declared (checked): must exist, with this access mode and dtype, after
-    # initialise() introspects the parameter tree.
+    # initialise() introspects the parameter tree. ``state`` is discrete, and its
+    # enum class is built from the ``allowed_values`` the device reports, so there
+    # is no author-time type to hint - only the access mode can be pinned here.
     count_time: AttrRW[float]
-    state: AttrR[str]
+    state: AttrR
 
     # Derived (soft): built on top of the introspected ``state`` param. Declaring
     # ``state`` as a checked attribute is what lets us reference it in code and
@@ -136,23 +160,23 @@ class EigerDetector(Controller):
         for subsystem in ("config", "status"):
             for param in await self.connection.keys(subsystem):
                 data = await self.connection.get(subsystem, param)
-                datatype_cls = _DATATYPES[data["value_type"]]
+                datatype = _datatype(param, data)
 
                 if data["access_mode"] == "rw":
                     io_ref = EigerAttributeIORef(subsystem=subsystem, param=param)
-                    attr = AttrRW(datatype_cls(), io_ref=io_ref)
+                    attr = AttrRW(datatype, io_ref=io_ref)
                 else:
                     # Read-only params are status values that change on the device,
                     # so poll them periodically rather than reading once.
                     io_ref = EigerAttributeIORef(
                         subsystem=subsystem, param=param, update_period=UPDATE_PERIOD
                     )
-                    attr = AttrR(datatype_cls(), io_ref=io_ref)
+                    attr = AttrR(datatype, io_ref=io_ref)
 
                 self.add_attribute(param, attr)
 
         # Keep the derived ``idle`` flag in sync with the introspected ``state``.
         self.state.add_on_update_callback(self._update_idle)
 
-    async def _update_idle(self, state: str) -> None:
-        await self.idle.update(state == "idle")
+    async def _update_idle(self, state: enum.Enum) -> None:
+        await self.idle.update(state.value == "idle")

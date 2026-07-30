@@ -1,10 +1,12 @@
 import asyncio
+import enum
 
 import httpx
 import pytest
 import pytest_asyncio
 
 from fastcs.attributes import AttrR, AttrRW
+from fastcs.datatypes import Enum
 from fastcs.demo.eiger import UPDATE_PERIOD, EigerDetector
 from fastcs.demo.simulation.eiger import EigerParameter, create_eiger_sim_app
 from fastcs.util import ONCE
@@ -40,7 +42,20 @@ async def test_hinted_attributes_are_introspected(detector: EigerDetector):
     assert detector.count_time.datatype.dtype is float
 
     assert isinstance(detector.state, AttrR)
-    assert detector.state.datatype.dtype is str
+    # ``state`` reports ``allowed_values``, so it is introspected as an enum whose
+    # members come from the device rather than as a bare string.
+    assert isinstance(detector.state.datatype, Enum)
+    assert detector.state.datatype.names == ["idle", "ready", "acquire"]
+
+
+@pytest.mark.asyncio
+async def test_enum_attribute_reads_as_member(detector: EigerDetector, sim: SimState):
+    sim["status"]["state"].value = "acquire"
+    await detector.state.bind_update_callback()()
+
+    state = detector.state.get()
+    assert isinstance(state, enum.Enum)
+    assert state.value == "acquire"
 
 
 @pytest.mark.asyncio
@@ -75,13 +90,13 @@ async def test_idle_derived_from_state(detector: EigerDetector, sim: SimState):
     assert detector.idle.get() is False
 
     # Poke the read-only ``state`` via the sim backdoor, then poll the attribute.
-    sim["status"]["state"].value = "idle"
-    await detector.state.bind_update_callback()()
-    assert detector.idle.get() is True
-
     sim["status"]["state"].value = "acquire"
     await detector.state.bind_update_callback()()
     assert detector.idle.get() is False
+
+    sim["status"]["state"].value = "idle"
+    await detector.state.bind_update_callback()()
+    assert detector.idle.get() is True
 
 
 @pytest.mark.asyncio
