@@ -145,9 +145,6 @@ commands = [
 
 [tool.tox.env.tests]
 description = "Run tests with coverage"
-# TEMPORARY DIAGNOSTIC - revert before merge. Makes ResourceWarning carry the
-# allocation traceback of the leaked object, to find what abandons an event loop.
-set_env = { PYTHONTRACEMALLOC = "25" }
 commands = [
     [
         "pytest",
