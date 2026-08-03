@@ -51,13 +51,17 @@ class MyController(Controller):
 
 How the getter is passed decides when it is called:
 
-- A bare getter (`getter=self._get_label`) — called once on startup and not again.
-  This is the `ONCE` schedule, and it is the default because it is what most
-  parameters want.
-- `Polled(getter, period=0.5)` — polls at that interval in seconds.
+- A bare getter (`getter=self._get_label`) — the `ONCE` schedule: read when the
+  controller connects, and not again. Use it for values that only change because
+  you changed them, such as writable configuration the device holds for you.
+- `Polled(getter, period=0.5)` — polls at that interval in seconds. Use it for
+  values the device changes on its own, such as readings and status.
 - `Polled(getter, period=None)` — no automatic polling; the attribute value is only
   set explicitly (e.g. from a scan method or subscription callback), or read
   on-demand via `await attr.poll()`.
+
+`ONCE` is the default when a getter is given, so polling is opted into per
+attribute rather than being something you have to remember to switch off.
 
 ## Initial Read with Event-Driven Updates from Sets
 
