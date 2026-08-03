@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
+from dataclasses import dataclass
+from typing import Any, Generic
 
 from fastcs.attributes._infer_datatype import infer_datatype_from_getter
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
@@ -11,12 +13,26 @@ from fastcs.datatypes import DataType, DType_T
 from fastcs.logging import logger
 from fastcs.util import ONCE
 
-Getter = Callable[[], Awaitable["DType_T | Update[DType_T]"]]
+Getter = Callable[[], Awaitable[DType_T | Update[DType_T]]]
 """A callable that fetches a fresh value for an attribute from its source"""
-AttrOnUpdateCallback = Callable[[DType_T], Coroutine[None, None, None]]
-"""A callback to be called when the value of the attribute is updated"""
+AttrReadbackCallback = Callable[[DType_T], Coroutine[None, None, None]]
+"""A callback to be called when the readback of the attribute updates"""
 
-_UNSET = object()
+
+@dataclass
+class Polled(Generic[DType_T]):
+    """A getter that should be called on a schedule.
+
+    Wrap a getter to say how often it should be read::
+
+        AttrR(getter=Polled(protocol.get_temperature, period=0.1))
+
+    A bare getter is read ``ONCE``, when the controller connects. ``period=None``
+    schedules no reads at all, leaving the attribute to on-demand ``poll()`` calls.
+    """
+
+    getter: Getter[DType_T]
+    period: float | None
 
 
 class AttrR(Attribute[DType_T]):
@@ -25,35 +41,33 @@ class AttrR(Attribute[DType_T]):
     def __init__(
         self,
         datatype: DataType[DType_T] | None = None,
-        getter: Getter[DType_T] | None = None,
-        poll_period: float | None = _UNSET,  # type: ignore[assignment]
-        group: str | None = None,
+        getter: Getter[DType_T] | Polled[DType_T] | None = None,
         initial_value: DType_T | None = None,
-        description: str | None = None,
+        **kwargs: Any,
     ) -> None:
-        if datatype is None:
-            datatype = getter and infer_datatype_from_getter(getter)
-            if datatype is None:
-                raise ValueError(
-                    "datatype must be given explicitly, or be inferable from the "
-                    "getter's return type annotation"
-                )
+        if isinstance(getter, Polled):
+            resolved_getter, poll_period = getter.getter, getter.period
+        else:
+            resolved_getter = getter
+            poll_period = ONCE if getter is not None else None
 
-        Attribute.__init__(self, datatype, group, description=description)
+        if datatype is None and resolved_getter is not None:
+            datatype = infer_datatype_from_getter(resolved_getter)
+
+        # Pass the datatype on rather than validating it here: in an ``AttrRW`` the
+        # setter may still supply it, and ``Attribute`` makes the final check.
+        super().__init__(datatype, **kwargs)
+
         self._value: DType_T = (
-            datatype.initial_value if initial_value is None else initial_value
+            self._datatype.initial_value if initial_value is None else initial_value
         )
-        self._getter = getter
-        self._poll_period: float | None = (
-            (ONCE if getter is not None else None)
-            if poll_period is _UNSET
-            else poll_period
-        )
+        self._getter = resolved_getter
+        self._poll_period: float | None = poll_period
         """Period in seconds between calls to poll(), or ONCE, or None (on-demand)"""
-        self._on_update_callbacks: (
-            list[tuple[AttrOnUpdateCallback[DType_T], bool]] | None
+        self._readback_callbacks: (
+            list[tuple[AttrReadbackCallback[DType_T], bool]] | None
         ) = None
-        """Callbacks to publish changes to the value of the attribute"""
+        """Callbacks to publish changes to the readback of the attribute"""
         self._on_update_events: set[PredicateEvent[DType_T]] = set()
         """Events to set when the value satisifies some predicate"""
 
@@ -94,7 +108,7 @@ class AttrR(Attribute[DType_T]):
 
         """
         if isinstance(value, Update):
-            value = value.value
+            value = value.readback
 
         self.log_event("Attribute set", value=repr(value), attribute=self)
 
@@ -111,17 +125,17 @@ class AttrR(Attribute[DType_T]):
             e for e in self._on_update_events if e.set(self._value)
         }
 
-        if self._on_update_callbacks is not None:
-            callbacks_to_call: list[AttrOnUpdateCallback[DType_T]] = [
+        if self._readback_callbacks is not None:
+            callbacks_to_call: list[AttrReadbackCallback[DType_T]] = [
                 cb
-                for cb, always in self._on_update_callbacks
+                for cb, always in self._readback_callbacks
                 if always or not self.datatype.equal(self._value, _previous_value)
             ]
             try:
                 await asyncio.gather(*[cb(self._value) for cb in callbacks_to_call])
             except Exception as e:
                 logger.opt(exception=e).error(
-                    "On update callbacks failed",
+                    "Readback callbacks failed",
                     attribute=self,
                     value=repr(self._value),
                 )
@@ -137,17 +151,19 @@ class AttrR(Attribute[DType_T]):
         await self.update(result)
         return self._value
 
-    def add_on_update_callback(
-        self, callback: AttrOnUpdateCallback[DType_T], always: bool = False
+    def add_readback_callback(
+        self, callback: AttrReadbackCallback[DType_T], always: bool = False
     ) -> None:
-        """Add a callback to be called when the value of the attribute is updated
+        """Add a callback to be called when the readback of the attribute updates
 
-        The callback will be called with the updated value.
+        The callback will be called with the updated readback value. Transports
+        should use this to publish the attribute's readback, and
+        ``AttrW.add_setpoint_callback`` to publish its setpoint.
 
         """
-        if self._on_update_callbacks is None:
-            self._on_update_callbacks = []
-        self._on_update_callbacks.append((callback, always))
+        if self._readback_callbacks is None:
+            self._readback_callbacks = []
+        self._readback_callbacks.append((callback, always))
 
     async def wait_for_predicate(
         self, predicate: AttrValuePredicate[DType_T], *, timeout: float

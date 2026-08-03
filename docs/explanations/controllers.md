@@ -28,7 +28,7 @@ lifecycle, if required.
 ### Scan task behaviour
 
 When used as the root controller, FastCS collects all `@scan` methods and readable
-attributes with a `getter` and a `poll_period` set, across the whole controller
+attributes whose `getter` is wrapped in `Polled`, across the whole controller
 hierarchy, to be run as background tasks by FastCS. Scan tasks are gated on the
 `_connected` flag: if a scan
 raises an exception, `_connected` is set to `False` and tasks pause until `reconnect`

@@ -10,16 +10,15 @@ examples.
 """
 
 import enum
-from dataclasses import KW_ONLY, dataclass
+from dataclasses import dataclass
 from typing import Any, cast
 
 import httpx
 
-from fastcs.attributes import AnyAttributeIO, AttributeIO, AttributeIORef, AttrR, AttrRW
+from fastcs.attributes import AttrR, AttrRW, Polled
 from fastcs.controllers import Controller
 from fastcs.datatypes import Bool, DataType, Enum, Float, Int, String
 from fastcs.demo.simulation.eiger import API_PREFIX, Subsystem, ValueType
-from fastcs.util import ONCE
 
 _DATATYPES: dict[ValueType, type[DataType]] = {
     "float": Float,
@@ -100,29 +99,6 @@ class EigerConnection:
         response.raise_for_status()
 
 
-@dataclass
-class EigerAttributeIORef(AttributeIORef):
-    subsystem: Subsystem
-    param: str
-    _: KW_ONLY
-    update_period: float | None = ONCE
-
-
-class EigerAttributeIO(AttributeIO[Any, EigerAttributeIORef]):
-    def __init__(self, connection: EigerConnection):
-        super().__init__()
-        self._connection = connection
-
-    async def update(self, attr: AttrR[Any, EigerAttributeIORef]) -> None:
-        data = await self._connection.get(attr.io_ref.subsystem, attr.io_ref.param)
-        # No cast here - ``update`` validates against the datatype, which is the one
-        # place a bad value from the device should be coerced or complained about.
-        await attr.update(data["value"])
-
-    async def send(self, attr, value) -> None:
-        await self._connection.put(attr.io_ref.subsystem, attr.io_ref.param, value)
-
-
 class EigerDetector(Controller):
     """Cut-down Eiger controller: half declared, half introspected."""
 
@@ -144,10 +120,25 @@ class EigerDetector(Controller):
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.connection = EigerConnection(transport=transport)
-        ios: list[AnyAttributeIO] = [EigerAttributeIO(self.connection)]
-        super().__init__(ios=ios)
+        super().__init__()
 
         self._settings = settings or EigerConnectionSettings()
+
+    def _getter(self, subsystem: Subsystem, param: str):
+        async def get() -> Any:
+            data = await self.connection.get(subsystem, param)
+            # No cast here - ``update`` validates against the datatype, which is the
+            # one place a bad value from the device should be coerced or complained
+            # about.
+            return data["value"]
+
+        return get
+
+    def _setter(self, subsystem: Subsystem, param: str):
+        async def put(value: Any) -> None:
+            await self.connection.put(subsystem, param, value)
+
+        return put
 
     async def connect(self) -> None:
         await self.connection.connect(self._settings)
@@ -163,20 +154,25 @@ class EigerDetector(Controller):
                 datatype = _datatype(param, data)
 
                 if data["access_mode"] == "rw":
-                    io_ref = EigerAttributeIORef(subsystem=subsystem, param=param)
-                    attr = AttrRW(datatype, io_ref=io_ref)
+                    attr = AttrRW(
+                        datatype,
+                        getter=self._getter(subsystem, param),
+                        setter=self._setter(subsystem, param),
+                    )
                 else:
                     # Read-only params are status values that change on the device,
                     # so poll them periodically rather than reading once.
-                    io_ref = EigerAttributeIORef(
-                        subsystem=subsystem, param=param, update_period=UPDATE_PERIOD
+                    attr = AttrR(
+                        datatype,
+                        getter=Polled(
+                            self._getter(subsystem, param), period=UPDATE_PERIOD
+                        ),
                     )
-                    attr = AttrR(datatype, io_ref=io_ref)
 
                 self.add_attribute(param, attr)
 
         # Keep the derived ``idle`` flag in sync with the introspected ``state``.
-        self.state.add_on_update_callback(self._update_idle)
+        self.state.add_readback_callback(self._update_idle)
 
     async def _update_idle(self, state: enum.Enum) -> None:
         await self.idle.update(state.value == "idle")

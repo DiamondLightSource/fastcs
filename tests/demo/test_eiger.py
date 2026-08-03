@@ -51,9 +51,9 @@ async def test_hinted_attributes_are_introspected(detector: EigerDetector):
 @pytest.mark.asyncio
 async def test_enum_attribute_reads_as_member(detector: EigerDetector, sim: SimState):
     sim["status"]["state"].value = "acquire"
-    await detector.state.bind_update_callback()()
+    await detector.state.poll()
 
-    state = detector.state.get()
+    state = detector.state.readback
     assert isinstance(state, enum.Enum)
     assert state.value == "acquire"
 
@@ -66,37 +66,37 @@ async def test_unhinted_attributes_are_also_introspected(detector: EigerDetector
 
 @pytest.mark.asyncio
 async def test_read_attribute_from_device(detector: EigerDetector):
-    await detector.count_time.bind_update_callback()()
-    assert detector.count_time.get() == 0.1
+    await detector.count_time.poll()
+    assert detector.count_time.readback == 0.1
 
     humidity = detector.attributes["humidity"]
     assert isinstance(humidity, AttrR)
-    await humidity.bind_update_callback()()
-    assert humidity.get() == 32.1
+    await humidity.poll()
+    assert humidity.readback == 32.1
 
 
 @pytest.mark.asyncio
 async def test_write_attribute_to_device(detector: EigerDetector):
-    await detector.count_time.put(0.5)
+    await detector.count_time.set(0.5)
 
     # Read it back through the attribute to confirm the round-trip to the device.
-    await detector.count_time.bind_update_callback()()
-    assert detector.count_time.get() == 0.5
+    await detector.count_time.poll()
+    assert detector.count_time.readback == 0.5
 
 
 @pytest.mark.asyncio
 async def test_idle_derived_from_state(detector: EigerDetector, sim: SimState):
     # ``idle`` is soft and starts at its default, tracking ``state`` once polled.
-    assert detector.idle.get() is False
+    assert detector.idle.readback is False
 
     # Poke the read-only ``state`` via the sim backdoor, then poll the attribute.
     sim["status"]["state"].value = "acquire"
-    await detector.state.bind_update_callback()()
-    assert detector.idle.get() is False
+    await detector.state.poll()
+    assert detector.idle.readback is False
 
     sim["status"]["state"].value = "idle"
-    await detector.state.bind_update_callback()()
-    assert detector.idle.get() is True
+    await detector.state.poll()
+    assert detector.idle.readback is True
 
 
 @pytest.mark.asyncio
@@ -104,9 +104,9 @@ async def test_read_only_params_poll_but_rw_read_once(detector: EigerDetector):
     for name in ("state", "temperature", "humidity", "description"):
         attr = detector.attributes[name]
         assert isinstance(attr, AttrR) and not isinstance(attr, AttrRW)
-        assert attr.io_ref.update_period == UPDATE_PERIOD
+        assert attr.poll_period == UPDATE_PERIOD
 
-    assert detector.count_time.io_ref.update_period is ONCE
+    assert detector.count_time.poll_period is ONCE
 
 
 @pytest.mark.asyncio
@@ -129,11 +129,11 @@ async def test_temperature_oscillation_seen_via_subscribe():
         async def record(value: float) -> None:
             seen.append(value)
 
-        temperature.add_on_update_callback(record)
+        temperature.add_readback_callback(record)
 
         # Poll across several sim flips (every 0.5s) so the value changes under us.
         for _ in range(8):
-            await temperature.bind_update_callback()()
+            await temperature.poll()
             await asyncio.sleep(0.2)
 
         await controller.disconnect()

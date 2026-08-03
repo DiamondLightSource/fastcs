@@ -45,9 +45,9 @@ async def test_attr_r_update_logs_callback_failure(loguru_caplog):
     async def failing_callback(_value: int):
         raise RuntimeError("callback failed")
 
-    attr.add_on_update_callback(failing_callback)
+    attr.add_readback_callback(failing_callback)
 
     with pytest.raises(RuntimeError):
         await attr.update(42)
 
-    assert "On update callbacks failed" in loguru_caplog.text
+    assert "Readback callbacks failed" in loguru_caplog.text

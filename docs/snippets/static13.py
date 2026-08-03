@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import TypeVar
 
-from fastcs.attributes import AttrR, AttrRW
+from fastcs.attributes import AttrR, AttrRW, Polled
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.datatypes import Enum, Float, Int, String
@@ -43,19 +43,22 @@ class TemperatureRampController(Controller):
         super().__init__(f"Ramp{suffix}")
 
         self.start = AttrRW(
-            Int(), getter=self._get_start, setter=self._set_start, poll_period=0.2
+            Int(),
+            getter=Polled(self._get_start, period=0.2),
+            setter=self._set_start,
         )
         self.end = AttrRW(
-            Int(), getter=self._get_end, setter=self._set_end, poll_period=0.2
+            Int(),
+            getter=Polled(self._get_end, period=0.2),
+            setter=self._set_end,
         )
         self.enabled = AttrRW(
             Enum(OnOffEnum),
-            getter=self._get_enabled,
+            getter=Polled(self._get_enabled, period=0.2),
             setter=self._set_enabled,
-            poll_period=0.2,
         )
-        self.target = AttrR(Float(), getter=self._get_target, poll_period=0.2)
-        self.actual = AttrR(Float(), getter=self._get_actual, poll_period=0.2)
+        self.target = AttrR(Float(), getter=Polled(self._get_target, period=0.2))
+        self.actual = AttrR(Float(), getter=Polled(self._get_actual, period=0.2))
         self.voltage = AttrR(Float())
 
     async def _get_start(self) -> int:
@@ -91,13 +94,12 @@ class TemperatureController(Controller):
 
         super().__init__()
 
-        self.device_id = AttrR(String(), getter=self._get_device_id, poll_period=0.2)
-        self.power = AttrR(Float(), getter=self._get_power, poll_period=0.2)
+        self.device_id = AttrR(String(), getter=Polled(self._get_device_id, period=0.2))
+        self.power = AttrR(Float(), getter=Polled(self._get_power, period=0.2))
         self.ramp_rate = AttrRW(
             Float(),
-            getter=self._get_ramp_rate,
+            getter=Polled(self._get_ramp_rate, period=0.2),
             setter=self._set_ramp_rate,
-            poll_period=0.2,
         )
 
         self._ramp_controllers: list[TemperatureRampController] = []

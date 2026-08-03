@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import TypeVar
 
-from fastcs.attributes import AttrR
+from fastcs.attributes import AttrR, Polled
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.datatypes import Float, String
@@ -35,8 +35,8 @@ class TemperatureController(Controller):
 
         super().__init__()
 
-        self.device_id = AttrR(String(), getter=self._get_device_id, poll_period=0.2)
-        self.power = AttrR(Float(), getter=self._get_power, poll_period=0.2)
+        self.device_id = AttrR(String(), getter=Polled(self._get_device_id, period=0.2))
+        self.power = AttrR(Float(), getter=Polled(self._get_power, period=0.2))
 
     async def _get_device_id(self) -> str:
         return await self._protocol.send_query("ID", str)

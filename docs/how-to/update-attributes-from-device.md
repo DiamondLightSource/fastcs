@@ -6,14 +6,14 @@ different use cases. Choose the pattern that fits how the device API delivers da
 ## Poll via a Getter
 
 Use this pattern when each attribute maps to an independent request to the device. Give
-the attribute a `getter` and FastCS will call it periodically as a background task, at
-the rate set by `poll_period`.
+the attribute a `getter` wrapped in `Polled` and FastCS will call it periodically as a
+background task, at the period given.
 
 Write a getter that queries the device and returns the value - the framework caches it
 and calls any update callbacks; there's no need to call `attr.update` yourself:
 
 ```python
-from fastcs.attributes import AttrR, AttrRW
+from fastcs.attributes import AttrR, AttrRW, Polled
 from fastcs.controllers import Controller
 from fastcs.datatypes import Float, String
 
@@ -23,14 +23,15 @@ class MyController(Controller):
         self._connection = connection
         super().__init__()
 
-        self.temperature = AttrR(Float(), getter=self._get_temperature, poll_period=0.5)
+        self.temperature = AttrR(
+            Float(), getter=Polled(self._get_temperature, period=0.5)
+        )
         self.setpoint = AttrRW(
             Float(),
-            getter=self._get_setpoint,
+            getter=Polled(self._get_setpoint, period=1.0),
             setter=self._set_setpoint,
-            poll_period=1.0,
         )
-        self.label = AttrR(String(), getter=self._get_label, poll_period=None)
+        self.label = AttrR(String(), getter=Polled(self._get_label, period=None))
 
     async def _get_temperature(self) -> float:
         response = await self._connection.send_query("T?\r\n")
@@ -48,13 +49,15 @@ class MyController(Controller):
         return response.strip()
 ```
 
-Setting `poll_period` to:
+How the getter is passed decides when it is called:
 
-- A positive `float` — polls at that interval in seconds.
-- `None` — no automatic polling; the attribute value is only set explicitly (e.g. from a
-  scan method or subscription callback), or read on-demand via `await attr.poll()`.
-- `ONCE` (imported from `fastcs`, and the default when a `getter` is given) — called once
-  on startup and not again.
+- A bare getter (`getter=self._get_label`) — called once on startup and not again.
+  This is the `ONCE` schedule, and it is the default because it is what most
+  parameters want.
+- `Polled(getter, period=0.5)` — polls at that interval in seconds.
+- `Polled(getter, period=None)` — no automatic polling; the attribute value is only
+  set explicitly (e.g. from a scan method or subscription callback), or read
+  on-demand via `await attr.poll()`.
 
 ## Initial Read with Event-Driven Updates from Sets
 
@@ -63,9 +66,9 @@ subsequent updates arrive as side-effects of write operations rather than on a f
 poll cycle. This is common for devices that echo back related parameter values in their
 response to a set command.
 
-Leave `poll_period=ONCE` (the default when a `getter` is given) so the getter runs once
-on startup. Then, in the setter, parse the device's response and call `.update()`
-directly on any sibling attributes whose values have changed:
+Pass the getter bare, without `Polled`, so it runs once on startup and not again.
+Then, in the setter, parse the device's response and call `.update()` directly on any
+sibling attributes whose values have changed:
 
 ```python
 from fastcs.attributes import AttrR, AttrRW
@@ -106,10 +109,10 @@ class MyController(Controller):
         return float((await self._connection.send_query("X?\r\n")).strip())
 ```
 
-Attributes that are updated as a side-effect of a set can still leave
-`poll_period=ONCE` so they also get their initial value on startup. Set
-`poll_period=None` instead if the device's response to the set is the only source of
-truth and no initial poll is needed.
+Attributes that are updated as a side-effect of a set can still take a bare getter,
+so they also get their initial value on startup. Use `Polled(getter, period=None)`
+instead if the device's response to the set is the only source of truth and no initial
+poll is needed.
 
 ## Batched Updates via a Scan Method
 
@@ -117,7 +120,7 @@ Use this pattern when the device returns values for multiple attributes in a sin
 response. A `@scan` method runs periodically on the controller and distributes the
 results by calling `attr.update` directly on each attribute.
 
-Attributes that are updated this way do not need a `getter` or `poll_period` because
+Attributes that are updated this way do not need a `getter` at all, because
 the scan method drives the updates directly, rather than each attribute polling
 independently.
 
@@ -185,7 +188,7 @@ class ChannelController(Controller):
         self._cache = cache
         super().__init__(f"Ch{index:02d}")
 
-        self.voltage = AttrR(Float(), getter=self._get_voltage, poll_period=0.1)
+        self.voltage = AttrR(Float(), getter=Polled(self._get_voltage, period=0.1))
 
     async def _get_voltage(self) -> float:
         return self._cache.get(self._index, 0.0)

@@ -175,8 +175,8 @@ Write a `_get_device_id` method that queries the device and returns its value, a
 it to `device_id` as `getter`.
 
 :::{note}
-The `poll_period` argument tells the base class how often to call the getter. It
-defaults to calling once at start up when a getter is given.
+Passing the getter bare, as here, means it is called once at start up. Wrap it in
+`Polled(getter, period=...)` to have the base class call it repeatedly instead.
 :::
 
 ::::{admonition} Code 7

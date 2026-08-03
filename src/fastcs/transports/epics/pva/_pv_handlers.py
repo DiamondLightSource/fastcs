@@ -129,7 +129,7 @@ def make_shared_read_pv(attribute: AttrR) -> SharedPV:
         tracer.log_event("PV set readback", topic=attribute, value=value)
         shared_pv.post(cast_to_p4p_value(attribute, value))
 
-    attribute.add_on_update_callback(set_readback)
+    attribute.add_readback_callback(set_readback)
 
     return shared_pv
 
@@ -145,18 +145,10 @@ def make_shared_write_pv(attribute: AttrW) -> SharedPV:
         tracer.log_event("PV set setpoint", topic=attribute, value=value)
         shared_pv.post(cast_to_p4p_value(attribute, value))
 
-    if isinstance(attribute, AttrR):
-        # AttrRW: seed the setpoint PV with the first known readback value (e.g.
-        # from a getter poll), in case it differs from the datatype default.
-        seeded = False
-
-        async def seed_setpoint_once(value):
-            nonlocal seeded
-            if not seeded:
-                seeded = True
-                await set_setpoint(value)
-
-        attribute.add_on_update_callback(seed_setpoint_once)
+    # Mirror the attribute's setpoint whenever it changes, however it changed - a
+    # put on this PV, a put on another transport, or the device reporting its own
+    # setpoint. See ADR 0020.
+    attribute.add_setpoint_callback(set_setpoint)
 
     return shared_pv
 

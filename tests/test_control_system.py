@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from fastcs.attributes import AttrR
+from fastcs.attributes import AttrR, Polled
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.datatypes import Int
@@ -75,9 +75,9 @@ async def test_update_periods():
     class MyController(Controller):
         def __init__(self):
             super().__init__()
-            self.update_once = AttrR(Int(), getter=get_once, poll_period=ONCE)
-            self.update_quickly = AttrR(Int(), getter=get_quickly, poll_period=0.1)
-            self.update_never = AttrR(Int(), getter=get_never, poll_period=None)
+            self.update_once = AttrR(Int(), getter=Polled(get_once, period=ONCE))
+            self.update_quickly = AttrR(Int(), getter=Polled(get_quickly, period=0.1))
+            self.update_never = AttrR(Int(), getter=Polled(get_never, period=None))
 
     controller = MyController()
     loop = asyncio.get_event_loop()

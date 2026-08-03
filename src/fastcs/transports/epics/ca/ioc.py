@@ -214,7 +214,7 @@ def _create_and_link_read_pv(
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
 
-    attribute.add_on_update_callback(async_record_set)
+    attribute.add_readback_callback(async_record_set)
 
 
 def _create_and_link_write_pv(
@@ -244,18 +244,10 @@ def _create_and_link_write_pv(
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
 
-    if isinstance(attribute, AttrR):
-        # AttrRW: seed the setpoint record with the first known readback value
-        # (e.g. from a getter poll), in case it differs from the datatype default.
-        seeded = False
-
-        async def seed_setpoint_once(value: DType_T):
-            nonlocal seeded
-            if not seeded:
-                seeded = True
-                await set_setpoint_without_process(value)
-
-        attribute.add_on_update_callback(seed_setpoint_once)
+    # Mirror the attribute's setpoint whenever it changes, however it changed -
+    # a put on this PV, a put on another transport, or the device reporting its
+    # own setpoint. See ADR 0020.
+    attribute.add_setpoint_callback(set_setpoint_without_process)
 
 
 def _create_and_link_command_pvs(

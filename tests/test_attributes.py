@@ -4,7 +4,7 @@ from functools import partial
 import pytest
 from pytest_mock import MockerFixture
 
-from fastcs.attributes import AttrR, AttrRW, AttrW, Update
+from fastcs.attributes import AttrR, AttrRW, AttrW, Polled, Update
 from fastcs.controllers import Controller
 from fastcs.datatypes import Float, Int, String
 from fastcs.util import ONCE
@@ -135,18 +135,22 @@ async def test_poll_exception_propagates():
         await attr.poll()
 
 
-def test_poll_period_defaults_to_once_when_getter_given():
+def test_poll_period_comes_from_the_getter():
     async def do_update():
         return 1
 
+    # A bare getter is read once, when the controller connects.
     attr = AttrR(Int(), getter=do_update)
     assert attr.poll_period == ONCE
 
-    attr_explicit = AttrR(Int(), getter=do_update, poll_period=0.5)
+    # Wrapping it in Polled schedules it instead.
+    attr_explicit = AttrR(Int(), getter=Polled(do_update, period=0.5))
     assert attr_explicit.poll_period == 0.5
 
-    attr_on_demand = AttrR(Int(), getter=do_update, poll_period=None)
+    # A Polled with no period is never scheduled - on-demand poll() only.
+    attr_on_demand = AttrR(Int(), getter=Polled(do_update, period=None))
     assert attr_on_demand.poll_period is None
+    assert attr_on_demand.has_getter()
 
     attr_no_getter = AttrR(Int())
     assert attr_no_getter.poll_period is None
@@ -217,7 +221,7 @@ async def test_attributes():
         return value  # accepted value echoes straight back to the readback
 
     attr_r = AttrR(String())
-    attr_r.add_on_update_callback(partial(update_ui, key="state"), always=False)
+    attr_r.add_readback_callback(partial(update_ui, key="state"), always=False)
     await attr_r.update(device["state"])
     assert ui["state"] == "Idle"
     # Update with new value triggers callback
@@ -227,7 +231,7 @@ async def test_attributes():
     assert ui["update_count"] == 1
 
     attr_rw = AttrRW(Int(), setter=partial(send, key="number"))
-    attr_rw.add_on_update_callback(partial(update_ui, key="number"))
+    attr_rw.add_readback_callback(partial(update_ui, key="number"))
     await attr_rw.set(2)
     assert device["number"] == 2
     assert ui["number"] == 2

@@ -16,11 +16,20 @@ class Attribute(Generic[DType_T], Tracer, ABC):
 
     def __init__(
         self,
-        datatype: DataType[DType_T],
+        datatype: DataType[DType_T] | None = None,
         group: str | None = None,
         description: str | None = None,
     ) -> None:
         super().__init__()
+
+        # Subclasses may infer the datatype from a getter's return annotation or a
+        # setter's value annotation and pass the result down; by the time it reaches
+        # here it must be resolved.
+        if datatype is None:
+            raise ValueError(
+                "datatype must be given explicitly, or be inferable from the "
+                "getter's return annotation or the setter's value annotation"
+            )
 
         assert issubclass(datatype.dtype, DType), (
             f"Attr type must be one of {DType}, received type {datatype.dtype}"
