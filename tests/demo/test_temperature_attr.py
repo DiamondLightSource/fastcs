@@ -5,7 +5,7 @@ import pytest
 
 from fastcs.connections import IPConnectionSettings
 from fastcs.controllers import ControllerVector
-from fastcs.demo.controllers import (
+from fastcs.demo.temperature_attr import (
     OnOffEnum,
     TemperatureController,
     TemperatureControllerSettings,

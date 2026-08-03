@@ -24,7 +24,7 @@ decorator) — there is no `io=` object and no `DataType`.
 | Module | Concept | Backend | Issue |
 |--------|---------|---------|-------|
 | `hello_world.py` | pure-soft `@attr` decorator over in-memory values | none (soft) | [#398](https://github.com/DiamondLightSource/fastcs/issues/398) |
-| `controllers.py` | `getter`/`setter` callables in `__init__` (`AttrRW(getter=…, setter=…)`), then composition & methods: sub-controllers / `ControllerVector`, `@scan`, `@command` | temperature sim | [#404](https://github.com/DiamondLightSource/fastcs/issues/404), [#390](https://github.com/DiamondLightSource/fastcs/issues/390) |
+| `temperature_attr.py` | `getter`/`setter` callables in `__init__` (`AttrRW(getter=…, setter=…)`), then composition & methods: sub-controllers / `ControllerVector`, `@scan`, `@command` | temperature sim | [#404](https://github.com/DiamondLightSource/fastcs/issues/404), [#390](https://github.com/DiamondLightSource/fastcs/issues/390) |
 | `temperature_scpi.py` (+ `scpi.py`) | declarative annotated attributes; `ControllerFiller` builds each getter/setter from **static** `SCPIParam` extras metadata | temperature sim | [#405](https://github.com/DiamondLightSource/fastcs/issues/405) |
 | `eiger.py` (+ `simulation/eiger.py`) | introspectable device: bare hints filled from a **runtime** REST parameter tree | Eiger REST sim | [#391](https://github.com/DiamondLightSource/fastcs/issues/391) |
 
@@ -35,7 +35,7 @@ Four modules, **four** tutorials (the old "reusable `io=` object" rung is gone �
 factor into):
 
 1. **hello world** — `hello_world.py` (soft `@attr`).
-2. **getter/setter** — `controllers.py`; the full multi-ramp temperature
+2. **getter/setter** — `temperature_attr.py`; the full multi-ramp temperature
    controller, so this is also where **composition + `@scan` + `@command`**
    are shown (#390). Closes with *"when the shared pattern is worth naming,
    reach for the declarative style →"*.
@@ -66,7 +66,7 @@ Notes:
 
 ## Baselines vs framework PRs
 
-`controllers.py` and `eiger.py` have current-API baselines that can be written **now** (deliberately messy against the
+`temperature_attr.py` and `eiger.py` have current-API baselines that can be written **now** (deliberately messy against the
 pre-refactor API) and are cleaned up as each framework PR lands. `hello_world.py`
 and `temperature_scpi.py` need framework work first (`@attr` #397;
 `ControllerFiller` #394). See each issue's `Blocked by:` line.
