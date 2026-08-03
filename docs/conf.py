@@ -101,7 +101,7 @@ nitpick_ignore = [
     ("py:class", "fastcs.logging._graylog.GraylogStaticFields"),
     ("py:class", "fastcs.logging._graylog.GraylogEnvFields"),
     ("py:obj", "fastcs.control_system.build_controller_api"),
-    ("docutils", "fastcs.demo.controllers.TemperatureControllerSettings"),
+    ("docutils", "fastcs.demo.temperature_attr.TemperatureControllerSettings"),
     # TypeVar without docstrings still give warnings
     ("py:class", "strawberry.schema.schema.Schema"),
 ]
