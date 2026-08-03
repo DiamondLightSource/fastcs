@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 import enum
 
 import numpy as np
@@ -111,12 +110,7 @@ async def test_initial_values_set_in_ca(mocker):
             "SOFTIOC_INITIAL_DEVICE:Waveform_RBV": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         }.items():
             assert np.array_equal(value, initial_values[name])
+    except Exception as e:
+        raise e
     finally:
-        # Await the cancellation rather than just requesting it, so the server
-        # releases its sockets and the loop drains before the (forked) process
-        # exits. Otherwise they are still open at interpreter shutdown and the
-        # resulting ResourceWarning fails the test, `filterwarnings = "error"`
-        # being set.
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
