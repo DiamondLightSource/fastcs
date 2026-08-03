@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
-from dataclasses import dataclass
+from dataclasses import KW_ONLY, dataclass, replace
 from typing import Any, Generic
 
 from fastcs.attributes._infer_datatype import infer_datatype_from_getter
@@ -21,18 +21,43 @@ AttrReadbackCallback = Callable[[DType_T], Coroutine[None, None, None]]
 
 @dataclass
 class Polled(Generic[DType_T]):
-    """A getter that should be called on a schedule.
-
-    Wrap a getter to say how often it should be read::
+    """A getter to be read repeatedly, every ``period`` seconds::
 
         AttrR(getter=Polled(protocol.get_temperature, period=0.1))
 
-    A bare getter is read ``ONCE``, when the controller connects. ``period=None``
-    schedules no reads at all, leaving the attribute to on-demand ``poll()`` calls.
+    Use this for values the device changes on its own, such as readings and status.
+    A getter passed without a schedule is read once, when the controller connects.
     """
 
-    getter: Getter[DType_T]
-    period: float | None
+    getter: Getter[DType_T] | None = None
+    _: KW_ONLY
+    period: float
+
+    def __call__(self, getter: Getter[DType_T]) -> Polled[DType_T]:
+        """Bind a getter, so a schedule can also be applied as a decorator."""
+        return replace(self, getter=getter)
+
+
+@dataclass
+class NotPolled(Generic[DType_T]):
+    """A getter that is never read on a schedule::
+
+        AttrR(getter=NotPolled(protocol.get_label))
+
+    The value is only set explicitly - from a ``@scan`` or a subscription calling
+    ``attr.update()`` - or read on demand with ``await attr.poll()``. This is not the
+    same as an attribute with no getter at all, which has nothing to read.
+    """
+
+    getter: Getter[DType_T] | None = None
+
+    def __call__(self, getter: Getter[DType_T]) -> NotPolled[DType_T]:
+        """Bind a getter, so a schedule can also be applied as a decorator."""
+        return replace(self, getter=getter)
+
+
+Schedule = Polled[DType_T] | NotPolled[DType_T]
+"""A getter with a reading schedule attached"""
 
 
 class AttrR(Attribute[DType_T]):
@@ -41,15 +66,24 @@ class AttrR(Attribute[DType_T]):
     def __init__(
         self,
         datatype: DataType[DType_T] | None = None,
-        getter: Getter[DType_T] | Polled[DType_T] | None = None,
+        getter: Getter[DType_T] | Schedule[DType_T] | None = None,
         initial_value: DType_T | None = None,
         **kwargs: Any,
     ) -> None:
-        if isinstance(getter, Polled):
-            resolved_getter, poll_period = getter.getter, getter.period
-        else:
-            resolved_getter = getter
-            poll_period = ONCE if getter is not None else None
+        match getter:
+            case Polled() | NotPolled():
+                if getter.getter is None:
+                    raise ValueError(
+                        f"{type(getter).__name__} was given no getter to schedule"
+                    )
+                resolved_getter = getter.getter
+                poll_period = getter.period if isinstance(getter, Polled) else None
+            case None:
+                resolved_getter, poll_period = None, None
+            case _:
+                # A getter with no schedule is read once, when the controller
+                # connects - the safe default, and what a bare ``@attr`` means.
+                resolved_getter, poll_period = getter, ONCE
 
         if datatype is None and resolved_getter is not None:
             datatype = infer_datatype_from_getter(resolved_getter)

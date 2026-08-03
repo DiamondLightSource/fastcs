@@ -1,6 +1,8 @@
 from .attr_r import AttrR as AttrR
 from .attr_r import Getter as Getter
+from .attr_r import NotPolled as NotPolled
 from .attr_r import Polled as Polled
+from .attr_r import Schedule as Schedule
 from .attr_rw import AttrRW as AttrRW
 from .attr_w import AttrW as AttrW
 from .attr_w import Setter as Setter

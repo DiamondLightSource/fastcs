@@ -4,7 +4,7 @@ from functools import partial
 import pytest
 from pytest_mock import MockerFixture
 
-from fastcs.attributes import AttrR, AttrRW, AttrW, Polled, Update
+from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled, Polled, Update
 from fastcs.controllers import Controller
 from fastcs.datatypes import Float, Int, String
 from fastcs.util import ONCE
@@ -147,8 +147,8 @@ def test_poll_period_comes_from_the_getter():
     attr_explicit = AttrR(Int(), getter=Polled(do_update, period=0.5))
     assert attr_explicit.poll_period == 0.5
 
-    # A Polled with no period is never scheduled - on-demand poll() only.
-    attr_on_demand = AttrR(Int(), getter=Polled(do_update, period=None))
+    # NotPolled is never scheduled - on-demand poll() only.
+    attr_on_demand = AttrR(Int(), getter=NotPolled(do_update))
     assert attr_on_demand.poll_period is None
     assert attr_on_demand.has_getter()
 

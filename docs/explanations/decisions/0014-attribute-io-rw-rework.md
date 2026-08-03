@@ -85,10 +85,13 @@ decorator ([ADR 18](0018-attr-decorator-sugar.md)):
   `Unpack[*Meta]` static check keys off the inferred return type. Not inferable
   (`-> Any`, an unannotated lambda) ⇒ the positional datatype is required
   (fail-fast at construction).
-- `poll_period` is a read-side kwarg: `ONCE` = read once at connect (the
-  default when a getter is given); a float = poll at that rate; `None` =
-  **on-demand only** (read when a client asks, never auto-polled). **No
-  getter** = soft, value pushed via `attr.update()` from a `@scan`/callback.
+- **The reading schedule travels with the getter**, rather than being a
+  separate `poll_period` kwarg (amended 2026-08-03, see below): a bare getter
+  is read once at connect; `Polled(getter, period=0.2)` polls at that rate;
+  `NotPolled(getter)` is **on-demand only** (read when a client asks, never
+  auto-polled). **No getter** = soft, value pushed via `attr.update()` from a
+  `@scan`/callback. `poll_period` survives as a read-only property on the
+  attribute, reporting the resolved schedule.
 - Soft is now simply the *absence* of a getter/setter (`AttrRW(float)`
   self-wires setpoint→readback as before, the analogue of ophyd-async's
   `soft_signal_rw`); the old `io=None` sentinel is gone.
@@ -116,7 +119,8 @@ class TemperatureRampController(Controller):
 
         # datatype float inferred from get_ramp_rate's return annotation
         self.ramp_rate = AttrRW(
-            getter=get_ramp_rate, setter=set_ramp_rate, units="deg", poll_period=0.2
+            getter=Polled(get_ramp_rate, period=0.2), setter=set_ramp_rate,
+            units="deg",
         )
 ```
 
@@ -146,7 +150,8 @@ are legible from the member set:
   `poll()` does a live getter read, caches it, and **returns** the value (so an
   on-demand read is `await attr.poll()`, mirroring ophyd's live `get_value()`);
   `poll_period` (`ONCE` / float / `None`) is only the *schedule* the framework
-  calls it on. This deletes the `set_update_callback` / `bind_update_callback`
+  calls it on, and is now derived from the getter's wrapper rather than passed
+  in. This deletes the `set_update_callback` / `bind_update_callback`
   plumbing — the getter lives on the attr and `poll()` calls it.
 - **`update(value)` is now purely a cache push** — a `value` or `Update[T]`
   from a `@scan`/subscription — with no device IO and no `None` sentinel.
@@ -263,7 +268,7 @@ def temp_io(conn: IPConnection, name: str):
     return getter, setter
 
 get_ramp, set_ramp = temp_io(conn, "R")
-self.ramp_rate = AttrRW(getter=get_ramp, setter=set_ramp, poll_period=0.2)
+self.ramp_rate = AttrRW(getter=Polled(get_ramp, period=0.2), setter=set_ramp)
 ```
 
 `fastcs-catio`'s three-IO-per-controller pattern becomes per-attribute
@@ -318,3 +323,43 @@ callables with no registry needed at all. `fastcs-secop`'s private
    setter delays the CA-visible setpoint until the send returns. Realigning CA
    to PVA's post-before-send ordering is a **transport-layer** follow-up,
    tracked separately and not gating this rework.
+
+
+## Amendment 2026-08-03 — the schedule travels with the getter
+
+Review of #412 rejected `poll_period` as a second constructor argument
+("merge these 2 arguments, so we can decorate `getter` with the update
+period"). The schedule is now attached to the getter itself:
+
+```python
+self.config   = AttrR(Float(), getter=self._get_config)                      # once, at connect
+self.reading  = AttrR(Float(), getter=Polled(self._get_reading, period=0.2)) # every 0.2s
+self.label    = AttrR(String(), getter=NotPolled(self._get_label))           # never; poll() only
+self.computed = AttrR(Float())                                               # soft, no getter
+```
+
+`Polled` and `NotPolled` take an optional getter and bind one when called, so
+the same objects work in the declarative spelling of
+[ADR 18](0018-attr-decorator-sugar.md), where the getter arrives by decoration
+rather than as an argument.
+
+**A bare getter means "read once, at connect"** rather than "never read". Three
+options were considered:
+
+1. *Bare = once* (chosen). The default fails safe: an attribute always shows a
+   real value, and polling is opted into per attribute.
+2. *Bare = never read.* Restores the pre-refactor `AttributeIORef.update_period
+   = None` default, and makes all scheduling explicit — but the default then
+   fails **silently**: an unpolled `AttrRW` sits at the datatype default, and
+   under [ADR 20](0020-transport-setpoint-mirroring.md) never establishes a
+   setpoint either, so every transport displays `0`/`""`/`False` until someone
+   writes to it.
+3. *No default; require a schedule wrapper always.* Rejected because ADR 18
+   promises a bare `@attr` decorator, which must resolve to some schedule; a
+   constructor that refused to default while the decorator defaulted would
+   reintroduce the asymmetry this amendment exists to remove.
+
+`ONCE` remains `float("inf")` internally and is still what `poll_period`
+reports for the bare case, but it is no longer something a driver author
+spells: `Polled(getter, period=ONCE)` would read as a contradiction, and the
+once-only case is the one with no wrapper at all.

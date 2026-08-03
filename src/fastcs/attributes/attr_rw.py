@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastcs.attributes.attr_r import AttrR, Getter, Polled
+from fastcs.attributes.attr_r import AttrR, Getter, Schedule
 from fastcs.attributes.attr_w import AttrW, Setter
 from fastcs.attributes.attribute import AttributeAccessMode
 from fastcs.attributes.update import Update
@@ -16,7 +16,7 @@ class AttrRW(AttrR[DType_T], AttrW[DType_T]):
     def __init__(
         self,
         datatype: DataType[DType_T] | None = None,
-        getter: Getter[DType_T] | Polled[DType_T] | None = None,
+        getter: Getter[DType_T] | Schedule[DType_T] | None = None,
         setter: Setter[DType_T] | None = None,
         initial_value: DType_T | None = None,
         **kwargs: Any,

@@ -13,7 +13,7 @@ Write a getter that queries the device and returns the value - the framework cac
 and calls any update callbacks; there's no need to call `attr.update` yourself:
 
 ```python
-from fastcs.attributes import AttrR, AttrRW, Polled
+from fastcs.attributes import AttrR, AttrRW, NotPolled, Polled
 from fastcs.controllers import Controller
 from fastcs.datatypes import Float, String
 
@@ -31,7 +31,7 @@ class MyController(Controller):
             getter=Polled(self._get_setpoint, period=1.0),
             setter=self._set_setpoint,
         )
-        self.label = AttrR(String(), getter=Polled(self._get_label, period=None))
+        self.label = AttrR(String(), getter=NotPolled(self._get_label))
 
     async def _get_temperature(self) -> float:
         response = await self._connection.send_query("T?\r\n")
@@ -56,9 +56,10 @@ How the getter is passed decides when it is called:
   you changed them, such as writable configuration the device holds for you.
 - `Polled(getter, period=0.5)` — polls at that interval in seconds. Use it for
   values the device changes on its own, such as readings and status.
-- `Polled(getter, period=None)` — no automatic polling; the attribute value is only
-  set explicitly (e.g. from a scan method or subscription callback), or read
-  on-demand via `await attr.poll()`.
+- `NotPolled(getter)` — never read on a schedule; the attribute value is only set
+  explicitly (e.g. from a scan method or subscription callback), or read on demand
+  via `await attr.poll()`. This differs from giving no getter at all, which leaves
+  nothing to read on demand.
 
 `ONCE` is the default when a getter is given, so polling is opted into per
 attribute rather than being something you have to remember to switch off.
@@ -114,9 +115,9 @@ class MyController(Controller):
 ```
 
 Attributes that are updated as a side-effect of a set can still take a bare getter,
-so they also get their initial value on startup. Use `Polled(getter, period=None)`
-instead if the device's response to the set is the only source of truth and no initial
-poll is needed.
+so they also get their initial value on startup. Use `NotPolled(getter)` instead if
+the device's response to the set is the only source of truth and no initial poll is
+needed.
 
 ## Batched Updates via a Scan Method
 
