@@ -1,15 +1,23 @@
 """Example 2 - getter/setter: per-attribute IO wired via callables in ``__init__``.
 
-Each attribute carries its own IO as a pair of callables passed straight to the
-constructor - ``AttrRW(getter=..., setter=...)``. The callables are built from a
-protocol class with one method per device command, bound to a connection by
-``TemperatureLink``; there is no IO class hierarchy and no per-attribute ref object,
-just closures. Reads that should happen on a schedule say so by wrapping the getter
-in ``Polled``.
+The device's protocol is written as a plain class with one ``async`` method per
+command, each doing its own IO and returning a typed value - the shape a
+manufacturer's own library usually already has. Those methods *are* the getters and
+setters::
 
-Because the attributes are wired in ``__init__`` rather than the class body, each
-one can close over per-instance state - which is what lets a ramp's index be baked
-into its protocol instead of dispatched on at IO time. This module also carries the
+    self.ramp_rate = AttrRW(
+        getter=Polled(protocol.get_ramp_rate, period=0.2),
+        setter=protocol.set_ramp_rate,
+    )
+
+Nothing sits between the protocol and the attribute: no IO class hierarchy, no
+per-attribute ref object, no adapter. Because each method annotates its types, the
+datatype is inferred from them, so most attributes do not restate it - only the ones
+that want metadata the annotation cannot carry, like ``Float(prec=3)``.
+
+Because the attributes are wired in ``__init__`` rather than the class body, each one
+can close over per-instance state - which is what lets a ramp's index be baked into
+its protocol instead of dispatched on at IO time. This module also carries the
 composition and methods rungs: a ``ControllerVector`` of ``TemperatureRampController``
 sub-controllers, plus ``@scan`` and ``@command``.
 """
@@ -22,10 +30,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from fastcs.attributes import AttrR, AttrRW, Getter, Polled, Setter
+from fastcs.attributes import AttrR, AttrRW, Polled
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import DType_T, Enum, Float, Int, Waveform
+from fastcs.datatypes import DType_T, Float, Waveform
 from fastcs.logging import logger
 from fastcs.methods import command, scan
 
@@ -42,116 +50,95 @@ class TemperatureControllerSettings:
 
 
 class TemperatureProtocol:
-    """The device wire protocol - one method per command.
+    """The device's wire protocol - one async method per command, doing its own IO.
 
-    Each getter returns the query string to send; each setter returns the command
-    string to send for a given value. ``TemperatureLink`` binds these to a connection
-    to make the callables passed to ``AttrRW(getter=..., setter=...)``.
+    This is the layer a manufacturer would ship: it knows how to talk to the device
+    and nothing about FastCS. Each method is a zero- or one-argument coroutine
+    returning an annotated type, which is exactly what an attribute's ``getter`` and
+    ``setter`` are, so they can be handed over as-is.
     """
 
-    def get_ramp_rate(self) -> str:
-        return "R?\r\n"
+    def __init__(self, connection: IPConnection, suffix: str = "") -> None:
+        self._connection = connection
+        self._suffix = suffix
 
-    def set_ramp_rate(self, value: float) -> str:
-        return f"R={value}\r\n"
+    async def _query(self, param: str, dtype: Callable[[str], DType_T]) -> DType_T:
+        query = f"{param}{self._suffix}?\r\n"
+        response = (await self._connection.send_query(query)).strip("\r\n")
+        logger.trace("Query for attribute", query=query, response=response)
+        return dtype(response)
 
-    def get_power(self) -> str:
-        return "P?\r\n"
+    async def _command(self, param: str, value: object) -> None:
+        command = f"{param}{self._suffix}={value}\r\n"
+        await self._connection.send_command(command)
+        logger.trace("Send command for attribute", command=command)
 
-    def get_voltages(self) -> str:
-        return "V?\r\n"
+    async def get_ramp_rate(self) -> float:
+        return await self._query("R", float)
+
+    async def set_ramp_rate(self, value: float) -> None:
+        await self._command("R", value)
+
+    async def get_power(self) -> float:
+        return await self._query("P", float)
+
+    async def get_voltages(self) -> np.ndarray:
+        query = "V?\r\n"
+        response = (await self._connection.send_query(query)).strip("\r\n")
+        logger.trace("Query for attribute", query=query, response=response)
+        return np.array(json.loads(response), dtype=np.int32)
 
 
-class TemperatureRampProtocol:
-    """The wire protocol of a single ramp, whose commands are suffixed by its index.
+class TemperatureRampProtocol(TemperatureProtocol):
+    """The protocol of a single ramp, whose commands are suffixed by its index.
 
     The index is baked into the instance, so every command is still a zero- or
-    one-argument callable that can be handed to an attribute as-is.
+    one-argument callable that can be handed to an attribute as-is - no dispatching
+    on which ramp is being addressed at IO time.
     """
 
-    def __init__(self, index: int) -> None:
-        self.suffix = f"{index:02d}"
+    def __init__(self, connection: IPConnection, index: int) -> None:
+        super().__init__(connection, suffix=f"{index:02d}")
 
-    def get_start(self) -> str:
-        return f"S{self.suffix}?\r\n"
+    async def get_start(self) -> int:
+        return await self._query("S", int)
 
-    def set_start(self, value: int) -> str:
-        return f"S{self.suffix}={value}\r\n"
+    async def set_start(self, value: int) -> None:
+        await self._command("S", value)
 
-    def get_end(self) -> str:
-        return f"E{self.suffix}?\r\n"
+    async def get_end(self) -> int:
+        return await self._query("E", int)
 
-    def set_end(self, value: int) -> str:
-        return f"E{self.suffix}={value}\r\n"
+    async def set_end(self, value: int) -> None:
+        await self._command("E", value)
 
-    def get_enabled(self) -> str:
-        return f"N{self.suffix}?\r\n"
+    async def get_enabled(self) -> OnOffEnum:
+        return await self._query("N", OnOffEnum)
 
-    def set_enabled(self, value: OnOffEnum) -> str:
-        return f"N{self.suffix}={value}\r\n"
+    async def set_enabled(self, value: OnOffEnum) -> None:
+        await self._command("N", value)
 
-    def get_target(self) -> str:
-        return f"T{self.suffix}?\r\n"
+    async def get_target(self) -> float:
+        return await self._query("T", float)
 
-    def get_actual(self) -> str:
-        return f"A{self.suffix}?\r\n"
-
-
-class TemperatureLink:
-    """Turns the protocol's command builders into attribute getters and setters.
-
-    The protocol classes above only know how to spell a command; this binds them to
-    a connection so each one becomes a zero- or one-argument coroutine that an
-    attribute can call directly.
-    """
-
-    def __init__(self, connection: IPConnection):
-        self._connection = connection
-
-    def getter(
-        self, read_cmd: Callable[[], str], dtype: Callable[[str], DType_T]
-    ) -> Getter[DType_T]:
-        async def get() -> DType_T:
-            query = read_cmd()
-            response = (await self._connection.send_query(query)).strip("\r\n")
-            logger.trace("Query for attribute", query=query, response=response)
-            return dtype(response)
-
-        return get
-
-    def polled(
-        self,
-        read_cmd: Callable[[], str],
-        dtype: Callable[[str], DType_T],
-        period: float = 0.2,
-    ) -> Polled[DType_T]:
-        """A getter for ``read_cmd``, read every ``period`` seconds."""
-        return Polled(self.getter(read_cmd, dtype), period=period)
-
-    def setter(self, write_cmd: Callable[[DType_T], str]) -> Setter[DType_T]:
-        async def send(value: DType_T) -> None:
-            command = write_cmd(value)
-            await self._connection.send_command(command)
-            logger.trace("Send command for attribute", command=command)
-
-        return send
+    async def get_actual(self) -> float:
+        return await self._query("A", float)
 
 
 class TemperatureController(Controller):
     def __init__(self, settings: TemperatureControllerSettings) -> None:
         self.connection = IPConnection()
         self._settings = settings
-        self._protocol = TemperatureProtocol()
-        link = TemperatureLink(self.connection)
+        self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
 
+        # No datatype: inferred from get_ramp_rate's `-> float` annotation.
         self.ramp_rate = AttrRW(
-            Float(),
-            getter=link.polled(self._protocol.get_ramp_rate, float),
-            setter=link.setter(self._protocol.set_ramp_rate),
+            getter=Polled(self._protocol.get_ramp_rate, period=0.2),
+            setter=self._protocol.set_ramp_rate,
         )
-        self.power = AttrR(Float(), getter=link.polled(self._protocol.get_power, float))
+        self.power = AttrR(getter=Polled(self._protocol.get_power, period=0.2))
         # Updated by the update_voltages scan below, so no IO of its own
         self.voltages = AttrR(Waveform(np.int32, shape=(4,)))
 
@@ -187,52 +174,46 @@ class TemperatureController(Controller):
 
     @scan(0.1)
     async def update_voltages(self):
-        query = self._protocol.get_voltages()
-        voltages = json.loads((await self.connection.send_query(query)).strip("\r\n"))
+        voltages = await self._protocol.get_voltages()
 
         await self.voltages.update(voltages)
 
         for index, controller in self.ramps.items():
             self.log_event(
-                "Update voltages",
-                topic=controller.voltage,
-                query=query,
-                response=voltages,
+                "Update voltages", topic=controller.voltage, response=voltages
             )
             await controller.voltage.update(float(voltages[index - 1]))
 
 
 class TemperatureRampController(Controller):
     def __init__(self, index: int, conn: IPConnection) -> None:
-        self._protocol = TemperatureRampProtocol(index)
-        link = TemperatureLink(conn)
+        self._protocol = TemperatureRampProtocol(conn, index)
 
-        super().__init__(f"Ramp{self._protocol.suffix}")
+        super().__init__(f"Ramp{index:02d}")
 
         self.connection = conn
 
+        # Datatypes inferred from the protocol methods' annotations - including the
+        # enum, whose members come from OnOffEnum via get_enabled's return type.
         self.start = AttrRW(
-            Int(),
-            getter=link.polled(self._protocol.get_start, int),
-            setter=link.setter(self._protocol.set_start),
+            getter=Polled(self._protocol.get_start, period=0.2),
+            setter=self._protocol.set_start,
         )
         self.end = AttrRW(
-            Int(),
-            getter=link.polled(self._protocol.get_end, int),
-            setter=link.setter(self._protocol.set_end),
+            getter=Polled(self._protocol.get_end, period=0.2),
+            setter=self._protocol.set_end,
         )
         self.enabled = AttrRW(
-            Enum(OnOffEnum),
-            getter=link.polled(self._protocol.get_enabled, OnOffEnum),
-            setter=link.setter(self._protocol.set_enabled),
+            getter=Polled(self._protocol.get_enabled, period=0.2),
+            setter=self._protocol.set_enabled,
         )
+        # Stated explicitly, to carry metadata the annotation cannot: `-> float`
+        # says nothing about display precision.
         self.target = AttrR(
-            Float(prec=3),
-            getter=link.polled(self._protocol.get_target, float),
+            Float(prec=3), getter=Polled(self._protocol.get_target, period=0.2)
         )
         self.actual = AttrR(
-            Float(prec=3),
-            getter=link.polled(self._protocol.get_actual, float),
+            Float(prec=3), getter=Polled(self._protocol.get_actual, period=0.2)
         )
         # Updated by the parent controller's update_voltages scan
         self.voltage = AttrR(Float(prec=3))
