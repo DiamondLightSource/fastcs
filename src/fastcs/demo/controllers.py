@@ -8,7 +8,7 @@ import numpy as np
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.connections import IPConnection, IPConnectionSettings
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Enum, Float, Int, Waveform
 from fastcs.logging import logger
 from fastcs.methods import command, scan
@@ -80,15 +80,16 @@ class TemperatureController(Controller):
 
         self._settings = settings
 
-        self._ramp_controllers: list[TemperatureRampController] = []
-        for index in range(1, settings.num_ramp_controllers + 1):
-            controller = TemperatureRampController(index, self.connection)
-            self._ramp_controllers.append(controller)
-            self.add_sub_controller(f"R{index}", controller)
+        self.ramps = ControllerVector(
+            {
+                index: TemperatureRampController(index, self.connection)
+                for index in range(1, settings.num_ramp_controllers + 1)
+            }
+        )
 
     @command()
     async def cancel_all(self) -> None:
-        for rc in self._ramp_controllers:
+        for rc in self.ramps.values():
             await rc.enabled.put(OnOffEnum.Off, sync_setpoint=True)
             # TODO: The requests all get concatenated and the sim doesn't handle it
             await asyncio.sleep(0.1)
@@ -118,14 +119,14 @@ class TemperatureController(Controller):
 
         await self.voltages.update(voltages)
 
-        for index, controller in enumerate(self._ramp_controllers):
+        for index, controller in self.ramps.items():
             self.log_event(
                 "Update voltages",
                 topic=controller.voltage,
                 query=query,
                 response=voltages,
             )
-            await controller.voltage.update(float(voltages[index]))
+            await controller.voltage.update(float(voltages[index - 1]))
 
 
 class TemperatureRampController(Controller):
