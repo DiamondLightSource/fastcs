@@ -321,7 +321,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -1008,7 +1008,7 @@ requires-dist = [
     { name = "pygelf" },
     { name = "pytango", marker = "extra == 'tango'" },
     { name = "ruamel-yaml" },
-    { name = "softioc", marker = "extra == 'epicsca'", git = "https://github.com/DiamondLightSource/pythonSoftIOC.git?rev=master" },
+    { name = "softioc", marker = "extra == 'epicsca'", specifier = ">=4.7.1" },
     { name = "stdio-socket" },
     { name = "strawberry-graphql", marker = "extra == 'graphql'" },
     { name = "tickit", marker = "extra == 'demo'", specifier = "~=0.4.3" },
@@ -3007,14 +3007,26 @@ wheels = [
 
 [[package]]
 name = "softioc"
-version = "4.7.0+10.g1711080"
-source = { git = "https://github.com/DiamondLightSource/pythonSoftIOC.git?rev=master#1711080f541b36175bf59de05bb46794008390cb" }
+version = "4.7.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "epicscorelibs" },
     { name = "epicsdbbuilder" },
     { name = "numpy" },
     { name = "pvxslibs" },
     { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/05/9e/cd0508d816d2706170fd82723d859f030671a593be21bf3e500ae58d8530/softioc-4.7.1.tar.gz", hash = "sha256:305276a0ad57eea4afd21c44abc280cb2a5747297347ea8dca31b9b48e831e8e", size = 94170, upload-time = "2026-07-23T09:53:46.637Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/4e/f42c01cd4d1d7f447c9311928caf4d0b40625832e4ddb01d8a6204758754/softioc-4.7.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:f111d7d1aba14e59f7b16c419c33c63e77c67c1a32cc018e187687d5954b010d", size = 119316, upload-time = "2026-07-23T09:53:27.375Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/ae/b4c6005e4c8b31dba22c63ed604c1528828429eab62027daa3554b651e4d/softioc-4.7.1-cp311-cp311-manylinux2014_x86_64.whl", hash = "sha256:2e53b9bfa3648f2b428dfb6b88dce20a7862e73d1ad5b0692dc53a73db232f7b", size = 125021, upload-time = "2026-07-23T09:53:28.433Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/ef/83b80ede1104d7de171df8de1c279d4668aeff57963bb2de58dd02a15b8b/softioc-4.7.1-cp311-cp311-win_amd64.whl", hash = "sha256:d76697e722badebe5d7832f612b4b57b9800d711e203dd7202db9e911987410e", size = 118657, upload-time = "2026-07-23T09:53:29.378Z" },
+    { url = "https://files.pythonhosted.org/packages/76/08/0e6d19587a287e86d45499c9156574d3880732d8b0875734ea52c240bae3/softioc-4.7.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:4320b40e84fcd21de7dacd8c71463cc62a23dbdae4aebe985a7a71c9a6d44812", size = 119392, upload-time = "2026-07-23T09:53:30.499Z" },
+    { url = "https://files.pythonhosted.org/packages/46/d1/009d22214f3ae54016fcd2bf7fc50a7d9e6299e540e7672c5daca7d34471/softioc-4.7.1-cp312-cp312-manylinux2014_x86_64.whl", hash = "sha256:1332ddad892d4864b01d4f0ec7941922cff7281869587ed113834296a8332e65", size = 125044, upload-time = "2026-07-23T09:53:31.517Z" },
+    { url = "https://files.pythonhosted.org/packages/80/94/34c6d8abcc809b4345185d5a1bd12c82382b2c88ee81464c3b8a61cee5de/softioc-4.7.1-cp312-cp312-win_amd64.whl", hash = "sha256:a30c0b4ed588caeb434d53daae8a910d74e5a44040e951128db6c3b10fc7f7e8", size = 118655, upload-time = "2026-07-23T09:53:32.645Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/7a/37f7b5018a6f7064a59e564068cdd0207f338668ea11abbb5db5ea2c5851/softioc-4.7.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:7f072f2d06062acbc3fa21084a87feb44365db2f3cc5d0e055f48d9f0f6312b5", size = 119369, upload-time = "2026-07-23T09:53:33.791Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/74/a9a3924ea6047c18ee8f6cc3035bafbce5239badc42acc311e8e9ca3a065/softioc-4.7.1-cp313-cp313-manylinux2014_x86_64.whl", hash = "sha256:7e130eaf43aac11b095dd1212c42c3bd0760a99dd9da7bf669d70590a0f4ee75", size = 125036, upload-time = "2026-07-23T09:53:35.962Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/b3/bb8e7f548f93505a76c192f58d9eb007fc54e44a523ad25e9bbdaba50fd2/softioc-4.7.1-cp313-cp313-win_amd64.whl", hash = "sha256:41ece01363f365e17360e6f9bb112e4ff0dd3dc0cfe3cda937286f46bbe2fea9", size = 118658, upload-time = "2026-07-23T09:53:36.922Z" },
 ]
 
 [[package]]

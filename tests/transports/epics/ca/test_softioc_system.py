@@ -56,8 +56,5 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
 
     # Assert command exceptions set record alarm states
     ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
-    # Need to put twice due to softioc bug
-    # where second put will propogates first put's alarm
-    ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
     d_alarm = ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR")
     assert d_alarm == alarm.MAJOR_ALARM
