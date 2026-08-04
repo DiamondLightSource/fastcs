@@ -1,8 +1,9 @@
 import asyncio
 from collections import Counter
+from collections.abc import Awaitable
 from typing import Any, Literal
 
-from softioc import builder, softioc
+from softioc import alarm, builder, softioc
 from softioc.asyncio_dispatcher import AsyncioDispatcher
 from softioc.pythonSoftIoc import RecordWrapper
 
@@ -223,13 +224,14 @@ def _create_and_link_write_pv(
     attr_name: str,
     alias: str | None,
     attribute: AttrW[DType_T],
-) -> None:
+):
     pv = f"{pv_prefix}:{pv_name}"
 
     async def on_update(value):
         logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
-
-        await attribute.put(cast_from_epics_type(attribute.datatype, value))
+        await _run_and_set_alarm(
+            record, attribute.put(cast_from_epics_type(attribute.datatype, value))
+        )
 
     async def set_setpoint_without_process(value: DType_T):
         tracer.log_event(
@@ -280,8 +282,7 @@ def _create_and_link_command_pv(
 
     async def wrapped_method(_: Any):
         tracer.log_event("Command PV put", topic=method, pv=pv)
-
-        await method.fn()
+        await _run_and_set_alarm(record, method.fn())
 
     record = builder.Action(
         f"{pv_prefix}:{pv_name}",
@@ -335,3 +336,27 @@ def _add_alias(record: RecordWrapper, alias: str | None):
             )
         else:
             record.add_alias(alias)
+
+
+def _set_alarm(record: RecordWrapper, alarm_state: int):
+    record.set(
+        record.get(),
+        process=False,
+        severity=alarm_state,
+        alarm=alarm_state,
+    )
+
+
+async def _run_and_set_alarm(record, coro: Awaitable):
+    """Await `coro` and update `record`'s alarm state based on the outcome.
+
+    On success, clears the alarm (NO_ALARM). On any exception, raises the
+    record into MAJOR_ALARM. The exception itself is not re-raised or
+    logged here, since `AttrW.put` already logs it; this function's only
+    job is to reflect the outcome in the record's alarm status.
+    """
+    try:
+        await coro
+        _set_alarm(record, alarm.NO_ALARM)
+    except Exception:
+        _set_alarm(record, alarm.MAJOR_ALARM)
