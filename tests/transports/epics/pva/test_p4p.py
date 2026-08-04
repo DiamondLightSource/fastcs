@@ -216,8 +216,11 @@ def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
 
 
 @pytest.mark.asyncio
-async def test_attr_rw_shared_write_pv_uses_attribute_initial_value():
-    shared_pv = make_shared_write_pv(AttrRW(Int(min=1), initial_value=4))
+async def test_attr_rw_shared_write_pv_uses_current_attribute_value():
+    attribute = AttrRW(Int(min=1), initial_value=2)
+    await attribute.update(4)
+
+    shared_pv = make_shared_write_pv(attribute)
 
     assert shared_pv.current()["value"] == 4
 
