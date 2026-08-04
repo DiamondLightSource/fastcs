@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>fastcs.transports.epics.pva.types &#8212; fastcs 0.14.1.dev11+g8c54354f5 documentation</title>
+    <title>fastcs.transports.epics.pva.types &#8212; fastcs 0.14.2.dev1+ga2e77b64f documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=0071e81c"></script>
+    <script src="../_static/documentation_options.js?v=60587c77"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -575,6 +575,18 @@
 <p class="rubric">Members</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#fastcs.transports.epics.pva.types.AlarmInfo" title="fastcs.transports.epics.pva.types.AlarmInfo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AlarmInfo</span></code></a></p></td>
+<td><p>The alarm state of a PV, following the PVXS alarm_t normative type.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#fastcs.transports.epics.pva.types.P4PAlarmState" title="fastcs.transports.epics.pva.types.P4PAlarmState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">P4PAlarmState</span></code></a></p></td>
+<td><p>Wraps AlarmInfo as the alarm sub-structure of a p4p NT* Value.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#fastcs.transports.epics.pva.types.Severity" title="fastcs.transports.epics.pva.types.Severity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Severity</span></code></a></p></td>
+<td><p>Alarm severity for a PV, as defined by the PVXS alarm_t normative type.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#fastcs.transports.epics.pva.types.Status" title="fastcs.transports.epics.pva.types.Status"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Status</span></code></a></p></td>
+<td><p>Alarm status for a PV.</p></td>
+</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#fastcs.transports.epics.pva.types.cast_from_p4p_value" title="fastcs.transports.epics.pva.types.cast_from_p4p_value"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cast_from_p4p_value</span></code></a></p></td>
 <td><p>Converts from a p4p value to a FastCS <a class="reference internal" href="fastcs.attributes.attribute.html#fastcs.attributes.attribute.Attribute" title="fastcs.attributes.attribute.Attribute"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Attribute</span></code></a> value.</p></td>
 </tr>
@@ -585,7 +597,7 @@
 <td><p>Creates a p4p type for a given <a class="reference internal" href="fastcs.attributes.attribute.html#fastcs.attributes.attribute.Attribute" title="fastcs.attributes.attribute.Attribute"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Attribute</span></code></a> <a class="reference internal" href="fastcs.datatypes.datatype.html#fastcs.datatypes.datatype.DataType" title="fastcs.datatypes.datatype.DataType"><code class="xref any py py-class docutils literal notranslate"><span class="pre">DataType</span></code></a>.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#fastcs.transports.epics.pva.types.p4p_alarm_states" title="fastcs.transports.epics.pva.types.p4p_alarm_states"><code class="xref py py-obj docutils literal notranslate"><span class="pre">p4p_alarm_states</span></code></a></p></td>
-<td><p>Returns the p4p alarm structure for a given severity, status, and message.</p></td>
+<td><p>Returns the p4p alarm structure for a given severity, status, and message, validated as a Pydantic model.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#fastcs.transports.epics.pva.types.p4p_display" title="fastcs.transports.epics.pva.types.p4p_display"><code class="xref py py-obj docutils literal notranslate"><span class="pre">p4p_display</span></code></a></p></td>
 <td><p>Gets the p4p display structure for a given attribute.</p></td>
@@ -608,15 +620,55 @@
 <dd><p>Converts from a p4p value to a FastCS <a class="reference internal" href="fastcs.attributes.attribute.html#fastcs.attributes.attribute.Attribute" title="fastcs.attributes.attribute.Attribute"><code class="xref any py py-class docutils literal notranslate"><span class="pre">Attribute</span></code></a> value.</p>
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="fastcs.transports.epics.pva.types.Severity">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.pva.types.</span></span><span class="sig-name descname"><span class="pre">Severity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/transports/epics/pva/types.html#Severity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.pva.types.Severity" title="Link to this definition">#</a></dt>
+<dd><p>Alarm severity for a PV, as defined by the PVXS alarm_t normative type.</p>
+<p>Whether MINOR or MAJOR applies is context-dependent and can vary per PV.
+INVALID indicates the current value should not be treated as a meaningful
+reading (e.g. of the underlying measured quantity) and typically reflects
+the last known good value rather than a fresh one.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fastcs.transports.epics.pva.types.Status">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.pva.types.</span></span><span class="sig-name descname"><span class="pre">Status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/transports/epics/pva/types.html#Status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.pva.types.Status" title="Link to this definition">#</a></dt>
+<dd><p>Alarm status for a PV.</p>
+<p>Identifies which part of the system raised the alarm, as defined by the
+PVXS alarm_t normative type.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fastcs.transports.epics.pva.types.AlarmInfo">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.pva.types.</span></span><span class="sig-name descname"><span class="pre">AlarmInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">severity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fastcs.transports.epics.pva.types.Severity" title="fastcs.transports.epics.pva.types.Severity"><span class="pre">Severity</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Severity.NO_ALARM</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fastcs.transports.epics.pva.types.Status" title="fastcs.transports.epics.pva.types.Status"><span class="pre">Status</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Status.NO_ALARM</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/transports/epics/pva/types.html#AlarmInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.pva.types.AlarmInfo" title="Link to this definition">#</a></dt>
+<dd><p>The alarm state of a PV, following the PVXS alarm_t normative type.</p>
+<p>See <a class="reference external" href="https://epics-base.github.io/pvxs/nt.html#alarm-t">https://epics-base.github.io/pvxs/nt.html#alarm-t</a>.</p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises [<code class="xref any docutils literal notranslate"><span class="pre">ValidationError</span></code>][pydantic_core.ValidationError] if the input data cannot be
+validated to form a valid model.</p>
+<p><code class="xref any docutils literal notranslate"><span class="pre">self</span></code> is explicitly positional-only to allow <code class="xref any docutils literal notranslate"><span class="pre">self</span></code> as a field name.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fastcs.transports.epics.pva.types.P4PAlarmState">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.pva.types.</span></span><span class="sig-name descname"><span class="pre">P4PAlarmState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">alarm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fastcs.transports.epics.pva.types.AlarmInfo" title="fastcs.transports.epics.pva.types.AlarmInfo"><span class="pre">AlarmInfo</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/fastcs/transports/epics/pva/types.html#P4PAlarmState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.pva.types.P4PAlarmState" title="Link to this definition">#</a></dt>
+<dd><p>Wraps AlarmInfo as the alarm sub-structure of a p4p NT* Value.</p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises [<code class="xref any docutils literal notranslate"><span class="pre">ValidationError</span></code>][pydantic_core.ValidationError] if the input data cannot be
+validated to form a valid model.</p>
+<p><code class="xref any docutils literal notranslate"><span class="pre">self</span></code> is explicitly positional-only to allow <code class="xref any docutils literal notranslate"><span class="pre">self</span></code> as a field name.</p>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="fastcs.transports.epics.pva.types.p4p_alarm_states">
-<span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.pva.types.</span></span><span class="sig-name descname"><span class="pre">p4p_alarm_states</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">severity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/fastcs/transports/epics/pva/types.html#p4p_alarm_states"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.pva.types.p4p_alarm_states" title="Link to this definition">#</a></dt>
-<dd><p>Returns the p4p alarm structure for a given severity, status, and message.</p>
+<span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.pva.types.</span></span><span class="sig-name descname"><span class="pre">p4p_alarm_states</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">severity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fastcs.transports.epics.pva.types.Severity" title="fastcs.transports.epics.pva.types.Severity"><span class="pre">Severity</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Severity.NO_ALARM</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fastcs.transports.epics.pva.types.Status" title="fastcs.transports.epics.pva.types.Status"><span class="pre">Status</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Status.NO_ALARM</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fastcs.transports.epics.pva.types.P4PAlarmState" title="fastcs.transports.epics.pva.types.P4PAlarmState"><span class="pre">P4PAlarmState</span></a></span></span><a class="reference internal" href="../_modules/fastcs/transports/epics/pva/types.html#p4p_alarm_states"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.pva.types.p4p_alarm_states" title="Link to this definition">#</a></dt>
+<dd><p>Returns the p4p alarm structure for a given severity, status, and message,
+validated as a Pydantic model.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="fastcs.transports.epics.pva.types.p4p_timestamp_now">
-<span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.pva.types.</span></span><span class="sig-name descname"><span class="pre">p4p_timestamp_now</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../_modules/fastcs/transports/epics/pva/types.html#p4p_timestamp_now"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.pva.types.p4p_timestamp_now" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">fastcs.transports.epics.pva.types.</span></span><span class="sig-name descname"><span class="pre">p4p_timestamp_now</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fastcs/transports/epics/pva/types.html#p4p_timestamp_now"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fastcs.transports.epics.pva.types.p4p_timestamp_now" title="Link to this definition">#</a></dt>
 <dd><p>The p4p timestamp structure for the current time.</p>
 </dd></dl>
 
@@ -683,6 +735,10 @@
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.make_p4p_type"><code class="docutils literal notranslate"><span class="pre">make_p4p_type()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.cast_from_p4p_value"><code class="docutils literal notranslate"><span class="pre">cast_from_p4p_value()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.Severity"><code class="docutils literal notranslate"><span class="pre">Severity</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.Status"><code class="docutils literal notranslate"><span class="pre">Status</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.AlarmInfo"><code class="docutils literal notranslate"><span class="pre">AlarmInfo</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.P4PAlarmState"><code class="docutils literal notranslate"><span class="pre">P4PAlarmState</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.p4p_alarm_states"><code class="docutils literal notranslate"><span class="pre">p4p_alarm_states()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.p4p_timestamp_now"><code class="docutils literal notranslate"><span class="pre">p4p_timestamp_now()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fastcs.transports.epics.pva.types.p4p_display"><code class="docutils literal notranslate"><span class="pre">p4p_display()</span></code></a></li>

@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.ca.ioc &#8212; fastcs 0.14.1.dev11+g8c54354f5 documentation</title>
+    <title>fastcs.transports.epics.ca.ioc &#8212; fastcs 0.14.2.dev1+ga2e77b64f documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../../_static/documentation_options.js?v=0071e81c"></script>
+    <script src="../../../../../_static/documentation_options.js?v=60587c77"></script>
     <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -451,9 +451,10 @@
   <h1>Source code for fastcs.transports.epics.ca.ioc</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">softioc</span><span class="w"> </span><span class="kn">import</span> <span class="n">builder</span><span class="p">,</span> <span class="n">softioc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">softioc</span><span class="w"> </span><span class="kn">import</span> <span class="n">alarm</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">softioc</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">softioc.asyncio_dispatcher</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncioDispatcher</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">softioc.pythonSoftIoc</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecordWrapper</span>
 
@@ -677,13 +678,14 @@
     <span class="n">attr_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrW</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="p">):</span>
     <span class="n">pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_update</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;PV put: </span><span class="si">{pv}</span><span class="s2"> = </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pv</span><span class="o">=</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
-
-        <span class="k">await</span> <span class="n">attribute</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">cast_from_epics_type</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+        <span class="k">await</span> <span class="n">_run_and_set_alarm</span><span class="p">(</span>
+            <span class="n">record</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">cast_from_epics_type</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+        <span class="p">)</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">set_setpoint_without_process</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">DType_T</span><span class="p">):</span>
         <span class="n">tracer</span><span class="o">.</span><span class="n">log_event</span><span class="p">(</span>
@@ -734,8 +736,7 @@
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">wrapped_method</span><span class="p">(</span><span class="n">_</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
         <span class="n">tracer</span><span class="o">.</span><span class="n">log_event</span><span class="p">(</span><span class="s2">&quot;Command PV put&quot;</span><span class="p">,</span> <span class="n">topic</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">pv</span><span class="o">=</span><span class="n">pv</span><span class="p">)</span>
-
-        <span class="k">await</span> <span class="n">method</span><span class="o">.</span><span class="n">fn</span><span class="p">()</span>
+        <span class="k">await</span> <span class="n">_run_and_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">method</span><span class="o">.</span><span class="n">fn</span><span class="p">())</span>
 
     <span class="n">record</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">Action</span><span class="p">(</span>
         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
@@ -789,6 +790,30 @@
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">record</span><span class="o">.</span><span class="n">add_alias</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">:</span> <span class="n">RecordWrapper</span><span class="p">,</span> <span class="n">alarm_state</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="n">record</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span>
+        <span class="n">process</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">severity</span><span class="o">=</span><span class="n">alarm_state</span><span class="p">,</span>
+        <span class="n">alarm</span><span class="o">=</span><span class="n">alarm_state</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run_and_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Await `coro` and update `record`&#39;s alarm state based on the outcome.</span>
+
+<span class="sd">    On success, clears the alarm (NO_ALARM). On any exception, raises the</span>
+<span class="sd">    record into MAJOR_ALARM. The exception itself is not re-raised or</span>
+<span class="sd">    logged here, since `AttrW.put` already logs it; this function&#39;s only</span>
+<span class="sd">    job is to reflect the outcome in the record&#39;s alarm status.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">coro</span>
+        <span class="n">_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alarm</span><span class="o">.</span><span class="n">NO_ALARM</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alarm</span><span class="o">.</span><span class="n">MAJOR_ALARM</span><span class="p">)</span>
 </pre></div>
 
                 </article>

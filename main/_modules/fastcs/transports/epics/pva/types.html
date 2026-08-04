@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.pva.types &#8212; fastcs 0.14.1.dev11+g8c54354f5 documentation</title>
+    <title>fastcs.transports.epics.pva.types &#8212; fastcs 0.14.2.dev1+ga2e77b64f documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../../_static/documentation_options.js?v=0071e81c"></script>
+    <script src="../../../../../_static/documentation_options.js?v=60587c77"></script>
     <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -451,23 +451,19 @@
   <h1>Source code for fastcs.transports.epics.pva.types</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">DTypeLike</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">p4p</span><span class="w"> </span><span class="kn">import</span> <span class="n">Value</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">p4p.nt</span><span class="w"> </span><span class="kn">import</span> <span class="n">NTEnum</span><span class="p">,</span> <span class="n">NTNDArray</span><span class="p">,</span> <span class="n">NTScalar</span><span class="p">,</span> <span class="n">NTTable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.attributes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Attribute</span><span class="p">,</span> <span class="n">AttrR</span><span class="p">,</span> <span class="n">AttrW</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bool</span><span class="p">,</span> <span class="n">DType</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Int</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">Table</span><span class="p">,</span> <span class="n">Waveform</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes.datatype</span><span class="w"> </span><span class="kn">import</span> <span class="n">DType_T</span>
 
 <span class="n">P4P_ALLOWED_DATATYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">Int</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">Bool</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Waveform</span><span class="p">,</span> <span class="n">Table</span><span class="p">)</span>
-
-<span class="c1"># https://epics-base.github.io/pvxs/nt.html#alarm-t</span>
-<span class="n">RECORD_ALARM_STATUS</span> <span class="o">=</span> <span class="mi">3</span>
-<span class="n">NO_ALARM_STATUS</span> <span class="o">=</span> <span class="mi">0</span>
-<span class="n">MAJOR_ALARM_SEVERITY</span> <span class="o">=</span> <span class="mi">2</span>
-<span class="n">NO_ALARM_SEVERITY</span> <span class="o">=</span> <span class="mi">0</span>
 
 <span class="c1"># https://numpy.org/devdocs/reference/arrays.dtypes.html#arrays-dtypes</span>
 <span class="c1"># Some numpy dtypes don&#39;t match directly with the p4p ones</span>
@@ -566,27 +562,88 @@
 
 
 
+<div class="viewcode-block" id="Severity">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.Severity">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Severity</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Alarm severity for a PV, as defined by the PVXS alarm_t normative type.</span>
+
+<span class="sd">    Whether MINOR or MAJOR applies is context-dependent and can vary per PV.</span>
+<span class="sd">    INVALID indicates the current value should not be treated as a meaningful</span>
+<span class="sd">    reading (e.g. of the underlying measured quantity) and typically reflects</span>
+<span class="sd">    the last known good value rather than a fresh one.&quot;&quot;&quot;</span>
+
+    <span class="n">NO_ALARM</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">MINOR</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">MAJOR</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">INVALID</span> <span class="o">=</span> <span class="mi">3</span></div>
+
+
+
+<div class="viewcode-block" id="Status">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.Status">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Status</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Alarm status for a PV.</span>
+
+<span class="sd">    Identifies which part of the system raised the alarm, as defined by the</span>
+<span class="sd">    PVXS alarm_t normative type.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">NO_ALARM</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">DEVICE</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">DRIVER</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">RECORD</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">DATABASE</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">CONFIGURATION</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">UNDEFINED</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">CLIENT</span> <span class="o">=</span> <span class="mi">7</span></div>
+
+
+
+<div class="viewcode-block" id="AlarmInfo">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.AlarmInfo">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AlarmInfo</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The alarm state of a PV, following the PVXS alarm_t normative type.</span>
+
+<span class="sd">    See https://epics-base.github.io/pvxs/nt.html#alarm-t.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">severity</span><span class="p">:</span> <span class="n">Severity</span> <span class="o">=</span> <span class="n">Severity</span><span class="o">.</span><span class="n">NO_ALARM</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">Status</span> <span class="o">=</span> <span class="n">Status</span><span class="o">.</span><span class="n">NO_ALARM</span>
+    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="P4PAlarmState">
+<a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.P4PAlarmState">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">P4PAlarmState</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wraps AlarmInfo as the alarm sub-structure of a p4p NT* Value.&quot;&quot;&quot;</span>
+
+    <span class="n">alarm</span><span class="p">:</span> <span class="n">AlarmInfo</span></div>
+
+
+
 <div class="viewcode-block" id="p4p_alarm_states">
 <a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.p4p_alarm_states">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">p4p_alarm_states</span><span class="p">(</span>
-    <span class="n">severity</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NO_ALARM_SEVERITY</span><span class="p">,</span>
-    <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NO_ALARM_STATUS</span><span class="p">,</span>
+    <span class="n">severity</span><span class="p">:</span> <span class="n">Severity</span> <span class="o">=</span> <span class="n">Severity</span><span class="o">.</span><span class="n">NO_ALARM</span><span class="p">,</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">Status</span> <span class="o">=</span> <span class="n">Status</span><span class="o">.</span><span class="n">NO_ALARM</span><span class="p">,</span>
     <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns the p4p alarm structure for a given severity, status, and message.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;alarm&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="n">severity</span><span class="p">,</span>
-            <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
-            <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">message</span><span class="p">,</span>
-        <span class="p">},</span>
-    <span class="p">}</span></div>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P4PAlarmState</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns the p4p alarm structure for a given severity, status, and message,</span>
+<span class="sd">    validated as a Pydantic model.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">P4PAlarmState</span><span class="p">(</span>
+        <span class="n">alarm</span><span class="o">=</span><span class="n">AlarmInfo</span><span class="p">(</span>
+            <span class="n">severity</span><span class="o">=</span><span class="n">severity</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span></div>
 
 
 
 <div class="viewcode-block" id="p4p_timestamp_now">
 <a class="viewcode-back" href="../../../../../_api/fastcs.transports.epics.pva.types.html#fastcs.transports.epics.pva.types.p4p_timestamp_now">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">p4p_timestamp_now</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">p4p_timestamp_now</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The p4p timestamp structure for the current time.&quot;&quot;&quot;</span>
     <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
     <span class="n">seconds_past_epoch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">now</span><span class="p">)</span>
@@ -623,27 +680,29 @@
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_p4p_check_numeric_for_alarm_states</span><span class="p">(</span><span class="n">datatype</span><span class="p">:</span> <span class="n">Int</span> <span class="o">|</span> <span class="n">Float</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">DType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_p4p_check_numeric_for_alarm_states</span><span class="p">(</span>
+    <span class="n">datatype</span><span class="p">:</span> <span class="n">Int</span> <span class="o">|</span> <span class="n">Float</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">DType</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]]:</span>
     <span class="n">low</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">datatype</span><span class="o">.</span><span class="n">min_alarm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="n">datatype</span><span class="o">.</span><span class="n">min_alarm</span>  <span class="c1"># type: ignore</span>
     <span class="n">high</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">datatype</span><span class="o">.</span><span class="n">max_alarm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="n">datatype</span><span class="o">.</span><span class="n">max_alarm</span>  <span class="c1"># type: ignore</span>
     <span class="n">severity</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">MAJOR_ALARM_SEVERITY</span>
+        <span class="n">Severity</span><span class="o">.</span><span class="n">MAJOR</span>
         <span class="k">if</span> <span class="n">high</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">or</span> <span class="n">low</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="k">else</span> <span class="n">NO_ALARM_SEVERITY</span>
+        <span class="k">else</span> <span class="n">Severity</span><span class="o">.</span><span class="n">NO_ALARM</span>
     <span class="p">)</span>
-    <span class="n">status</span><span class="p">,</span> <span class="n">message</span> <span class="o">=</span> <span class="n">NO_ALARM_SEVERITY</span><span class="p">,</span> <span class="s2">&quot;No alarm&quot;</span>
+    <span class="n">status</span><span class="p">,</span> <span class="n">message</span> <span class="o">=</span> <span class="n">Status</span><span class="o">.</span><span class="n">NO_ALARM</span><span class="p">,</span> <span class="s2">&quot;No alarm&quot;</span>
     <span class="k">if</span> <span class="n">low</span><span class="p">:</span>
         <span class="n">status</span><span class="p">,</span> <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">RECORD_ALARM_STATUS</span><span class="p">,</span>
+            <span class="n">Status</span><span class="o">.</span><span class="n">RECORD</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;Below minimum alarm limit: </span><span class="si">{</span><span class="n">datatype</span><span class="o">.</span><span class="n">min_alarm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">high</span><span class="p">:</span>
         <span class="n">status</span><span class="p">,</span> <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">RECORD_ALARM_STATUS</span><span class="p">,</span>
+            <span class="n">Status</span><span class="o">.</span><span class="n">RECORD</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;Above maximum alarm limit: </span><span class="si">{</span><span class="n">datatype</span><span class="o">.</span><span class="n">max_alarm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">p4p_alarm_states</span><span class="p">(</span><span class="n">severity</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">p4p_alarm_states</span><span class="p">(</span><span class="n">severity</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
 
 
 <div class="viewcode-block" id="cast_to_p4p_value">

@@ -6,6 +6,10 @@
         
         
         
+        
+        
+        
+        
 
 .. automodule:: fastcs.transports.epics.pva.types
     :members:
@@ -21,6 +25,10 @@
     .. autosummary::
         :nosignatures:
     
+        AlarmInfo
+        P4PAlarmState
+        Severity
+        Status
         cast_from_p4p_value
         cast_to_p4p_value
         make_p4p_type
