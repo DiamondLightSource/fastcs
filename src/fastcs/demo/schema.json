@@ -1,11 +1,53 @@
 {
   "$defs": {
+    "EnumMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "pv": {
+          "title": "Pv",
+          "type": "string"
+        },
+        "mapping": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Mapping",
+          "type": "object"
+        }
+      },
+      "required": [
+        "pv",
+        "mapping"
+      ],
+      "title": "EnumMapping",
+      "type": "object"
+    },
     "EpicsCAOptions": {
       "additionalProperties": false,
       "properties": {
         "aliases": {
           "additionalProperties": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/EnumMapping"
+              }
+            ]
           },
           "title": "Aliases",
           "type": "object"

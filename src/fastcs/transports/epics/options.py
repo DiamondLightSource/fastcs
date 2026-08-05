@@ -32,6 +32,14 @@ class EpicsGUIOptions:
 
 
 @dataclass
+class EnumMapping:
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    pv: str
+    mapping: dict[str, int | str | float | bool]
+
+
+@dataclass
 class EpicsCAOptions:
     """Channel-Access-specific options.
 
@@ -41,7 +49,7 @@ class EpicsCAOptions:
 
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    aliases: dict[str, str] = field(default_factory=dict)
+    aliases: dict[str, str | EnumMapping] = field(default_factory=dict)
     """Mapping of fastcs PV names to their aliases.
 
     Setpoint and readback PVs must be aliased separately.

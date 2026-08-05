@@ -1,7 +1,8 @@
 import asyncio
 from collections import Counter
 from collections.abc import Awaitable
-from typing import Any, Literal
+from enum import IntEnum
+from typing import Any, Literal, TypeVar
 
 from softioc import alarm, builder, softioc
 from softioc.asyncio_dispatcher import AsyncioDispatcher
@@ -9,7 +10,7 @@ from softioc.pythonSoftIoc import RecordWrapper
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import DType_T, Waveform
+from fastcs.datatypes import DType_T, Enum, Waveform
 from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.tracer import Tracer
@@ -19,20 +20,29 @@ from fastcs.transports.epics.ca.util import (
     cast_from_epics_type,
     cast_to_epics_type,
 )
+from fastcs.transports.epics.options import EnumMapping
 from fastcs.transports.epics.util import EPICS_MAX_NAME_LENGTH, pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
 tracer = Tracer()
-
+EnumT = TypeVar("EnumT", bound=IntEnum)
 RBV_SUFFIX = "_RBV"
 
 
 class EpicsCAIOC:
     """A softioc which handles one or more controllers."""
 
-    def __init__(self, controller_apis: list[ControllerAPI], aliases: dict[str, str]):
+    def __init__(
+        self,
+        controller_apis: list[ControllerAPI],
+        aliases: dict[str, str | EnumMapping],
+    ):
+        alias_pvs = [
+            value if isinstance(value, str) else value.pv for value in aliases.values()
+        ]
+
         if duplicate_aliases := [
-            alias for alias, count in Counter(aliases.values()).items() if count > 1
+            alias for alias, count in Counter(alias_pvs).items() if count > 1
         ]:
             raise RuntimeError(
                 "Failed to create EPICS CA IOC, as duplicate aliases were provided:"
@@ -120,7 +130,7 @@ def _add_sub_controller_pvi_info(parent: ControllerAPI):
 
 
 def _create_and_link_attribute_pvs(
-    root_controller_api: ControllerAPI, aliases: dict[str, str]
+    root_controller_api: ControllerAPI, aliases: dict[str, str | EnumMapping]
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
@@ -147,7 +157,7 @@ def _create_and_link_attribute_pvs(
                 )
                 continue
 
-            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
+            alias = aliases.pop(f"{pv_prefix}:{pv_name}", None)
             match attribute:
                 case AttrRW():
                     if full_pv_name_length > (EPICS_MAX_NAME_LENGTH - 4):
@@ -158,7 +168,7 @@ def _create_and_link_attribute_pvs(
                         )
                         attribute.enabled = False
                     else:
-                        alias_rbv = aliases.get(
+                        alias_rbv = aliases.pop(
                             f"{pv_prefix}:{pv_name}{RBV_SUFFIX}", None
                         )
                         _create_and_link_read_pv(
@@ -193,15 +203,9 @@ def _create_and_link_attribute_pvs(
                     )
 
 
-def _create_and_link_read_pv(
-    pv_prefix: str,
-    pv_name: str,
-    attr_name: str,
-    alias: str | None,
-    attribute: AttrR[DType_T],
-) -> None:
-    pv = f"{pv_prefix}:{pv_name}"
-
+def _make_in_record_and_add_callback(
+    pv: str, attribute: AttrR[DType_T]
+) -> RecordWrapper:
     async def async_record_set(value: DType_T):
         tracer.log_event(
             "PV set from attribute", topic=attribute, pv=pv, value=repr(value)
@@ -210,23 +214,33 @@ def _create_and_link_read_pv(
         record.set(cast_to_epics_type(attribute.datatype, value))
 
     record = _make_in_record(pv, attribute)
-
-    _add_alias(record, alias)
-
-    _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
-
     attribute.add_on_update_callback(async_record_set)
+    return record
 
 
-def _create_and_link_write_pv(
+def _create_and_link_read_pv(
     pv_prefix: str,
     pv_name: str,
     attr_name: str,
-    alias: str | None,
-    attribute: AttrW[DType_T],
-):
+    alias: str | EnumMapping | None,
+    attribute: AttrR[DType_T],
+) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
+    record = _make_in_record_and_add_callback(pv, attribute)
+
+    if isinstance(alias, str):
+        _add_alias(record, alias)
+    elif isinstance(alias, EnumMapping):
+        enum_attr = _get_read_enum_attr_from_type(alias)
+        _add_read_enum_alias(alias, attribute, enum_attr)
+
+    _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
+
+
+def _make_out_record_and_sync_setpoint(
+    pv: str, attribute: AttrW[DType_T]
+) -> RecordWrapper:
     async def on_update(value):
         logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
         await _run_and_set_alarm(
@@ -241,23 +255,39 @@ def _create_and_link_write_pv(
         record.set(cast_to_epics_type(attribute.datatype, value), process=False)
 
     record = _make_out_record(pv, attribute, on_update=on_update)
+    attribute.add_sync_setpoint_callback(set_setpoint_without_process)
+    return record
 
-    _add_alias(record, alias)
+
+def _create_and_link_write_pv(
+    pv_prefix: str,
+    pv_name: str,
+    attr_name: str,
+    alias: str | EnumMapping | None,
+    attribute: AttrW[DType_T],
+):
+    pv = f"{pv_prefix}:{pv_name}"
+
+    record = _make_out_record_and_sync_setpoint(pv, attribute)
+
+    if isinstance(alias, str):
+        _add_alias(record, alias)
+    elif isinstance(alias, EnumMapping):
+        enum_attr = _get_write_enum_attr_from_type(alias)
+        _add_write_enum_alias(alias, attribute, enum_attr)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
 
-    attribute.add_sync_setpoint_callback(set_setpoint_without_process)
-
 
 def _create_and_link_command_pvs(
-    root_controller_api: ControllerAPI, aliases: dict[str, str]
+    root_controller_api: ControllerAPI, aliases: dict[str, str | EnumMapping]
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, method in controller_api.command_methods.items():
             pv_name = snake_to_pascal(attr_name)
-            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
+            alias = aliases.pop(f"{pv_prefix}:{pv_name}", None)
 
             if len(f"{pv_prefix}:{pv_name}") > EPICS_MAX_NAME_LENGTH:
                 print(
@@ -276,7 +306,11 @@ def _create_and_link_command_pvs(
 
 
 def _create_and_link_command_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, alias: str | None, method: Command
+    pv_prefix: str,
+    pv_name: str,
+    attr_name: str,
+    alias: str | EnumMapping | None,
+    method: Command,
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -293,7 +327,11 @@ def _create_and_link_command_pv(
         ONAM="Active",
     )
 
-    _add_alias(record, alias)
+    if isinstance(alias, str):
+        _add_alias(record, alias)
+    elif isinstance(alias, EnumMapping):
+        enum_attr = _get_write_enum_attr_from_type(alias)
+        _add_command_enum_alias(alias, method, enum_attr)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "x")
 
@@ -360,3 +398,117 @@ async def _run_and_set_alarm(record, coro: Awaitable):
         _set_alarm(record, alarm.NO_ALARM)
     except Exception:
         _set_alarm(record, alarm.MAJOR_ALARM)
+
+
+def _get_enum_from_alias(
+    alias: EnumMapping,
+):
+    members = {name: i for i, name in enumerate(alias.mapping)}
+    return IntEnum("enum", members)
+
+
+def _get_read_enum_attr_from_type(alias: EnumMapping):
+    enum = _get_enum_from_alias(alias)
+    return AttrR(datatype=Enum(enum))
+
+
+def _get_write_enum_attr_from_type(alias: EnumMapping):
+    enum = _get_enum_from_alias(alias)
+    return AttrW(datatype=Enum(enum))
+
+
+def _add_command_enum_alias(
+    alias: EnumMapping, method: Command, enum_attr: AttrW[EnumT]
+):
+    record = _make_out_record_and_sync_setpoint(alias.pv, enum_attr)
+
+    async def trigger_command(_, value) -> None:
+        converted_value = alias.mapping.get(value.name)
+
+        if converted_value is None:
+            logger.warning(
+                "Failed to convert enum alias value {value} to command boolean. "
+                "No mapping exists.",
+                value=value,
+                enum_mapping=alias.mapping,
+            )
+            return
+
+        if not isinstance(converted_value, bool):
+            logger.warning(
+                "Aliased commands only accept boolean mappings. "
+                "Got {value} from mapping.",
+                value=converted_value,
+                enum_mapping=alias.mapping,
+            )
+            return
+
+        if converted_value:
+            logger.info("Calling aliased command")
+            await _run_and_set_alarm(record, method.fn())
+
+    enum_attr.set_on_put_callback(trigger_command)
+
+
+def _add_read_enum_alias(
+    alias: EnumMapping, attribute: AttrR[DType_T], enum_attr: AttrR[EnumT]
+):
+    enum = enum_attr.datatype.dtype
+
+    async def convert_from_value(value) -> None:
+        converted_value = next(
+            (k for k, v in alias.mapping.items() if v == value),
+            None,
+        )
+
+        if converted_value is not None:
+            validated_value = enum[converted_value]
+            logger.info(
+                "Converting to enum value {enum_value} from fastcs value {value}",
+                enum_value=validated_value,
+                value=value,
+            )
+            await enum_attr.update(validated_value)
+        else:
+            logger.warning(
+                "Ignoring enum update as fastcs value {value} has no "
+                "corresponding value in enum mapping",
+                value=value,
+                mapping=alias.mapping,
+            )
+
+    attribute.add_on_update_callback(convert_from_value)
+    _make_in_record_and_add_callback(alias.pv, enum_attr)
+
+
+def _add_write_enum_alias(
+    alias: EnumMapping,
+    attribute: AttrW[DType_T],
+    enum_attr: AttrW[EnumT],
+):
+    record = _make_out_record_and_sync_setpoint(alias.pv, enum_attr)
+
+    async def convert_to_value(_, value) -> None:
+        converted_value = alias.mapping.get(value.name)
+
+        if converted_value is not None:
+            logger.info(
+                "Converting enum value {enum_value} to fastcs value {converted_value}",
+                enum_value=value,
+                converted_value=converted_value,
+            )
+            await _run_and_set_alarm(
+                record,
+                attribute.put(
+                    cast_from_epics_type(attribute.datatype, converted_value)
+                ),
+            )
+        else:
+            logger.warning(
+                "Ignoring enum put value {value} as it has no "
+                "corresponding value in enum mapping",
+                value=value,
+                mapping=alias.mapping,
+            )
+
+    enum_attr.set_on_put_callback(convert_to_value)
