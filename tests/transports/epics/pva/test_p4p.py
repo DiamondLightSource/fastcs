@@ -18,7 +18,6 @@ from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command
-from fastcs.transports.epics.pva._pv_handlers import make_shared_write_pv
 from fastcs.transports.epics.pva.transport import EpicsPVATransport
 
 
@@ -213,23 +212,6 @@ async def test_numeric_alarms(p4p_subprocess: tuple[str, Queue]):
 def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
     controller.set_path([pv_prefix])
     return FastCS(controller, [EpicsPVATransport()])
-
-
-@pytest.mark.asyncio
-async def test_attr_rw_shared_write_pv_uses_current_attribute_value():
-    attribute = AttrRW(Int(min=1), initial_value=2)
-    await attribute.update(4)
-
-    shared_pv = make_shared_write_pv(attribute)
-
-    assert shared_pv.current()["value"] == 4
-
-
-@pytest.mark.asyncio
-async def test_attr_w_shared_write_pv_uses_datatype_initial_value():
-    shared_pv = make_shared_write_pv(AttrW(Int()))
-
-    assert shared_pv.current()["value"] == 0
 
 
 def test_read_signal_set():

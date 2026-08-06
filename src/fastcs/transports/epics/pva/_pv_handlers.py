@@ -135,14 +135,9 @@ def make_shared_read_pv(attribute: AttrR) -> SharedPV:
 
 
 def make_shared_write_pv(attribute: AttrW) -> SharedPV:
-    initial_value = (
-        attribute.get()
-        if isinstance(attribute, AttrRW)
-        else attribute.datatype.initial_value
-    )
     shared_pv = SharedPV(
         handler=WritePvHandler(attribute),
-        initial=cast_to_p4p_value(attribute, initial_value),
+        initial=cast_to_p4p_value(attribute, attribute.datatype.initial_value),
         **_make_shared_pv_arguments(attribute),
     )
 
