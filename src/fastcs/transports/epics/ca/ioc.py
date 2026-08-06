@@ -1,6 +1,6 @@
 import asyncio
 from collections import Counter
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from enum import IntEnum
 from typing import Any, Literal, TypeVar
 
@@ -35,7 +35,7 @@ class EpicsCAIOC:
     def __init__(
         self,
         controller_apis: list[ControllerAPI],
-        aliases: dict[str, str | EnumMapping],
+        aliases: Mapping[str, str | EnumMapping],
     ):
         alias_pvs = [
             value if isinstance(value, str) else value.pv for value in aliases.values()
@@ -130,7 +130,7 @@ def _add_sub_controller_pvi_info(parent: ControllerAPI):
 
 
 def _create_and_link_attribute_pvs(
-    root_controller_api: ControllerAPI, aliases: dict[str, str | EnumMapping]
+    root_controller_api: ControllerAPI, aliases: Mapping[str, str | EnumMapping]
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
@@ -157,7 +157,7 @@ def _create_and_link_attribute_pvs(
                 )
                 continue
 
-            alias = aliases.pop(f"{pv_prefix}:{pv_name}", None)
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
             match attribute:
                 case AttrRW():
                     if full_pv_name_length > (EPICS_MAX_NAME_LENGTH - 4):
@@ -168,7 +168,7 @@ def _create_and_link_attribute_pvs(
                         )
                         attribute.enabled = False
                     else:
-                        alias_rbv = aliases.pop(
+                        alias_rbv = aliases.get(
                             f"{pv_prefix}:{pv_name}{RBV_SUFFIX}", None
                         )
                         _create_and_link_read_pv(
@@ -203,21 +203,6 @@ def _create_and_link_attribute_pvs(
                     )
 
 
-def _make_in_record_and_add_callback(
-    pv: str, attribute: AttrR[DType_T]
-) -> RecordWrapper:
-    async def async_record_set(value: DType_T):
-        tracer.log_event(
-            "PV set from attribute", topic=attribute, pv=pv, value=repr(value)
-        )
-
-        record.set(cast_to_epics_type(attribute.datatype, value))
-
-    record = _make_in_record(pv, attribute)
-    attribute.add_on_update_callback(async_record_set)
-    return record
-
-
 def _create_and_link_read_pv(
     pv_prefix: str,
     pv_name: str,
@@ -227,7 +212,14 @@ def _create_and_link_read_pv(
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
-    record = _make_in_record_and_add_callback(pv, attribute)
+    async def async_record_set(value: DType_T):
+        tracer.log_event(
+            "PV set from attribute", topic=attribute, pv=pv, value=repr(value)
+        )
+
+        record.set(cast_to_epics_type(attribute.datatype, value))
+
+    record = _make_in_record(pv, attribute)
 
     if isinstance(alias, str):
         _add_alias(record, alias)
@@ -236,17 +228,10 @@ def _create_and_link_read_pv(
         _add_read_enum_alias(alias, attribute, enum_attr)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
+    attribute.add_on_update_callback(async_record_set)
 
 
-def _make_out_record_and_sync_setpoint(
-    pv: str, attribute: AttrW[DType_T]
-) -> RecordWrapper:
-    async def on_update(value):
-        logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
-        await _run_and_set_alarm(
-            record, attribute.put(cast_from_epics_type(attribute.datatype, value))
-        )
-
+def _sync_setpoint(pv: str, attribute: AttrW[DType_T], record: RecordWrapper) -> None:
     async def set_setpoint_without_process(value: DType_T):
         tracer.log_event(
             "PV setpoint set from attribute", topic=attribute, pv=pv, value=repr(value)
@@ -254,9 +239,7 @@ def _make_out_record_and_sync_setpoint(
 
         record.set(cast_to_epics_type(attribute.datatype, value), process=False)
 
-    record = _make_out_record(pv, attribute, on_update=on_update)
     attribute.add_sync_setpoint_callback(set_setpoint_without_process)
-    return record
 
 
 def _create_and_link_write_pv(
@@ -268,7 +251,13 @@ def _create_and_link_write_pv(
 ):
     pv = f"{pv_prefix}:{pv_name}"
 
-    record = _make_out_record_and_sync_setpoint(pv, attribute)
+    async def on_update(value):
+        logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
+        await _run_and_set_alarm(
+            record, attribute.put(cast_from_epics_type(attribute.datatype, value))
+        )
+
+    record = _make_out_record(pv, attribute, on_update=on_update)
 
     if isinstance(alias, str):
         _add_alias(record, alias)
@@ -277,17 +266,18 @@ def _create_and_link_write_pv(
         _add_write_enum_alias(alias, attribute, enum_attr)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
+    _sync_setpoint(pv, attribute, record)
 
 
 def _create_and_link_command_pvs(
-    root_controller_api: ControllerAPI, aliases: dict[str, str | EnumMapping]
+    root_controller_api: ControllerAPI, aliases: Mapping[str, str | EnumMapping]
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, method in controller_api.command_methods.items():
             pv_name = snake_to_pascal(attr_name)
-            alias = aliases.pop(f"{pv_prefix}:{pv_name}", None)
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
 
             if len(f"{pv_prefix}:{pv_name}") > EPICS_MAX_NAME_LENGTH:
                 print(
@@ -385,7 +375,7 @@ def _set_alarm(record: RecordWrapper, alarm_state: int):
     )
 
 
-async def _run_and_set_alarm(record, coro: Awaitable):
+async def _run_and_set_alarm(record: RecordWrapper, coro: Awaitable):
     """Await `coro` and update `record`'s alarm state based on the outcome.
 
     On success, clears the alarm (NO_ALARM). On any exception, raises the
@@ -418,12 +408,15 @@ def _get_write_enum_attr_from_type(alias: EnumMapping):
 
 
 def _add_command_enum_alias(
-    alias: EnumMapping, method: Command, enum_attr: AttrW[EnumT]
+    alias: EnumMapping,
+    method: Command,
+    enum_attr: AttrW[EnumT],
 ):
-    record = _make_out_record_and_sync_setpoint(alias.pv, enum_attr)
-
-    async def trigger_command(_, value) -> None:
-        converted_value = alias.mapping.get(value.name)
+    async def trigger_command(value) -> None:
+        logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
+        cast_value = cast_from_epics_type(enum_attr.datatype, value)
+        await enum_attr.put(cast_value)
+        converted_value = alias.mapping.get(cast_value.name)
 
         if converted_value is None:
             logger.warning(
@@ -445,9 +438,11 @@ def _add_command_enum_alias(
 
         if converted_value:
             logger.info("Calling aliased command")
+            await enum_attr.put(value)
             await _run_and_set_alarm(record, method.fn())
 
-    enum_attr.set_on_put_callback(trigger_command)
+    record = _make_out_record(alias.pv, enum_attr, on_update=trigger_command)
+    _sync_setpoint(alias.pv, enum_attr, record)
 
 
 def _add_read_enum_alias(
@@ -456,6 +451,11 @@ def _add_read_enum_alias(
     enum = enum_attr.datatype.dtype
 
     async def convert_from_value(value) -> None:
+        tracer.log_event(
+            "PV set from attribute", topic=attribute, pv=alias.pv, value=repr(value)
+        )
+        record.set(cast_to_epics_type(enum_attr.datatype, value))
+
         converted_value = next(
             (k for k, v in alias.mapping.items() if v == value),
             None,
@@ -477,8 +477,8 @@ def _add_read_enum_alias(
                 mapping=alias.mapping,
             )
 
+    record = _make_in_record(alias.pv, enum_attr)
     attribute.add_on_update_callback(convert_from_value)
-    _make_in_record_and_add_callback(alias.pv, enum_attr)
 
 
 def _add_write_enum_alias(
@@ -486,10 +486,11 @@ def _add_write_enum_alias(
     attribute: AttrW[DType_T],
     enum_attr: AttrW[EnumT],
 ):
-    record = _make_out_record_and_sync_setpoint(alias.pv, enum_attr)
-
-    async def convert_to_value(_, value) -> None:
-        converted_value = alias.mapping.get(value.name)
+    async def convert_to_value(value) -> None:
+        logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
+        cast_value = cast_from_epics_type(enum_attr.datatype, value)
+        await enum_attr.put(cast_value)
+        converted_value = alias.mapping.get(cast_value.name)
 
         if converted_value is not None:
             logger.info(
@@ -511,4 +512,5 @@ def _add_write_enum_alias(
                 mapping=alias.mapping,
             )
 
-    enum_attr.set_on_put_callback(convert_to_value)
+    record = _make_out_record(alias.pv, enum_attr, on_update=convert_to_value)
+    _sync_setpoint(alias.pv, enum_attr, record)
