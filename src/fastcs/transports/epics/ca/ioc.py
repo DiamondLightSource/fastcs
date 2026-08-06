@@ -451,11 +451,6 @@ def _add_read_enum_alias(
     enum = enum_attr.datatype.dtype
 
     async def convert_from_value(value) -> None:
-        tracer.log_event(
-            "PV set from attribute", topic=attribute, pv=alias.pv, value=repr(value)
-        )
-        record.set(cast_to_epics_type(enum_attr.datatype, value))
-
         converted_value = next(
             (k for k, v in alias.mapping.items() if v == value),
             None,
@@ -463,6 +458,10 @@ def _add_read_enum_alias(
 
         if converted_value is not None:
             validated_value = enum[converted_value]
+            tracer.log_event(
+                "PV set from attribute", topic=attribute, pv=alias.pv, value=repr(value)
+            )
+            record.set(cast_to_epics_type(enum_attr.datatype, validated_value))
             logger.info(
                 "Converting to enum value {enum_value} from fastcs value {value}",
                 enum_value=validated_value,

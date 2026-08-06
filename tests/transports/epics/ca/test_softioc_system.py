@@ -75,6 +75,12 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     assert str(converted_enum_value) == "Active"
     assert str(ctxt.get(f"{pv_prefix}:ChildVector:0:E_RBV")) == "Active"
 
+    ctxt.put(f"{pv_prefix}:ChildVector:0:E", 1, wait=True)
+    assert str(ctxt.get(f"{pv_prefix}:ChildVector:0:E_RBV")) == "Idle"
+    assert (
+        str(ctxt.get(f"{pv_prefix}:EnumAliasE_RBV")) == "Off"
+    )  # Aliased enum gets converted update
+
     # Assert command exceptions set record alarm states
     ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
     assert ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR") == alarm.MAJOR_ALARM

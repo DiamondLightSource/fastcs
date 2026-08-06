@@ -61,6 +61,9 @@ def run(id="SOFTIOC_TEST_DEVICE"):
                         f"{id}:ChildVector:0:E": EnumMapping(
                             pv=f"{id}:EnumAliasE", mapping={"Off": 1, "On": 2}
                         ),
+                        f"{id}:ChildVector:0:E_RBV": EnumMapping(
+                            pv=f"{id}:EnumAliasE_RBV", mapping={"Off": 1, "On": 2}
+                        ),
                         f"{id}:ChildVector:0:D": EnumMapping(
                             pv=f"{id}:EnumAliasD",
                             mapping={"Idle": False, "Active": True},
