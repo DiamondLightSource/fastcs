@@ -41,7 +41,7 @@
             "module": "fastcs.demo",
             "args": [
                 "run",
-                "${workspaceFolder:FastCS}/src/fastcs/demo/controller.yaml",
+                "${workspaceFolder:FastCS}/src/fastcs/demo/fastcs.yaml",
                 "--log-level",
                 "TRACE",
                 // "--graylog-endpoint",

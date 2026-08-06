@@ -1,4 +1,5 @@
 import enum
+import re
 from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any
@@ -7,8 +8,23 @@ from softioc import builder
 from softioc.pythonSoftIoc import RecordWrapper
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
+from fastcs.controllers import ControllerAPI
 from fastcs.datatypes import Bool, DataType, DType_T, Enum, Float, Int, String, Waveform
 from fastcs.exceptions import FastCSError
+from fastcs.transports.epics.util import validate_epics_pv_id
+
+_CA_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def validate_ca_id(controller_api: ControllerAPI) -> None:
+    """Reject controller ids that wouldn't be safe in an EPICS CA PV name.
+
+    Rejects ids with characters outside ``[A-Za-z0-9_-]`` and rejects setups
+    where the longest derivable PV prefix already exceeds the 60-character
+    EPICS PV name limit.
+    """
+    validate_epics_pv_id(controller_api, transport_label="EPICS CA id", id_re=_CA_ID_RE)
+
 
 _MBB_FIELD_PREFIXES = (
     "ZR",

@@ -129,7 +129,7 @@ options to the transport options and generate a `demo.bob` file to use with Phoe
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static05.py
-:emphasize-lines: 1,7,16-20,22
+:emphasize-lines: 1,7,15-18,20
 :::
 
 ::::
@@ -155,7 +155,7 @@ The simulator control connection is on port 25565.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static06.py
-:emphasize-lines: 4,15-22,29-30
+:emphasize-lines: 4,15-22,27-28
 :::
 
 ::::
@@ -288,7 +288,7 @@ are, which is used to register the correct number of ramp controllers with the p
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,35,44,48-56,64,70-74,85
+:emphasize-lines: 10,28,32,35,44,48-56,64,70-74,83
 :::
 
 ::::
@@ -419,7 +419,7 @@ logger for `TemperatureControllerAttributeIO` to log the commands it sends.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 13,48,110,117
+:emphasize-lines: 13,48,110,115
 :::
 
 ::::
@@ -444,7 +444,7 @@ visible.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static15.py
-:emphasize-lines: 13,49-51,120
+:emphasize-lines: 13,49-51,118
 :::
 
 ::::

@@ -83,6 +83,8 @@ nitpick_ignore = [
     #     docstring of collections.abc.Callable:1: WARNING:
     #     'any' reference target not found: self [ref.any]
     ("any", "self"),
+    # Inherited from pydantic.BaseModel.__init__, which has no intersphinx mapping
+    ("any", "ValidationError"),
     # p4p doesn't have intersphinx mapping
     ("py:class", "p4p.server.StaticProvider"),
     ("py:class", "p4p.nt.scalar.NTScalar"),
@@ -98,7 +100,6 @@ nitpick_ignore = [
     ("py:class", "fastcs.logging._graylog.GraylogStaticFields"),
     ("py:class", "fastcs.logging._graylog.GraylogEnvFields"),
     ("py:obj", "fastcs.control_system.build_controller_api"),
-    ("py:obj", "fastcs.transports.epics.util.controller_pv_prefix"),
     ("docutils", "fastcs.demo.controllers.TemperatureControllerSettings"),
     # TypeVar without docstrings still give warnings
     ("py:class", "strawberry.schema.schema.Schema"),

@@ -1,4 +1,3 @@
-from pvi._format.dls import DLSFormatter  # type: ignore
 from pvi.device import (
     LED,
     ArrayTrace,
@@ -35,7 +34,7 @@ from fastcs.datatypes import (
 )
 from fastcs.logging import logger
 from fastcs.methods import Command
-from fastcs.transports.epics.options import EpicsGUIFormat, EpicsGUIOptions
+from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
 
@@ -44,14 +43,11 @@ class EpicsGUI:
 
     command_value = "1"
 
-    def __init__(self, controller_api: ControllerAPI, pv_prefix: str) -> None:
+    def __init__(self, controller_api: ControllerAPI) -> None:
         self._controller_api = controller_api
-        self._pv_prefix = pv_prefix
 
     def _get_pv(self, attr_path: list[str], name: str):
-        attr_prefix = ":".join(
-            [self._pv_prefix] + [snake_to_pascal(node) for node in attr_path]
-        )
+        attr_prefix = pv_prefix_from_path(attr_path)
         return f"{attr_prefix}:{snake_to_pascal(name)}"
 
     def _get_read_widget(self, attribute: Attribute) -> ReadWidgetUnion | None:
@@ -147,21 +143,9 @@ class EpicsGUI:
             write_widget=ButtonPanel(actions={name: self.command_value}),
         )
 
-    def create_gui(self, options: EpicsGUIOptions | None = None) -> None:
-        if options is None:
-            options = EpicsGUIOptions()
-
-        if options.file_format is EpicsGUIFormat.edl:
-            logger.warning("FastCS may not support all widgets in .edl screens")
-
-        assert options.output_path.suffix == options.file_format.value
-        options.output_path.parent.mkdir(parents=True, exist_ok=True)
-
+    def build_device(self, title: str) -> Device:
         components = self.extract_api_components(self._controller_api)
-        device = Device(label=options.title, children=components)
-
-        formatter = DLSFormatter()
-        formatter.format(device, options.output_path.resolve())
+        return Device(label=title, children=components)
 
     def extract_api_components(self, controller_api: ControllerAPI) -> Tree:
         components: Tree = []

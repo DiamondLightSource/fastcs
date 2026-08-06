@@ -59,6 +59,7 @@ class AttrW(Attribute[DType_T, AttributeIORefT]):
                 logger.opt(exception=e).error(
                     "Put failed", attribute=self, setpoint=setpoint
                 )
+                raise
 
         if sync_setpoint:
             try:

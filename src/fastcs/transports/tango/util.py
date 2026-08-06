@@ -1,3 +1,4 @@
+import re
 from dataclasses import asdict
 from typing import Any
 
@@ -17,6 +18,42 @@ from fastcs.datatypes import (
 )
 
 TANGO_ALLOWED_DATATYPES = (Bool, DataType, Enum, Float, Int, String, Waveform)
+
+_TANGO_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def validate_tango_id(id: str) -> None:
+    """Reject controller ids that wouldn't be safe in a Tango device-name segment."""
+    if not id:
+        raise ValueError("Controller id is empty; ids must be non-empty")
+    if not _TANGO_ID_RE.fullmatch(id):
+        raise ValueError(
+            f"Controller id {id!r} is not a valid Tango id; "
+            "only alphanumerics, '-' and '_' are allowed"
+        )
+
+
+def tango_dev_class_name(id: str) -> str:
+    """Map a controller id to a valid Python class name for a Tango device class.
+
+    Hyphens are replaced with underscores; a leading digit is prefixed with ``X``.
+    Assumes ``id`` has already been accepted by ``validate_tango_id``.
+    """
+    sanitized = id.replace("-", "_")
+    if sanitized[0].isdigit():
+        sanitized = "X" + sanitized
+    return sanitized
+
+
+def tango_dev_name(id: str, dsr_instance: str) -> str:
+    """Build the three-segment Tango device name for a controller.
+
+    The id forms the leading segment, followed by the per-id Tango device class
+    and the DSR instance name. Assumes ``id`` has been accepted by
+    ``validate_tango_id``.
+    """
+    return f"{id}/{tango_dev_class_name(id)}/{dsr_instance}"
+
 
 DATATYPE_FIELD_TO_SERVER_FIELD = {
     "units": "unit",

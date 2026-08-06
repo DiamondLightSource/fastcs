@@ -16,7 +16,11 @@ from .util import (
     cast_to_tango_type,
     get_server_metadata_from_attribute,
     get_server_metadata_from_datatype,
+    tango_dev_class_name,
+    tango_dev_name,
 )
+
+FASTCS_TANGO_SERVER_NAME = "FastCS"
 
 
 def _wrap_updater_fget(
@@ -60,8 +64,11 @@ def _collect_dev_attributes(
     root_controller_api: ControllerAPI, loop: asyncio.AbstractEventLoop
 ) -> dict[str, Any]:
     collection: dict[str, Any] = {}
+    root_depth = len(root_controller_api.path)
     for controller_api in root_controller_api.walk_api():
-        path = controller_api.path
+        # Path relative to the device root: the controller id (path[0]) is the
+        # Tango device name, not part of attribute names.
+        path = controller_api.path[root_depth:]
 
         for attr_name, attribute in controller_api.attributes.items():
             attr_name = attr_name.title().replace("_", "")
@@ -124,8 +131,9 @@ def _collect_dev_commands(
     loop: asyncio.AbstractEventLoop,
 ) -> dict[str, Any]:
     collection: dict[str, Any] = {}
+    root_depth = len(root_controller_api.path)
     for controller_api in root_controller_api.walk_api():
-        path = controller_api.path
+        path = controller_api.path[root_depth:]
 
         for name, method in controller_api.command_methods.items():
             cmd_name = name.title().replace("_", "")
@@ -168,30 +176,36 @@ def _collect_dsr_args(options: TangoDSROptions) -> list[str]:
 
 
 class TangoDSR:
-    """For controlling a controller with tango"""
+    """Hosts one Tango device per controller in a single Device Server.
+
+    Each controller in ``controller_apis`` becomes its own Tango device class,
+    named after the controller's id, with ``{id}/{dev_class}/{dsr_instance}`` as
+    its three-segment Tango device name.
+    """
 
     def __init__(
         self,
-        controller_api: ControllerAPI,
+        controller_apis: list[ControllerAPI],
         loop: asyncio.AbstractEventLoop,
     ):
-        self._controller_api = controller_api
+        self._controller_apis = controller_apis
         self._loop = loop
-        self.dev_class = self._controller_api.__class__.__name__
-        self._device = self._create_device()
+        self._devices: list[type] = [
+            self._create_device(api) for api in controller_apis
+        ]
 
-    def _create_device(self):
+    def _create_device(self, controller_api: ControllerAPI) -> type:
         class_dict: dict = {
-            **_collect_dev_attributes(self._controller_api, self._loop),
-            **_collect_dev_commands(self._controller_api, self._loop),
-            **_collect_dev_properties(self._controller_api),
-            **_collect_dev_init(self._controller_api),
-            **_collect_dev_flags(self._controller_api),
+            **_collect_dev_attributes(controller_api, self._loop),
+            **_collect_dev_commands(controller_api, self._loop),
+            **_collect_dev_properties(controller_api),
+            **_collect_dev_init(controller_api),
+            **_collect_dev_flags(controller_api),
         }
 
         class_bases = (server.Device,)
-        pytango_class = type(self.dev_class, class_bases, class_dict)
-        return pytango_class
+        dev_class = tango_dev_class_name(controller_api.path[0])
+        return type(dev_class, class_bases, class_dict)
 
     def run(self, options: TangoDSROptions | None = None) -> None:
         if options is None:
@@ -200,18 +214,28 @@ class TangoDSR:
         dsr_args = _collect_dsr_args(options)
 
         server.run(
-            (self._device,),
-            [self.dev_class, options.dsr_instance, *dsr_args],
+            tuple(self._devices),
+            [FASTCS_TANGO_SERVER_NAME, options.dsr_instance, *dsr_args],
             green_mode=server.GreenMode.Asyncio,
         )
 
 
-def register_dev(dev_name: str, dev_class: str, dsr_instance: str) -> None:
-    """Register a device instance in the tango server."""
+def register_dev(
+    dev_name: str,
+    dev_class: str,
+    dsr_instance: str,
+    server_name: str | None = None,
+) -> None:
+    """Register a device instance in the tango server.
+
+    ``server_name`` defaults to ``dev_class`` for backward compatibility with
+    callers from before multi-controller support. For FastCS-hosted multi-class
+    DSRs, pass ``server_name=FASTCS_TANGO_SERVER_NAME``.
+    """
     dev_info = DbDevInfo()
     dev_info.name = dev_name
     dev_info._class = dev_class  # noqa: SLF001
-    dev_info.server = f"{dev_class}/{dsr_instance}"
+    dev_info.server = f"{server_name or dev_class}/{dsr_instance}"
 
     db = Database()
     db.delete_device(dev_name)  # Remove existing device entry
@@ -224,3 +248,17 @@ def register_dev(dev_name: str, dev_class: str, dsr_instance: str) -> None:
     print(f" - Device: {read_dev_info.name}")
     print(f" - Class: {read_dev_info.class_name}")
     print(f" - Device server: {read_dev_info.ds_full_name}")
+
+
+def register_controller_devs(
+    controller_apis: list[ControllerAPI], options: TangoDSROptions
+) -> None:
+    """Register every controller's Tango device under the FastCS server name."""
+    for api in controller_apis:
+        id = api.path[0]
+        register_dev(
+            dev_name=tango_dev_name(id, options.dsr_instance),
+            dev_class=tango_dev_class_name(id),
+            dsr_instance=options.dsr_instance,
+            server_name=FASTCS_TANGO_SERVER_NAME,
+        )
