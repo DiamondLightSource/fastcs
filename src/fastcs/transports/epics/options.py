@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, TypeAlias
 
 from pydantic import ConfigDict
+
+EnumMappingValue: TypeAlias = bool | int | float | str
 
 
 @dataclass
@@ -36,7 +38,7 @@ class EnumMapping:
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     pv: str
-    mapping: dict[str, int | str | float | bool]
+    mapping: dict[str, EnumMappingValue]
 
 
 @dataclass
