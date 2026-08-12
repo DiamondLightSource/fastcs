@@ -33,6 +33,23 @@ class ChildController(Controller):
     fail_on_next_e = True
     c: AttrW = AttrW(Int())
 
+    def __init__(self, description: str | None = None):
+        super().__init__(description=description)
+
+        # A getter/setter pair against an in-memory "device", doing what an
+        # AttributeIO used to do. The setter clamps the requested value and
+        # returns what it accepted, which becomes both the readback and the
+        # setpoint; the getter seeds the setpoint when the controller connects.
+        self._clamped = 0
+        self.clamped = AttrRW(Int(), getter=self.get_clamped, setter=self.set_clamped)
+
+    async def get_clamped(self) -> int:
+        return self._clamped
+
+    async def set_clamped(self, value: int) -> int:
+        self._clamped = min(max(value, 0), 100)
+        return self._clamped
+
     @command()
     async def d(self):
         print("D: RUNNING")

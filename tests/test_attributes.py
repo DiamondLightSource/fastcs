@@ -39,9 +39,9 @@ def test_attr_r():
     assert attr.name == "test_name"
     assert attr.path == ["test_path"]
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="already registered with a controller as"):
         attr.set_name("test_name")
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="already registered with a controller at"):
         attr.set_path(["test_path"])
 
     assert attr.readback == ""
@@ -120,7 +120,7 @@ async def test_poll_unwraps_update_wrapper():
 async def test_poll_with_no_getter_raises():
     attr = AttrR(Int())
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="has no getter"):
         await attr.poll()
 
 
@@ -131,7 +131,7 @@ async def test_poll_exception_propagates():
 
     attr = AttrR(Int(), getter=do_update)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="do_update failed"):
         await attr.poll()
 
 
@@ -172,7 +172,7 @@ async def test_wait_for_predicate(mocker: MockerFixture):
         return v > 10
 
     wait_mock = mocker.spy(asyncio, "wait_for")
-    with pytest.raises(TimeoutError):
+    with pytest.raises(TimeoutError, match="Timeout waiting 0.2s for .* predicate"):
         await attr.wait_for_predicate(predicate, timeout=0.2)
 
     await attr.wait_for_predicate(predicate, timeout=1)
@@ -195,7 +195,7 @@ async def test_wait_for_value(mocker: MockerFixture):
     asyncio.create_task(update(attr))
 
     wait_mock = mocker.spy(asyncio, "wait_for")
-    with pytest.raises(TimeoutError):
+    with pytest.raises(TimeoutError, match="Timeout waiting 0.2s for .* value 10"):
         await attr.wait_for_value(10, timeout=0.2)
 
     await attr.wait_for_value(1, timeout=1)

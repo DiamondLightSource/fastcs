@@ -194,6 +194,14 @@ class AttrR(Attribute[DType_T]):
         should use this to publish the attribute's readback, and
         ``AttrW.add_setpoint_callback`` to publish its setpoint.
 
+        Args:
+            callback: The callback to call with the updated readback value
+            always: Whether to call the callback on every ``update``, rather than
+                only when the new value differs from the cached one. Defaults to
+                ``False``, so an update that does not change the value is not
+                published. Pass ``True`` for a callback that must see every update
+                - one that timestamps it, or counts it, rather than displaying it.
+
         """
         if self._readback_callbacks is None:
             self._readback_callbacks = []

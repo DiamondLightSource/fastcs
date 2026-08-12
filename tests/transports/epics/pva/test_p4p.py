@@ -62,6 +62,7 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
     assert child_pvi["display"] == {"description": "some sub controller"}
     assert child_pvi["value"] == {
         "c": {"w": f"{pv_prefix}:Child:1:C"},
+        "clamped": {"rw": f"{pv_prefix}:Child:1:Clamped"},
         "d": {"x": f"{pv_prefix}:Child:1:D"},
         "e": {"r": f"{pv_prefix}:Child:1:E"},
         "f": {"rw": f"{pv_prefix}:Child:1:F"},

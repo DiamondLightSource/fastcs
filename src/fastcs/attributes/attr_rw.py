@@ -56,9 +56,9 @@ class AttrRW(AttrR[DType_T], AttrW[DType_T]):
         """Request a new value for the attribute.
 
         With no setter, this is a soft attribute: the requested value is pushed
-        straight to the readback. With a setter, a returned value is additionally
-        applied to the readback - the sanctioned replacement for the old private
-        setpoint-echo mechanism.
+        straight to the readback. With a setter, a returned value is treated as the
+        device's accepted/clamped value and is applied to the readback as well as
+        the setpoint.
 
         """
         await self.update_setpoint(value)
