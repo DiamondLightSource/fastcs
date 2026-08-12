@@ -1,22 +1,18 @@
 import math
 import time
+from enum import IntEnum
 
 import numpy as np
 from numpy.typing import DTypeLike
 from p4p import Value
 from p4p.nt import NTEnum, NTNDArray, NTScalar, NTTable
+from pydantic import BaseModel
 
 from fastcs.attributes import Attribute, AttrR, AttrW
 from fastcs.datatypes import Bool, DType, Enum, Float, Int, String, Table, Waveform
 from fastcs.datatypes.datatype import DType_T
 
 P4P_ALLOWED_DATATYPES = (Int, Float, String, Bool, Enum, Waveform, Table)
-
-# https://epics-base.github.io/pvxs/nt.html#alarm-t
-RECORD_ALARM_STATUS = 3
-NO_ALARM_STATUS = 0
-MAJOR_ALARM_SEVERITY = 2
-NO_ALARM_SEVERITY = 0
 
 # https://numpy.org/devdocs/reference/arrays.dtypes.html#arrays-dtypes
 # Some numpy dtypes don't match directly with the p4p ones
@@ -109,22 +105,71 @@ def cast_from_p4p_value(attribute: Attribute[DType_T], value: object) -> DType_T
             raise ValueError(f"Unsupported datatype {attribute.datatype}")
 
 
+class Severity(IntEnum):
+    """Alarm severity for a PV, as defined by the PVXS alarm_t normative type.
+
+    Whether MINOR or MAJOR applies is context-dependent and can vary per PV.
+    INVALID indicates the current value should not be treated as a meaningful
+    reading (e.g. of the underlying measured quantity) and typically reflects
+    the last known good value rather than a fresh one."""
+
+    NO_ALARM = 0
+    MINOR = 1
+    MAJOR = 2
+    INVALID = 3
+
+
+class Status(IntEnum):
+    """Alarm status for a PV.
+
+    Identifies which part of the system raised the alarm, as defined by the
+    PVXS alarm_t normative type.
+    """
+
+    NO_ALARM = 0
+    DEVICE = 1
+    DRIVER = 2
+    RECORD = 3
+    DATABASE = 4
+    CONFIGURATION = 5
+    UNDEFINED = 6
+    CLIENT = 7
+
+
+class AlarmInfo(BaseModel):
+    """The alarm state of a PV, following the PVXS alarm_t normative type.
+
+    See https://epics-base.github.io/pvxs/nt.html#alarm-t.
+    """
+
+    severity: Severity = Severity.NO_ALARM
+    status: Status = Status.NO_ALARM
+    message: str = ""
+
+
+class P4PAlarmState(BaseModel):
+    """Wraps AlarmInfo as the alarm sub-structure of a p4p NT* Value."""
+
+    alarm: AlarmInfo
+
+
 def p4p_alarm_states(
-    severity: int = NO_ALARM_SEVERITY,
-    status: int = NO_ALARM_STATUS,
+    severity: Severity = Severity.NO_ALARM,
+    status: Status = Status.NO_ALARM,
     message: str = "",
-) -> dict:
-    """Returns the p4p alarm structure for a given severity, status, and message."""
-    return {
-        "alarm": {
-            "severity": severity,
-            "status": status,
-            "message": message,
-        },
-    }
+) -> P4PAlarmState:
+    """Returns the p4p alarm structure for a given severity, status, and message,
+    validated as a Pydantic model."""
+    return P4PAlarmState(
+        alarm=AlarmInfo(
+            severity=severity,
+            status=status,
+            message=message,
+        )
+    )
 
 
-def p4p_timestamp_now() -> dict:
+def p4p_timestamp_now() -> dict[str, dict[str, int]]:
     """The p4p timestamp structure for the current time."""
     now = time.time()
     seconds_past_epoch = int(now)
@@ -157,27 +202,29 @@ def p4p_display(attribute: Attribute) -> dict:
     return {}
 
 
-def _p4p_check_numeric_for_alarm_states(datatype: Int | Float, value: DType) -> dict:
+def _p4p_check_numeric_for_alarm_states(
+    datatype: Int | Float, value: DType
+) -> dict[str, dict[str, int | str]]:
     low = None if datatype.min_alarm is None else value < datatype.min_alarm  # type: ignore
     high = None if datatype.max_alarm is None else value > datatype.max_alarm  # type: ignore
     severity = (
-        MAJOR_ALARM_SEVERITY
+        Severity.MAJOR
         if high not in (None, False) or low not in (None, False)
-        else NO_ALARM_SEVERITY
+        else Severity.NO_ALARM
     )
-    status, message = NO_ALARM_SEVERITY, "No alarm"
+    status, message = Status.NO_ALARM, "No alarm"
     if low:
         status, message = (
-            RECORD_ALARM_STATUS,
+            Status.RECORD,
             f"Below minimum alarm limit: {datatype.min_alarm}",
         )
     if high:
         status, message = (
-            RECORD_ALARM_STATUS,
+            Status.RECORD,
             f"Above maximum alarm limit: {datatype.max_alarm}",
         )
 
-    return p4p_alarm_states(severity, status, message)
+    return p4p_alarm_states(severity, status, message).model_dump()
 
 
 def cast_to_p4p_value(attribute: Attribute[DType_T], value: DType_T) -> object:

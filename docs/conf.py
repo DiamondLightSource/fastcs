@@ -83,6 +83,8 @@ nitpick_ignore = [
     #     docstring of collections.abc.Callable:1: WARNING:
     #     'any' reference target not found: self [ref.any]
     ("any", "self"),
+    # Inherited from pydantic.BaseModel.__init__, which has no intersphinx mapping
+    ("any", "ValidationError"),
     # p4p doesn't have intersphinx mapping
     ("py:class", "p4p.server.StaticProvider"),
     ("py:class", "p4p.nt.scalar.NTScalar"),

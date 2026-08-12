@@ -2,6 +2,7 @@ from multiprocessing import Queue
 
 from p4p import Value
 from p4p.client.thread import Context
+from softioc import alarm
 
 
 def test_ioc(softioc_subprocess: tuple[str, Queue]):
@@ -52,3 +53,8 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     ctxt.put(f"{pv_prefix}:AliasB", 20, wait=True)
     assert ctxt.get(f"{pv_prefix}:B") == 20
     assert ctxt.get(f"{pv_prefix}:B_RBV") == ctxt.get(f"{pv_prefix}:AliasB_RBV") == 20
+
+    # Assert command exceptions set record alarm states
+    ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
+    d_alarm = ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR")
+    assert d_alarm == alarm.MAJOR_ALARM
