@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.pva.pvi &#8212; fastcs 0.14.2.dev2+g83e0e7713 documentation</title>
+    <title>fastcs.transports.epics.pva.pvi &#8212; fastcs 0.14.2.dev3+g8df703e88 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../../_static/documentation_options.js?v=d730504a"></script>
+    <script src="../../../../../_static/documentation_options.js?v=96c0c7d6"></script>
     <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -519,7 +519,12 @@
     <span class="k">for</span> <span class="n">pv_leaf</span><span class="p">,</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="c1"># Add attribute entry</span>
         <span class="n">pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">snake_to_pascal</span><span class="p">(</span><span class="n">pv_leaf</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">p4p_raw_value</span><span class="p">[</span><span class="n">pv_leaf</span><span class="p">][</span><span class="n">attribute</span><span class="o">.</span><span class="n">access_mode</span><span class="p">]</span> <span class="o">=</span> <span class="n">pv</span>
+        <span class="k">match</span> <span class="n">attribute</span><span class="o">.</span><span class="n">access_mode</span><span class="p">:</span>
+            <span class="k">case</span> <span class="s2">&quot;rw&quot;</span><span class="p">:</span>
+                <span class="n">entry</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;r&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv</span><span class="si">}</span><span class="s2">_RBV&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="n">pv</span><span class="p">}</span>
+            <span class="k">case</span> <span class="n">access</span><span class="p">:</span>
+                <span class="n">entry</span> <span class="o">=</span> <span class="p">{</span><span class="n">access</span><span class="p">:</span> <span class="n">pv</span><span class="p">}</span>
+        <span class="n">p4p_raw_value</span><span class="p">[</span><span class="n">pv_leaf</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">pv_leaf</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">command_methods</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">snake_to_pascal</span><span class="p">(</span><span class="n">pv_leaf</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="n">p4p_raw_value</span><span class="p">[</span><span class="n">pv_leaf</span><span class="p">][</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pv</span>
