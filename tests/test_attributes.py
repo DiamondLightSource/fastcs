@@ -64,13 +64,15 @@ def test_datatype_inferred_from_setter_annotation():
 
 
 def test_datatype_required_when_not_inferable():
-    with pytest.raises(ValueError, match="datatype must be given explicitly"):
+    expected_message = "datatype must be given explicitly"
+
+    with pytest.raises(ValueError, match=expected_message):
         AttrR()
 
-    with pytest.raises(ValueError, match="datatype must be given explicitly"):
+    with pytest.raises(ValueError, match=expected_message):
         AttrW()
 
-    with pytest.raises(ValueError, match="datatype must be given explicitly"):
+    with pytest.raises(ValueError, match=expected_message):
         AttrRW()
 
 
@@ -289,15 +291,24 @@ async def test_attrw_setter_return_value_updates_setpoint_cache():
 
 
 @pytest.mark.asyncio
-async def test_set_setter_exception_is_caught_and_logged():
+async def test_set_setter_exception_is_caught_and_logged(mocker: MockerFixture):
     async def do_set(value):
         raise ValueError("do_set failed")
 
     attr = AttrW(Int(), setter=do_set)
+    mock_logger = mocker.patch("fastcs.attributes.attr_w.logger")
 
-    # exception is caught and logged, not raised
+    # exception is caught, not raised, and the setpoint is still cached
     await attr.set(5)
     assert attr.setpoint == 5
+
+    # the setter's exception is the one logged, at error level
+    logged_exception = mock_logger.opt.call_args.kwargs["exception"]
+    assert isinstance(logged_exception, ValueError)
+    assert str(logged_exception) == "do_set failed"
+    mock_logger.opt.return_value.error.assert_called_once_with(
+        "Set failed", attribute=attr, setpoint=5
+    )
 
 
 class DummyConnection:
