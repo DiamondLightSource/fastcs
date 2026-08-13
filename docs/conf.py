@@ -91,6 +91,9 @@ nitpick_ignore = [
     ("py:class", "p4p.nt.enum.NTEnum"),
     ("py:class", "p4p.nt.ndarray.NTNDArray"),
     ("py:class", "p4p.nt.NTTable"),
+    # httpx and fastapi don't have intersphinx mappings
+    ("py:class", "httpx.AsyncBaseTransport"),
+    ("py:class", "fastapi.applications.FastAPI"),
     # Problems in FastCS itself
     ("py:class", "BaseController"),
     ("py:class", "AttrIOUpdateCallback"),
@@ -100,7 +103,7 @@ nitpick_ignore = [
     ("py:class", "fastcs.logging._graylog.GraylogStaticFields"),
     ("py:class", "fastcs.logging._graylog.GraylogEnvFields"),
     ("py:obj", "fastcs.control_system.build_controller_api"),
-    ("docutils", "fastcs.demo.controllers.TemperatureControllerSettings"),
+    ("docutils", "fastcs.demo.temperature_attr.TemperatureControllerSettings"),
     # TypeVar without docstrings still give warnings
     ("py:class", "strawberry.schema.schema.Schema"),
 ]
