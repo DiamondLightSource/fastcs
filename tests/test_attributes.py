@@ -1,34 +1,34 @@
 import asyncio
 from functools import partial
 
+import numpy as np
 import pytest
 from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled, Polled, Update
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, Int, String
+from fastcs.datatypes import Array1D, Limits, Meta, NumericLimits, Table
 from fastcs.util import ONCE
 
 
 def test_attribute_access_mode():
     """Test that attributes have the correct access_mode property."""
-    attr_r = AttrR(String())
+    attr_r = AttrR(str)
     assert attr_r.access_mode == "r"
 
-    attr_w = AttrW(String())
+    attr_w = AttrW(str)
     assert attr_w.access_mode == "w"
 
-    attr_rw = AttrRW(String())
+    attr_rw = AttrRW(str)
     assert attr_rw.access_mode == "rw"
 
 
 def test_attr_r():
-    attr = AttrR(String(), group="test group")
+    attr = AttrR(str, group="test group")
 
     assert not attr.has_getter()
     assert attr.poll_period is None
-    assert isinstance(attr.datatype, String)
-    assert attr.dtype == str
+    assert attr.dtype is str
     assert attr.group == "test group"
     assert attr.name == ""
     assert attr.path == []
@@ -52,7 +52,7 @@ def test_datatype_inferred_from_getter_annotation():
         return 1.5
 
     attr = AttrR(getter=get_value)
-    assert isinstance(attr.datatype, Float)
+    assert attr.dtype is float
 
 
 def test_datatype_inferred_from_setter_annotation():
@@ -60,7 +60,7 @@ def test_datatype_inferred_from_setter_annotation():
         pass
 
     attr = AttrW(setter=set_value)
-    assert isinstance(attr.datatype, Int)
+    assert attr.dtype is int
 
 
 def test_datatype_required_when_not_inferable():
@@ -78,7 +78,7 @@ def test_datatype_required_when_not_inferable():
 
 @pytest.mark.asyncio
 async def test_attr_update():
-    attr = AttrRW(Int())
+    attr = AttrRW(int)
 
     await attr.update(42)
     assert attr.readback == 42
@@ -99,7 +99,7 @@ async def test_poll():
     async def do_update():
         return 5
 
-    attr = AttrR(Int(), getter=do_update)
+    attr = AttrR(int, getter=do_update)
     assert attr.has_getter()
 
     value = await attr.poll()
@@ -112,7 +112,7 @@ async def test_poll_unwraps_update_wrapper():
     async def do_update():
         return Update(9, timestamp=123.0)
 
-    attr = AttrR(Int(), getter=do_update)
+    attr = AttrR(int, getter=do_update)
     value = await attr.poll()
     assert value == 9
     assert attr.readback == 9
@@ -120,7 +120,7 @@ async def test_poll_unwraps_update_wrapper():
 
 @pytest.mark.asyncio
 async def test_poll_with_no_getter_raises():
-    attr = AttrR(Int())
+    attr = AttrR(int)
 
     with pytest.raises(RuntimeError, match="has no getter"):
         await attr.poll()
@@ -131,7 +131,7 @@ async def test_poll_exception_propagates():
     async def do_update():
         raise ValueError("do_update failed")
 
-    attr = AttrR(Int(), getter=do_update)
+    attr = AttrR(int, getter=do_update)
 
     with pytest.raises(ValueError, match="do_update failed"):
         await attr.poll()
@@ -142,25 +142,25 @@ def test_poll_period_comes_from_the_getter():
         return 1
 
     # A bare getter is read once, when the controller connects.
-    attr = AttrR(Int(), getter=do_update)
+    attr = AttrR(int, getter=do_update)
     assert attr.poll_period == ONCE
 
     # Wrapping it in Polled schedules it instead.
-    attr_explicit = AttrR(Int(), getter=Polled(do_update, period=0.5))
+    attr_explicit = AttrR(int, getter=Polled(do_update, period=0.5))
     assert attr_explicit.poll_period == 0.5
 
     # NotPolled is never scheduled - on-demand poll() only.
-    attr_on_demand = AttrR(Int(), getter=NotPolled(do_update))
+    attr_on_demand = AttrR(int, getter=NotPolled(do_update))
     assert attr_on_demand.poll_period is None
     assert attr_on_demand.has_getter()
 
-    attr_no_getter = AttrR(Int())
+    attr_no_getter = AttrR(int)
     assert attr_no_getter.poll_period is None
 
 
 @pytest.mark.asyncio
 async def test_wait_for_predicate(mocker: MockerFixture):
-    attr = AttrR(Int(), initial_value=0)
+    attr = AttrR(int, initial_value=0)
 
     async def update(attr: AttrR):
         while True:
@@ -188,7 +188,7 @@ async def test_wait_for_predicate(mocker: MockerFixture):
 
 @pytest.mark.asyncio
 async def test_wait_for_value(mocker: MockerFixture):
-    attr = AttrR(Int(), initial_value=0)
+    attr = AttrR(int, initial_value=0)
 
     async def update(attr: AttrR):
         await asyncio.sleep(0.5)
@@ -222,7 +222,7 @@ async def test_attributes():
         device[key] = value
         return value  # accepted value echoes straight back to the readback
 
-    attr_r = AttrR(String())
+    attr_r = AttrR(str)
     attr_r.add_readback_callback(partial(update_ui, key="state"), always=False)
     await attr_r.update(device["state"])
     assert ui["state"] == "Idle"
@@ -232,7 +232,7 @@ async def test_attributes():
     # Identical update does not trigger callback as always=False
     assert ui["update_count"] == 1
 
-    attr_rw = AttrRW(Int(), setter=partial(send, key="number"))
+    attr_rw = AttrRW(int, setter=partial(send, key="number"))
     attr_rw.add_readback_callback(partial(update_ui, key="number"))
     await attr_rw.set(2)
     assert device["number"] == 2
@@ -242,7 +242,7 @@ async def test_attributes():
 @pytest.mark.asyncio
 async def test_soft_attribute_self_wires():
     """With no getter/setter, AttrRW.set() pushes straight to readback."""
-    attr = AttrRW(Int())
+    attr = AttrRW(int)
     assert not attr.has_getter()
     assert not attr.has_setter()
 
@@ -259,7 +259,7 @@ async def test_setter_return_value_updates_readback():
         accepted["value"] = value
         return value + 1  # device clamps/accepts a different value
 
-    attr = AttrRW(Int(), setter=setter)
+    attr = AttrRW(int, setter=setter)
 
     await attr.set(10)
     assert accepted["value"] == 10
@@ -272,7 +272,7 @@ async def test_setter_with_no_return_leaves_readback_untouched():
     async def setter(value):
         return None
 
-    attr = AttrRW(Int(), setter=setter)
+    attr = AttrRW(int, setter=setter)
 
     await attr.set(5)
     assert attr.setpoint == 5
@@ -284,7 +284,7 @@ async def test_attrw_setter_return_value_updates_setpoint_cache():
     async def setter(value):
         return value + 1
 
-    attr = AttrW(Int(), setter=setter)
+    attr = AttrW(int, setter=setter)
 
     await attr.set(5)
     assert attr.setpoint == 6
@@ -295,7 +295,7 @@ async def test_set_setter_exception_is_caught_and_logged(mocker: MockerFixture):
     async def do_set(value):
         raise ValueError("do_set failed")
 
-    attr = AttrW(Int(), setter=do_set)
+    attr = AttrW(int, setter=do_set)
     mock_logger = mocker.patch("fastcs.attributes.attr_w.logger")
 
     # exception is caught, not raised, and the setpoint is still cached
@@ -386,7 +386,7 @@ async def test_dynamic_attribute_getter_setter_specification():
         async def initialise(self):
             self._connection = DummyConnection()
             await self._connection.connect()
-            dtype_mapping = {"int": Int, "float": Float}
+            dtype_mapping = {"int": int, "float": float}
             example_introspection_response = await self._connection.get(
                 "config/introspect_api"
             )
@@ -396,9 +396,12 @@ async def test_dynamic_attribute_getter_setter_specification():
                     ro = parameter_response["read_only"]
                     name = parameter_response["name"]
                     uri = f"{parameter_response['subsystem']}/{name}"
-                    datatype = dtype_mapping[parameter_response["dtype"]](
-                        min=parameter_response.get("min", None),
-                        max=parameter_response.get("max", None),
+                    datatype = dtype_mapping[parameter_response["dtype"]]
+                    limits = NumericLimits(
+                        control=Limits(
+                            low=parameter_response.get("min", None),
+                            high=parameter_response.get("max", None),
+                        )
                     )
 
                     async def getter(uri=uri) -> int | float:
@@ -409,6 +412,7 @@ async def test_dynamic_attribute_getter_setter_specification():
                             datatype,
                             getter=getter,
                             initial_value=parameter_response.get("value", None),
+                            limits=limits,
                         )
                     else:
 
@@ -421,6 +425,7 @@ async def test_dynamic_attribute_getter_setter_specification():
                             getter=getter,
                             setter=setter,
                             initial_value=parameter_response.get("value", None),
+                            limits=limits,
                         )
 
                     self.add_attribute(name, attr)
@@ -439,3 +444,91 @@ async def test_dynamic_attribute_getter_setter_specification():
 
     await c.int_parameter.set(20)
     assert c.int_parameter.readback == 20
+
+
+def test_metadata_is_held_on_the_attribute():
+    attr = AttrRW(float, precision=3, units="degC", description="the temperature")
+
+    assert attr.dtype is float
+    assert attr.meta == {
+        "precision": 3,
+        "units": "degC",
+        "description": "the temperature",
+    }
+    assert attr.description == "the temperature"
+
+
+def test_metadata_the_datatype_has_no_use_for_is_rejected():
+    # Also a static error - the constructor overloads unpack StrMeta for a str
+    # attribute - but the runtime check is what catches metadata arriving from a
+    # source the type checker never saw.
+    with pytest.raises(TypeError, match="'precision' is not valid metadata for str"):
+        AttrR(str, precision=3)  # pyright: ignore[reportCallIssue, reportArgumentType]
+
+
+def test_metadata_is_validated_when_replaced():
+    attr = AttrR(int, units="counts")
+
+    attr.update_meta(Meta(units="mm"))
+    assert attr.meta == {"units": "mm"}
+
+    with pytest.raises(TypeError, match="'length' is not valid metadata for int"):
+        attr.update_meta(Meta(length=4))
+
+
+def test_update_meta_notifies_callbacks():
+    attr = AttrR(int)
+    seen: list[Meta] = []
+    attr.add_update_meta_callback(seen.append)
+
+    attr.update_meta(Meta(units="mm"))
+
+    assert seen == [{"units": "mm"}]
+
+
+def test_array_element_type_comes_from_the_datatype():
+    attr = AttrR(Array1D[np.int32], shape=(4,))
+
+    assert attr.dtype is np.ndarray
+    assert attr.meta.get("array_dtype") is np.int32
+    assert np.array_equal(attr.readback, np.zeros(4, dtype=np.int32))
+
+
+def test_array_element_type_is_not_given_twice():
+    with pytest.raises(TypeError, match="already given by the datatype subscript"):
+        AttrR(Array1D[np.int32], array_dtype=np.int64)
+
+
+def test_a_table_needs_its_columns():
+    with pytest.raises(TypeError, match="Table attribute needs its columns"):
+        AttrR(Table)
+
+
+def test_structured_dtype_needs_a_table_datatype():
+    with pytest.raises(TypeError, match="only valid for a Table attribute"):
+        # Statically an error too: structured_dtype belongs to TableMeta.
+        AttrR(  # pyright: ignore[reportCallIssue]
+            Array1D[np.int32],  # pyright: ignore[reportArgumentType]
+            structured_dtype=[("a", np.int32)],
+        )
+
+
+@pytest.mark.asyncio
+async def test_control_limits_reject_out_of_range_values():
+    attr = AttrRW(int, limits=NumericLimits(control=Limits(0, 10)))
+
+    await attr.set(5)
+    assert attr.readback == 5
+
+    with pytest.raises(ValueError, match="greater than maximum 10"):
+        await attr.update(15)
+
+
+@pytest.mark.asyncio
+async def test_display_limits_do_not_reject_values():
+    """Only the control range constrains a write; the rest are served, not enforced."""
+    attr = AttrR(float, limits=NumericLimits(alarm=Limits(0.0, 10.0)))
+
+    await attr.update(15.0)
+
+    assert attr.readback == 15.0

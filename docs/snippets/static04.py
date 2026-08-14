@@ -1,12 +1,11 @@
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import String
 from fastcs.launch import FastCS
 from fastcs.transports.epics.ca.transport import EpicsCATransport
 
 
 class TemperatureController(Controller):
-    device_id = AttrR(String())
+    device_id = AttrR(str)
 
 
 epics_ca = EpicsCATransport()

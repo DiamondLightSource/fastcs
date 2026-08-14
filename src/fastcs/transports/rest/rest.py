@@ -7,7 +7,7 @@ from pydantic import create_model
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes.datatype import DType_T
+from fastcs.datatypes import DType_T
 from fastcs.logging import intercept_std_logger
 from fastcs.methods import CommandCallback
 
@@ -56,8 +56,8 @@ def _put_request_body(attribute: AttrW[DType_T]):
     Creates a pydantic model for each datatype which defines the schema
     of the PUT request body
     """
-    converted_datatype = convert_datatype(attribute.datatype)
-    type_name = str(attribute.datatype.dtype.__name__).title()
+    converted_datatype = convert_datatype(attribute.dtype)
+    type_name = str(attribute.dtype.__name__).title()
     # key=(type, ...) to declare a field without default value
     return create_model(
         f"Put{type_name}Value",
@@ -69,7 +69,7 @@ def _wrap_attr_put(
     attribute: AttrW[DType_T],
 ) -> Callable[[DType_T], Coroutine[Any, Any, None]]:
     async def attr_put(request):
-        await attribute.set(cast_from_rest_type(attribute.datatype, request.value))
+        await attribute.set(cast_from_rest_type(attribute, request.value))
 
     # Fast api uses type annotations for validation, schema, conversions
     attr_put.__annotations__["request"] = _put_request_body(attribute)
@@ -82,7 +82,7 @@ def _get_response_body(attribute: AttrR[DType_T]):
     Creates a pydantic model for each datatype which defines the schema
     of the GET request body
     """
-    converted_datatype = convert_datatype(attribute.datatype)
+    converted_datatype = convert_datatype(attribute.dtype)
     type_name = str(converted_datatype.__name__).title()
     # key=(type, ...) to declare a field without default value
     return create_model(
@@ -96,7 +96,7 @@ def _wrap_attr_get(
 ) -> Callable[[], Coroutine[Any, Any, dict[str, object]]]:
     async def attr_get() -> dict[str, object]:
         value = attribute.readback
-        return {"value": cast_to_rest_type(attribute.datatype, value)}
+        return {"value": cast_to_rest_type(attribute, value)}
 
     return attr_get
 

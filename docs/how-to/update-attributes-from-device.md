@@ -15,7 +15,6 @@ and calls any update callbacks; there's no need to call `attr.update` yourself:
 ```python
 from fastcs.attributes import AttrR, AttrRW, NotPolled, Polled
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, String
 
 
 class MyController(Controller):
@@ -24,14 +23,14 @@ class MyController(Controller):
         super().__init__()
 
         self.temperature = AttrR(
-            Float(), getter=Polled(self._get_temperature, period=0.5)
+            float, getter=Polled(self._get_temperature, period=0.5)
         )
         self.setpoint = AttrRW(
-            Float(),
+            float,
             getter=Polled(self._get_setpoint, period=1.0),
             setter=self._set_setpoint,
         )
-        self.label = AttrR(String(), getter=NotPolled(self._get_label))
+        self.label = AttrR(str, getter=NotPolled(self._get_label))
 
     async def _get_temperature(self) -> float:
         response = await self._connection.send_query("T?\r\n")
@@ -78,7 +77,6 @@ sibling attributes whose values have changed:
 ```python
 from fastcs.attributes import AttrR, AttrRW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 
 
 class MyController(Controller):
@@ -87,11 +85,11 @@ class MyController(Controller):
         super().__init__()
 
         self.setpoint = AttrRW(
-            Float(), getter=self._get_setpoint, setter=self._set_setpoint
+            float, getter=self._get_setpoint, setter=self._set_setpoint
         )
-        self.actual_temperature = AttrR(Float(), getter=self._get_actual_temperature)
-        self.power = AttrR(Float(), getter=self._get_power)
-        self.status = AttrR(Float(), getter=self._get_status)
+        self.actual_temperature = AttrR(float, getter=self._get_actual_temperature)
+        self.power = AttrR(float, getter=self._get_power)
+        self.status = AttrR(float, getter=self._get_status)
 
     async def _get_setpoint(self) -> float:
         return float((await self._connection.send_query("S?\r\n")).strip())
@@ -134,12 +132,11 @@ import json
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 from fastcs.methods import scan
 
 
 class ChannelController(Controller):
-    voltage = AttrR(Float())  # No getter — updated by parent scan method
+    voltage = AttrR(float)  # No getter — updated by parent scan method
 
     def __init__(self, index: int, connection):
         super().__init__(f"Ch{index:02d}")
@@ -183,7 +180,6 @@ import json
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 from fastcs.methods import scan
 
 
@@ -193,7 +189,7 @@ class ChannelController(Controller):
         self._cache = cache
         super().__init__(f"Ch{index:02d}")
 
-        self.voltage = AttrR(Float(), getter=Polled(self._get_voltage, period=0.1))
+        self.voltage = AttrR(float, getter=Polled(self._get_voltage, period=0.1))
 
     async def _get_voltage(self) -> float:
         return self._cache.get(self._index, 0.0)
@@ -231,11 +227,10 @@ import asyncio
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 
 
 class SubscriptionController(Controller):
-    temperature = AttrR(Float())
+    temperature = AttrR(float)
 
     def __init__(self, subscription_client):
         super().__init__()

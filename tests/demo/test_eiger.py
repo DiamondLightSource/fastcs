@@ -6,7 +6,6 @@ import pytest
 import pytest_asyncio
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.datatypes import Enum
 from fastcs.demo.eiger import UPDATE_PERIOD, EigerDetector
 from fastcs.demo.simulation.eiger import EigerParameter, create_eiger_sim_app
 from fastcs.util import ONCE
@@ -39,13 +38,17 @@ async def sim(_eiger) -> SimState:
 @pytest.mark.asyncio
 async def test_hinted_attributes_are_introspected(detector: EigerDetector):
     assert isinstance(detector.count_time, AttrRW)
-    assert detector.count_time.datatype.dtype is float
+    assert detector.count_time.dtype is float
 
     assert isinstance(detector.state, AttrR)
     # ``state`` reports ``allowed_values``, so it is introspected as an enum whose
     # members come from the device rather than as a bare string.
-    assert isinstance(detector.state.datatype, Enum)
-    assert detector.state.datatype.names == ["idle", "ready", "acquire"]
+    assert issubclass(detector.state.dtype, enum.Enum)
+    assert [member.name for member in detector.state.dtype] == [
+        "idle",
+        "ready",
+        "acquire",
+    ]
 
 
 @pytest.mark.asyncio

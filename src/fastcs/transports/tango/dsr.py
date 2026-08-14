@@ -30,7 +30,7 @@ def _wrap_updater_fget(
 ) -> Callable[[Any], Any]:
     async def fget(tango_device: Device):
         tango_device.info_stream(f"called fget method: {attr_name}")
-        return cast_to_tango_type(attribute.datatype, attribute.readback)
+        return cast_to_tango_type(attribute, attribute.readback)
 
     return fget
 
@@ -54,7 +54,7 @@ def _wrap_updater_fset(
 ) -> Callable[[Any, Any], Any]:
     async def fset(tango_device: Device, value):
         tango_device.info_stream(f"called fset method: {attr_name}")
-        coro = attribute.set(cast_from_tango_type(attribute.datatype, value))
+        coro = attribute.set(cast_from_tango_type(attribute, value))
         await _run_threadsafe_blocking(coro, loop)
 
     return fset
@@ -84,7 +84,7 @@ def _collect_dev_attributes(
                         ),
                         access=AttrWriteType.READ_WRITE,
                         **get_server_metadata_from_attribute(attribute),
-                        **get_server_metadata_from_datatype(attribute.datatype),
+                        **get_server_metadata_from_datatype(attribute),
                     )
                 case AttrR():
                     collection[d_attr_name] = server.attribute(
@@ -92,7 +92,7 @@ def _collect_dev_attributes(
                         access=AttrWriteType.READ,
                         fget=_wrap_updater_fget(attr_name, attribute, controller_api),
                         **get_server_metadata_from_attribute(attribute),
-                        **get_server_metadata_from_datatype(attribute.datatype),
+                        **get_server_metadata_from_datatype(attribute),
                     )
                 case AttrW():
                     collection[d_attr_name] = server.attribute(
@@ -102,7 +102,7 @@ def _collect_dev_attributes(
                             attr_name, attribute, controller_api, loop
                         ),
                         **get_server_metadata_from_attribute(attribute),
-                        **get_server_metadata_from_datatype(attribute.datatype),
+                        **get_server_metadata_from_datatype(attribute),
                     )
 
     return collection

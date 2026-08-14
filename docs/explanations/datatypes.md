@@ -1,81 +1,83 @@
 # Datatypes
 
-FastCS uses a datatype system to map Python types to attributes with additional
-metadata for validation, serialization, and transport handling.
+An attribute's datatype is a **python type**. Everything else that describes the
+attribute - precision, units, limits, array shape - is **metadata**, passed as
+keyword arguments and held on the attribute as `attr.meta`.
+
+```python
+from fastcs.attributes import AttrRW
+
+temperature = AttrRW(float, precision=3, units="degC")
+```
+
+There is no `DataType` object to construct and no wrapper to unwrap: `attr.dtype`
+is `float`, and `attr.meta` is a plain typed dict.
 
 ## Supported Types
 
-FastCS defines `DType` as the union of supported Python types:
+FastCS defines `DType` as the union of supported python types:
 
-:::{literalinclude} ../../src/fastcs/datatypes/datatype.py
+:::{literalinclude} ../../src/fastcs/datatypes/types.py
 :start-at: "DType = ("
 :end-at: ")"
 :::
 
-Each has a corresponding `DataType` class.
-
 ## Scalar Datatypes
 
-### Int and Float
+`int`, `float`, `bool` and `str` are used directly. Which metadata each accepts is
+given by its `*Meta` typed dict:
 
-Both inherit from `_Numeric`, which adds support for bounds and alarm limits:
+| Datatype | Metadata                                              |
+| -------- | ----------------------------------------------------- |
+| `bool`   | `description`, `group`                                |
+| `int`    | `description`, `group`, `units`, `limits`             |
+| `float`  | `description`, `group`, `units`, `limits`, `precision` |
+| `str`    | `description`, `group`, `length`                      |
 
-:::{literalinclude} ../../src/fastcs/datatypes/_numeric.py
-:start-at: "@dataclass(frozen=True)"
-:end-at: "max_alarm:"
-:::
+`precision` is the number of decimal places a float is rounded to and displayed
+with; it defaults to 2. `length` truncates a string during validation, and is
+also a hint to transports sizing their records - the EPICS CA transport uses it
+for string waveform records.
 
-### Bool
+The constructors are overloaded per datatype, so metadata a datatype has no use
+for is a type error rather than a field silently ignored:
 
-Maps to Python `bool`. Initial value is `False`.
-
-:::{literalinclude} ../../src/fastcs/datatypes/bool.py
-:pyobject: Bool
-:::
-
-### String
-
-Maps to Python `str`. Has an optional `length` field that truncates values during validation. It is also used as a hint by some transports to configure the size of string records (e.g. EPICS CA string waveform records).
-
-:::{literalinclude} ../../src/fastcs/datatypes/string.py
-:pyobject: String
-:::
+```python
+AttrRW(float, precision=3)  # fine
+AttrRW(str, precision=3)    # type error, and raises at construction
+```
 
 ## Enum Datatype
 
-Wraps a Python `enum.Enum` class:
+An `enum.Enum` subclass is used directly as the datatype; the choices come from
+the class, so there is no metadata to give:
 
-:::{literalinclude} ../../src/fastcs/datatypes/enum.py
-:pyobject: Enum
-:::
+```python
+import enum
+from fastcs.attributes import AttrR
 
-The `Enum` datatype provides helper properties:
+class DetectorStatus(enum.StrEnum):
+    Idle = "IDLE_STATE"
+    Running = "RUNNING_STATE"
+    Error = "ERROR_STATE"
 
-- `members`: List of enum values
-- `names`: List of enum member names
-- `index_of(value)`: Get the index of a value in the members list
+status = AttrR(DetectorStatus)
+```
 
 :::{note}
 FastCS uses enum **member names** (not values) when exposing choices to transports and
 PVI. This means member names are the user-friendly UI strings while values are the
-strings sent to the device:
-
-```python
-class DetectorStatus(StrEnum):
-    Idle = "IDLE_STATE"
-    Running = "RUNNING_STATE"
-    Error = "ERROR_STATE"
-```
-
-Clients will see the choices as `["Idle", "Running", "Error"]`.
+strings sent to the device. For the enum above, clients see the choices as
+`["Idle", "Running", "Error"]`.
 
 For UI strings with spaces, use the functional `enum.Enum` API with a dict:
 
 ```python
 import enum
-from fastcs.datatypes import Enum
 
-DetectorStatus = Enum(enum.Enum("DetectorStatus", {"Run Finished": "RUN_FINISHED", "In Progress": "IN_PROGRESS"}))
+DetectorStatus = enum.Enum(
+    "DetectorStatus", {"Run Finished": "RUN_FINISHED", "In Progress": "IN_PROGRESS"}
+)
 ```
 
 Clients will see the choices as `["Run Finished", "In Progress"]`.
@@ -83,91 +85,92 @@ Clients will see the choices as `["Run Finished", "In Progress"]`.
 
 ## Array Datatypes
 
-### Waveform
+### Array1D
 
-For homogeneous numpy arrays (spectra, images):
+For homogeneous numpy arrays. The element type rides on the datatype itself, and
+the maximum shape is metadata:
 
-:::{literalinclude} ../../src/fastcs/datatypes/waveform.py
-:pyobject: Waveform
+:::{literalinclude} ../../src/fastcs/datatypes/types.py
+:start-at: "Array1D: TypeAlias"
+:end-before: "class Table"
 :::
 
-Validation ensures the array fits within the declared shape and has the correct dtype.
+```python
+import numpy as np
+from fastcs.attributes import AttrR
+from fastcs.datatypes import Array1D
+
+spectrum = AttrR(Array1D[np.float64], shape=(1000,))
+image = AttrR(np.ndarray, array_dtype=np.uint16, shape=(1024, 1024))
+```
+
+Validation ensures the array fits within the declared shape and has the correct
+element type. `shape` defaults to `(2000,)`.
 
 ### Table
 
 For structured numpy arrays with named columns:
 
-:::{literalinclude} ../../src/fastcs/datatypes/table.py
+:::{literalinclude} ../../src/fastcs/datatypes/types.py
 :pyobject: Table
 :::
 
-The `structured_dtype` field is a list of `(name, dtype)` tuples following
+The `structured_dtype` metadata is a list of `(name, dtype)` tuples following
 numpy's structured array conventions.
 
-## Validation
+## Limits
 
-### Built-in Numeric Validation
+Numeric limits are nested rather than flat, in four categories aligned with the
+bluesky event-model:
 
-`Int` and `Float` datatypes support min/max limits and alarm thresholds:
+:::{literalinclude} ../../src/fastcs/datatypes/limits.py
+:pyobject: NumericLimits
+:::
 
 ```python
 from fastcs.attributes import AttrRW
-from fastcs.datatypes import Int, Float
+from fastcs.datatypes import Limits, NumericLimits
 
-# Integer with bounds
-count = AttrRW(Int(min=0, max=100))
-
-# Float with units and alarm limits
-temperature = AttrRW(Float(
+temperature = AttrRW(
+    float,
     units="degC",
-    min=-273.15,           # Absolute minimum
-    max=1000.0,            # Absolute maximum
-    min_alarm=-50.0,       # Warning below this
-    max_alarm=200.0,       # Warning above this
-))
+    limits=NumericLimits(
+        control=Limits(-273.15, 1000.0),  # what it may be driven to
+        display=Limits(0.0, 500.0),       # what it is shown as spanning
+        alarm=Limits(-50.0, 200.0),       # outside this it is in alarm
+    ),
+)
 ```
 
-#### Validation Behavior
+Only the **control** range rejects values. Display, alarm and warning are served
+to clients - EPICS `LOPR`/`HOPR` and `DRVL`/`DRVH`, Tango's attribute
+properties, the PVA display and alarm structures - but do not constrain a write.
+
+## Validation
+
+### Numeric limits
 
 ```python
-temp = Float(min=0.0, max=100.0)
+from fastcs.datatypes import Limits, Meta, NumericLimits, validate_value
 
-temp.validate(50.0)   # Returns 50.0
-temp.validate(-10.0)  # Raises ValueError: "Value -10.0 is less than minimum 0.0"
-temp.validate(150.0)  # Raises ValueError: "Value 150.0 is greater than maximum 100.0"
+meta = Meta(limits=NumericLimits(control=Limits(0.0, 100.0)))
+
+validate_value(float, meta, 50.0)   # Returns 50.0
+validate_value(float, meta, -10.0)  # Raises ValueError: "Value -10.0 is less than minimum 0.0"
+validate_value(float, meta, 150.0)  # Raises ValueError: "Value 150.0 is greater than maximum 100.0"
 ```
-
-### String Length
-
-Limit the display length of strings:
-
-```python
-from fastcs.datatypes import String
-
-# Limit display to 40 characters
-status = AttrR(String(length=40))
-```
-
-:::{note}
-The `length` parameter truncates values during validation and is also used by some
-transports to configure their records, for example the EPICS CA transport uses it to
-set the length of string waveform records.
-:::
 
 ### Type Coercion
 
-All datatypes automatically coerce compatible types:
+Values are coerced to the datatype:
 
 ```python
-from fastcs.datatypes import Int, Float
+from fastcs.datatypes import Meta, validate_value
 
-int_type = Int()
-int_type.validate("42")     # Returns 42 (str -> int)
-int_type.validate(3.7)      # Returns 3 (float -> int, truncated)
-
-float_type = Float()
-float_type.validate("3.14") # Returns 3.14 (str -> float)
-float_type.validate(42)     # Returns 42.0 (int -> float)
+validate_value(int, Meta(), "42")     # Returns 42 (str -> int)
+validate_value(int, Meta(), 3.7)      # Returns 3 (float -> int, truncated)
+validate_value(float, Meta(), "3.14") # Returns 3.14 (str -> float)
+validate_value(float, Meta(), 42)     # Returns 42.0 (int -> float)
 ```
 
 ### When Validation Runs
@@ -180,9 +183,9 @@ Validation runs automatically when:
 
 ```python
 from fastcs.attributes import AttrRW
-from fastcs.datatypes import Int
+from fastcs.datatypes import Limits, NumericLimits
 
-attr = AttrRW(Int(min=0, max=10), initial_value=5)
+attr = AttrRW(int, limits=NumericLimits(control=Limits(0, 10)), initial_value=5)
 
 # Updates are validated
 await attr.update(7)    # OK
@@ -193,68 +196,42 @@ await attr.set(3)       # OK
 await attr.set(-1)      # Raises ValueError
 ```
 
+Metadata itself is validated when the attribute is built, so a field that the
+datatype has no use for fails fast even when it arrived without a static check -
+from a declarative extras object, say:
+
+```python
+AttrR(str, precision=3)
+# TypeError: 'precision' is not valid metadata for str attribute - valid fields
+# are description, group, length
+```
+
 ## Transport Handling
 
-Transports are responsible for serializing datatypes appropriately for their protocol.
-Each transport must handle all supported datatypes. The datatype's `dtype` property
-and class type are used to determine serialization:
+Transports are responsible for serializing values appropriately for their
+protocol, and each must handle every supported datatype. They dispatch on
+`attr.dtype` and read what they serve from `attr.meta`:
 
-- Scalars (`Int`, `Float`, `Bool`, `String`) serialize directly
-- `Enum` values are typically serialized as integers (index) or strings (name)
-- `Waveform` and `Table` arrays are serialized as lists or protocol-specific array types
+- Scalars (`int`, `float`, `bool`, `str`) serialize directly
+- Enum values are typically serialized as integers (index) or strings (name)
+- Arrays and tables are serialized as lists or protocol-specific array types
 
-## Creating Custom Datatypes
+An array and a table are both held as `np.ndarray`; what separates them is that a
+table's metadata names its columns, so a transport that needs to tell them apart
+checks for `structured_dtype` in `attr.meta`.
 
-All datatypes inherit from `DataType[DType_T]`, a generic frozen dataclass that defines
-the interface for type handling:
+## Adding a Datatype
 
-:::{literalinclude} ../../src/fastcs/datatypes/datatype.py
-:start-at: "@dataclass(frozen=True)"
-:end-at: "raise NotImplementedError()"
-:::
+A datatype is a python type in `DType`, so adding one means widening that union
+and teaching the pieces that dispatch on it:
 
-### Required Properties
+1. Add the type to `DType` in `fastcs.datatypes.types`, and to `resolve_datatype`
+2. Add a `*Meta` typed dict for the metadata it accepts, and map the datatype to
+   it in `meta_class_for`
+3. Handle it in `validate_value`, `default_value` and `values_equal`
+4. Add an overload to each of `AttrR`, `AttrW` and `AttrRW` so its metadata is
+   statically checked
+5. Handle it in each transport
 
-To create a custom datatype, subclass `DataType` or one of the existing datatypes and
-implement the required properties:
-
-**`dtype`**: Returns the underlying Python type. This is used for type coercion in
-`validate()` and for transport serialization.
-
-**`initial_value`**: Returns the default value used when an attribute is created
-without an explicit initial value.
-
-### Overriding `validate()`
-
-The base `validate()` implementation attempts to cast incoming values to the target type:
-
-:::{literalinclude} ../../src/fastcs/datatypes/datatype.py
-:pyobject: DataType.validate
-:::
-
-Subclasses can override this to add validation logic. The pattern is
-
-1. Coerce input to help type casting succeed - e.g. `Waveform` calls `numpy.asarray(...)`
-2. Call `super().validate(value)` to call parent implementation and perform the type cast
-3. Perform any additional validation such as checking limits - e.g. `_Numeric` adds min/max validation:
-
-:::{literalinclude} ../../src/fastcs/datatypes/_numeric.py
-:pyobject: _Numeric.validate
-:::
-
-### Overriding `equal()`
-
-The `equal()` method is used by the `always` flag in attribute callbacks to determine
-if a value has changed. The default uses Python's `==` operator, but array types
-override this to use `numpy.array_equal()`:
-
-:::{literalinclude} ../../src/fastcs/datatypes/waveform.py
-:pyobject: Waveform.equal
-:::
-
-### Transport Compatibility
-
-When creating a new datatype, existing transports will need to be updated to handle it,
-unless the datatype inherits from a supported type. In the latter case, the transport
-will use the parent class handling, while the custom datatype can add validation or
-other behaviour on top.
+Metadata alone needs much less: a new field on an existing `*Meta` is picked up
+by `validate_meta` automatically, and only the transports that serve it change.
