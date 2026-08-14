@@ -55,10 +55,6 @@ class ControllerRunner:
         self._tasks: set[asyncio.Task] = set()
 
     @property
-    def controllers(self) -> list[Controller]:
-        return self._controllers
-
-    @property
     def controller_apis(self) -> list[ControllerAPI]:
         """The API of each controller. Empty until ``setup`` has run."""
         return self._controller_apis
@@ -142,14 +138,12 @@ class ControllerRunner:
                 logger.exception("Reconnect failed", controller=controller.path)
 
     def _cancel_tasks(self) -> None:
+        # ``Task.cancel`` does not raise - it returns whether the task was
+        # cancellable - so the guards the old FastCS._stop_scan_tasks wrapped
+        # this in never fired.
         for task in self._tasks:
             if not task.done():
-                try:
-                    task.cancel()
-                except (asyncio.CancelledError, RuntimeError):
-                    pass
-                except Exception as e:
-                    raise RuntimeError("Unhandled exception in stop tasks") from e
+                task.cancel()
 
         self._tasks.clear()
 
