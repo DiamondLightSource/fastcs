@@ -1,13 +1,12 @@
 import pytest
 
 from fastcs.attributes import AttrR
-from fastcs.datatypes import Int
 
 
 @pytest.mark.asyncio
 async def test_attr_r_update_trace_logs_when_tracing_enabled(loguru_caplog):
     """log_event emits 'Attribute set' and 'Value validated' when tracing is on."""
-    attr = AttrR(Int())
+    attr = AttrR(int)
     attr.enable_tracing()
 
     await attr.update(42)
@@ -19,7 +18,7 @@ async def test_attr_r_update_trace_logs_when_tracing_enabled(loguru_caplog):
 
 @pytest.mark.asyncio
 async def test_attr_r_update_no_trace_logs_when_tracing_disabled(loguru_caplog):
-    attr = AttrR(Int())
+    attr = AttrR(int)
 
     await attr.update(42)
 
@@ -30,7 +29,7 @@ async def test_attr_r_update_no_trace_logs_when_tracing_disabled(loguru_caplog):
 
 @pytest.mark.asyncio
 async def test_attr_r_update_logs_validation_error(loguru_caplog):
-    attr = AttrR(Int())
+    attr = AttrR(int)
 
     with pytest.raises(ValueError):
         await attr.update("not_an_int")  # type: ignore[arg-type]
@@ -40,7 +39,7 @@ async def test_attr_r_update_logs_validation_error(loguru_caplog):
 
 @pytest.mark.asyncio
 async def test_attr_r_update_logs_callback_failure(loguru_caplog):
-    attr = AttrR(Int())
+    attr = AttrR(int)
 
     async def failing_callback(_value: int):
         raise RuntimeError("callback failed")

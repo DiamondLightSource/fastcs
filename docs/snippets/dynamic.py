@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from fastcs.attributes import Attribute, AttrR, AttrRW
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import Bool, DataType, Float, Int, String
+from fastcs.datatypes import DType
 from fastcs.launch import FastCS
 from fastcs.transports.epics.ca import EpicsCATransport
 
@@ -35,16 +35,16 @@ class TemperatureControllerParameter(BaseModel):
     access_mode: Literal["r", "rw"]
 
     @property
-    def fastcs_datatype(self) -> DataType:
+    def fastcs_datatype(self) -> type[DType]:
         match self.type:
             case "bool":
-                return Bool()
+                return bool
             case "int":
-                return Int()
+                return int
             case "float":
-                return Float()
+                return float
             case "str":
-                return String()
+                return str
 
 
 def create_attributes(
@@ -63,7 +63,7 @@ def create_attributes(
         datatype = parameter.fastcs_datatype
         command = parameter.command
 
-        async def getter(command=command, dtype=datatype.dtype):
+        async def getter(command=command, dtype=datatype):
             return await protocol.send_query(command, dtype)
 
         match parameter.access_mode:
@@ -71,7 +71,7 @@ def create_attributes(
                 attributes[name] = AttrR(datatype, getter=getter)
             case "rw":
 
-                async def setter(value, command=command, dtype=datatype.dtype):
+                async def setter(value, command=command, dtype=datatype):
                     await protocol.send_command(command, value, dtype)
 
                 attributes[name] = AttrRW(datatype, getter=getter, setter=setter)

@@ -14,7 +14,7 @@ from tests.util import ColourEnum
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
+from fastcs.datatypes import Array1D, Limits, Meta, NumericLimits
 from fastcs.exceptions import FastCSError
 from fastcs.methods import Command
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -52,7 +52,7 @@ async def test_create_and_link_read_pv(mocker: MockerFixture):
     )
     record = make_record.return_value
 
-    attribute = AttrR(Int())
+    attribute = AttrR(int)
     attribute.add_readback_callback = mocker.MagicMock()
 
     _create_and_link_read_pv("PREFIX", "PV", "attr", None, attribute)
@@ -151,17 +151,17 @@ async def test_ioc_raises_if_duplicate_aliases_provided(mocker: MockerFixture):
     "attribute,record_type,kwargs",
     (
         (
-            AttrR(String()),
+            AttrR(str),
             "longStringIn",
             {"length": 257, "DESC": None, "initial_value": ""},
         ),
         (
-            AttrR(String(length=10)),
+            AttrR(str, length=10),
             "longStringIn",
             {"length": 11, "DESC": None, "initial_value": ""},
         ),
         (
-            AttrR(Enum(ColourEnum)),
+            AttrR(ColourEnum),
             "mbbIn",
             {
                 "ZRST": "RED",
@@ -173,18 +173,16 @@ async def test_ioc_raises_if_duplicate_aliases_provided(mocker: MockerFixture):
         ),
         (
             AttrR(
-                Enum(
-                    enum.IntEnum(
-                        "ONOFF_STATES",
-                        {"DISABLED": 0, "ENABLED": 1},
-                    )
+                enum.IntEnum(
+                    "ONOFF_STATES",
+                    {"DISABLED": 0, "ENABLED": 1},
                 )
             ),
             "mbbIn",
             {"ZRST": "DISABLED", "ONST": "ENABLED", "DESC": None, "initial_value": 0},
         ),
         (
-            AttrR(Waveform(np.int32, (10,))),
+            AttrR(Array1D[np.int32], shape=(10,)),
             "WaveformIn",
             {
                 "DESC": None,
@@ -212,11 +210,18 @@ def test_make_input_record(
     )
 
 
+def _attribute_of_unsupported_datatype(mocker: MockerFixture):
+    attribute = mocker.MagicMock()
+    attribute.dtype = object
+    attribute.meta = {}
+    return attribute
+
+
 def test_make_record_raises(mocker: MockerFixture):
     mocker.patch("fastcs.transports.epics.ca.util.cast_to_epics_type")
-    # Pass a mock as attribute to provoke the fallback case matching on datatype
+    # An attribute of a datatype EPICS cannot serve, to provoke the fallback
     with pytest.raises(FastCSError):
-        _make_in_record("PV", mocker.MagicMock())
+        _make_in_record("PV", _attribute_of_unsupported_datatype(mocker))
 
 
 @pytest.mark.asyncio
@@ -227,7 +232,7 @@ async def test_create_and_link_write_pv(mocker: MockerFixture):
     )
     record = make_record.return_value
 
-    attribute = AttrRW(Int())
+    attribute = AttrRW(int)
     attribute.set = mocker.AsyncMock()
     attribute.add_setpoint_callback = mocker.MagicMock()
 
@@ -279,7 +284,7 @@ class LongEnum(enum.Enum):
     "attribute,record_type,kwargs",
     (
         (
-            AttrW(Enum(enum.IntEnum("ONOFF_STATES", {"DISABLED": 0, "ENABLED": 1}))),
+            AttrW(enum.IntEnum("ONOFF_STATES", {"DISABLED": 0, "ENABLED": 1})),
             "mbbOut",
             {
                 "ZRST": "DISABLED",
@@ -289,12 +294,12 @@ class LongEnum(enum.Enum):
             },
         ),
         (
-            AttrW(String()),
+            AttrW(str),
             "longStringOut",
             {"length": 257, "DESC": None, "initial_value": ""},
         ),
         (
-            AttrW(String(length=10)),
+            AttrW(str, length=10),
             "longStringOut",
             {"length": 11, "DESC": None, "initial_value": ""},
         ),
@@ -323,7 +328,7 @@ def test_make_output_record(
 def test_long_enum_validator(mocker: MockerFixture):
     builder = mocker.patch("fastcs.transports.epics.ca.util.builder")
     update = mocker.MagicMock()
-    attribute = AttrRW(Enum(LongEnum))
+    attribute = AttrRW(LongEnum)
     pv = "PV"
     record = _make_out_record(pv, attribute, on_update=update)
     validator = builder.longStringOut.call_args.kwargs["validate"]
@@ -333,7 +338,7 @@ def test_long_enum_validator(mocker: MockerFixture):
 
 def test_long_enum_in_creation(mocker: MockerFixture):
     builder = mocker.patch("fastcs.transports.epics.ca.util.builder")
-    attribute = AttrR(Enum(LongEnum))
+    attribute = AttrR(LongEnum)
     pv = "PV"
     _make_in_record(pv, attribute)
     assert builder.longStringIn.call_args.kwargs["initial_value"] == "THIS"
@@ -341,20 +346,24 @@ def test_long_enum_in_creation(mocker: MockerFixture):
 
 def test_get_output_record_raises(mocker: MockerFixture):
     mocker.patch("fastcs.transports.epics.ca.util.cast_to_epics_type")
-    # Pass a mock as attribute to provoke the fallback case matching on datatype
+    # An attribute of a datatype EPICS cannot serve, to provoke the fallback
     with pytest.raises(FastCSError):
-        _make_out_record("PV", mocker.MagicMock(), on_update=mocker.MagicMock())
+        _make_out_record(
+            "PV",
+            _attribute_of_unsupported_datatype(mocker),
+            on_update=mocker.MagicMock(),
+        )
 
 
 class EpicsController(MyTestController):
-    read_int = AttrR(Int())
-    read_write_int = AttrRW(Int())
-    read_write_float = AttrRW(Float())
-    read_bool = AttrR(Bool())
-    write_bool = AttrW(Bool())
-    read_string = AttrRW(String())
-    enum = AttrRW(Enum(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2})))
-    one_d_waveform = AttrRW(Waveform(np.int32, (10,)))
+    read_int = AttrR(int)
+    read_write_int = AttrRW(int)
+    read_write_float = AttrRW(float)
+    read_bool = AttrR(bool)
+    write_bool = AttrW(bool)
+    read_string = AttrRW(str)
+    enum = AttrRW(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2}))
+    one_d_waveform = AttrRW(Array1D[np.int32], shape=(10,))
 
 
 @pytest.fixture()
@@ -577,9 +586,9 @@ async def do_nothing(): ...
 
 
 class ControllerLongNames(Controller):
-    attr_r_with_reallyreallyreallyreallyreallyreallyreally_long_name = AttrR(Int())
-    attr_rw_with_a_reallyreally_long_name_that_is_too_long_for_rbv = AttrRW(Int())
-    attr_rw_short_name = AttrRW(Int())
+    attr_r_with_reallyreallyreallyreallyreallyreallyreally_long_name = AttrR(int)
+    attr_rw_with_a_reallyreally_long_name_that_is_too_long_for_rbv = AttrRW(int)
+    attr_rw_short_name = AttrRW(int)
     command_with_reallyreallyreallyreallyreallyreallyreally_long_name = Command(
         do_nothing
     )
@@ -675,10 +684,10 @@ def test_non_1d_waveforms_discarded(mocker: MockerFixture):
     api = ControllerAPI(
         path=[DEVICE],
         attributes={
-            "waveform_0d": AttrR(Waveform(np.int32, shape=())),
-            "waveform_1d": AttrR(Waveform(np.int32, shape=(10,))),
-            "waveform_2d": AttrR(Waveform(np.int32, shape=(10, 2))),
-            "waveform_3d": AttrR(Waveform(np.int32, shape=(10, 2, 3))),
+            "waveform_0d": AttrR(Array1D[np.int32], shape=()),
+            "waveform_1d": AttrR(Array1D[np.int32], shape=(10,)),
+            "waveform_2d": AttrR(Array1D[np.int32], shape=(10, 2)),
+            "waveform_3d": AttrR(Array1D[np.int32], shape=(10, 2, 3)),
         },
     )
 
@@ -692,12 +701,12 @@ def test_non_1d_waveforms_discarded(mocker: MockerFixture):
     )
 
 
-def test_update_datatype(mocker: MockerFixture):
+def test_update_meta(mocker: MockerFixture):
     builder = mocker.patch("fastcs.transports.epics.ca.util.builder")
 
     pv_name = f"{DEVICE}:Attr"
 
-    attr_r = AttrR(Int())
+    attr_r = AttrR(int)
     record_r = _make_in_record(pv_name, attr_r)
 
     builder.longIn.assert_called_once_with(
@@ -709,17 +718,17 @@ def test_update_datatype(mocker: MockerFixture):
         initial_value=0,
     )
     record_r.set_field.assert_not_called()
-    attr_r.update_datatype(Int(units="m", min_alarm=-3))
+    attr_r.update_meta(Meta(units="m", limits=NumericLimits(display=Limits(low=-3))))
     record_r.set_field.assert_any_call("EGU", "m")
     record_r.set_field.assert_any_call("LOPR", -3)
 
     with pytest.raises(
-        ValueError,
-        match="Attribute datatype must be of type <class 'fastcs.datatypes.int.Int'>",
+        TypeError,
+        match="'precision' is not valid metadata for int",
     ):
-        attr_r.update_datatype(String())  # type: ignore
+        attr_r.update_meta(Meta(precision=3))
 
-    attr_w = AttrW(Int())
+    attr_w = AttrW(int)
     record_w = _make_out_record(pv_name, attr_w, on_update=mocker.ANY)
 
     builder.longOut.assert_called_once_with(
@@ -736,16 +745,21 @@ def test_update_datatype(mocker: MockerFixture):
         blocking=True,
     )
     record_w.set_field.assert_not_called()
-    attr_w.update_datatype(Int(units="m", min_alarm=-1, min=-3))
+    attr_w.update_meta(
+        Meta(
+            units="m",
+            limits=NumericLimits(display=Limits(low=-1), control=Limits(low=-3)),
+        )
+    )
     record_w.set_field.assert_any_call("EGU", "m")
     record_w.set_field.assert_any_call("LOPR", -1)
     record_w.set_field.assert_any_call("DRVL", -3)
 
     with pytest.raises(
-        ValueError,
-        match="Attribute datatype must be of type <class 'fastcs.datatypes.int.Int'>",
+        TypeError,
+        match="'precision' is not valid metadata for int",
     ):
-        attr_w.update_datatype(String())  # type: ignore
+        attr_w.update_meta(Meta(precision=3))
 
 
 def test_ca_context_contains_softioc_commands(mocker: MockerFixture):

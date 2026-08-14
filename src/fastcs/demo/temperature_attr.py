@@ -13,7 +13,7 @@ setters::
 Nothing sits between the protocol and the attribute: no IO class hierarchy, no
 per-attribute ref object, no adapter. Because each method annotates its types, the
 datatype is inferred from them, so most attributes do not restate it - only the ones
-that want metadata the annotation cannot carry, like ``Float(prec=3)``.
+that want metadata the annotation cannot carry, like ``precision=3``.
 
 Because the attributes are wired in ``__init__`` rather than the class body, each one
 can close over per-instance state - which is what lets a ramp's index be baked into
@@ -33,7 +33,7 @@ import numpy as np
 from fastcs.attributes import AttrR, AttrRW, Polled
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import DType_T, Float, Waveform
+from fastcs.datatypes import Array1D, DType_T
 from fastcs.logging import logger
 from fastcs.methods import command, scan
 
@@ -140,7 +140,7 @@ class TemperatureController(Controller):
         )
         self.power = AttrR(getter=Polled(self._protocol.get_power, period=0.2))
         # Updated by the update_voltages scan below, so no IO of its own
-        self.voltages = AttrR(Waveform(np.int32, shape=(4,)))
+        self.voltages = AttrR(Array1D[np.int32], shape=(4,))
 
         self.ramps = ControllerVector(
             {
@@ -210,10 +210,10 @@ class TemperatureRampController(Controller):
         # Stated explicitly, to carry metadata the annotation cannot: `-> float`
         # says nothing about display precision.
         self.target = AttrR(
-            Float(prec=3), getter=Polled(self._protocol.get_target, period=0.2)
+            float, precision=3, getter=Polled(self._protocol.get_target, period=0.2)
         )
         self.actual = AttrR(
-            Float(prec=3), getter=Polled(self._protocol.get_actual, period=0.2)
+            float, precision=3, getter=Polled(self._protocol.get_actual, period=0.2)
         )
         # Updated by the parent controller's update_voltages scan
-        self.voltage = AttrR(Float(prec=3))
+        self.voltage = AttrR(float, precision=3)
