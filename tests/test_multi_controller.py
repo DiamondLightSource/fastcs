@@ -307,7 +307,7 @@ class _LifecycleController(Controller):
 
     def __init__(self):
         super().__init__()
-        self.connected = False
+        self.connect_called = False
         self.initialised = False
         self.post_initialised = False
 
@@ -318,10 +318,10 @@ class _LifecycleController(Controller):
         self.post_initialised = True
 
     async def connect(self):
-        self.connected = True
+        self.connect_called = True
 
     async def disconnect(self):
-        self.connected = False
+        self.connect_called = False
 
 
 class _OtherLifecycleController(_LifecycleController):
@@ -350,7 +350,7 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
         for controller in (a, b):
             assert controller.initialised
             assert controller.post_initialised
-            assert controller.connected
+            assert controller.connect_called
 
         with TestClient(transport._server._app) as client:
             assert client.get("/alpha/foo").status_code == 200
@@ -370,4 +370,4 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
             pass
 
     for controller in (a, b):
-        assert not controller.connected
+        assert not controller.connect_called
