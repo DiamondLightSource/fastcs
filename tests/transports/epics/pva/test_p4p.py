@@ -73,6 +73,12 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         "j": {"r": f"{pv_prefix}:Child:1:J"},
     }
 
+    initial_value = await ctxt.get(f"{pv_prefix}:Child:1:Clamped_RBV")
+    assert initial_value  # Clamped initial value is truthy
+    assert (
+        await ctxt.get(f"{pv_prefix}:Child:1:Clamped") == initial_value
+    )  # Setpoint is synced
+
 
 @pytest.mark.asyncio
 async def test_scan_method(p4p_subprocess: tuple[str, Queue]):

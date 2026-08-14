@@ -40,7 +40,7 @@ class ChildController(Controller):
         # AttributeIO used to do. The setter clamps the requested value and
         # returns what it accepted, which becomes both the readback and the
         # setpoint; the getter seeds the setpoint when the controller connects.
-        self._clamped = 0
+        self._clamped = 5
         self.clamped = AttrRW(Int(), getter=self.get_clamped, setter=self.set_clamped)
 
     async def get_clamped(self) -> int:
