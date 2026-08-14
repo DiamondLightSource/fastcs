@@ -17,9 +17,11 @@ from fastcs.controllers import Controller, ControllerAPI
 from fastcs.datatypes import Float
 from fastcs.methods import command
 from fastcs.transports.epics.ca.ioc import EpicsCAIOC
+from fastcs.transports.epics.gui import EpicsGUI
+from fastcs.transports.epics.pva.ioc import parse_attributes
 from fastcs.transports.graphql.transport import GraphQLTransport
 from fastcs.transports.rest.transport import RestTransport
-from fastcs.transports.tango.dsr import _unservable_reason
+from fastcs.transports.tango.dsr import _collect_dev_commands, _unservable_reason
 
 
 class TypedCommandController(Controller):
@@ -178,3 +180,48 @@ class TestTango:
             _unservable_reason(api.command_methods["set_colour"])
             == "Tango commands do not carry Colour"
         )
+
+
+class TestEpicsPva:
+    @pytest.mark.asyncio
+    async def test_typed_commands_are_skipped_and_void_ones_are_not(
+        self, controller_api
+    ):
+        provider = parse_attributes(controller_api)
+
+        assert "DEVICE:Stop" in provider.keys()
+        assert "DEVICE:MoveTo" not in provider.keys()
+        assert {
+            name: method.enabled
+            for name, method in controller_api.command_methods.items()
+        } == {
+            "stop": True,
+            "move_to": False,
+            "measure": False,
+            "scale": False,
+        }
+
+
+class TestEpicsGui:
+    def test_a_command_the_ioc_skipped_gets_no_widget(self, controller_api):
+        """The IOC is built before the GUI, so a skipped command has said so."""
+        EpicsCAIOC([controller_api], aliases={})
+
+        components = EpicsGUI(controller_api).extract_api_components(controller_api)
+
+        assert [component.name for component in components] == ["Position", "Stop"]
+
+    def test_a_disabled_attribute_gets_no_widget(self, controller_api):
+        controller_api.attributes["position"].enabled = False
+
+        components = EpicsGUI(controller_api).extract_api_components(controller_api)
+
+        assert "Position" not in [component.name for component in components]
+
+
+class TestTangoCollection:
+    def test_only_servable_commands_are_collected(self, controller_api, mocker):
+        collection = _collect_dev_commands(controller_api, mocker.MagicMock())
+
+        assert sorted(collection) == ["Measure", "Scale", "Stop"]
+        assert not controller_api.command_methods["move_to"].enabled
