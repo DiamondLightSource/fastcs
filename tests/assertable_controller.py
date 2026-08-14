@@ -1,44 +1,24 @@
 import copy
 from contextlib import contextmanager
-from dataclasses import dataclass
 from typing import Literal
 
 from pytest_mock import MockerFixture, MockType
 
-from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
+from fastcs.attributes import AttrR
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import DType_T, Int
+from fastcs.datatypes import Int
 from fastcs.methods import command, scan
 
 
-@dataclass
-class MyTestAttributeIORef(AttributeIORef):
-    update_period = 1
-
-
-class MyTestAttributeIO(AttributeIO[DType_T, MyTestAttributeIORef]):
-    async def update(self, attr: AttrR[DType_T, MyTestAttributeIORef]):
-        print(f"update {attr}")
-
-    async def send(self, attr: AttrW[DType_T, MyTestAttributeIORef], value: DType_T):
-        print(f"sending {attr} = {value}")
-        if isinstance(attr, AttrRW):
-            await attr.update(value)
-
-
-test_attribute_io = MyTestAttributeIO()  # instance
-
-
 class TestSubController(Controller):
-    read_int: AttrR = AttrR(Int(), io_ref=MyTestAttributeIORef())
-
     def __init__(self) -> None:
-        super().__init__(ios=[test_attribute_io])
+        super().__init__()
+        self.read_int = AttrR(Int())
 
 
 class MyTestController(Controller):
     def __init__(self) -> None:
-        super().__init__(ios=[test_attribute_io])
+        super().__init__()
 
         self._sub_controllers: list[TestSubController] = []
         for index in range(1, 3):
@@ -97,29 +77,67 @@ class AssertableControllerAPI(ControllerAPI):
 
     @contextmanager
     def assert_read_here(self, path: list[str]):
-        yield from self._assert_method(path, "get")
+        yield from self._assert_readback(path)
 
     @contextmanager
     def assert_write_here(self, path: list[str]):
-        yield from self._assert_method(path, "put")
+        yield from self._assert_method(path, "set")
 
     @contextmanager
     def assert_execute_here(self, path: list[str]):
         yield from self._assert_method(path, "")
 
-    def _assert_method(self, path: list[str], method: Literal["get", "put", ""]):
+    def _navigate(self, path: list[str]) -> tuple[ControllerAPI, str]:
+        queue = copy.deepcopy(path)
+        controller_api: ControllerAPI = self
+        item_name = queue.pop(-1)
+        for item in queue:
+            controller_api = controller_api.sub_apis[item]
+        return controller_api, item_name
+
+    def _assert_readback(self, path: list[str]):
+        """Confirm that an attribute's ``readback`` property is read exactly once
+        within a context block.
+
+        ``readback`` is a read-only property, so it can't be spied on with
+        ``mocker.spy`` (which needs to reassign the instance attribute). Instead,
+        temporarily replace the property on the attribute's class with a counting
+        wrapper, scoped to just this one instance.
+        """
+        controller_api, item_name = self._navigate(path)
+        attr = controller_api.attributes[item_name]
+        assert isinstance(attr, AttrR)
+        cls = type(attr)
+        original = cls.readback
+        assert original.fget is not None
+        original_fget = original.fget
+        call_count = {"n": 0}
+
+        def fget(self):
+            if self is attr:
+                call_count["n"] += 1
+            return original_fget(self)
+
+        cls.readback = property(fget)  # type: ignore[misc]
+        try:
+            yield  # Enter context
+        except Exception as e:
+            raise e
+        else:  # Exit context
+            assert call_count["n"] == 1, (
+                f"Expected {'.'.join(path + ['readback'])} to be read once, "
+                f"but it was read {call_count['n']} times."
+            )
+        finally:
+            cls.readback = original  # type: ignore[misc]
+
+    def _assert_method(self, path: list[str], method: Literal["set", ""]):
         """
         This context manager can be used to confirm that a fastcs
         controller's respective attribute or command methods are called
         a single time within a context block
         """
-        queue = copy.deepcopy(path)
-
-        # Navigate to sub controller
-        controller_api = self
-        item_name = queue.pop(-1)
-        for item in queue:
-            controller_api = controller_api.sub_apis[item]
+        controller_api, item_name = self._navigate(path)
 
         # Get spy
         if method:

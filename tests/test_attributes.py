@@ -1,14 +1,13 @@
 import asyncio
-from dataclasses import dataclass
 from functools import partial
-from typing import Generic, TypeVar
 
 import pytest
 from pytest_mock import MockerFixture
 
-from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
+from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled, Polled, Update
 from fastcs.controllers import Controller
 from fastcs.datatypes import Float, Int, String
+from fastcs.util import ONCE
 
 
 def test_attribute_access_mode():
@@ -26,10 +25,8 @@ def test_attribute_access_mode():
 def test_attr_r():
     attr = AttrR(String(), group="test group")
 
-    with pytest.raises(RuntimeError):
-        _ = attr.io_ref
-
-    assert not attr.has_io_ref()
+    assert not attr.has_getter()
+    assert attr.poll_period is None
     assert isinstance(attr.datatype, String)
     assert attr.dtype == str
     assert attr.group == "test group"
@@ -42,39 +39,123 @@ def test_attr_r():
     assert attr.name == "test_name"
     assert attr.path == ["test_path"]
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="already registered with a controller as"):
         attr.set_name("test_name")
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="already registered with a controller at"):
         attr.set_path(["test_path"])
 
-    assert attr.get() == ""
+    assert attr.readback == ""
+
+
+def test_datatype_inferred_from_getter_annotation():
+    async def get_value() -> float:
+        return 1.5
+
+    attr = AttrR(getter=get_value)
+    assert isinstance(attr.datatype, Float)
+
+
+def test_datatype_inferred_from_setter_annotation():
+    async def set_value(value: int) -> None:
+        pass
+
+    attr = AttrW(setter=set_value)
+    assert isinstance(attr.datatype, Int)
+
+
+def test_datatype_required_when_not_inferable():
+    expected_message = "datatype must be given explicitly"
+
+    with pytest.raises(ValueError, match=expected_message):
+        AttrR()
+
+    with pytest.raises(ValueError, match=expected_message):
+        AttrW()
+
+    with pytest.raises(ValueError, match=expected_message):
+        AttrRW()
 
 
 @pytest.mark.asyncio
-async def test_attr_update(mocker: MockerFixture):
+async def test_attr_update():
     attr = AttrRW(Int())
 
     await attr.update(42)
-    assert attr.get() == 42
+    assert attr.readback == 42
 
     await attr.update("100")  # type: ignore
-    assert attr.get() == 100
+    assert attr.readback == 100
 
     with pytest.raises(ValueError, match="Failed to cast"):
         await attr.update("not_an_int")  # type: ignore
 
-    attr = AttrRW(Int())
-    sync_setpoint_mock = mocker.AsyncMock()
-    attr.add_sync_setpoint_callback(sync_setpoint_mock)
+    # update() also accepts an Update wrapper, unwrapping to just the value
+    await attr.update(Update(7, timestamp=123.0))
+    assert attr.readback == 7
 
-    await attr.update("200")  # type: ignore
-    assert attr.get() == 200
-    sync_setpoint_mock.assert_called_once_with(200)
 
-    sync_setpoint_mock.reset_mock()
-    await attr.update(20)
-    assert attr.get() == 20
-    sync_setpoint_mock.assert_not_called()
+@pytest.mark.asyncio
+async def test_poll():
+    async def do_update():
+        return 5
+
+    attr = AttrR(Int(), getter=do_update)
+    assert attr.has_getter()
+
+    value = await attr.poll()
+    assert value == 5
+    assert attr.readback == 5
+
+
+@pytest.mark.asyncio
+async def test_poll_unwraps_update_wrapper():
+    async def do_update():
+        return Update(9, timestamp=123.0)
+
+    attr = AttrR(Int(), getter=do_update)
+    value = await attr.poll()
+    assert value == 9
+    assert attr.readback == 9
+
+
+@pytest.mark.asyncio
+async def test_poll_with_no_getter_raises():
+    attr = AttrR(Int())
+
+    with pytest.raises(RuntimeError, match="has no getter"):
+        await attr.poll()
+
+
+@pytest.mark.asyncio
+async def test_poll_exception_propagates():
+    async def do_update():
+        raise ValueError("do_update failed")
+
+    attr = AttrR(Int(), getter=do_update)
+
+    with pytest.raises(ValueError, match="do_update failed"):
+        await attr.poll()
+
+
+def test_poll_period_comes_from_the_getter():
+    async def do_update():
+        return 1
+
+    # A bare getter is read once, when the controller connects.
+    attr = AttrR(Int(), getter=do_update)
+    assert attr.poll_period == ONCE
+
+    # Wrapping it in Polled schedules it instead.
+    attr_explicit = AttrR(Int(), getter=Polled(do_update, period=0.5))
+    assert attr_explicit.poll_period == 0.5
+
+    # NotPolled is never scheduled - on-demand poll() only.
+    attr_on_demand = AttrR(Int(), getter=NotPolled(do_update))
+    assert attr_on_demand.poll_period is None
+    assert attr_on_demand.has_getter()
+
+    attr_no_getter = AttrR(Int())
+    assert attr_no_getter.poll_period is None
 
 
 @pytest.mark.asyncio
@@ -84,7 +165,7 @@ async def test_wait_for_predicate(mocker: MockerFixture):
     async def update(attr: AttrR):
         while True:
             await asyncio.sleep(0.1)
-            await attr.update(attr.get() + 3)  # 3, 6, 9, 12 != 10
+            await attr.update(attr.readback + 3)  # 3, 6, 9, 12 != 10
 
     asyncio.create_task(update(attr))
 
@@ -93,7 +174,7 @@ async def test_wait_for_predicate(mocker: MockerFixture):
         return v > 10
 
     wait_mock = mocker.spy(asyncio, "wait_for")
-    with pytest.raises(TimeoutError):
+    with pytest.raises(TimeoutError, match="Timeout waiting 0.2s for .* predicate"):
         await attr.wait_for_predicate(predicate, timeout=0.2)
 
     await attr.wait_for_predicate(predicate, timeout=1)
@@ -116,7 +197,7 @@ async def test_wait_for_value(mocker: MockerFixture):
     asyncio.create_task(update(attr))
 
     wait_mock = mocker.spy(asyncio, "wait_for")
-    with pytest.raises(TimeoutError):
+    with pytest.raises(TimeoutError, match="Timeout waiting 0.2s for .* value 10"):
         await attr.wait_for_value(10, timeout=0.2)
 
     await attr.wait_for_value(1, timeout=1)
@@ -131,20 +212,18 @@ async def test_wait_for_value(mocker: MockerFixture):
 @pytest.mark.asyncio
 async def test_attributes():
     device = {"state": "Idle", "number": 1, "count": False}
-    ui = {"state": "", "number": 0, "count": False, "update_count": 0}
+    ui = {"state": "", "number": 0, "update_count": 0}
 
     async def update_ui(value, key):
         ui[key] = value
         ui["update_count"] += 1
 
-    async def send(_attr, value, key):
+    async def send(value, key):
         device[key] = value
-
-    async def device_add():
-        device["number"] += 1
+        return value  # accepted value echoes straight back to the readback
 
     attr_r = AttrR(String())
-    attr_r.add_on_update_callback(partial(update_ui, key="state"), always=False)
+    attr_r.add_readback_callback(partial(update_ui, key="state"), always=False)
     await attr_r.update(device["state"])
     assert ui["state"] == "Idle"
     # Update with new value triggers callback
@@ -153,50 +232,83 @@ async def test_attributes():
     # Identical update does not trigger callback as always=False
     assert ui["update_count"] == 1
 
-    attr_rw = AttrRW(Int())
-    attr_rw._on_put_callback = partial(send, key="number")
-    attr_rw.add_sync_setpoint_callback(partial(update_ui, key="number"))
-    await attr_rw.put(2, sync_setpoint=True)
+    attr_rw = AttrRW(Int(), setter=partial(send, key="number"))
+    attr_rw.add_readback_callback(partial(update_ui, key="number"))
+    await attr_rw.set(2)
     assert device["number"] == 2
     assert ui["number"] == 2
 
 
 @pytest.mark.asyncio
-async def test_attribute_io():
-    @dataclass
-    class MyAttributeIORef(AttributeIORef):
-        cool: int
+async def test_soft_attribute_self_wires():
+    """With no getter/setter, AttrRW.set() pushes straight to readback."""
+    attr = AttrRW(Int())
+    assert not attr.has_getter()
+    assert not attr.has_setter()
 
-    class MyAttributeIO(AttributeIO[int, MyAttributeIORef]):
-        async def update(self, attr: AttrR[int, MyAttributeIORef]):
-            print("I am updating", self.ref_type, attr.io_ref.cool)
+    await attr.set(40)
+    assert attr.setpoint == 40
+    assert attr.readback == 40
 
-    class MyController(Controller):
-        my_attr = AttrR(Int(), io_ref=MyAttributeIORef(cool=5))
-        your_attr = AttrR(Int(), io_ref=MyAttributeIORef(cool=10))
 
-        def __init__(self):
-            super().__init__(ios=[MyAttributeIO()])
+@pytest.mark.asyncio
+async def test_setter_return_value_updates_readback():
+    accepted = {}
 
-    c = MyController()
+    async def setter(value):
+        accepted["value"] = value
+        return value + 1  # device clamps/accepts a different value
 
-    class ControllerNoIO(Controller):
-        my_attr = AttrR(Int(), io_ref=MyAttributeIORef(cool=5))
+    attr = AttrRW(Int(), setter=setter)
 
-    @dataclass
-    class OtherAttributeIORef(AttributeIORef):
-        not_cool: int
+    await attr.set(10)
+    assert accepted["value"] == 10
+    assert attr.setpoint == 11
+    assert attr.readback == 11
 
-    class MissingIOController(Controller):
-        my_attr = AttrR(Int(), io_ref=OtherAttributeIORef(not_cool=5))
 
-    with pytest.raises(ValueError, match="does not have an AttributeIO to handle"):
-        controller = MissingIOController()
-        controller._connect_attribute_ios()
+@pytest.mark.asyncio
+async def test_setter_with_no_return_leaves_readback_untouched():
+    async def setter(value):
+        return None
 
-    await c.initialise()
-    c._connect_attribute_ios()
-    await c.my_attr.bind_update_callback()()
+    attr = AttrRW(Int(), setter=setter)
+
+    await attr.set(5)
+    assert attr.setpoint == 5
+    assert attr.readback == 0  # unchanged - no getter/poll has happened
+
+
+@pytest.mark.asyncio
+async def test_attrw_setter_return_value_updates_setpoint_cache():
+    async def setter(value):
+        return value + 1
+
+    attr = AttrW(Int(), setter=setter)
+
+    await attr.set(5)
+    assert attr.setpoint == 6
+
+
+@pytest.mark.asyncio
+async def test_set_setter_exception_is_caught_and_logged(mocker: MockerFixture):
+    async def do_set(value):
+        raise ValueError("do_set failed")
+
+    attr = AttrW(Int(), setter=do_set)
+    mock_logger = mocker.patch("fastcs.attributes.attr_w.logger")
+
+    # exception is caught, not raised, and the setpoint is still cached
+    await attr.set(5)
+    assert attr.setpoint == 5
+
+    # the setter's exception is the one logged, at error level
+    logged_exception = mock_logger.opt.call_args.kwargs["exception"]
+    assert isinstance(logged_exception, ValueError)
+    assert str(logged_exception) == "do_set failed"
+    mock_logger.opt.return_value.error.assert_called_once_with(
+        "Set failed", attribute=attr, setpoint=5
+    )
 
 
 class DummyConnection:
@@ -264,38 +376,8 @@ class DummyConnection:
             self._float_value = value
 
 
-NumberT = TypeVar("NumberT", int, float)
-
-
 @pytest.mark.asyncio()
-async def test_dynamic_attribute_io_specification():
-    @dataclass
-    class DemoParameterAttributeIORef(AttributeIORef, Generic[NumberT]):
-        name: str
-        subsystem: str
-        connection: DummyConnection
-
-        @property
-        def uri(self):
-            return f"{self.subsystem}/{self.name}"
-
-    class DemoParameterAttributeIO(AttributeIO[NumberT, DemoParameterAttributeIORef]):
-        async def update(
-            self,
-            attr: AttrR[NumberT, DemoParameterAttributeIORef],
-        ):
-            value = await attr.io_ref.connection.get(attr.io_ref.uri)
-            await attr.update(value)  # type: ignore
-
-        async def send(
-            self,
-            attr: AttrW[NumberT, DemoParameterAttributeIORef],
-            value: NumberT,
-        ) -> None:
-            await attr.io_ref.connection.set(attr.io_ref.uri, value)
-            if isinstance(attr, AttrRW):
-                await self.update(attr)
-
+async def test_dynamic_attribute_getter_setter_specification():
     class DemoParameterController(Controller):
         ro_int_parameter: AttrR
         int_parameter: AttrRW
@@ -312,22 +394,36 @@ async def test_dynamic_attribute_io_specification():
             for parameter_response in example_introspection_response:
                 try:
                     ro = parameter_response["read_only"]
-                    ref = DemoParameterAttributeIORef(
-                        name=parameter_response["name"],
-                        subsystem=parameter_response["subsystem"],
-                        connection=self._connection,
-                    )
-                    attr_class = AttrR if ro else AttrRW
-                    attr = attr_class(
-                        datatype=dtype_mapping[parameter_response["dtype"]](
-                            min=parameter_response.get("min", None),
-                            max=parameter_response.get("max", None),
-                        ),
-                        io_ref=ref,
-                        initial_value=parameter_response.get("value", None),
+                    name = parameter_response["name"]
+                    uri = f"{parameter_response['subsystem']}/{name}"
+                    datatype = dtype_mapping[parameter_response["dtype"]](
+                        min=parameter_response.get("min", None),
+                        max=parameter_response.get("max", None),
                     )
 
-                    self.add_attribute(ref.name, attr)
+                    async def getter(uri=uri) -> int | float:
+                        return await self._connection.get(uri)  # type: ignore[return-value]
+
+                    if ro:
+                        attr = AttrR(
+                            datatype,
+                            getter=getter,
+                            initial_value=parameter_response.get("value", None),
+                        )
+                    else:
+
+                        async def setter(value, uri=uri):
+                            await self._connection.set(uri, value)
+                            return value
+
+                        attr = AttrRW(
+                            datatype,
+                            getter=getter,
+                            setter=setter,
+                            initial_value=parameter_response.get("value", None),
+                        )
+
+                    self.add_attribute(name, attr)
                 except Exception as e:
                     print(
                         "Exception constructing attribute from parameter response:",
@@ -335,130 +431,11 @@ async def test_dynamic_attribute_io_specification():
                         e,
                     )
 
-    c = DemoParameterController(ios=[DemoParameterAttributeIO()])
+    c = DemoParameterController()
     await c.initialise()
-    c._connect_attribute_ios()
-    await c.ro_int_parameter.bind_update_callback()()
-    assert c.ro_int_parameter.get() == 10
-    await c.ro_int_parameter.bind_update_callback()()
-    assert c.ro_int_parameter.get() == 11
 
-    await c.int_parameter.put(20)
-    assert c.int_parameter.get() == 20
+    assert await c.ro_int_parameter.poll() == 10
+    assert await c.ro_int_parameter.poll() == 11
 
-
-@pytest.mark.asyncio
-async def test_attribute_no_io(mocker: MockerFixture):
-    class MyController(Controller):
-        no_ref = AttrRW(Int())
-        base_class_ref = AttrRW(Int(), io_ref=AttributeIORef())
-
-    with pytest.raises(
-        ValueError,
-        match="MyController does not have an AttributeIO to handle AttributeIORef",
-    ):
-        c = MyController()
-        c._connect_attribute_ios()
-
-    class SimpleAttributeIO(AttributeIO[int]):
-        async def update(self, attr):
-            await attr.update(100)
-
-    with pytest.raises(
-        RuntimeError, match="More than one AttributeIO class handles AttributeIORef"
-    ):
-        MyController(ios=[SimpleAttributeIO(), SimpleAttributeIO()])
-
-    # we need to explicitly pass an AttributeIO if we want to handle instances of
-    # the AttributeIORef base class
-    c = MyController(ios=[SimpleAttributeIO()])
-    assert not c.no_ref.has_io_ref()
-    assert c.base_class_ref.has_io_ref()
-
-    await c.initialise()
-    c._connect_attribute_ios()
-
-    # There is a difference between providing an AttributeIO for the default
-    # AttributeIORef class and not specifying the io_ref for an Attribute
-    # default callbacks are not provided by AttributeIO subclasses
-
-    sync_setpoint_mock = mocker.AsyncMock()
-    c.no_ref.add_sync_setpoint_callback(sync_setpoint_mock)
-
-    await c.no_ref.put(40)
-    sync_setpoint_mock.assert_called_once_with(40)  # sync setpoint called on first set
-    sync_setpoint_mock.reset_mock()
-    await c.no_ref.put(41)  # sync setpoint callback not called without flag
-    await c.no_ref.put(42, sync_setpoint=True)
-    sync_setpoint_mock.assert_called_once_with(42)
-
-    c2 = MyController(ios=[SimpleAttributeIO()])
-
-    await c2.initialise()
-    c2._connect_attribute_ios()
-
-    assert c2.base_class_ref.get() == 0
-    await c2.base_class_ref.bind_update_callback()()
-    assert c2.base_class_ref.get() == 100
-
-
-def test_add_update_callback_twice_raises():
-    async def do_update(attr: AttrR[int]):
-        pass
-
-    attr = AttrRW(Int())
-    attr.set_update_callback(do_update)
-
-    with pytest.raises(RuntimeError):
-        attr.set_update_callback(do_update)
-
-
-@pytest.mark.asyncio
-async def test_bind_update():
-    attr = AttrRW(Int())
-
-    with pytest.raises(RuntimeError):
-        attr.bind_update_callback()
-
-    async def do_update(attr: AttrR[int]):
-        await attr.update(5)
-
-    attr.set_update_callback(do_update)
-    callback = attr.bind_update_callback()
-
-    await callback()
-    assert attr.get() == 5
-
-
-@pytest.mark.asyncio
-async def test_bind_update_exception():
-    attr = AttrRW(Int())
-
-    async def do_update(attr: AttrR[int]):
-        raise ValueError("do_update failed")
-
-    attr.set_update_callback(do_update)
-
-    callback = attr.bind_update_callback()
-
-    with pytest.raises(ValueError):
-        await callback()
-
-
-@pytest.mark.asyncio
-async def test_put():
-    attr = AttrW(Int())
-
-    async def do_put(attr: AttrW[int], value: int):
-        raise ValueError("do_put failed")
-
-    async def do_sync_setpoint(setpoint: int):
-        raise ValueError("do_sync_setpoint failed")
-
-    attr.set_on_put_callback(do_put)
-    attr.add_sync_setpoint_callback(do_sync_setpoint)
-
-    await attr.put(5)
-
-    with pytest.raises(RuntimeError):
-        attr.set_on_put_callback(do_put)
+    await c.int_parameter.set(20)
+    assert c.int_parameter.readback == 20

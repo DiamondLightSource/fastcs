@@ -1,10 +1,10 @@
 # 14. Per-Attribute IO as getter/setter Callables
 
-Date: 2026-07-20
+Date: 2026-07-20 (revised 2026-08-03, after the #412 review)
 
 **Related:** [Issue #388](https://github.com/DiamondLightSource/fastcs/issues/388),
 [ADR 9](0009-handler-to-attribute-io-pattern.md), [ADR 12](0012-attribute-io-naming-convention.md),
-[ADR 18](0018-attr-decorator-sugar.md)
+[ADR 18](0018-attr-decorator-sugar.md), [ADR 20](0020-transport-setpoint-mirroring.md)
 
 ## Status
 
@@ -69,14 +69,8 @@ decorator ([ADR 18](0018-attr-decorator-sugar.md)):
 - The **setter** returns `None | T | Update[T]`: `None` = fire-and-forget
   (readback catches up on the next poll / the setpoint cache); a returned value
   is the device's *accepted* value (a clamp or echo) and updates the readback +
-  the `AttrW` setpoint cache immediately — the sanctioned replacement for
+  the setpoint cache immediately — the sanctioned replacement for
   `fastcs-secop`'s private `_call_sync_setpoint_callbacks`.
-- `Update[T]` carries `value: T`, `timestamp: float | None` (epoch seconds;
-  `None` ⇒ framework stamps receive-time), and `severity: Severity = OK` (the
-  decision-10b severity enum, see
-  [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md)). It is
-  used for both the getter return and a value-returning setter — this is how
-  device-native timestamps/severity reach `attr.update()`.
 - **Datatype is optional when a getter/setter is given** — inferred from the
   getter's return annotation (or the setter's parameter), unwrapping `Update[T]`
   to `T`, so `AttrR(getter=g)` yields `AttrR[float]` with no restated type
@@ -85,10 +79,6 @@ decorator ([ADR 18](0018-attr-decorator-sugar.md)):
   `Unpack[*Meta]` static check keys off the inferred return type. Not inferable
   (`-> Any`, an unannotated lambda) ⇒ the positional datatype is required
   (fail-fast at construction).
-- `poll_period` is a read-side kwarg: `ONCE` = read once at connect (the
-  default when a getter is given); a float = poll at that rate; `None` =
-  **on-demand only** (read when a client asks, never auto-polled). **No
-  getter** = soft, value pushed via `attr.update()` from a `@scan`/callback.
 - Soft is now simply the *absence* of a getter/setter (`AttrRW(float)`
   self-wires setpoint→readback as before, the analogue of ophyd-async's
   `soft_signal_rw`); the old `io=None` sentinel is gone.
@@ -116,9 +106,80 @@ class TemperatureRampController(Controller):
 
         # datatype float inferred from get_ramp_rate's return annotation
         self.ramp_rate = AttrRW(
-            getter=get_ramp_rate, setter=set_ramp_rate, units="deg", poll_period=0.2
+            getter=Polled(get_ramp_rate, period=0.2),
+            setter=set_ramp_rate,
+            units="deg",
         )
 ```
+
+### The reading schedule travels with the getter
+
+There is no `poll_period` constructor argument. A getter carries its own
+schedule, so the two cannot drift apart and the pair can be passed around as
+one value:
+
+```python
+self.config   = AttrR(float, getter=self._get_config)                       # once, at connect
+self.reading  = AttrR(float, getter=Polled(self._get_reading, period=0.2))  # every 0.2s
+self.label    = AttrR(str, getter=NotPolled(self._get_label))               # never; poll() only
+self.computed = AttrR(float)                                                # soft, no getter
+```
+
+`Polled` and `NotPolled` take an optional getter and bind one when called, so
+the same objects serve the declarative spelling in
+[ADR 18](0018-attr-decorator-sugar.md) — where the getter arrives by decoration
+and there is no argument to wrap — giving one vocabulary across both:
+
+| Schedule | Procedural | Declarative |
+|---|---|---|
+| Once, at connect | `AttrR(t, getter=g)` | `@attr(units="V")` |
+| Every 0.5s | `AttrR(t, getter=Polled(g, period=0.5))` | `@attr(Polled(0.5), units="V")` |
+| Never; `poll()` only | `AttrR(t, getter=NotPolled(g))` | `@attr(NotPolled(), units="V")` |
+
+**A bare getter means "read once, at connect"**, not "never read". Three
+defaults were considered:
+
+1. *Bare = once* (chosen). Fails safe: an attribute always shows a real value,
+   and polling is opted into per attribute rather than being something you must
+   remember to switch off.
+2. *Bare = never read.* Restores the pre-refactor `AttributeIORef.update_period
+   = None` default and makes all scheduling explicit — but fails **silently**:
+   an unpolled `AttrRW` sits at the datatype default and, under
+   [ADR 20](0020-transport-setpoint-mirroring.md), never establishes a setpoint
+   either, so every transport shows `0`/`""`/`False` until someone writes to it.
+3. *No default; always require a wrapper.* Rejected because ADR 18 promises a
+   bare `@attr`, which must resolve to some schedule. A constructor that refused
+   to default while the decorator defaulted would reintroduce the asymmetry
+   these wrappers exist to remove.
+
+`ONCE` (`float("inf")`) survives internally as what `poll_period` reports for
+the bare case, but a driver author never spells it: `Polled(getter,
+period=ONCE)` would read as a contradiction, and the once-only case is the one
+with no wrapper at all. `NotPolled(g)` is distinct from having no getter — the
+former is still readable via `await attr.poll()` and by transports on demand,
+the latter has nothing to read.
+
+### `Update[T]`
+
+`Update` is what a getter or setter returns when a bare value is not enough:
+
+```python
+@dataclass
+class Update(Generic[T]):
+    readback: T
+    timestamp: float | None = None   # None ⇒ framework stamps receive-time
+    setpoint: T | None = None        # None ⇒ leave the cached setpoint alone
+```
+
+- `readback` is the value, named for the cache it feeds.
+- `setpoint` is how a device that reports its own setpoint drives one, and how
+  a setter distinguishes "the device clamped the value it will *report*" from
+  "the device clamped what I *asked for*". A **bare** value returned from a
+  setter means both — it is equivalent to `Update(readback=v, setpoint=v)`.
+- `severity` is **not** on `Update` yet; native timestamps and the severity
+  enum are [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md)'s
+  scope and land with it. `timestamp` is accepted here so the field ordering is
+  settled, but is not yet persisted.
 
 ### Runtime surface
 
@@ -132,7 +193,10 @@ are legible from the member set:
 | `.setpoint` | property (sync) | — | ✓ | ✓ | no (cached) |
 | `poll()` | async method | ✓ | — | ✓ | **yes** (getter) |
 | `update(value)` | async method | ✓ | — | ✓ | no (cache push) |
+| `update_setpoint(value)` | async method | — | ✓ | ✓ | no (cache push) |
 | `set(value)` | async method | — | ✓ | ✓ | **yes** (setter) |
+| `add_readback_callback()` | method | ✓ | — | ✓ | no |
+| `add_setpoint_callback()` | method | — | ✓ | ✓ | no |
 
 - **`.readback` / `.setpoint` replace `.value`.** Two explicitly-named cached
   properties instead of one whose meaning shifted per class. Each class exposes
@@ -145,18 +209,24 @@ are legible from the member set:
 - **`poll()` replaces the no-arg `update()`; `update_period` → `poll_period`.**
   `poll()` does a live getter read, caches it, and **returns** the value (so an
   on-demand read is `await attr.poll()`, mirroring ophyd's live `get_value()`);
-  `poll_period` (`ONCE` / float / `None`) is only the *schedule* the framework
-  calls it on. This deletes the `set_update_callback` / `bind_update_callback`
-  plumbing — the getter lives on the attr and `poll()` calls it.
+  `poll_period` is now a read-only property reporting the schedule resolved from
+  the getter's wrapper, not a constructor argument. This deletes the
+  `set_update_callback` / `bind_update_callback` plumbing — the getter lives on
+  the attr and `poll()` calls it.
 - **`update(value)` is now purely a cache push** — a `value` or `Update[T]`
   from a `@scan`/subscription — with no device IO and no `None` sentinel.
+  `update_setpoint(value)` is its setpoint-side counterpart.
 - **`set(value)` replaces `put()`** (the bluesky/ophyd verb): it caches
-  `.setpoint` immediately (decision 10a), then runs the setter; the setter's
-  `T | Update[T]` return feeds `.readback` via `update()`. The old
-  `sync_setpoint=` kwarg and `_call_sync_setpoint_callbacks` are gone. Caching
-  `.setpoint` first is an *attribute-cache* guarantee only; *when a remote
-  client sees it* is transport-dependent and differs between CA and PVA — see
-  the Questions resolved below.
+  `.setpoint` immediately (decision 10a) and publishes it to the setpoint
+  callbacks, then runs the setter; the setter's return feeds `.readback` via
+  `update()`. The old `sync_setpoint=` kwarg and `_call_sync_setpoint_callbacks`
+  are gone.
+- **The two callback registrars are symmetric.** `add_readback_callback()`
+  (formerly `add_on_update_callback()`) and `add_setpoint_callback()` are how
+  transports publish each cache. Transports must not track a setpoint of their
+  own — see [ADR 20](0020-transport-setpoint-mirroring.md), which also removes
+  the per-transport "seeding" of a setpoint display by making the first readback
+  on an `AttrRW` establish the setpoint.
 
 So `poll()`/`set()` touch the device; `.readback`/`.setpoint`/`update()` do
 not. `Attribute` also loses its second generic parameter —
@@ -263,8 +333,13 @@ def temp_io(conn: IPConnection, name: str):
     return getter, setter
 
 get_ramp, set_ramp = temp_io(conn, "R")
-self.ramp_rate = AttrRW(getter=get_ramp, setter=set_ramp, poll_period=0.2)
+self.ramp_rate = AttrRW(getter=Polled(get_ramp, period=0.2), setter=set_ramp)
 ```
+
+The old ref's `update_period=0.2` becomes the `Polled(..., period=0.2)` wrapper;
+a ref that left `update_period` at its `None` default becomes `NotPolled(...)`
+if it really should never be read, or a bare getter if a connect-time read was
+what it wanted.
 
 `fastcs-catio`'s three-IO-per-controller pattern becomes per-attribute
 callables with no registry needed at all. `fastcs-secop`'s private
@@ -287,8 +362,12 @@ callables with no registry needed at all. `fastcs-secop`'s private
 - The IO no longer has a place to hang per-attribute metadata that
   `fastcs-catio` used to read off `attribute.io_ref`; `attr.meta` and the
   attribute's own attributes replace that access.
+- Drivers that relied on the old ref default of `update_period=None` change
+  behaviour if they migrate to a bare getter: they gain a connect-time read.
+  This is intended (see the three options above) but is the one migration step
+  that is not purely mechanical.
 
-## Questions resolved in review (#402)
+## Questions resolved in review (#402, #412)
 
 1. **What replaces the `io=` object and the `ReadIO`/`WriteIO`/`ReadWriteIO`
    hierarchy?** Plain `getter`/`setter` callables on the constructors. The IO
@@ -300,7 +379,7 @@ callables with no registry needed at all. `fastcs-secop`'s private
 3. **What is the public replacement for `fastcs-secop`'s
    `_call_sync_setpoint_callbacks`?** A `setter` returning `T | Update[T]` *is*
    the sanctioned setpoint echo — the returned value updates the readback and
-   the `AttrW` setpoint cache.
+   the setpoint cache.
 4. **Are there `CallbackReadIO`/`CallbackWriteIO` classes in core?** No. The
    one-off callback case folds into `@attr` / `AttrR(getter=…)`
    ([ADR 18](0018-attr-decorator-sugar.md)); the same spelling covers the
@@ -309,12 +388,17 @@ callables with no registry needed at all. `fastcs-secop`'s private
    Through `attr.meta` and the attribute's own public members, replacing
    `fastcs-catio`'s `attribute.io_ref` access.
 6. **Is the setpoint echo a cross-transport "instantly visible" guarantee?**
-   (@Tom-Willemsen / @shihab-dls.) No — caching `.setpoint` before running the
-   setter is an *attribute-cache* guarantee (and the sanctioned secop echo);
-   whether a *remote client* sees it immediately is transport-dependent. **PVA**
-   posts the setpoint as soon as it is written, then the record may later go
-   into alarm if the setter rejects it. **CA** posts the PV update only *after*
-   the update callback (where alarms are set) completes, so a long-running
-   setter delays the CA-visible setpoint until the send returns. Realigning CA
-   to PVA's post-before-send ordering is a **transport-layer** follow-up,
-   tracked separately and not gating this rework.
+   (@Tom-Willemsen / @shihab-dls.) It is now. Caching `.setpoint` before running
+   the setter was originally an *attribute-cache* guarantee only, with the
+   remote-client view left transport-dependent: **PVA** posted the setpoint as
+   soon as it was written, whereas **CA** posted only *after* the update callback
+   completed, so a long-running setter delayed the CA-visible setpoint. The
+   follow-up this left open is closed by
+   [ADR 20](0020-transport-setpoint-mirroring.md): every transport now mirrors
+   the attribute's setpoint through `add_setpoint_callback()`, which fires
+   before the setter runs, so CA and PVA agree and the ordering is a property of
+   the attribute rather than of each transport.
+7. **Should `poll_period` be a second constructor argument?** No — merged into
+   the getter as `Polled`/`NotPolled` wrappers, so a getter and its schedule are
+   one value and the same vocabulary works in the `@attr` decorator, where there
+   is no getter argument to pair it with.

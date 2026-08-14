@@ -73,7 +73,7 @@ DATATYPE_FIELD_TO_OUT_RECORD_FIELD = {
 def _make_in_record(pv: str, attribute: AttrR) -> RecordWrapper:
     common_fields = {
         "DESC": attribute.description,
-        "initial_value": cast_to_epics_type(attribute.datatype, attribute.get()),
+        "initial_value": cast_to_epics_type(attribute.datatype, attribute.readback),
     }
 
     match attribute.datatype:
@@ -139,7 +139,7 @@ def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWr
         "DESC": attribute.description,
         "initial_value": cast_to_epics_type(
             attribute.datatype,
-            attribute.get()
+            attribute.readback
             if isinstance(attribute, AttrRW)
             else attribute.datatype.initial_value,
         ),

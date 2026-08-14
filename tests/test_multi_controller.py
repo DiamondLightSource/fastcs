@@ -166,7 +166,7 @@ async def test_pva_transport_serves_two_controllers_with_distinct_pvi_roots():
     transport = EpicsPVATransport()
     transport.connect([api1, api2], asyncio.get_event_loop())
 
-    providers = await transport._ioc._build_providers()
+    providers = transport._ioc._providers
     pv_names = {name for provider in providers for name in provider.keys()}
 
     assert "ALPHA:PVI" in pv_names

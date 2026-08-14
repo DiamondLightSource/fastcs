@@ -56,7 +56,7 @@ writer.
 
 ```python
 class PowerSupply(Controller):
-    @attr(units="V", poll_period=0.5)   # datatype inferred from -> float
+    @attr(Polled(0.5), units="V")   # datatype inferred from -> float
     async def voltage(self) -> float:
         """Output voltage."""
         return await self._conn.query("V?")
@@ -75,10 +75,24 @@ class PowerSupply(Controller):
   as *better* than PyTango's `dtype=` kwarg since it's one real annotation,
   checked statically.
 - `@attr` comes in two forms: bare `@attr` and parameterised
-  `@attr(precision=3, units="V", poll_period=0.5)`; the keyword arguments map
-  onto the same `*Meta` fields (typed with `Unpack[…Meta]`, validated against
-  the getter's return type) and the `poll_period` read-side kwarg of
-  `AttrR`/`AttrRW` — sugar over that mechanism, not a parallel one.
+  `@attr(Polled(0.5), precision=3, units="V")`. The keyword arguments map onto
+  the same `*Meta` fields (typed with `Unpack[…Meta]`, validated against the
+  getter's return type). The optional leading positional is a **schedule** -
+  the same `Polled`/`NotPolled` objects the procedural form wraps its getter in
+  ([ADR 14](0014-attribute-io-rw-rework.md), amendment 2026-08-03) - so the two
+  spellings share one vocabulary rather than the decorator taking a
+  `poll_period=` kwarg the constructor no longer has. Sugar over that
+  mechanism, not a parallel one.
+- **Bare `@attr` means the same as a bare `getter=`**: read once, when the
+  controller connects. This symmetry is why the constructor keeps a default
+  instead of demanding a wrapper - a bare decorator has to resolve to some
+  schedule, so both sides default to the same safe one:
+
+  | Schedule | Procedural | Declarative |
+  |---|---|---|
+  | Once, at connect | `AttrR(t, getter=g)` | `@attr(units="V")` |
+  | Every 0.5s | `AttrR(t, getter=Polled(g, period=0.5))` | `@attr(Polled(0.5), units="V")` |
+  | Never; `poll()` only | `AttrR(t, getter=NotPolled(g))` | `@attr(NotPolled(), units="V")` |
 - `@attr`'s `.setter` decorator mirrors `@property`/`@x.setter`, giving the
   read+write pair a single logical name (`voltage`) with two decorated methods.
   There is **no dedicated write-only decorator** — a paired-getter-less `AttrW`

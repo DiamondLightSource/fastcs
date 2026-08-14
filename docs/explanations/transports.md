@@ -98,14 +98,15 @@ layer.
 
 | Callback | Registered with | Triggered By | Direction | Purpose |
 |----------|-----------------|--------------|-----------|---------|
-| On Update | `add_on_update_callback()` | `attr.update(value)` | Publish ↑ | Update protocol representation when attribute value changes |
-| Sync Setpoint | `add_sync_setpoint_callback()` | `attr.put(value, sync_setpoint=True)` | Publish ↑ | Update transport's setpoint display without device communication |
+| Readback | `add_readback_callback()` | `attr.update(value)` | Publish ↑ | Update protocol representation when the attribute's readback changes |
+| Setpoint | `add_setpoint_callback()` | `attr.set(value)` | Publish ↑ | Update protocol representation when the attribute's setpoint changes |
 | Update Datatype | `add_update_datatype_callback()` | `datatype` property changes | Publish ↑ | Update protocol metadata when datatype changes |
-| Put | `attr.put(value)` | Transport receives user input | Put ↓ | Forward write requests from protocol to attribute |
+| Set | `attr.set(value)` | Transport receives user input | Set ↓ | Forward write requests from protocol to attribute |
 
-### On Update Callbacks
+### Readback Callbacks
 
-Use `add_on_update_callback()` to update the protocol layer when an attribute's value changes.
+Use `add_readback_callback()` to update the protocol layer when an attribute's
+readback changes.
 
 ```python
 def create_read(name, attribute):
@@ -114,7 +115,7 @@ def create_read(name, attribute):
     async def update_protocol_value(value):
         protocol_read.post(value)
 
-    attribute.add_on_update_callback(update_protocol_value)
+    attribute.add_readback_callback(update_protocol_value)
 ```
 
 The callback receives the new value and should update the protocol-specific
@@ -129,7 +130,7 @@ Use `add_update_datatype_callback()` to update protocol metadata when an attribu
 def create_read(name, attribute):
     ...
 
-    attribute.add_on_update_callback(update_protocol_value)
+    attribute.add_readback_callback(update_protocol_value)
 
     def update_protocol_metadata(datatype: DataType):
         protocol_read.set_units(datatype.units)
@@ -140,49 +141,47 @@ def create_read(name, attribute):
 
 The callback receives the new `DataType` instance and should update the protocol's metadata representation (e.g., EPICS record fields like `EGU`, `HOPR`, `LOPR`).
 
-### Put
+### Setpoint Callbacks
 
-When the transport receives a write request from the protocol, call `await
-attribute.put(value)` to forward it to the attribute. This triggers validation and
-propagates the value to the device via the IO layer. The transport should also update
-its own setpoint display directly rather than relying on the sync setpoint callback
-being called.
+Use `add_setpoint_callback()` to update the protocol layer when an attribute's
+setpoint changes. A transport must **not** update its own setpoint display directly -
+it registers a callback and lets the attribute drive it, so that every transport
+agrees on the setpoint however it was changed (see
+[](./decisions/0020-transport-setpoint-mirroring)).
 
 ```python
 def create_write(name, attribute):
     protocol_setpoint = Protocol(name)
 
+    async def update_protocol_setpoint(value):
+        protocol_setpoint.post(value)
+
     async def handle_write(value):
-        protocol_setpoint.post(value)
-        await attribute.put(value)
+        await attribute.set(value)
+
+    attribute.add_setpoint_callback(update_protocol_setpoint)
 ```
 
-### Sync Setpoint Callbacks
+The callback fires when:
 
-Use `add_sync_setpoint_callback()` to update the protocol layer's setpoint
-representation when the transport receives a write request. This is called when
-`AttrW.put` is called with `sync_setpoint=True`.
+- a write arrives through *any* transport - `set()` caches the requested value and
+  publishes it before running the setter, so the display updates immediately rather
+  than waiting for a slow device;
+- the setter returns a value, which replaces it with the device's accepted or clamped
+  value;
+- a getter or setter returns `Update(readback=..., setpoint=...)`, for a device that
+  reports its own setpoint;
+- the first readback arrives on an `AttrRW` that has never been written. An `AttrRW`
+  starts with no known setpoint, so this is what stops a setpoint display sitting at
+  the datatype's default until someone writes to it. No seeding is required in the
+  transport.
 
-Each transport is responsible for updating its own setpoint display while actioning the
-change and should not rely on its sync setpoint callback being called by the attribute,
-nor should it call `AttrW.put` with `sync_setpoint=True`. Setpoints should not be synced
-between transports in this case - this is intentional to show which transport the change
-came from.
+### Set
 
-```python
-def create_write(name, attribute):
-    ...
-
-    async def update_setpoint_display(value):
-        protocol_setpoint.post(value)
-
-    attribute.add_sync_setpoint_callback(update_setpoint_display)
-```
-
-Sync setpoint callbacks are used in specific cases:
-
-- When an attribute delegates to other attributes that actually communicate with the device
-- During the first update of an `AttrRW`, to initialize the setpoint with the first readback value
+When the transport receives a write request from the protocol, call `await
+attribute.set(value)` to forward it to the attribute. This triggers validation, caches
+the value as the attribute's `.setpoint` (firing the setpoint callbacks above), and (if
+the attribute has one) runs its `setter` to propagate the value to the device.
 
 ## Commands
 

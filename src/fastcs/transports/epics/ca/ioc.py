@@ -214,7 +214,7 @@ def _create_and_link_read_pv(
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
 
-    attribute.add_on_update_callback(async_record_set)
+    attribute.add_readback_callback(async_record_set)
 
 
 def _create_and_link_write_pv(
@@ -229,7 +229,7 @@ def _create_and_link_write_pv(
     async def on_update(value):
         logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
 
-        await attribute.put(cast_from_epics_type(attribute.datatype, value))
+        await attribute.set(cast_from_epics_type(attribute.datatype, value))
 
     async def set_setpoint_without_process(value: DType_T):
         tracer.log_event(
@@ -244,7 +244,10 @@ def _create_and_link_write_pv(
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
 
-    attribute.add_sync_setpoint_callback(set_setpoint_without_process)
+    # Mirror the attribute's setpoint whenever it changes, however it changed -
+    # a put on this PV, a put on another transport, or the device reporting its
+    # own setpoint. See ADR 0020.
+    attribute.add_setpoint_callback(set_setpoint_without_process)
 
 
 def _create_and_link_command_pvs(

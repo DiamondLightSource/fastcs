@@ -82,7 +82,7 @@ In [1]: controller.device_id
 
 Out[1]: AttrR(String())
 
-In [2]: controller.device_id.get()
+In [2]: controller.device_id.readback
 
 Out[2]: ''
 :::
@@ -139,8 +139,10 @@ The `demo.bob` will have been created in the directory the application was run f
 ## FastCS Device Connection
 
 The `Attributes` of a FastCS `Controller` need some IO with the device in order to get
-and set values. This is implemented with `AttributeIO`s and connections. Generally each
-driver implements its own IO and connection logic, but there are some built in options.
+and set values. This is implemented with plain `getter`/`setter` callables passed to the
+`Attribute` constructor, together with a connection. Generally each driver implements
+its own getter/setter logic and connection, but there are some built in connection
+options.
 
 Update the controller to create an `IPConnection` to communicate with the simulator over
 TCP and implement a `connect` method that establishes the connection. The `connect`
@@ -165,27 +167,29 @@ The application will now fail to connect if the demo simulation is not running.
 :::
 
 The `Controller` has now established a connection with the simulator. This connection
-can be passed to an `AttributeIO` to enable it to query the device API and update the
-value in the `device_id` attribute. Create a `TemperatureControllerAttributeIO` child
-class and implement the `update` method to query the device and set the value of the
-attribute, and create a `TemperatureControllerAttributeIORef` and pass an instance of
-it to the `device_id` attribute to tell the controller what io to use to update it.
+can be used by a `getter` callable to query the device API and update the value in the
+`device_id` attribute. Note that the `Attribute` now has to be created in `__init__`,
+after the connection exists, rather than as a class body instance - a getter needs to
+close over a live connection, which doesn't exist yet when the class body is evaluated.
+Write a `_get_device_id` method that queries the device and returns its value, and pass
+it to `device_id` as `getter`.
 
 :::{note}
-The `update_period` property tells the base class how often to call `update`
+Passing the getter bare, as here, means it is called once at start up. Wrap it in
+`Polled(getter, period=...)` to have the base class call it repeatedly instead.
 :::
 
 ::::{admonition} Code 7
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static07.py
-:emphasize-lines: 1,3,5-6,15-33,37,43
+:emphasize-lines: 13-19,21-23
 :::
 
 ::::
 
 :::{note}
-In the `update` method, errors won't crash the application, but it prints them to the
+If a getter raises, it won't crash the application, but it prints the error to the
 terminal. - `Update loop ... stopped:`
 :::
 
@@ -201,26 +205,28 @@ DEMO:DeviceId SIMTCONT123
 
 The simulator supports many other commands, for example it reports the total power
 currently being drawn with the `P` command. This can be exposed by adding another
-`AttrR` with a `Float` datatype, but the IO only supports the `ID` command to get the
-device ID. This new attribute could have its own IO, but it is similar enough that the
-existing IO can be support both.
+`AttrR` with a `Float` datatype, but so far the getter for `device_id` only knows how to
+send the `ID` command. This new attribute could get its own bespoke getter, but the
+query-building logic is similar enough between commands that it is worth factoring out.
 
-Modify the IO ref to take a `name` string and update the IO to use it in the query
-string sent to the device. Create a new attribute to read the power usage using this.
+Extract a small `TemperatureProtocol` class that knows how to send a query or a command
+for a given parameter name, casting the response to the right python type. Each
+attribute then gets a thin getter method that just names the parameter and delegates to
+the protocol.
 
 :::{note}
 All responses from the `IPConnection` are strings. This is fine for the `ID` command
-because the value is actually a string, but for `P` the value is a float, so the
-`update` methods needs to explicitly cast to the correct type. It can use
-`Attribute.dtype` to call the builtin for its datatype - e.g. `int`, `float`, `str`,
-etc.
+because the value is actually a string, but for `P` the value is a float, so
+`TemperatureProtocol.send_query` needs to explicitly cast to the correct type. It takes
+the target python type as an argument (e.g. `int`, `float`, `str`) and calls it as a
+constructor to perform the cast.
 :::
 
 :::{admonition} Code 8
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static08.py
-:emphasize-lines: 10,19-21,33-38,42-43
+:emphasize-lines: 12,15-27,34,38-39,41-45
 :::
 
 ::::
@@ -229,14 +235,14 @@ Now the IOC has two PVs being polled periodically. The new PV will be visible in
 Phoebus UI on refresh (right-click). `DEMO:Power` will read as `0` because the simulator
 is not currently running a ramp. To do that the controller needs to be able to set
 values on the device, as well as read them back. The ramp rate of the temperature can be
-read with the `R` command and set with the `R=...` command. This means the IO also needs
-a `send` method to send values to the device.
+read with the `R` command and set with the `R=...` command. This means the protocol also
+needs a way to send values to the device, which `send_command` already provides.
 
-Update the IO to implement `send` and then add a new `AttrRW` with type `Float` to get
-and set the ramp rate.
+Add a new `AttrRW` with type `Float` to get and set the ramp rate, giving it both a
+`getter` and a `setter`.
 
 :::{note}
-The set commands do not return a response, so use the `send_command` method instead of
+The set commands do not return a response, so the setter uses `send_command` instead of
 `send_query`.
 :::
 
@@ -244,7 +250,7 @@ The set commands do not return a response, so use the `send_command` method inst
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static09.py
-:emphasize-lines: 7,40-44,48-50
+:emphasize-lines: 4,40-45,53-57
 :::
 
 ::::
@@ -279,16 +285,17 @@ has. This can be done with the use of sub controllers. Controllers can be arbitr
 nested to match the structure of a device and this structure is then mirrored to the
 transport layer for the visibility of the user.
 
-Create a `TemperatureRampController` with two `AttrRW`s the ramp start and end, update
-the IO to include an optional suffix for the commands so that it can be shared with
-the parent `TemperatureController` and add an argument to define how many ramps there
-are, which is used to register the correct number of ramp controllers with the parent.
+Create a `TemperatureRampController` with two `AttrRW`s for the ramp start and end, give
+`TemperatureProtocol` an optional suffix so an instance can be shared with the parent
+`TemperatureController` while still addressing an individual ramp, and add an argument
+to define how many ramps there are, which is used to register the correct number of ramp
+controllers with the parent.
 
 ::::{admonition} Code 10
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,35,44,48-56,64,70-74,83
+:emphasize-lines: 30-53,57,73-77
 :::
 
 ::::
@@ -313,7 +320,7 @@ Add an `AttrRW` to the `TemperatureRampController`s with an `Enum` type, using a
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static11.py
-:emphasize-lines: 1,11,49-51,57
+:emphasize-lines: 1,31-33,48-53,67-71
 :::
 
 ::::
@@ -355,39 +362,41 @@ The applied voltage for each ramp is also available with the `V?` command, but t
 is an array with each element corresponding to a ramp. Here it will be simplest to
 manually fetch the array in the parent controller and pass each value into ramp
 controller. This can be done with a `scan` method - these are called at a defined rate,
-similar to the `update` method of an `AttributeIO`.
+similar to how each attribute's getter is polled.
 
-Add an `AttrR` for the voltage to the `TemperatureRampController`, but do not pass it an
-IO ref. Then add a method to the `TemperatureController` with a `@scan` decorator that
-gets the array of voltages and sets each ramp controller with its value. Also add
-`AttrR`s for the target and actual temperature for each ramp as described above.
+Add an `AttrR` for the voltage to the `TemperatureRampController`, but do not give it a
+`getter` - it is a soft attribute, pushed to directly by the parent controller's scan
+method instead. Then add a method to the `TemperatureController` with a `@scan`
+decorator that gets the array of voltages and sets each ramp controller with its value.
+Also add `AttrR`s for the target and actual temperature for each ramp as described
+above.
 
 ::::{admonition} Code 12
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static12.py
-:emphasize-lines: 2,16,60-62,91-97
+:emphasize-lines: 11,56-58,78-82,123-129
 :::
 
 ::::
 
 Creating attributes is intended to be a simple API covering most use cases, but where
 more flexibility is needed wrapped controller methods can be useful to avoid adding
-complexity to the IO to handle a small subset of attributes. It is also useful for
-implementing higher level logic on top of the attributes that expose the API of a device
-directly. For example, it would be useful to have a single button to stop all of the
-ramps at the same time. This can be done with a `command` method. These are similar to
-`scan` methods except that they create an API in transport layer in the same way an
+complexity to a getter/setter to handle a small subset of attributes. It is also useful
+for implementing higher level logic on top of the attributes that expose the API of a
+device directly. For example, it would be useful to have a single button to stop all of
+the ramps at the same time. This can be done with a `command` method. These are similar
+to `scan` methods except that they create an API in transport layer in the same way an
 attribute does.
 
 Add a method with a `@command` decorator to set enabled to false in every ramp
-controller.
+controller by calling `set` on each `enabled` attribute.
 
 ::::{admonition} Code 13
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static13.py
-:emphasize-lines: 1,17,100-105
+:emphasize-lines: 1,132-137
 :::
 
 ::::
@@ -412,14 +421,14 @@ application. To enable logging from the core framework call `configure_logging` 
 arguments (the default logging level is INFO). To log messages from a driver, import the
 singleton `logger` directly.
 
-Create a module-level logger to log status of the application start up. Create a class
-logger for `TemperatureControllerAttributeIO` to log the commands it sends.
+Create a module-level logger to log status of the application start up, and use it
+inside `TemperatureProtocol.send_command` to log the commands it sends.
 
 ::::{admonition} Code 14
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 13,48,110,115
+:emphasize-lines: 12,28,145,150
 :::
 
 ::::
@@ -427,55 +436,48 @@ logger for `TemperatureControllerAttributeIO` to log the commands it sends.
 Try setting a PV and check the console for the log message it prints.
 
 ```
-[2025-11-18 11:26:41.065+0000 I] Sending attribute value      [TemperatureControllerAttributeIO] command=E01=70, attribute=AttrRW(path=R1.end, datatype=Int, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='E'))
+[2026-01-01 11:26:41.065+0000 I] Sending attribute value      [fastcs] command=E01=70
 ```
 
-A similar log message could be added for the update method of the IO, but this would be
-very verbose. For this use case FastCS provides the `Tracer` class, which is inherited
-by `AttributeIO`, among other core FastCS classes. This enables the logging of `TRACE`
-level log messages that are disabled by default, but can be enabled at runtime.
+A similar log message could be added for the getters, but this would be very verbose.
+For this use case FastCS provides the `Tracer` class, which can be inherited by anything
+that wants to support selective, per-instance logging - `Attribute` and `BaseController`
+already do. This enables the logging of `TRACE` level log messages that are disabled by
+default, but can be enabled at runtime.
 
-Update the `send` method of the IO to log a message showing the query that was sent and
-the response from the device. Update the `configure_logging` call to pass
-`LogLevel.TRACE` as the log level, so that when tracing is enabled the messages are
-visible.
+Make `TemperatureProtocol` inherit `Tracer` too, and update `send_query` to take a
+`topic` argument and log a message showing the query that was sent and the response
+from the device via `self.log_event`, passing through the attribute doing the query as
+the `topic`. Update each getter to pass its own attribute as `topic`. Update the
+`configure_logging` call to pass `LogLevel.TRACE` as the log level, so that when tracing
+is enabled the messages are visible.
 
 ::::{admonition} Code 15
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static15.py
-:emphasize-lines: 13,49-51,118
+:emphasize-lines: 12,14,21,34-36,41,125,153
 :::
 
 ::::
 
 Enable tracing on the `power` attribute by calling `enable_tracing` and then enable a
-ramp so that the value updates. Check the console to see the messages.  Call
+ramp so that the value updates. Check the console to see the messages. Call
 `disable_tracing` to disable the log messages for `power`.
 
 ```
 In [1]: controller.power.enable_tracing()
-[2025-11-18 11:11:12.060+0000 T] Query for attribute          [TemperatureControllerAttributeIO] query=P?, response=0.0
-[2025-11-18 11:11:12.060+0000 T] Attribute set                [AttrR] attribute=AttrR(path=power, datatype=Float, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='P')), value=0.0
-[2025-11-18 11:11:12.060+0000 T] PV set from attribute        [fastcs.transports.epics.ca.ioc] pv=DEMO:Power, value=0.0
-[2025-11-18 11:11:12.194+0000 I] PV put: DEMO:R1:Enabled = 1  [fastcs.transports.epics.ca.ioc] pv=DEMO:R1:Enabled, value=1
-[2025-11-18 11:11:12.195+0000 I] Sending attribute value      [TemperatureControllerAttributeIO] command=N01=1, attribute=AttrRW(path=R1.enabled, datatype=Enum, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='N'))
-[2025-11-18 11:11:12.261+0000 T] Update attribute             [AttrR]
-[2025-11-18 11:11:12.262+0000 T] Query for attribute          [TemperatureControllerAttributeIO] query=P?, response=29.040181873093132
-[2025-11-18 11:11:12.262+0000 T] Attribute set                [AttrR] attribute=AttrR(path=power, datatype=Float, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='P')), value=29.040181873093132
-[2025-11-18 11:11:12.262+0000 T] PV set from attribute        [fastcs.transports.epics.ca.ioc] pv=DEMO:Power, value=29.04
-[2025-11-18 11:11:12.463+0000 T] Update attribute             [AttrR]
-[2025-11-18 11:11:12.464+0000 T] Query for attribute          [TemperatureControllerAttributeIO] query=P?, response=30.452524641833854
-[2025-11-18 11:11:12.464+0000 T] Attribute set                [AttrR] attribute=AttrR(path=power, datatype=Float, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='P')), value=30.452524641833854
-[2025-11-18 11:11:12.465+0000 T] PV set from attribute        [fastcs.transports.epics.ca.ioc] pv=DEMO:Power, value=30.45
+[2026-01-01 11:11:12.060+0000 T] Query for attribute          [fastcs] query=P?, response=0.0
+[2026-01-01 11:11:12.194+0000 I] PV put: DEMO:R1:Enabled = 1  [fastcs.transports.epics.ca.ioc] pv=DEMO:R1:Enabled, value=1
+[2026-01-01 11:11:12.195+0000 I] Sending attribute value      [fastcs] command=N01=1
+[2026-01-01 11:11:12.262+0000 T] Query for attribute          [fastcs] query=P?, response=29.040181873093132
+[2026-01-01 11:11:12.463+0000 T] Query for attribute          [fastcs] query=P?, response=30.452524641833854
 In [2]: controller.power.disable_tracing()
 ```
 
-These log messages include other trace loggers that log messages with `power` as the
-`topic`, so they also appear automatically, so the log messages show changes to the
-attribute throughout the stack: the query to the device and its response, the value the
-attribute is set to, and the value that the PV in the EPICS CA transport is set to.
-
+Only messages with `power` as their topic appear, even though every attribute's getter
+is querying the device on the same period - other attributes' queries stay silent until
+tracing is enabled on them too.
 
 :::{note}
 The `Tracer` can also be used as a module-level instance for use in free functions.

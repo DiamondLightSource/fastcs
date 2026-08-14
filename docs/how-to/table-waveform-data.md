@@ -129,7 +129,7 @@ await controller.channel_data.update(data)
 
 ```python
 # Get the table
-table = controller.results.get()
+table = controller.results.readback
 
 # Access by column name
 names = table["name"]

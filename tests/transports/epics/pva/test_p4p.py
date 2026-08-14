@@ -12,6 +12,7 @@ from p4p import Value
 from p4p.client.asyncio import Context
 from p4p.client.thread import Context as ThreadContext
 from p4p.nt import NTTable
+from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerVector
@@ -62,6 +63,7 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
     assert child_pvi["display"] == {"description": "some sub controller"}
     assert child_pvi["value"] == {
         "c": {"w": f"{pv_prefix}:Child:1:C"},
+        "clamped": {"rw": f"{pv_prefix}:Child:1:Clamped"},
         "d": {"x": f"{pv_prefix}:Child:1:D"},
         "e": {"r": f"{pv_prefix}:Child:1:E"},
         "f": {"rw": f"{pv_prefix}:Child:1:F"},
@@ -70,6 +72,12 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         "i": {"x": f"{pv_prefix}:Child:1:I"},
         "j": {"r": f"{pv_prefix}:Child:1:J"},
     }
+
+    initial_value = await ctxt.get(f"{pv_prefix}:Child:1:Clamped_RBV")
+    assert initial_value  # Clamped initial value is truthy
+    assert (
+        await ctxt.get(f"{pv_prefix}:Child:1:Clamped") == initial_value
+    )  # Setpoint is synced
 
 
 @pytest.mark.asyncio
@@ -654,3 +662,55 @@ def test_block_flag_waits_for_callback_completion():
         assert (
             pytest.approx((end - start).total_seconds(), abs=0.1) == expected_duration
         )
+
+
+@pytest.mark.asyncio
+async def test_setpoint_seeded_by_initial_poll_reaches_transport(
+    mocker: MockerFixture,
+):
+    """The PVs must exist by the end of ``connect()``, not ``serve()``.
+
+    An ``AttrRW`` seeds its setpoint from its first readback (ADR 0020), and that
+    readback comes from the initial poll - which ``FastCS.serve`` runs *before* it
+    gathers the transports' ``serve()`` coroutines. A PV built in ``serve()`` would
+    miss the seed and keep serving the datatype default, so the setpoint PV read
+    ``0`` while ``attribute.setpoint`` read the seeded value.
+    """
+
+    class SeedController(Controller):
+        def __init__(self):
+            super().__init__()
+            self.a = AttrRW(Int(), getter=self.get_a)
+
+        async def get_a(self) -> int:
+            return 10
+
+    controller = SeedController()
+    controller.set_path([str(uuid4())])
+    await controller.initialise()
+    controller.post_initialise()
+    controller_api, _, initial_coros = controller.create_api_and_tasks()
+
+    attribute = controller_api.attributes["a"]
+    assert isinstance(attribute, AttrRW)
+    published: list[int] = []
+    register_callback = attribute.add_setpoint_callback
+
+    def record_setpoints(callback):
+        async def wrapper(value):
+            published.append(value)
+            await callback(value)
+
+        register_callback(wrapper)
+
+    mocker.patch.object(attribute, "add_setpoint_callback", record_setpoints)
+
+    transport = EpicsPVATransport()
+    transport.connect(controller_apis=[controller_api], loop=asyncio.get_running_loop())
+
+    # Nothing has awaited transport.serve() at this point - as in FastCS.serve()
+    for coro in initial_coros:
+        await coro()
+
+    assert attribute.setpoint == 10
+    assert published == [10]

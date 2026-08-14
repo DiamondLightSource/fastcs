@@ -8,7 +8,6 @@ from pytest_mock import MockerFixture
 from softioc import softioc
 from tests.assertable_controller import (
     AssertableControllerAPI,
-    MyTestAttributeIORef,
     MyTestController,
 )
 from tests.util import ColourEnum
@@ -54,7 +53,7 @@ async def test_create_and_link_read_pv(mocker: MockerFixture):
     record = make_record.return_value
 
     attribute = AttrR(Int())
-    attribute.add_on_update_callback = mocker.MagicMock()
+    attribute.add_readback_callback = mocker.MagicMock()
 
     _create_and_link_read_pv("PREFIX", "PV", "attr", None, attribute)
 
@@ -62,8 +61,8 @@ async def test_create_and_link_read_pv(mocker: MockerFixture):
     add_attr_pvi_info.assert_called_once_with(record, "PREFIX", "attr", "r")
 
     # Extract the callback generated and set in the function and call it
-    attribute.add_on_update_callback.assert_called_once_with(mocker.ANY)
-    record_set_callback = attribute.add_on_update_callback.call_args[0][0]
+    attribute.add_readback_callback.assert_called_once_with(mocker.ANY)
+    record_set_callback = attribute.add_readback_callback.call_args[0][0]
     await record_set_callback(1)
 
     record.set.assert_called_once_with(1)
@@ -228,27 +227,32 @@ async def test_create_and_link_write_pv(mocker: MockerFixture):
     )
     record = make_record.return_value
 
-    attribute = AttrW(Int())
-    attribute.put = mocker.AsyncMock()
-    attribute.add_sync_setpoint_callback = mocker.MagicMock()
+    attribute = AttrRW(Int())
+    attribute.set = mocker.AsyncMock()
+    attribute.add_setpoint_callback = mocker.MagicMock()
 
     _create_and_link_write_pv("PREFIX", "PV", "attr", None, attribute)
 
     make_record.assert_called_once_with("PREFIX:PV", attribute, on_update=mocker.ANY)
     add_attr_pvi_info.assert_called_once_with(record, "PREFIX", "attr", "w")
 
-    # Extract the write update callback generated and set in the function and call it
-    attribute.add_sync_setpoint_callback.assert_called_once_with(mocker.ANY)
-    sync_setpoint_callback = attribute.add_sync_setpoint_callback.call_args[0][0]
-    await sync_setpoint_callback(1)
+    # Extract the setpoint callback generated and set in the function
+    attribute.add_setpoint_callback.assert_called_once_with(mocker.ANY)
+    set_setpoint_callback = attribute.add_setpoint_callback.call_args[0][0]
+    await set_setpoint_callback(1)
 
     record.set.assert_called_once_with(1, process=False)
+
+    # Unlike the old one-shot seeding, every setpoint change is mirrored.
+    record.set.reset_mock()
+    await set_setpoint_callback(2)
+    record.set.assert_called_once_with(2, process=False)
 
     # Extract the on update callback generated and set in the function and call it
     on_update_callback = make_record.call_args[1]["on_update"]
     await on_update_callback(1)
 
-    attribute.put.assert_called_once_with(1)
+    attribute.set.assert_called_once_with(1)
 
 
 class LongEnum(enum.Enum):
@@ -343,11 +347,11 @@ def test_get_output_record_raises(mocker: MockerFixture):
 
 
 class EpicsController(MyTestController):
-    read_int = AttrR(Int(), io_ref=MyTestAttributeIORef())
-    read_write_int = AttrRW(Int(), io_ref=MyTestAttributeIORef())
+    read_int = AttrR(Int())
+    read_write_int = AttrRW(Int())
     read_write_float = AttrRW(Float())
     read_bool = AttrR(Bool())
-    write_bool = AttrW(Bool(), io_ref=MyTestAttributeIORef())
+    write_bool = AttrW(Bool())
     read_string = AttrRW(String())
     enum = AttrRW(Enum(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2})))
     one_d_waveform = AttrRW(Waveform(np.int32, (10,)))

@@ -98,8 +98,8 @@ class TestRestServer:
         enum_attr = rest_controller_api.attributes["enum"]
         assert isinstance(enum_attr, AttrRW)
         enum_cls = enum_attr.datatype.dtype
-        assert isinstance(enum_attr.get(), enum_cls)
-        assert enum_attr.get() == enum_cls(0)
+        assert isinstance(enum_attr.readback, enum_cls)
+        assert enum_attr.readback == enum_cls(0)
         expect = 0
         with rest_controller_api.assert_read_here(["enum"]):
             response = test_client.get("/enum")
@@ -109,8 +109,8 @@ class TestRestServer:
         with rest_controller_api.assert_write_here(["enum"]):
             response = test_client.put("/enum", json={"value": new})
         assert test_client.get("/enum").json()["value"] == new
-        assert isinstance(enum_attr.get(), enum_cls)
-        assert enum_attr.get() == enum_cls(2)
+        assert isinstance(enum_attr.readback, enum_cls)
+        assert enum_attr.readback == enum_cls(2)
 
     def test_1d_waveform(
         self, rest_controller_api: AssertableControllerAPI, test_client: TestClient
@@ -118,8 +118,8 @@ class TestRestServer:
         attribute = rest_controller_api.attributes["one_d_waveform"]
         expect = np.zeros((10,), dtype=np.int32)
         assert isinstance(attribute, AttrRW)
-        assert np.array_equal(attribute.get(), expect)
-        assert isinstance(attribute.get(), np.ndarray)
+        assert np.array_equal(attribute.readback, expect)
+        assert isinstance(attribute.readback, np.ndarray)
 
         with rest_controller_api.assert_read_here(["one_d_waveform"]):
             response = test_client.get("one-d-waveform")
@@ -131,8 +131,8 @@ class TestRestServer:
 
         result = test_client.get("/one-d-waveform")
         assert np.array_equal(result.json()["value"], new)
-        assert np.array_equal(attribute.get(), new)
-        assert isinstance(attribute.get(), np.ndarray)
+        assert np.array_equal(attribute.readback, new)
+        assert isinstance(attribute.readback, np.ndarray)
 
     def test_2d_waveform(
         self, rest_controller_api: AssertableControllerAPI, test_client: TestClient
@@ -140,8 +140,8 @@ class TestRestServer:
         attribute = rest_controller_api.attributes["two_d_waveform"]
         assert isinstance(attribute, AttrRW)
         expect = np.zeros((10, 10), dtype=np.int32)
-        assert np.array_equal(attribute.get(), expect)
-        assert isinstance(attribute.get(), np.ndarray)
+        assert np.array_equal(attribute.readback, expect)
+        assert isinstance(attribute.readback, np.ndarray)
 
         with rest_controller_api.assert_read_here(["two_d_waveform"]):
             result = test_client.get("/two-d-waveform")
@@ -152,8 +152,8 @@ class TestRestServer:
 
         result = test_client.get("/two-d-waveform")
         assert np.array_equal(result.json()["value"], new)
-        assert np.array_equal(attribute.get(), new)
-        assert isinstance(attribute.get(), np.ndarray)
+        assert np.array_equal(attribute.readback, new)
+        assert isinstance(attribute.readback, np.ndarray)
 
     def test_go(
         self, rest_controller_api: AssertableControllerAPI, test_client: TestClient

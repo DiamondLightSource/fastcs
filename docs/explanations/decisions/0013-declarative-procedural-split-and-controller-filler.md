@@ -107,7 +107,7 @@ class TemperatureRampController(Controller):
             await conn.send_command(f"S{suffix}={value}\r\n")
 
         # datatype int is inferred from get_start's return annotation
-        self.start = AttrRW(getter=get_start, setter=set_start, poll_period=0.2)
+        self.start = AttrRW(getter=Polled(get_start, period=0.2), setter=set_start)
 ```
 
 **Declarative hint + filler** — the value is *promised* by a hint; the

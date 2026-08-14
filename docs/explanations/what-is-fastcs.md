@@ -22,9 +22,8 @@ without modification.
 A FastCS application has three layers:
 
 **Controller** - a Python class that models the device. It holds attributes and
-commands, implements connection logic, and creates periodic polling tasks. The
-controller can create `AttributeIO`s to handle `update` and `send` operations between
-attributes and the device.
+commands, implements connection logic, and creates periodic polling tasks. Attributes
+take `getter`/`setter` callables that read and write values on the device.
 
 **Attributes and commands** - typed values (`AttrR`, `AttrW`, `AttrRW`) and callable
 actions (`@command`) declared on the controller. Attributes represent the device's

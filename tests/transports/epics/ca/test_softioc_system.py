@@ -16,6 +16,7 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     assert parent_pvi["value"] == {
         "a": {"r": f"{pv_prefix}:A"},
         "b": {"r": f"{pv_prefix}:B_RBV", "w": f"{pv_prefix}:B"},
+        "clamped": {"r": f"{pv_prefix}:Clamped_RBV", "w": f"{pv_prefix}:Clamped"},
         "childvector": {"d": f"{pv_prefix}:ChildVector:PVI"},
     }
 
@@ -44,6 +45,10 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
         "c": {"w": f"{pv_prefix}:ChildVector:0:C"},
         "d": {"x": f"{pv_prefix}:ChildVector:0:D"},
     }
+
+    initial_value = ctxt.get(f"{pv_prefix}:Clamped_RBV")
+    assert initial_value  # Clamped initial value is truthy
+    assert ctxt.get(f"{pv_prefix}:Clamped") == initial_value  # Setpoint is synced
 
     # Assert alias. Aliases do not show up in PVI structure
     assert ctxt.get(f"{pv_prefix}:B") == ctxt.get(f"{pv_prefix}:AliasB") == 0
