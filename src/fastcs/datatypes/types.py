@@ -3,7 +3,7 @@
 There is no ``DataType`` object: an attribute's datatype *is* a python type,
 and everything that used to hang off a ``DataType`` instance - precision,
 units, limits, array shape - now travels separately as a ``*Meta`` typed dict
-(see `fastcs.datatypes.meta`).
+(see :py:mod:`fastcs.datatypes.meta`).
 """
 
 from __future__ import annotations

@@ -9,7 +9,7 @@ type error rather than a field silently ignored at runtime.
 `Meta` is the superset of every field, all optional. It is what a declarative
 extras object (such as the demo's ``SCPIParam``) takes, since an
 ``Annotated[...]`` extra cannot tie its metadata to the attribute's datatype
-statically - the `ControllerFiller` validates those at fill time instead.
+statically - the ``ControllerFiller`` validates those at fill time instead.
 """
 
 from __future__ import annotations

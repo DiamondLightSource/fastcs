@@ -543,12 +543,7 @@ async def test_more_exotic_datatypes():
     ]
 
     for expected_enum, actual_enum in zip(expected_enum_gets, enum_values, strict=True):
-        assert (
-            expected_enum
-            == controller.some_enum.datatype.members[  # type: ignore
-                actual_enum.todict()["value"]["index"]
-            ]
-        )
+        assert expected_enum == list(AnEnum)[actual_enum.todict()["value"]["index"]]
 
 
 def test_command_method_put_twice(caplog):

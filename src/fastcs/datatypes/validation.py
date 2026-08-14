@@ -53,7 +53,7 @@ def validate_meta(dtype: type[DType], meta: Meta, name: str = "attribute") -> No
 
     The runtime counterpart of the ``Unpack[*Meta]`` overloads on the
     constructors, for metadata that arrived without a static check - from a
-    `ControllerFiller` extras object, say.
+    ``ControllerFiller`` extras object, say.
 
     Args:
         dtype: The python type the attribute holds
