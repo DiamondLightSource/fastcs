@@ -1,0 +1,13 @@
+``fastcs.methods.scan``
+=======================
+
+.. automodule:: fastcs.methods.scan
+    :members:
+
+    
+    
+    
+
+    
+    
+    

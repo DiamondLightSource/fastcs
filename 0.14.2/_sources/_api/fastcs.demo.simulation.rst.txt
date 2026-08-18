@@ -1,0 +1,22 @@
+``fastcs.demo.simulation``
+==========================
+
+.. automodule:: fastcs.demo.simulation
+    :members:
+
+    
+    
+    .. rubric:: Submodules
+
+    .. autosummary::
+        :toctree:
+        :template: custom-module-template.rst
+        :recursive:
+    
+        device
+    
+    
+
+    
+    
+    

@@ -1,0 +1,23 @@
+``fastcs.exceptions``
+=====================
+        
+        
+
+.. automodule:: fastcs.exceptions
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        FastCSError
+        LaunchError
+    
+    
