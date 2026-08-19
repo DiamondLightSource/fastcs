@@ -28,24 +28,33 @@ class Method(Generic[Controller_T], Tracer):
         if not iscoroutinefunction(fn):
             raise TypeError("Method must be async function")
 
-    def _validate_takes_no_arguments(self, kind: str, expected: int) -> None:
+    def _validate_takes_no_arguments(self, expected: int) -> None:
         """Reject a method that takes anything beyond its bound ``self``.
 
         Args:
-            kind: What the method is, to name it in the error
             expected: How many parameters a no-argument method has here - one
                 for an unbound method, which still declares ``self``
 
         Raises:
-            TypeError: If the method takes arguments
+            TypeError: If the method takes arguments. The message describes
+                the fault alone - the caller catches it to say what kind of
+                method it was.
 
         """
         if len(self.parameters) != expected:
-            raise TypeError(f"{kind} method cannot have arguments")
+            raise TypeError("method cannot have arguments")
 
-    def _validate_returns_nothing(self, kind: str) -> None:
+    def _validate_returns_nothing(self) -> None:
+        """Reject a method that declares a return type.
+
+        Raises:
+            TypeError: If the method returns something. The message describes
+                the fault alone - the caller catches it to say what kind of
+                method it was.
+
+        """
         if self.return_type not in (None, Signature.empty):
-            raise TypeError(f"{kind} method return type must be None or empty")
+            raise TypeError("method return type must be None or empty")
 
     @property
     def signature(self) -> Signature:

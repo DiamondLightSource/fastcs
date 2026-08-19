@@ -41,8 +41,11 @@ class Scan(Method["BaseController"]):
     def _validate(self, fn: ScanCallback) -> None:
         super()._validate(fn)
 
-        self._validate_takes_no_arguments("Scan", expected=0)
-        self._validate_returns_nothing("Scan")
+        try:
+            self._validate_takes_no_arguments(expected=0)
+            self._validate_returns_nothing()
+        except TypeError as error:
+            raise TypeError(f"Scan {error}") from error
 
     async def __call__(self):
         return await self._fn()
@@ -83,8 +86,11 @@ class UnboundScan(Method[Controller_T]):
         super()._validate(fn)
 
         # The leading parameter is the ``Controller`` this is bound to.
-        self._validate_takes_no_arguments("Scan", expected=1)
-        self._validate_returns_nothing("Scan")
+        try:
+            self._validate_takes_no_arguments(expected=1)
+            self._validate_returns_nothing()
+        except TypeError as error:
+            raise TypeError(f"Scan {error}") from error
 
     def bind(self, controller: Controller_T) -> Scan:
         return Scan(MethodType(self.fn, controller), self._period)

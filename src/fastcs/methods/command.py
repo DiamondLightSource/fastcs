@@ -35,17 +35,31 @@ an array-valued command has an attribute-shaped alternative today.
 """
 
 
-def _validate_datatype(annotation: Any, what: str, fn: Callable) -> type[DType]:
+def _validate_datatype(annotation: Any) -> type[DType]:
+    """Check that an annotation is a type a command can take or return.
+
+    Args:
+        annotation: The annotation of a command parameter or return value
+
+    Returns:
+        The annotation, once it is known to be a type a command can carry
+
+    Raises:
+        TypeError: If the annotation is missing, or is not one of
+            `COMMAND_DTYPES`. The message describes the annotation alone -
+            the caller catches it to say which argument or return value it
+            came from.
+
+    """
     if annotation is Signature.empty:
         raise TypeError(
-            f"{what} of command {fn.__qualname__} has no type annotation. A "
-            "command's argument and return types must be fully known"
+            "has no type annotation. A command's argument and return types "
+            "must be fully known"
         )
 
     if not (isinstance(annotation, type) and issubclass(annotation, COMMAND_DTYPES)):
         raise TypeError(
-            f"{what} of command {fn.__qualname__} has unsupported type "
-            f"{annotation!r}. Commands take and return "
+            f"has unsupported type {annotation!r}. Commands take and return "
             f"{', '.join(t.__name__ for t in COMMAND_DTYPES)}"
         )
 
@@ -86,9 +100,12 @@ def _validate_arguments(
                 "command's arguments must be fully known"
             )
 
-        argument_types.append(
-            _validate_datatype(parameter.annotation, f"Argument '{parameter.name}'", fn)
-        )
+        try:
+            argument_types.append(_validate_datatype(parameter.annotation))
+        except TypeError as error:
+            raise TypeError(
+                f"Argument '{parameter.name}' of command {fn.__qualname__} {error}"
+            ) from error
 
     return tuple(argument_types)
 
@@ -98,7 +115,10 @@ def _validate_return(signature: Signature, fn: Callable) -> type[DType] | None:
     if annotation in (None, Signature.empty):
         return None
 
-    return _validate_datatype(annotation, "Return value", fn)
+    try:
+        return _validate_datatype(annotation)
+    except TypeError as error:
+        raise TypeError(f"Return value of command {fn.__qualname__} {error}") from error
 
 
 class Command(Method["BaseController"], Generic[P, T]):
