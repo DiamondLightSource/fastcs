@@ -1,4 +1,5 @@
 import asyncio
+import sys
 
 import pytest
 
@@ -96,15 +97,30 @@ async def test_a_runner_takes_several_controllers():
 
 
 @pytest.mark.asyncio
-async def test_stop_reports_a_failing_disconnect_without_raising():
+async def test_stop_reports_a_failing_disconnect_without_raising(monkeypatch):
     class UndisconnectableController(LifecycleController):
         async def disconnect(self):
             raise RuntimeError("no")
+
+    logged: list[tuple[str, BaseException | None]] = []
+
+    def record_exception(event, **kwargs):
+        # ``logger.exception`` is called from the ``except`` block, so the
+        # exception it is reporting is the one currently being handled.
+        logged.append((event, sys.exc_info()[1]))
+
+    monkeypatch.setattr("fastcs.controllers.runner.logger.exception", record_exception)
 
     runner = ControllerRunner(UndisconnectableController())
     await runner.start()
 
     await runner.stop()
+
+    assert len(logged) == 1
+    event, error = logged[0]
+    assert event == "Exception during disconnect"
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "no"
 
 
 @pytest.mark.asyncio
@@ -116,7 +132,7 @@ async def test_the_runner_reconnects_a_controller_that_dropped_out(monkeypatch):
         reconnects = 0
 
         async def reconnect(self):
-            type(self).reconnects += 1
+            self.reconnects += 1
             await super().reconnect()
 
     controller = DroppingController()
@@ -130,7 +146,7 @@ async def test_the_runner_reconnects_a_controller_that_dropped_out(monkeypatch):
 
         await asyncio.sleep(0.05)
 
-        assert DroppingController.reconnects >= 1
+        assert controller.reconnects >= 1
         assert controller.connected
     finally:
         await runner.stop()
@@ -144,7 +160,7 @@ async def test_a_failing_reconnect_does_not_stop_the_runner(monkeypatch):
         attempts = 0
 
         async def reconnect(self):
-            type(self).attempts += 1
+            self.attempts += 1
             raise RuntimeError("still down")
 
     controller = UnreconnectableController()
@@ -155,7 +171,7 @@ async def test_a_failing_reconnect_does_not_stop_the_runner(monkeypatch):
         await asyncio.sleep(0.05)
 
         # It keeps trying rather than dying on the first failure
-        assert UnreconnectableController.attempts > 1
+        assert controller.attempts > 1
         assert not controller.connected
     finally:
         await runner.stop()

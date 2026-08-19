@@ -450,14 +450,24 @@ async def test_dynamic_attribute_getter_setter_specification():
     assert c.int_parameter.readback == 20
 
 
+@pytest.mark.parametrize("value", [3, Update(readback=3)], ids=["bare", "Update"])
 @pytest.mark.asyncio
-async def test_a_bare_value_is_stamped_with_the_time_it_arrived():
+async def test_a_value_with_no_timestamp_is_stamped_when_it_arrived(value):
     attr = AttrR(Int())
     before = time.time()
 
-    await attr.update(3)
+    await attr.update(value)
 
     assert before <= attr.timestamp <= time.time()
+
+
+@pytest.mark.parametrize("value", [3, Update(readback=3)], ids=["bare", "Update"])
+@pytest.mark.asyncio
+async def test_a_value_with_no_severity_is_reported_as_no_alarm(value):
+    attr = AttrR(Int())
+
+    await attr.update(value)
+
     assert attr.severity is Severity.NO_ALARM
 
 
@@ -477,17 +487,6 @@ async def test_an_update_can_carry_a_severity():
     await attr.update(Update(readback=3, severity=Severity.MAJOR))
 
     assert attr.severity is Severity.MAJOR
-
-
-@pytest.mark.asyncio
-async def test_an_update_with_no_timestamp_is_stamped_on_arrival():
-    attr = AttrR(Int())
-    before = time.time()
-
-    await attr.update(Update(readback=3))
-
-    assert before <= attr.timestamp <= time.time()
-    assert attr.severity is Severity.NO_ALARM
 
 
 @pytest.mark.asyncio
