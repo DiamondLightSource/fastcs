@@ -28,6 +28,15 @@ class Controller(BaseController):
             )
         return super().add_sub_controller(name, sub_controller)
 
+    @property
+    def connected(self) -> bool:
+        """Whether the controller believes it can talk to its device.
+
+        Set by `connect`/`reconnect`, and cleared when a scan task raises. The
+        `ControllerRunner` reads it to decide when to reconnect.
+        """
+        return self._connected
+
     async def connect(self) -> None:
         """Hook to perform initial connection to device
 
