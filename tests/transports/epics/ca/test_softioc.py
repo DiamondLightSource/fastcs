@@ -213,7 +213,6 @@ def test_make_input_record(
 def _attribute_of_unsupported_datatype(mocker: MockerFixture):
     attribute = mocker.MagicMock()
     attribute.dtype = object
-    attribute.meta = {}
     return attribute
 
 

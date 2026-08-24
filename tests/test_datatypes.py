@@ -18,6 +18,15 @@ from fastcs.datatypes import (
 )
 
 
+class Colour(Enum):
+    RED = "red"
+
+
+_TABLE_META = Meta(
+    structured_dtype=[("int", np.int16), ("bool", np.bool), ("str", np.dtype("S10"))]
+)
+
+
 def test_coerces_to_the_datatype():
     class MyIntEnum(IntEnum):
         A = 0
@@ -84,11 +93,6 @@ def test_numpy_to_python_type(numpy_type, python_type):
     assert numpy_to_python_type(numpy_type) is python_type
 
 
-_TABLE_META = Meta(
-    structured_dtype=[("int", np.int16), ("bool", np.bool), ("str", np.dtype("S10"))]
-)
-
-
 @pytest.mark.parametrize(
     "dtype, value1, value2, expected",
     [
@@ -143,17 +147,11 @@ def test_float_is_rounded_to_its_precision():
         (Array1D[np.int32], np.ndarray, np.int32),
         (np.ndarray, np.ndarray, None),
         (Table, np.ndarray, None),
+        (Colour, Colour, None),
     ],
 )
 def test_resolve_datatype(spelling, dtype, element_type):
     assert resolve_datatype(spelling) == (dtype, element_type)
-
-
-def test_resolve_datatype_takes_an_enum_class():
-    class Colour(Enum):
-        RED = "red"
-
-    assert resolve_datatype(Colour) == (Colour, None)
 
 
 @pytest.mark.parametrize("spelling", ["float", 3, list[int]])

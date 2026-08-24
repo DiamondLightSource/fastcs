@@ -30,6 +30,20 @@ DType_T = TypeVar("DType_T", bound=DType)
 NumpyScalar_T = TypeVar("NumpyScalar_T", bound=np.generic, covariant=True)
 """The element type of a numpy array"""
 
+Enum_T = TypeVar("Enum_T", bound=enum.Enum)
+"""A TypeVar of any `enum.Enum` subclass an attribute can hold"""
+
+Array_T = TypeVar("Array_T", bound=np.ndarray)
+"""A TypeVar of any numpy array an attribute can hold"""
+
+Inferred_T = TypeVar("Inferred_T", bound=DType)
+"""A TypeVar of `DType` for the constructor overload that infers the datatype
+
+Distinct from `DType_T` because the overload binds it from the getter or setter
+in the same signature that annotates ``self``, and a class-scoped TypeVar cannot
+be used there.
+"""
+
 Array1D: TypeAlias = np.ndarray[tuple[int], np.dtype[NumpyScalar_T]]
 """A one dimensional numpy array, subscripted with its element type.
 
@@ -121,19 +135,3 @@ def _element_type_of(alias: Any) -> DTypeLike | None:
     dtype_args = get_args(args[1])
 
     return dtype_args[0] if dtype_args else None
-
-
-Enum_T = TypeVar("Enum_T", bound=enum.Enum)
-"""A TypeVar of any `enum.Enum` subclass an attribute can hold"""
-
-Array_T = TypeVar("Array_T", bound=np.ndarray)
-"""A TypeVar of any numpy array an attribute can hold"""
-
-
-Inferred_T = TypeVar("Inferred_T", bound=DType)
-"""A TypeVar of `DType` for the constructor overload that infers the datatype
-
-Distinct from `DType_T` because the overload binds it from the getter or setter
-in the same signature that annotates ``self``, and a class-scoped TypeVar cannot
-be used there.
-"""
