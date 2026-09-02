@@ -1,11 +1,65 @@
 {
   "$defs": {
+    "EnumMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "pv": {
+          "title": "Pv",
+          "type": "string"
+        },
+        "mapping": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Mapping",
+          "type": "object"
+        }
+      },
+      "required": [
+        "pv",
+        "mapping"
+      ],
+      "title": "EnumMapping",
+      "type": "object"
+    },
     "EpicsCAOptions": {
       "additionalProperties": false,
       "properties": {
         "aliases": {
           "additionalProperties": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/EnumMapping"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/$defs/EnumMapping"
+                },
+                "type": "array"
+              }
+            ]
           },
           "title": "Aliases",
           "type": "object"
@@ -181,13 +235,13 @@
           "title": "Id",
           "type": "string"
         },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
         "type": {
           "const": "tests.IsHinted",
           "title": "Type",
-          "type": "string"
-        },
-        "name": {
-          "title": "Name",
           "type": "string"
         }
       },
@@ -206,15 +260,15 @@
           "title": "Host",
           "type": "string"
         },
-        "port": {
-          "default": 8080,
-          "title": "Port",
-          "type": "integer"
-        },
         "log_level": {
           "default": "info",
           "title": "Log Level",
           "type": "string"
+        },
+        "port": {
+          "default": 8080,
+          "title": "Port",
+          "type": "integer"
         }
       },
       "title": "RestServerOptions",
@@ -232,15 +286,15 @@
     },
     "TangoDSROptions": {
       "properties": {
-        "dsr_instance": {
-          "default": "MY_SERVER_INSTANCE",
-          "title": "Dsr Instance",
-          "type": "string"
-        },
         "debug": {
           "default": false,
           "title": "Debug",
           "type": "boolean"
+        },
+        "dsr_instance": {
+          "default": "MY_SERVER_INSTANCE",
+          "title": "Dsr Instance",
+          "type": "string"
         }
       },
       "title": "TangoDSROptions",
