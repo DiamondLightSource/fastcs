@@ -53,6 +53,13 @@ subscript, so it does not have to be repeated in the metadata::
 
     AttrR(Array1D[np.int32], shape=(10,))
 
+Neither the subscript nor the ``shape`` has to be repeated in the metadata, and
+``shape`` may be left off entirely to take the default. numpy's own
+``npt.NDArray[np.int32]`` is the same spelling with an unbounded shape and is
+accepted wherever `Array1D` is::
+
+    AttrR(npt.NDArray[np.int32])
+
 Arrays of higher rank have no ophyd-async-compatible spelling; write them as
 ``np.ndarray`` with an explicit ``array_dtype``::
 

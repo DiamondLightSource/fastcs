@@ -97,10 +97,12 @@ the maximum shape is metadata:
 
 ```python
 import numpy as np
+import numpy.typing as npt
 from fastcs.attributes import AttrR
 from fastcs.datatypes import Array1D
 
 spectrum = AttrR(Array1D[np.float64], shape=(1000,))
+counts = AttrR(npt.NDArray[np.int32])  # numpy's own spelling, default shape
 image = AttrR(np.ndarray, array_dtype=np.uint16, shape=(1024, 1024))
 ```
 

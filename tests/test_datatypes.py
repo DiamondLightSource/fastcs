@@ -1,6 +1,7 @@
 from enum import Enum, IntEnum
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from fastcs.datatypes import (
@@ -145,6 +146,9 @@ def test_float_is_rounded_to_its_precision():
         (bool, bool, None),
         (str, str, None),
         (Array1D[np.int32], np.ndarray, np.int32),
+        # numpy's own alias for a subscripted array is the same spelling with an
+        # unbounded shape, so it resolves the same way.
+        (npt.NDArray[np.int32], np.ndarray, np.int32),
         (np.ndarray, np.ndarray, None),
         (Table, np.ndarray, None),
         (Colour, Colour, None),

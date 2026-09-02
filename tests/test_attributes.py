@@ -2,12 +2,20 @@ import asyncio
 from functools import partial
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled, Polled, Update
 from fastcs.controllers import Controller
-from fastcs.datatypes import Array1D, Limits, Meta, NumericLimits, Table
+from fastcs.datatypes import (
+    DEFAULT_ARRAY_SHAPE,
+    Array1D,
+    Limits,
+    Meta,
+    NumericLimits,
+    Table,
+)
 from fastcs.util import ONCE
 
 
@@ -492,6 +500,15 @@ def test_array_element_type_comes_from_the_datatype():
     assert attr.dtype is np.ndarray
     assert attr.meta.get("array_dtype") is np.int32
     assert np.array_equal(attr.readback, np.zeros(4, dtype=np.int32))
+
+
+def test_an_array_needs_neither_shape_nor_array_dtype():
+    attr = AttrR(npt.NDArray[np.int32])
+
+    assert attr.dtype is np.ndarray
+    assert attr.meta.get("array_dtype") is np.int32
+    assert attr.readback.dtype == np.int32
+    assert attr.readback.shape == DEFAULT_ARRAY_SHAPE
 
 
 def test_array_element_type_is_not_given_twice():
