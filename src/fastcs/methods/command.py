@@ -1,5 +1,5 @@
 import enum
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Sequence
 from inspect import Parameter, Signature
 from types import MethodType
 from typing import TYPE_CHECKING, Any, Concatenate, Generic, ParamSpec, TypeVar
@@ -67,15 +67,14 @@ def _validate_datatype(annotation: Any) -> type[DType]:
 
 
 def _validate_arguments(
-    signature: Signature, fn: Callable, *, skip: int
+    parameters: Sequence[Parameter], fn: Callable
 ) -> tuple[type[DType], ...]:
     """Check a command's parameters and collect their types.
 
     Args:
-        signature: The command's signature
+        parameters: The parameters that are the command's arguments. An unbound
+            method still declares ``self``, so its caller drops the leading one
         fn: The wrapped function, to name it in errors
-        skip: Leading parameters that are not command arguments - one for an
-            unbound method, which still declares ``self``
 
     Returns:
         The type of each argument, in order
@@ -84,8 +83,6 @@ def _validate_arguments(
         TypeError: If a parameter is not a positional argument of a known type
 
     """
-    parameters = list(signature.parameters.values())[skip:]
-
     argument_types = []
     for parameter in parameters:
         if parameter.kind is Parameter.KEYWORD_ONLY:
@@ -140,7 +137,7 @@ class Command(Method["BaseController"], Generic[P, T]):
     def _validate(self, fn: CommandCallback[P, T]) -> None:
         super()._validate(fn)
 
-        self._argument_types = _validate_arguments(self.signature, fn, skip=0)
+        self._argument_types = _validate_arguments(list(self.parameters.values()), fn)
         self._return_datatype = _validate_return(self.signature, fn)
 
     @property
@@ -204,7 +201,7 @@ class UnboundCommand(Method[Controller_T], Generic[Controller_T, P, T]):
 
         # The leading parameter is the ``Controller`` this is bound to, not an
         # argument of the command.
-        _validate_arguments(self.signature, fn, skip=1)
+        _validate_arguments(list(self.parameters.values())[1:], fn)
         _validate_return(self.signature, fn)
 
     def bind(self, controller: Controller_T) -> Command[P, T]:
