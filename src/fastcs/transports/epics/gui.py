@@ -1,3 +1,6 @@
+import enum
+
+import numpy as np
 from pvi.device import (
     LED,
     ArrayTrace,
@@ -24,14 +27,7 @@ from pydantic import ValidationError
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import (
-    Bool,
-    Enum,
-    Float,
-    Int,
-    String,
-    Waveform,
-)
+from fastcs.datatypes import DEFAULT_ARRAY_SHAPE, DEFAULT_PRECISION
 from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.transports.epics.util import pv_prefix_from_path
@@ -51,45 +47,50 @@ class EpicsGUI:
         return f"{attr_prefix}:{snake_to_pascal(name)}"
 
     def _get_read_widget(self, attribute: Attribute) -> ReadWidgetUnion | None:
-        match attribute.datatype:
-            case Bool():
-                return LED()
-            case Int():
-                return TextRead(precision=0)
-            case Float(prec=precision):
-                return TextRead(precision=precision)
-            case String():
-                return TextRead(format=TextFormat.string)
-            case Enum():
-                return TextRead(format=TextFormat.string)
-            case Waveform() as waveform:
-                if len(waveform.shape) > 1:
-                    logger.warning(
-                        "EPICS CA transport only supports 1D waveforms, "
-                        f"{attribute} is a {len(waveform.shape)}D waveform"
-                    )
-                    return None
+        dtype = attribute.dtype
+        if dtype is bool:
+            return LED()
+        if dtype is int:
+            return TextRead(precision=0)
+        if dtype is float:
+            return TextRead(
+                precision=attribute.meta.get("precision", DEFAULT_PRECISION)
+            )
+        if dtype is str:
+            return TextRead(format=TextFormat.string)
+        if issubclass(dtype, enum.Enum):
+            return TextRead(format=TextFormat.string)
+        if issubclass(dtype, np.ndarray):
+            shape = attribute.meta.get("shape", DEFAULT_ARRAY_SHAPE)
+            if len(shape) > 1:
+                logger.warning(
+                    "EPICS CA transport only supports 1D waveforms, "
+                    f"{attribute} is a {len(shape)}D waveform"
+                )
+                return None
 
-                return ArrayTrace(axis="x")
-            case datatype:
-                raise TypeError(f"Unsupported type {type(datatype)}: {datatype}")
+            return ArrayTrace(axis="x")
+
+        raise TypeError(f"Unsupported type {dtype}")
 
     def _get_write_widget(self, attribute: Attribute) -> WriteWidgetUnion | None:
-        match attribute.datatype:
-            case Bool():
-                return ToggleButton()
-            case Int():
-                return TextWrite(precision=0)
-            case Float(prec=precision):
-                return TextWrite(precision=precision)
-            case String():
-                return TextWrite(format=TextFormat.string)
-            case Enum():
-                return ComboBox(choices=attribute.datatype.names)
-            case Waveform():
-                return None
-            case datatype:
-                raise TypeError(f"Unsupported type {type(datatype)}: {datatype}")
+        dtype = attribute.dtype
+        if dtype is bool:
+            return ToggleButton()
+        if dtype is int:
+            return TextWrite(precision=0)
+        if dtype is float:
+            return TextWrite(
+                precision=attribute.meta.get("precision", DEFAULT_PRECISION)
+            )
+        if dtype is str:
+            return TextWrite(format=TextFormat.string)
+        if issubclass(dtype, enum.Enum):
+            return ComboBox(choices=[member.name for member in dtype])
+        if issubclass(dtype, np.ndarray):
+            return None
+
+        raise TypeError(f"Unsupported type {dtype}")
 
     def _get_attribute_component(
         self, attr_path: list[str], name: str, attribute: Attribute
@@ -163,6 +164,11 @@ class EpicsGUI:
 
         groups: dict[str, list[ComponentUnion]] = {}
         for attr_name, attribute in controller_api.attributes.items():
+            if not attribute.enabled:
+                # The IOC is built before the GUI, so anything it could not
+                # serve has already said so - don't draw a control for it.
+                continue
+
             try:
                 signal = self._get_attribute_component(
                     controller_api.path,
@@ -189,6 +195,9 @@ class EpicsGUI:
                     components.append(signal)
 
         for name, command in controller_api.command_methods.items():
+            if not command.enabled:
+                continue
+
             signal = self._get_command_component(controller_api.path, name)
 
             match command:

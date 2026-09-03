@@ -3,7 +3,6 @@ from pathlib import Path
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Int
 from fastcs.methods import command
 from fastcs.transports.epics.ca.transport import (
     EpicsCAOptions,
@@ -13,13 +12,13 @@ from fastcs.transports.epics.ca.transport import (
 
 
 class ParentController(Controller):
-    a: AttrR = AttrR(Int())
-    b: AttrRW = AttrRW(Int())
+    a: AttrR = AttrR(int)
+    b: AttrRW = AttrRW(int)
 
     def __init__(self, description: str | None = None) -> None:
         super().__init__(description)
         self._clamped = 5
-        self.clamped = AttrRW(Int(), getter=self.get_clamped, setter=self.set_clamped)
+        self.clamped = AttrRW(int, getter=self.get_clamped, setter=self.set_clamped)
 
     async def get_clamped(self) -> int:
         return self._clamped
@@ -30,7 +29,7 @@ class ParentController(Controller):
 
 
 class ChildController(Controller):
-    c: AttrW = AttrW(Int())
+    c: AttrW = AttrW(int)
 
     @command()
     async def d(self):

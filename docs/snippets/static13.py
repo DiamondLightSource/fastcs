@@ -7,7 +7,6 @@ from typing import TypeVar
 from fastcs.attributes import AttrR, AttrRW, Polled
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import Enum, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.methods import command, scan
 from fastcs.transports.epics import EpicsGUIOptions
@@ -43,23 +42,19 @@ class TemperatureRampController(Controller):
         super().__init__(f"Ramp{suffix}")
 
         self.start = AttrRW(
-            Int(),
-            getter=Polled(self._get_start, period=0.2),
-            setter=self._set_start,
+            int, getter=Polled(self._get_start, period=0.2), setter=self._set_start
         )
         self.end = AttrRW(
-            Int(),
-            getter=Polled(self._get_end, period=0.2),
-            setter=self._set_end,
+            int, getter=Polled(self._get_end, period=0.2), setter=self._set_end
         )
         self.enabled = AttrRW(
-            Enum(OnOffEnum),
+            OnOffEnum,
             getter=Polled(self._get_enabled, period=0.2),
             setter=self._set_enabled,
         )
-        self.target = AttrR(Float(), getter=Polled(self._get_target, period=0.2))
-        self.actual = AttrR(Float(), getter=Polled(self._get_actual, period=0.2))
-        self.voltage = AttrR(Float())
+        self.target = AttrR(float, getter=Polled(self._get_target, period=0.2))
+        self.actual = AttrR(float, getter=Polled(self._get_actual, period=0.2))
+        self.voltage = AttrR(float)
 
     async def _get_start(self) -> int:
         return await self._protocol.send_query("S", int)
@@ -94,10 +89,10 @@ class TemperatureController(Controller):
 
         super().__init__()
 
-        self.device_id = AttrR(String(), getter=Polled(self._get_device_id, period=0.2))
-        self.power = AttrR(Float(), getter=Polled(self._get_power, period=0.2))
+        self.device_id = AttrR(str, getter=Polled(self._get_device_id, period=0.2))
+        self.power = AttrR(float, getter=Polled(self._get_power, period=0.2))
         self.ramp_rate = AttrRW(
-            Float(),
+            float,
             getter=Polled(self._get_ramp_rate, period=0.2),
             setter=self._set_ramp_rate,
         )

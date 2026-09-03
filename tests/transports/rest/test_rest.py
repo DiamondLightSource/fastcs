@@ -9,20 +9,20 @@ from tests.assertable_controller import AssertableControllerAPI, MyTestControlle
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
+from fastcs.datatypes import Array1D
 from fastcs.transports.rest.transport import RestTransport
 
 
 class RestController(MyTestController):
-    read_int = AttrR(Int())
-    read_write_int = AttrRW(Int())
-    read_write_float = AttrRW(Float())
-    read_bool = AttrR(Bool())
-    write_bool = AttrW(Bool())
-    read_string = AttrRW(String())
-    enum = AttrRW(Enum(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2})))
-    one_d_waveform = AttrRW(Waveform(np.int32, (10,)))
-    two_d_waveform = AttrRW(Waveform(np.int32, (10, 10)))
+    read_int = AttrR(int)
+    read_write_int = AttrRW(int)
+    read_write_float = AttrRW(float)
+    read_bool = AttrR(bool)
+    write_bool = AttrW(bool)
+    read_string = AttrRW(str)
+    enum = AttrRW(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2}))
+    one_d_waveform = AttrRW(Array1D[np.int32], shape=(10,))
+    two_d_waveform = AttrRW(Array1D[np.int32], shape=(10, 10))
 
 
 @pytest.fixture(scope="class")
@@ -97,7 +97,7 @@ class TestRestServer:
     ):
         enum_attr = rest_controller_api.attributes["enum"]
         assert isinstance(enum_attr, AttrRW)
-        enum_cls = enum_attr.datatype.dtype
+        enum_cls = enum_attr.dtype
         assert isinstance(enum_attr.readback, enum_cls)
         assert enum_attr.readback == enum_cls(0)
         expect = 0

@@ -4,6 +4,7 @@ from p4p.server import Server, StaticProvider
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
+from fastcs.logging import logger
 from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
@@ -40,6 +41,18 @@ def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
                     provider.add(f"{full_pv_name}", attribute_pv)
 
         for attr_name, method in controller_api.command_methods.items():
+            if not method.is_void:
+                # As for CA: PVA has no typed-call representation either, so a
+                # typed command is skipped with a warning (ADR 0015).
+                logger.warning(
+                    "EPICS PVA transport cannot serve a command that takes "
+                    "arguments or returns a value",
+                    command=attr_name,
+                    signature=str(method.signature),
+                )
+                method.enabled = False
+                continue
+
             full_pv_name = f"{pv_prefix}:{snake_to_pascal(attr_name)}"
             command_pv = make_command_pv(method.fn)
             provider.add(f"{full_pv_name}", command_pv)

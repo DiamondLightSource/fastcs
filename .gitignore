@@ -1,5 +1,8 @@
 /*bob
 
+# GUI files emitted by the example IOCs in tests/
+/opis/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

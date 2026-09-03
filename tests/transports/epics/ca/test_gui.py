@@ -22,7 +22,7 @@ from tests.util import ColourEnum
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
+from fastcs.datatypes import Array1D
 from fastcs.transports.epics.emission import INDEX_STEM, emit_gui_files
 from fastcs.transports.epics.gui import EpicsGUI
 from fastcs.transports.epics.options import EpicsGUIOptions
@@ -37,50 +37,50 @@ def test_get_pv():
 
 
 @pytest.mark.parametrize(
-    "datatype, widget",
+    "attribute, widget",
     [
-        (Bool(), LED()),
-        (Int(), TextRead()),
-        (Float(), TextRead()),
-        (String(), TextRead(format=TextFormat.string)),
-        (Enum(ColourEnum), TextRead(format=TextFormat.string)),
-        (Waveform(array_dtype=np.int32), ArrayTrace(axis="x")),
+        (AttrR(bool), LED()),
+        (AttrR(int), TextRead()),
+        (AttrR(float), TextRead()),
+        (AttrR(str), TextRead(format=TextFormat.string)),
+        (AttrR(ColourEnum), TextRead(format=TextFormat.string)),
+        (AttrR(Array1D[np.int32]), ArrayTrace(axis="x")),
     ],
 )
-def test_get_attribute_component_r(datatype, widget):
+def test_get_attribute_component_r(attribute, widget):
     gui = EpicsGUI(ControllerAPI())
 
-    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(datatype)) == SignalR(
+    assert gui._get_attribute_component(["DEVICE"], "Attr", attribute) == SignalR(
         name="Attr", read_pv="DEVICE:Attr", read_widget=widget
     )
 
 
 @pytest.mark.parametrize(
-    "datatype",
+    "attribute",
     [
-        (Waveform(array_dtype=np.int32, shape=(10, 10))),
+        AttrR(np.ndarray, array_dtype=np.int32, shape=(10, 10)),
     ],
 )
-def test_get_attribute_component_r_signal_none(datatype):
+def test_get_attribute_component_r_signal_none(attribute):
     gui = EpicsGUI(ControllerAPI())
 
-    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(datatype)) is None
+    assert gui._get_attribute_component(["DEVICE"], "Attr", attribute) is None
 
 
 @pytest.mark.parametrize(
-    "datatype, widget",
+    "attribute, widget",
     [
-        (Bool(), ToggleButton()),
-        (Int(), TextWrite()),
-        (Float(), TextWrite()),
-        (String(), TextWrite(format=TextFormat.string)),
-        (Enum(ColourEnum), ComboBox(choices=["RED", "GREEN", "BLUE"])),
+        (AttrW(bool), ToggleButton()),
+        (AttrW(int), TextWrite()),
+        (AttrW(float), TextWrite()),
+        (AttrW(str), TextWrite(format=TextFormat.string)),
+        (AttrW(ColourEnum), ComboBox(choices=["RED", "GREEN", "BLUE"])),
     ],
 )
-def test_get_attribute_component_w(datatype, widget):
+def test_get_attribute_component_w(attribute, widget):
     gui = EpicsGUI(ControllerAPI())
 
-    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrW(datatype)) == SignalW(
+    assert gui._get_attribute_component(["DEVICE"], "Attr", attribute) == SignalW(
         name="Attr", write_pv="DEVICE:Attr", write_widget=widget
     )
 
@@ -90,16 +90,14 @@ def test_get_attribute_component_none(mocker):
 
     mocker.patch.object(gui, "_get_read_widget", return_value=None)
     mocker.patch.object(gui, "_get_write_widget", return_value=None)
-    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(Int())) is None
-    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrW(Int())) is None
-    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrRW(Int())) is None
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(int)) is None
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrW(int)) is None
+    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrRW(int)) is None
 
 
 def test_get_write_widget_none():
     gui = EpicsGUI(ControllerAPI())
-    assert (
-        gui._get_write_widget(attribute=AttrR(Waveform(array_dtype=np.int32))) is None
-    )
+    assert gui._get_write_widget(attribute=AttrR(Array1D[np.int32])) is None
 
 
 def test_get_components(controller):
@@ -195,11 +193,11 @@ def test_get_command_component():
 
 
 class _A(Controller):
-    foo = AttrR(Int())
+    foo = AttrR(int)
 
 
 class _B(Controller):
-    bar = AttrR(Int())
+    bar = AttrR(int)
 
 
 def _api_with_id(cls, name):

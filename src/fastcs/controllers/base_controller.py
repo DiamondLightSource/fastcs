@@ -283,12 +283,12 @@ class BaseController(Tracer):
                     f"hinted attribute '{name}' does not match defined access mode. "
                     f"Expected '{hint.attr_type.__name__}' got '{type(attr).__name__}'."
                 )
-            if hint.dtype is not None and hint.dtype != attr.datatype.dtype:
+            if hint.dtype is not None and hint.dtype != attr.dtype:
                 raise RuntimeError(
                     f"Controller '{self.__class__.__name__}' introspection of "
                     f"hinted attribute '{name}' does not match defined datatype. "
                     f"Expected '{hint.dtype.__name__}', "
-                    f"got '{attr.datatype.dtype.__name__}'."
+                    f"got '{attr.dtype.__name__}'."
                 )
 
         attr.set_name(name)

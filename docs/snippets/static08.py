@@ -4,7 +4,6 @@ from typing import TypeVar
 from fastcs.attributes import AttrR, Polled
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, String
 from fastcs.launch import FastCS
 from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -35,8 +34,8 @@ class TemperatureController(Controller):
 
         super().__init__()
 
-        self.device_id = AttrR(String(), getter=Polled(self._get_device_id, period=0.2))
-        self.power = AttrR(Float(), getter=Polled(self._get_power, period=0.2))
+        self.device_id = AttrR(str, getter=Polled(self._get_device_id, period=0.2))
+        self.power = AttrR(float, getter=Polled(self._get_power, period=0.2))
 
     async def _get_device_id(self) -> str:
         return await self._protocol.send_query("ID", str)
