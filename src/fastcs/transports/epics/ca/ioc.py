@@ -156,30 +156,18 @@ def _create_and_link_attribute_pvs(
                 continue
 
             pv_name = snake_to_pascal(attr_name)
-            full_pv_name_length = len(f"{pv_prefix}:{pv_name}")
-            if full_pv_name_length > EPICS_MAX_NAME_LENGTH:
+            if not _validate_pv_length(attr_name, f"{pv_prefix}:{pv_name}"):
                 attribute.enabled = False
-                logger.warning(
-                    f"Not creating PV for {attr_name} for controller"
-                    f" {controller_api.path} as full name would exceed"
-                    f" {EPICS_MAX_NAME_LENGTH} characters"
-                )
                 continue
 
             alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
             match attribute:
                 case AttrRW():
-                    if full_pv_name_length > (EPICS_MAX_NAME_LENGTH - 4):
-                        logger.warning(
-                            f"Not creating PVs for {attr_name} as _RBV PV"
-                            f" name would exceed {EPICS_MAX_NAME_LENGTH}"
-                            " characters"
-                        )
+                    rbv_pv = f"{pv_prefix}:{pv_name}{RBV_SUFFIX}"
+                    if not _validate_pv_length(attr_name, rbv_pv):
                         attribute.enabled = False
                     else:
-                        alias_rbv = aliases.get(
-                            f"{pv_prefix}:{pv_name}{RBV_SUFFIX}", None
-                        )
+                        alias_rbv = aliases.get(rbv_pv, None)
                         _create_and_link_read_pv(
                             pv_prefix,
                             f"{pv_name}{RBV_SUFFIX}",
@@ -234,7 +222,7 @@ def _create_and_link_read_pv(
 
     for alias in aliases:
         if isinstance(alias, str):
-            _add_alias(record, alias)
+            _add_alias(record, alias, attr_name)
         elif isinstance(alias, EnumMapping):
             enum_attr = _get_read_enum_attr_from_type(alias)
             _add_read_enum_alias(alias, attribute, enum_attr)
@@ -275,7 +263,7 @@ def _create_and_link_write_pv(
 
     for alias in aliases:
         if isinstance(alias, str):
-            _add_alias(record, alias)
+            _add_alias(record, alias, attr_name)
         elif isinstance(alias, EnumMapping):
             enum_attr = _get_write_enum_attr_from_type(alias)
             _add_write_enum_alias(alias, attribute, enum_attr)
@@ -295,11 +283,7 @@ def _create_and_link_command_pvs(
             pv_name = snake_to_pascal(attr_name)
             alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
 
-            if len(f"{pv_prefix}:{pv_name}") > EPICS_MAX_NAME_LENGTH:
-                print(
-                    f"Not creating PV for {attr_name} as full name would exceed"
-                    f" {EPICS_MAX_NAME_LENGTH} characters"
-                )
+            if not _validate_pv_length(attr_name, f"{pv_prefix}:{pv_name}"):
                 method.enabled = False
             else:
                 _create_and_link_command_pv(
@@ -337,7 +321,7 @@ def _create_and_link_command_pv(
 
     for alias in aliases:
         if isinstance(alias, str):
-            _add_alias(record, alias)
+            _add_alias(record, alias, attr_name)
         elif isinstance(alias, EnumMapping):
             enum_attr = _get_write_enum_attr_from_type(alias)
             _add_command_enum_alias(alias, method, enum_attr)
@@ -374,14 +358,19 @@ def _add_attr_pvi_info(
     )
 
 
-def _add_alias(record: RecordWrapper, alias: str | None):
+def _validate_pv_length(attribute_name: str, pv: str):
+    if len(pv) > EPICS_MAX_NAME_LENGTH:
+        logger.warning(
+            f"Not creating PV '{pv}' for {attribute_name}, as full name would exceed"
+            f" {EPICS_MAX_NAME_LENGTH} characters"
+        )
+        return False
+    return True
+
+
+def _add_alias(record: RecordWrapper, alias: str, attr_name: str):
     if alias is not None:
-        if len(alias) > EPICS_MAX_NAME_LENGTH:
-            logger.warning(
-                f"Not creating alias {alias}, as full name would exceed"
-                f" {EPICS_MAX_NAME_LENGTH} characters"
-            )
-        else:
+        if _validate_pv_length(attr_name, alias):
             record.add_alias(alias)
 
 
@@ -431,6 +420,9 @@ def _add_command_enum_alias(
     method: Command,
     enum_attr: AttrW[EnumT],
 ):
+    if not _validate_pv_length(str(method), alias.pv):
+        return
+
     async def trigger_command(value) -> None:
         logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
         cast_value = cast_from_epics_type(enum_attr.datatype, value)
@@ -467,11 +459,18 @@ def _add_command_enum_alias(
 def _add_read_enum_alias(
     alias: EnumMapping, attribute: AttrR[DType_T], enum_attr: AttrR[EnumT]
 ):
+    if not _validate_pv_length(attribute.name, alias.pv):
+        return
+
     enum = enum_attr.datatype.dtype
 
     async def convert_from_value(value) -> None:
         converted_value = next(
-            (k for k, v in alias.mapping.items() if v == value),
+            (
+                name
+                for name, mapped_value in alias.mapping.items()
+                if mapped_value == value
+            ),
             None,
         )
 
@@ -504,6 +503,9 @@ def _add_write_enum_alias(
     attribute: AttrW[DType_T],
     enum_attr: AttrW[EnumT],
 ):
+    if not _validate_pv_length(attribute.name, alias.pv):
+        return
+
     async def convert_to_value(value) -> None:
         logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
         cast_value = cast_from_epics_type(enum_attr.datatype, value)
@@ -532,3 +534,23 @@ def _add_write_enum_alias(
 
     record = _make_out_record(alias.pv, enum_attr, on_update=convert_to_value)
     _sync_setpoint(alias.pv, enum_attr, record)
+
+    async def update_enum_alias(value: DType_T) -> None:
+        converted_value = next(
+            (
+                name
+                for name, mapped_value in alias.mapping.items()
+                if mapped_value == value
+            ),
+            None,
+        )
+
+        if converted_value is not None:
+            enum_value = enum_attr.datatype.dtype[converted_value]
+            record.set(
+                cast_to_epics_type(enum_attr.datatype, enum_value),
+                process=False,
+            )
+
+    if isinstance(attribute, AttrR):
+        attribute.add_on_update_callback(update_enum_alias)
