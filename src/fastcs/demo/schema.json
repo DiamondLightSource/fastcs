@@ -11,16 +11,16 @@
           "additionalProperties": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "boolean"
               },
               {
-                "type": "string"
+                "type": "integer"
               },
               {
                 "type": "number"
               },
               {
-                "type": "boolean"
+                "type": "string"
               }
             ]
           },
