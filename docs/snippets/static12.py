@@ -7,7 +7,6 @@ from typing import TypeVar
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import Enum, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.methods import scan
 from fastcs.transports.epics import EpicsGUIOptions
@@ -52,12 +51,12 @@ class OnOffEnum(enum.StrEnum):
 
 
 class TemperatureRampController(Controller):
-    start = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="S"))
-    end = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="E"))
-    enabled = AttrRW(Enum(OnOffEnum), io_ref=TemperatureControllerAttributeIORef("N"))
-    target = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("T"))
-    actual = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("A"))
-    voltage = AttrR(Float())
+    start = AttrRW(int, io_ref=TemperatureControllerAttributeIORef(name="S"))
+    end = AttrRW(int, io_ref=TemperatureControllerAttributeIORef(name="E"))
+    enabled = AttrRW(OnOffEnum, io_ref=TemperatureControllerAttributeIORef("N"))
+    target = AttrR(float, io_ref=TemperatureControllerAttributeIORef("T"))
+    actual = AttrR(float, io_ref=TemperatureControllerAttributeIORef("A"))
+    voltage = AttrR(float)
 
     def __init__(self, index: int, connection: IPConnection) -> None:
         suffix = f"{index:02d}"
@@ -67,9 +66,9 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
-    device_id = AttrR(String(), io_ref=TemperatureControllerAttributeIORef("ID"))
-    power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("P"))
-    ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef("R"))
+    device_id = AttrR(str, io_ref=TemperatureControllerAttributeIORef("ID"))
+    power = AttrR(float, io_ref=TemperatureControllerAttributeIORef("P"))
+    ramp_rate = AttrRW(float, io_ref=TemperatureControllerAttributeIORef("R"))
 
     def __init__(self, ramp_count: int, settings: IPConnectionSettings):
         self._ip_settings = settings

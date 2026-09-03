@@ -13,7 +13,6 @@ from fastcs import __version__
 from fastcs.attributes import AttrR
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
-from fastcs.datatypes import Int
 from fastcs.exceptions import LaunchError
 from fastcs.launch import (
     _build_options_model,
@@ -45,7 +44,7 @@ class NotHinted(Controller):
 
 
 class IsHinted(Controller):
-    read = AttrR(Int())
+    read = AttrR(int)
 
     def __init__(self, arg: SomeConfig) -> None:
         super().__init__()

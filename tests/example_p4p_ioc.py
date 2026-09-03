@@ -6,7 +6,7 @@ import numpy as np
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, Table, Waveform
+from fastcs.datatypes import Array1D, DType_T, Limits, NumericLimits, Table
 from fastcs.launch import FastCS
 from fastcs.methods import command, scan
 from fastcs.transports.epics.pva import EpicsPVATransport
@@ -34,12 +34,19 @@ class FEnum(enum.Enum):
 class ParentController(Controller):
     description = "some controller"
     a: AttrRW = AttrRW(
-        Int(max=400_000, max_alarm=40_000), io_ref=SimpleAttributeIORef()
+        int,
+        limits=NumericLimits(control=Limits(high=400_000), alarm=Limits(high=40_000)),
+        io_ref=SimpleAttributeIORef(),
     )
-    b: AttrW = AttrW(Float(min=-1, min_alarm=-0.5), io_ref=SimpleAttributeIORef())
+    b: AttrW = AttrW(
+        float,
+        limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5)),
+        io_ref=SimpleAttributeIORef(),
+    )
 
     table: AttrRW = AttrRW(
-        Table([("A", np.int32), ("B", "i"), ("C", "?"), ("D", np.float64)]),
+        Table,
+        structured_dtype=[("A", np.int32), ("B", "i"), ("C", "?"), ("D", np.float64)],
         io_ref=SimpleAttributeIORef(),
     )
 
@@ -49,7 +56,7 @@ class ParentController(Controller):
 
 class ChildController(Controller):
     fail_on_next_e = True
-    c: AttrW = AttrW(Int(), io_ref=SimpleAttributeIORef())
+    c: AttrW = AttrW(int, io_ref=SimpleAttributeIORef())
 
     def __init__(self, description=None, ios=None):
         super().__init__(description, ios)
@@ -61,15 +68,15 @@ class ChildController(Controller):
         print("D: FINISHED")
         await self.j.update(self.j.get() + 1)
 
-    e: AttrR = AttrR(Bool(), io_ref=SimpleAttributeIORef())
+    e: AttrR = AttrR(bool, io_ref=SimpleAttributeIORef())
 
     @scan(1)
     async def flip_flop(self):
         await self.e.update(not self.e.get())
 
-    f: AttrRW = AttrRW(Enum(FEnum))
-    g: AttrRW = AttrRW(Waveform(np.int64, shape=(3,)))
-    h: AttrRW = AttrRW(Waveform(np.float64, shape=(3, 3)))
+    f: AttrRW = AttrRW(FEnum)
+    g: AttrRW = AttrRW(Array1D[np.int64], shape=(3,))
+    h: AttrRW = AttrRW(Array1D[np.float64], shape=(3, 3))
 
     @command()
     async def i(self):
@@ -83,7 +90,7 @@ class ChildController(Controller):
             print("I: FINISHED")
             await self.j.update(self.j.get() + 1)
 
-    j: AttrR = AttrR(Int())
+    j: AttrR = AttrR(int)
 
 
 def run(id="P4P_TEST_DEVICE"):
@@ -93,7 +100,7 @@ def run(id="P4P_TEST_DEVICE"):
     controller.set_path([id])
 
     class ChildVector(ControllerVector):
-        vector_attribute: AttrR = AttrR(Int())
+        vector_attribute: AttrR = AttrR(int)
 
         def __init__(self, children, description=None):
             super().__init__(children, description)

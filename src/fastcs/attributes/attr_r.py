@@ -2,12 +2,24 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Coroutine
-from typing import Any
+from typing import Any, Unpack, overload
 
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
 from fastcs.attributes.attribute_io_ref import AttributeIORefT
 from fastcs.attributes.util import AttrValuePredicate, PredicateEvent
-from fastcs.datatypes import DataType, DType_T
+from fastcs.datatypes import (
+    Array1DMeta,
+    Array_T,
+    BoolMeta,
+    DType_T,
+    Enum_T,
+    EnumMeta,
+    FloatMeta,
+    IntMeta,
+    StrMeta,
+    Table,
+    TableMeta,
+)
 from fastcs.logging import logger
 
 AttrIOUpdateCallback = Callable[["AttrR[DType_T, Any]"], Coroutine[None, None, None]]
@@ -21,17 +33,88 @@ AttrOnUpdateCallback = Callable[[DType_T], Coroutine[None, None, None]]
 class AttrR(Attribute[DType_T, AttributeIORefT]):
     """A read-only ``Attribute``"""
 
+    # One overload per datatype, so that metadata a datatype has no use for is
+    # a type error rather than a field silently ignored: ``AttrR(str,
+    # precision=3)`` does not type check.
+    #
+    # Overload resolution takes the first datatype a call matches, and ``bool``
+    # matches ``int`` while ``int`` matches ``float``. So ``AttrR(bool,
+    # units=...)`` resolves to the ``int`` overload rather than failing here -
+    # the constructor's runtime check is what rejects it. A call whose metadata
+    # is valid always picks its own datatype's overload.
+    @overload
+    def __init__(
+        self: AttrR[bool, AttributeIORefT],
+        datatype: type[bool],
+        io_ref: AttributeIORefT | None = None,
+        initial_value: bool | None = None,
+        **meta: Unpack[BoolMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[int, AttributeIORefT],
+        datatype: type[int],
+        io_ref: AttributeIORefT | None = None,
+        initial_value: int | None = None,
+        **meta: Unpack[IntMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[float, AttributeIORefT],
+        datatype: type[float],
+        io_ref: AttributeIORefT | None = None,
+        initial_value: float | None = None,
+        **meta: Unpack[FloatMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[str, AttributeIORefT],
+        datatype: type[str],
+        io_ref: AttributeIORefT | None = None,
+        initial_value: str | None = None,
+        **meta: Unpack[StrMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[Enum_T, AttributeIORefT],
+        datatype: type[Enum_T],
+        io_ref: AttributeIORefT | None = None,
+        initial_value: Enum_T | None = None,
+        **meta: Unpack[EnumMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[Table, AttributeIORefT],
+        datatype: type[Table],
+        io_ref: AttributeIORefT | None = None,
+        initial_value: Table | None = None,
+        **meta: Unpack[TableMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[Array_T, AttributeIORefT],
+        datatype: type[Array_T],
+        io_ref: AttributeIORefT | None = None,
+        initial_value: Array_T | None = None,
+        **meta: Unpack[Array1DMeta],
+    ) -> None: ...
+
     def __init__(
         self,
-        datatype: DataType[DType_T],
+        datatype: Any,
         io_ref: AttributeIORefT | None = None,
-        group: str | None = None,
-        initial_value: DType_T | None = None,
-        description: str | None = None,
+        initial_value: Any = None,
+        **meta: Any,
     ) -> None:
-        super().__init__(datatype, io_ref, group, description=description)
+        super().__init__(datatype, io_ref, **meta)
         self._value: DType_T = (
-            datatype.initial_value if initial_value is None else initial_value
+            self.default_value() if initial_value is None else initial_value
         )
         self._update_callback: AttrIOUpdateCallback[DType_T] | None = None
         """Callback to update the value of the attribute with an IO to the source"""
@@ -74,7 +157,7 @@ class AttrR(Attribute[DType_T, AttributeIORefT]):
 
         _previous_value = self._value
         try:
-            self._value = self._datatype.validate(value)
+            self._value = self.validate(value)
         except ValueError:
             logger.error("Failed to validate value", value=repr(value), attribute=self)
             raise
@@ -89,7 +172,7 @@ class AttrR(Attribute[DType_T, AttributeIORefT]):
             callbacks_to_call: list[AttrOnUpdateCallback[DType_T]] = [
                 cb
                 for cb, always in self._on_update_callbacks
-                if always or not self.datatype.equal(self._value, _previous_value)
+                if always or not self.equal(self._value, _previous_value)
             ]
             try:
                 await asyncio.gather(*[cb(self._value) for cb in callbacks_to_call])
