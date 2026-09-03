@@ -447,7 +447,11 @@ def _add_read_enum_alias(
 
     async def convert_from_value(value) -> None:
         converted_value = next(
-            (k for k, v in alias.mapping.items() if v == value),
+            (
+                name
+                for name, mapped_value in alias.mapping.items()
+                if mapped_value == value
+            ),
             None,
         )
 
@@ -511,3 +515,23 @@ def _add_write_enum_alias(
 
     record = _make_out_record(alias.pv, enum_attr, on_update=convert_to_value)
     _sync_setpoint(alias.pv, enum_attr, record)
+
+    async def update_enum_alias(value: DType_T) -> None:
+        converted_value = next(
+            (
+                name
+                for name, mapped_value in alias.mapping.items()
+                if mapped_value == value
+            ),
+            None,
+        )
+
+        if converted_value is not None:
+            enum_value = enum_attr.datatype.dtype[converted_value]
+            record.set(
+                cast_to_epics_type(enum_attr.datatype, enum_value),
+                process=False,
+            )
+
+    if isinstance(attribute, AttrR):
+        attribute.add_on_update_callback(update_enum_alias)
