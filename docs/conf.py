@@ -104,6 +104,9 @@ nitpick_ignore = [
     ("docutils", "fastcs.demo.temperature_attr.TemperatureControllerSettings"),
     # TypeVar without docstrings still give warnings
     ("py:class", "strawberry.schema.schema.Schema"),
+    # A ParamSpec gets no target of its own, so `Command[P, T]` renders a
+    # reference to a bare `P` that resolves to nothing
+    ("py:class", "P"),
 ]
 nitpick_ignore_regex = [
     ("py:class", r"fastcs.*.DType_T"),
