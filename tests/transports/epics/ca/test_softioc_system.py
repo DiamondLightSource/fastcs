@@ -44,6 +44,10 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     assert child_pvi["value"] == {
         "c": {"w": f"{pv_prefix}:ChildVector:0:C"},
         "d": {"x": f"{pv_prefix}:ChildVector:0:D"},
+        "e": {
+            "r": f"{pv_prefix}:ChildVector:0:E_RBV",
+            "w": f"{pv_prefix}:ChildVector:0:E",
+        },
     }
 
     # Assert alias. Aliases do not show up in PVI structure
@@ -54,7 +58,42 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     assert ctxt.get(f"{pv_prefix}:B") == 20
     assert ctxt.get(f"{pv_prefix}:B_RBV") == ctxt.get(f"{pv_prefix}:AliasB_RBV") == 20
 
+    # Assert enum alias. Enum aliases do not show up in PVI structure
+    enum_value = ctxt.get(f"{pv_prefix}:ChildVector:0:E")
+    assert enum_value == 0
+    assert str(enum_value) == "Invalid"  # Default for underlying enum attr
+    aliased_enum_value = ctxt.get(f"{pv_prefix}:EnumAliasE")
+    assert aliased_enum_value == 0
+    assert str(aliased_enum_value) == "Off"  # Default for alias enum attr
+
+    ctxt.put(f"{pv_prefix}:EnumAliasE", 1, wait=True)
+    assert (
+        str(ctxt.get(f"{pv_prefix}:EnumAliasE")) == "On"
+    )  # 'On' is index 1, but maps to value '2'
+    converted_enum_value = ctxt.get(f"{pv_prefix}:ChildVector:0:E")
+    assert converted_enum_value == 2  # Underlying enum attr gets put with 2
+    assert str(converted_enum_value) == "Active"
+    assert str(ctxt.get(f"{pv_prefix}:ChildVector:0:E_RBV")) == "Active"
+
+    ctxt.put(f"{pv_prefix}:ChildVector:0:E", 1, wait=True)
+    assert str(ctxt.get(f"{pv_prefix}:ChildVector:0:E_RBV")) == "Idle"
+    assert (
+        str(ctxt.get(f"{pv_prefix}:EnumAliasE_RBV")) == "Off"
+    )  # Aliased enum gets converted update
+    assert str(ctxt.get(f"{pv_prefix}:EnumAliasE")) == "Off"
+
     # Assert command exceptions set record alarm states
     ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
-    d_alarm = ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR")
-    assert d_alarm == alarm.MAJOR_ALARM
+    assert ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR") == alarm.MAJOR_ALARM
+    ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
+    assert (
+        ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR") == alarm.NO_ALARM
+    )  # Second put resets alarm
+
+    # Assert command aliased to enum
+    ctxt.put(
+        f"{pv_prefix}:EnumAliasD", "Active", wait=True
+    )  # This aliases to True on command 'D'
+    assert ctxt.get(f"{pv_prefix}:EnumAliasD.SEVR") == alarm.MAJOR_ALARM
+    ctxt.put(f"{pv_prefix}:EnumAliasD", "Active", wait=True)
+    assert ctxt.get(f"{pv_prefix}:EnumAliasD.SEVR") == alarm.NO_ALARM
