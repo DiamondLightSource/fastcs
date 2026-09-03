@@ -65,7 +65,12 @@ def _make_p4p_raw_value(pv_prefix: str, controller_api: ControllerAPI) -> dict:
     for pv_leaf, attribute in controller_api.attributes.items():
         # Add attribute entry
         pv = f"{pv_prefix}:{snake_to_pascal(pv_leaf)}"
-        p4p_raw_value[pv_leaf][attribute.access_mode] = pv
+        match attribute.access_mode:
+            case "rw":
+                entry = {"r": f"{pv}_RBV", "w": pv}
+            case access:
+                entry = {access: pv}
+        p4p_raw_value[pv_leaf].update(entry)
     for pv_leaf, _ in controller_api.command_methods.items():
         pv = f"{pv_prefix}:{snake_to_pascal(pv_leaf)}"
         p4p_raw_value[pv_leaf]["x"] = pv

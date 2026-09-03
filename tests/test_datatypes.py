@@ -43,6 +43,22 @@ def test_validate(datatype, init_args, value):
 
 
 @pytest.mark.parametrize(
+    "datatype, expected",
+    [
+        (Int(min=1), 1),
+        (Float(min=-1.5), 0.0),
+        (Float(min=-1.5, max=1.5), 0.0),
+        (Float(min=-2.0, max=-1.0), -2.0),
+        (Float(max=-1.0), -1.0),
+        (Int(), 0),
+        (Float(), 0.0),
+    ],
+)
+def test_numeric_initial_value_uses_zero_or_available_bound(datatype, expected):
+    assert datatype.initial_value == expected
+
+
+@pytest.mark.parametrize(
     "numpy_type, fastcs_datatype",
     [
         (np.float16, Float()),
