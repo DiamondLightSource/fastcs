@@ -35,11 +35,19 @@ class EpicsCAIOC:
     def __init__(
         self,
         controller_apis: list[ControllerAPI],
-        aliases: Mapping[str, str | EnumMapping],
+        aliases: Mapping[str, str | EnumMapping | list[str] | list[EnumMapping]],
     ):
-        alias_pvs = [
-            value if isinstance(value, str) else value.pv for value in aliases.values()
-        ]
+        alias_pvs = []
+
+        for value in aliases.values():
+            if isinstance(value, str):
+                alias_pvs.append(value)
+            elif isinstance(value, EnumMapping):
+                alias_pvs.append(value.pv)
+            else:
+                alias_pvs.extend(
+                    item if isinstance(item, str) else item.pv for item in value
+                )
 
         if duplicate_aliases := [
             alias for alias, count in Counter(alias_pvs).items() if count > 1
@@ -130,7 +138,8 @@ def _add_sub_controller_pvi_info(parent: ControllerAPI):
 
 
 def _create_and_link_attribute_pvs(
-    root_controller_api: ControllerAPI, aliases: Mapping[str, str | EnumMapping]
+    root_controller_api: ControllerAPI,
+    aliases: Mapping[str, str | EnumMapping | list[str] | list[EnumMapping]],
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
@@ -195,7 +204,7 @@ def _create_and_link_read_pv(
     pv_prefix: str,
     pv_name: str,
     attr_name: str,
-    alias: str | EnumMapping | None,
+    alias: str | EnumMapping | list[str] | list[EnumMapping] | None,
     attribute: AttrR[DType_T],
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
@@ -209,11 +218,14 @@ def _create_and_link_read_pv(
 
     record = _make_in_record(pv, attribute)
 
-    if isinstance(alias, str):
-        _add_alias(record, alias, attr_name)
-    elif isinstance(alias, EnumMapping):
-        enum_attr = _get_read_enum_attr_from_type(alias)
-        _add_read_enum_alias(alias, attribute, enum_attr)
+    aliases = alias if isinstance(alias, list) else [alias]
+
+    for alias in aliases:
+        if isinstance(alias, str):
+            _add_alias(record, alias, attr_name)
+        elif isinstance(alias, EnumMapping):
+            enum_attr = _get_read_enum_attr_from_type(alias)
+            _add_read_enum_alias(alias, attribute, enum_attr)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
     attribute.add_on_update_callback(async_record_set)
@@ -234,7 +246,7 @@ def _create_and_link_write_pv(
     pv_prefix: str,
     pv_name: str,
     attr_name: str,
-    alias: str | EnumMapping | None,
+    alias: str | EnumMapping | list[str] | list[EnumMapping] | None,
     attribute: AttrW[DType_T],
 ):
     pv = f"{pv_prefix}:{pv_name}"
@@ -247,18 +259,22 @@ def _create_and_link_write_pv(
 
     record = _make_out_record(pv, attribute, on_update=on_update)
 
-    if isinstance(alias, str):
-        _add_alias(record, alias, attr_name)
-    elif isinstance(alias, EnumMapping):
-        enum_attr = _get_write_enum_attr_from_type(alias)
-        _add_write_enum_alias(alias, attribute, enum_attr)
+    aliases = alias if isinstance(alias, list) else [alias]
+
+    for alias in aliases:
+        if isinstance(alias, str):
+            _add_alias(record, alias, attr_name)
+        elif isinstance(alias, EnumMapping):
+            enum_attr = _get_write_enum_attr_from_type(alias)
+            _add_write_enum_alias(alias, attribute, enum_attr)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
     _sync_setpoint(pv, attribute, record)
 
 
 def _create_and_link_command_pvs(
-    root_controller_api: ControllerAPI, aliases: Mapping[str, str | EnumMapping]
+    root_controller_api: ControllerAPI,
+    aliases: Mapping[str, str | EnumMapping | list[str] | list[EnumMapping]],
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
@@ -283,7 +299,7 @@ def _create_and_link_command_pv(
     pv_prefix: str,
     pv_name: str,
     attr_name: str,
-    alias: str | EnumMapping | None,
+    alias: str | EnumMapping | list[str] | list[EnumMapping] | None,
     method: Command,
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
@@ -301,11 +317,14 @@ def _create_and_link_command_pv(
         ONAM="Active",
     )
 
-    if isinstance(alias, str):
-        _add_alias(record, alias, attr_name)
-    elif isinstance(alias, EnumMapping):
-        enum_attr = _get_write_enum_attr_from_type(alias)
-        _add_command_enum_alias(alias, method, enum_attr)
+    aliases = alias if isinstance(alias, list) else [alias]
+
+    for alias in aliases:
+        if isinstance(alias, str):
+            _add_alias(record, alias, attr_name)
+        elif isinstance(alias, EnumMapping):
+            enum_attr = _get_write_enum_attr_from_type(alias)
+            _add_command_enum_alias(alias, method, enum_attr)
 
     _add_attr_pvi_info(record, pv_prefix, attr_name, "x")
 

@@ -46,6 +46,18 @@
               },
               {
                 "$ref": "#/$defs/EnumMapping"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/$defs/EnumMapping"
+                },
+                "type": "array"
               }
             ]
           },
