@@ -19,7 +19,6 @@ from aioca import purge_channel_caches
 from softioc import builder
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.datatypes import Bool, Float, Int, String
 from fastcs.logging import configure_logging, logger
 from fastcs.logging._logging import LogLevel
 from fastcs.transports.tango.dsr import FASTCS_TANGO_SERVER_NAME, register_dev
@@ -42,12 +41,12 @@ def clear_softioc_records():
 
 
 class BackendTestController(MyTestController):
-    read_int: AttrR = AttrR(Int())
-    read_write_int: AttrRW = AttrRW(Int())
-    read_write_float: AttrRW = AttrRW(Float())
-    read_bool: AttrR = AttrR(Bool())
-    write_bool: AttrW = AttrW(Bool())
-    read_string: AttrRW = AttrRW(String())
+    read_int: AttrR = AttrR(int)
+    read_write_int: AttrRW = AttrRW(int)
+    read_write_float: AttrRW = AttrRW(float)
+    read_bool: AttrR = AttrR(bool)
+    write_bool: AttrW = AttrW(bool)
+    read_string: AttrRW = AttrRW(str)
 
 
 @pytest.fixture

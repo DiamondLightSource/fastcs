@@ -1,3 +1,5 @@
+import enum
+
 import numpy as np
 from p4p import Value
 from p4p.nt import NTEnum, NTNDArray, NTScalar, NTTable
@@ -7,7 +9,6 @@ from p4p.server import ServerOperation
 from p4p.server.asyncio import SharedPV
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
-from fastcs.datatypes import Enum, Table
 from fastcs.methods import CommandCallback
 from fastcs.tracer import Tracer
 
@@ -30,11 +31,12 @@ class WritePvHandler:
 
     async def put(self, pv: SharedPV, op: ServerOperation):
         value = op.value()
-        if isinstance(self._attr_w.datatype, Table):
+        structured_dtype = self._attr_w.meta.get("structured_dtype")
+        if structured_dtype is not None:
             assert isinstance(value, list)
             raw_value = np.array(
                 [tuple(labelled_row.values()) for labelled_row in value],
-                dtype=self._attr_w.datatype.structured_dtype,
+                dtype=structured_dtype,
             )
         elif isinstance(value, Value):
             raw_value = value.todict()["value"]
@@ -48,7 +50,7 @@ class WritePvHandler:
 
         tracer.log_event("PV put", topic=self._attr_w, pv=pv, value=cast_value)
 
-        if isinstance(self._attr_w.datatype, Enum):
+        if issubclass(self._attr_w.dtype, enum.Enum):
             pv.post(cast_to_p4p_value(self._attr_w, cast_value))
         else:
             pv.post(value)
@@ -137,7 +139,7 @@ def make_shared_read_pv(attribute: AttrR) -> SharedPV:
 def make_shared_write_pv(attribute: AttrW) -> SharedPV:
     shared_pv = SharedPV(
         handler=WritePvHandler(attribute),
-        initial=cast_to_p4p_value(attribute, attribute.datatype.initial_value),
+        initial=cast_to_p4p_value(attribute, attribute.default_value()),
         **_make_shared_pv_arguments(attribute),
     )
 

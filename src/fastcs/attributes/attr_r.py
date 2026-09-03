@@ -3,13 +3,27 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import KW_ONLY, dataclass, replace
-from typing import Any, Generic
+from typing import Any, Generic, Unpack, overload
 
 from fastcs.attributes._infer_datatype import infer_datatype_from_getter
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
 from fastcs.attributes.update import Update
 from fastcs.attributes.util import AttrValuePredicate, PredicateEvent
-from fastcs.datatypes import DataType, DType_T
+from fastcs.datatypes import (
+    Array1DMeta,
+    Array_T,
+    BoolMeta,
+    DType_T,
+    Enum_T,
+    EnumMeta,
+    FloatMeta,
+    Inferred_T,
+    IntMeta,
+    Meta,
+    StrMeta,
+    Table,
+    TableMeta,
+)
 from fastcs.logging import logger
 from fastcs.util import ONCE
 
@@ -63,12 +77,95 @@ Schedule = Polled[DType_T] | NotPolled[DType_T]
 class AttrR(Attribute[DType_T]):
     """A read-only ``Attribute``"""
 
+    # One overload per datatype, so that metadata a datatype has no use for is
+    # a type error rather than a field silently ignored: ``AttrR(str,
+    # precision=3)`` does not type check. The last overload is the
+    # inferred-datatype case, where the datatype is only known from the
+    # getter/setter annotation, so the metadata is checked at runtime.
+    #
+    # Overload resolution takes the first datatype a call matches, and ``bool``
+    # matches ``int`` while ``int`` matches ``float``. So ``AttrR(bool,
+    # units=...)`` resolves to the ``int`` overload rather than failing here -
+    # the constructor's runtime check is what rejects it. A call whose metadata
+    # is valid always picks its own datatype's overload.
+    @overload
+    def __init__(
+        self: AttrR[bool],
+        datatype: type[bool],
+        getter: Getter[bool] | Schedule[bool] | None = None,
+        initial_value: bool | None = None,
+        **meta: Unpack[BoolMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[int],
+        datatype: type[int],
+        getter: Getter[int] | Schedule[int] | None = None,
+        initial_value: int | None = None,
+        **meta: Unpack[IntMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[float],
+        datatype: type[float],
+        getter: Getter[float] | Schedule[float] | None = None,
+        initial_value: float | None = None,
+        **meta: Unpack[FloatMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[str],
+        datatype: type[str],
+        getter: Getter[str] | Schedule[str] | None = None,
+        initial_value: str | None = None,
+        **meta: Unpack[StrMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[Enum_T],
+        datatype: type[Enum_T],
+        getter: Getter[Enum_T] | Schedule[Enum_T] | None = None,
+        initial_value: Enum_T | None = None,
+        **meta: Unpack[EnumMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[Table],
+        datatype: type[Table],
+        getter: Getter[Table] | Schedule[Table] | None = None,
+        initial_value: Table | None = None,
+        **meta: Unpack[TableMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[Array_T],
+        datatype: type[Array_T],
+        getter: Getter[Array_T] | Schedule[Array_T] | None = None,
+        initial_value: Array_T | None = None,
+        **meta: Unpack[Array1DMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrR[Inferred_T],
+        datatype: None = None,
+        getter: Getter[Inferred_T] | Schedule[Inferred_T] | None = None,
+        initial_value: Inferred_T | None = None,
+        **meta: Unpack[Meta],
+    ) -> None: ...
+
     def __init__(
         self,
-        datatype: DataType[DType_T] | None = None,
-        getter: Getter[DType_T] | Schedule[DType_T] | None = None,
-        initial_value: DType_T | None = None,
-        **kwargs: Any,
+        datatype: Any = None,
+        getter: Any = None,
+        initial_value: Any = None,
+        **meta: Any,
     ) -> None:
         match getter:
             case Polled() | NotPolled():
@@ -90,12 +187,12 @@ class AttrR(Attribute[DType_T]):
 
         # Pass the datatype on rather than validating it here: in an ``AttrRW`` the
         # setter may still supply it, and ``Attribute`` makes the final check.
-        super().__init__(datatype, **kwargs)
+        super().__init__(datatype, **meta)
 
         self._value: DType_T = (
-            self._datatype.initial_value if initial_value is None else initial_value
+            self.default_value() if initial_value is None else initial_value
         )
-        self._getter = resolved_getter
+        self._getter: Getter[DType_T] | None = resolved_getter
         self._poll_period: float | None = poll_period
         """Period in seconds between calls to poll(), or ONCE, or None (on-demand)"""
         self._readback_callbacks: (
@@ -148,7 +245,7 @@ class AttrR(Attribute[DType_T]):
 
         _previous_value = self._value
         try:
-            self._value = self._datatype.validate(value)
+            self._value = self.validate(value)
         except ValueError:
             logger.error("Failed to validate value", value=repr(value), attribute=self)
             raise
@@ -163,7 +260,7 @@ class AttrR(Attribute[DType_T]):
             callbacks_to_call: list[AttrReadbackCallback[DType_T]] = [
                 cb
                 for cb, always in self._readback_callbacks
-                if always or not self.datatype.equal(self._value, _previous_value)
+                if always or not self.equal(self._value, _previous_value)
             ]
             try:
                 await asyncio.gather(*[cb(self._value) for cb in callbacks_to_call])

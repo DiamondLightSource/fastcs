@@ -12,17 +12,16 @@ from tests.assertable_controller import (
 )
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.datatypes import Bool, Float, Int, String
 from fastcs.transports.graphql.transport import GraphQLTransport
 
 
 class GraphQLController(MyTestController):
-    read_int = AttrR(Int())
-    read_write_int = AttrRW(Int())
-    read_write_float = AttrRW(Float())
-    read_bool = AttrR(Bool())
-    write_bool = AttrW(Bool())
-    read_string = AttrRW(String())
+    read_int = AttrR(int)
+    read_write_int = AttrRW(int)
+    read_write_float = AttrRW(float)
+    read_bool = AttrR(bool)
+    write_bool = AttrW(bool)
+    read_string = AttrRW(str)
 
 
 _GQL_ID = "device"

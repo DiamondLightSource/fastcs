@@ -17,37 +17,36 @@ import httpx
 
 from fastcs.attributes import AttrR, AttrRW, Polled
 from fastcs.controllers import Controller
-from fastcs.datatypes import Bool, DataType, Enum, Float, Int, String
+from fastcs.datatypes import DType
 from fastcs.demo.simulation.eiger import API_PREFIX, Subsystem, ValueType
 
-_DATATYPES: dict[ValueType, type[DataType]] = {
-    "float": Float,
-    "int": Int,
-    "string": String,
-    "bool": Bool,
+_DATATYPES: dict[ValueType, type[DType]] = {
+    "float": float,
+    "int": int,
+    "string": str,
+    "bool": bool,
 }
 
 # Poll period (seconds) for read-only status params that change on the device.
 UPDATE_PERIOD = 0.2
 
 
-def _datatype(param: str, data: dict[str, Any]) -> DataType:
+def _datatype(param: str, data: dict[str, Any]) -> type[DType]:
     """Build a datatype for a parameter from the metadata the device reports.
 
-    A parameter that reports ``allowed_values`` is discrete, so it becomes an `Enum`
-    over an enum class built from those values. The members are only knowable over the
-    wire, which is exactly the case introspection exists for.
+    A parameter that reports ``allowed_values`` is discrete, so it becomes an enum
+    class built from those values. The members are only knowable over the wire,
+    which is exactly the case introspection exists for.
     """
     allowed_values = data.get("allowed_values")
     if allowed_values is None:
-        return _DATATYPES[data["value_type"]]()
+        return _DATATYPES[data["value_type"]]
 
     name = "".join(part.title() for part in param.split("_"))
     # The functional API builds a class; type checkers only see the instance signature.
-    enum_cls = cast(
+    return cast(
         type[enum.Enum], enum.Enum(name, {value: value for value in allowed_values})
     )
-    return Enum(enum_cls)
 
 
 @dataclass
@@ -112,7 +111,7 @@ class EigerDetector(Controller):
     # Derived (soft): built on top of the introspected ``state`` param. Declaring
     # ``state`` as a checked attribute is what lets us reference it in code and
     # publish something computed from it - here, whether the detector is idle.
-    idle = AttrR(Bool())
+    idle = AttrR(bool)
 
     def __init__(
         self,

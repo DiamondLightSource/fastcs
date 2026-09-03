@@ -14,7 +14,6 @@ from fastapi.testclient import TestClient
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import Float
 from fastcs.methods import command
 from fastcs.transports.epics.ca.ioc import EpicsCAIOC
 from fastcs.transports.epics.gui import EpicsGUI
@@ -30,7 +29,7 @@ class TypedCommandController(Controller):
     calls: list[tuple] = []
 
     # The GraphQL transport refuses an API with nothing to read
-    position = AttrR(Float())
+    position = AttrR(float)
 
     @command()
     async def stop(self) -> None:

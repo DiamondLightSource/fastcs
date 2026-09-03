@@ -1,15 +1,22 @@
 import enum
 import re
 from collections.abc import Callable
-from dataclasses import asdict
-from typing import Any
+from typing import Any, cast
 
+import numpy as np
 from softioc import builder
 from softioc.pythonSoftIoc import RecordWrapper
 
-from fastcs.attributes import AttrR, AttrRW, AttrW
+from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Bool, DataType, DType_T, Enum, Float, Int, String, Waveform
+from fastcs.datatypes import (
+    DEFAULT_ARRAY_SHAPE,
+    DEFAULT_PRECISION,
+    DType,
+    DType_T,
+    Meta,
+    NumericLimits,
+)
 from fastcs.exceptions import FastCSError
 from fastcs.transports.epics.util import validate_epics_pv_id
 
@@ -50,226 +57,234 @@ MBB_VALUE_FIELDS = tuple(f"{p}VL" for p in _MBB_FIELD_PREFIXES)
 MBB_MAX_CHOICES = len(_MBB_FIELD_PREFIXES)
 
 
-EPICS_ALLOWED_DATATYPES = (Bool, Enum, Float, Int, String, Waveform)
 DEFAULT_STRING_WAVEFORM_LENGTH = 256
 
-DATATYPE_FIELD_TO_IN_RECORD_FIELD = {
-    "prec": "PREC",
-    "units": "EGU",
-    "min_alarm": "LOPR",
-    "max_alarm": "HOPR",
-}
 
-DATATYPE_FIELD_TO_OUT_RECORD_FIELD = {
-    "prec": "PREC",
-    "units": "EGU",
-    "min": "DRVL",
-    "max": "DRVH",
-    "min_alarm": "LOPR",
-    "max_alarm": "HOPR",
-}
+def is_epics_supported(dtype: type[DType]) -> bool:
+    """Whether EPICS CA can serve an attribute of this datatype."""
+    return (
+        dtype in (bool, int, float, str)
+        or issubclass(dtype, enum.Enum)
+        or issubclass(dtype, np.ndarray)
+    )
+
+
+def enum_names(dtype: type[enum.Enum]) -> list[str]:
+    """The names of an enum's members, in declaration order."""
+    return [member.name for member in dtype]
+
+
+def _display_limit_fields(meta: Meta) -> dict[str, Any]:
+    """The record fields for the range an attribute is displayed over."""
+    limits: NumericLimits | None = meta.get("limits")
+    display = limits.display if limits is not None else None
+
+    return {
+        "LOPR": display.low if display is not None else None,
+        "HOPR": display.high if display is not None else None,
+    }
+
+
+def _control_limit_fields(meta: Meta) -> dict[str, Any]:
+    """The record fields for the range an attribute may be driven to."""
+    limits: NumericLimits | None = meta.get("limits")
+    control = limits.control if limits is not None else None
+
+    return {
+        "DRVL": control.low if control is not None else None,
+        "DRVH": control.high if control is not None else None,
+    }
+
+
+def _string_length(meta: Meta) -> int:
+    return (meta.get("length") or DEFAULT_STRING_WAVEFORM_LENGTH) + 1
+
+
+def _array_length(meta: Meta) -> int:
+    return meta.get("shape", DEFAULT_ARRAY_SHAPE)[0]
 
 
 def _make_in_record(pv: str, attribute: AttrR) -> RecordWrapper:
+    meta = attribute.meta
+    dtype = attribute.dtype
     common_fields = {
         "DESC": attribute.description,
-        "initial_value": cast_to_epics_type(attribute.datatype, attribute.readback),
+        "initial_value": cast_to_epics_type(attribute, attribute.readback),
     }
 
-    match attribute.datatype:
-        case Bool():
-            record = builder.boolIn(pv, ZNAM="False", ONAM="True", **common_fields)
-        case Int():
-            record = builder.longIn(
-                pv,
-                LOPR=attribute.datatype.min_alarm,
-                HOPR=attribute.datatype.max_alarm,
-                EGU=attribute.datatype.units,
-                **common_fields,
-            )
-        case Float():
-            record = builder.aIn(
-                pv,
-                LOPR=attribute.datatype.min_alarm,
-                HOPR=attribute.datatype.max_alarm,
-                EGU=attribute.datatype.units,
-                PREC=attribute.datatype.prec,
-                **common_fields,
-            )
-        case String():
-            record = builder.longStringIn(
-                pv,
-                length=(attribute.datatype.length + 1)
-                if attribute.datatype.length
-                else DEFAULT_STRING_WAVEFORM_LENGTH + 1,
-                **common_fields,
-            )
-        case Enum():
-            if len(attribute.datatype.members) > MBB_MAX_CHOICES:
-                record = builder.longStringIn(
-                    pv,
-                    **common_fields,
-                )
-            else:
-                common_fields.update(create_state_keys(attribute.datatype))
-                record = builder.mbbIn(
-                    pv,
-                    **common_fields,
-                )
-        case Waveform():
-            record = builder.WaveformIn(
-                pv, length=attribute.datatype.shape[0], **common_fields
-            )
-        case _:
-            raise FastCSError(
-                f"EPICS unsupported datatype on {attribute}: {attribute.datatype}"
-            )
+    if dtype is bool:
+        record = builder.boolIn(pv, ZNAM="False", ONAM="True", **common_fields)
+    elif dtype is int:
+        record = builder.longIn(
+            pv,
+            EGU=meta.get("units"),
+            **_display_limit_fields(meta),
+            **common_fields,
+        )
+    elif dtype is float:
+        record = builder.aIn(
+            pv,
+            EGU=meta.get("units"),
+            PREC=meta.get("precision", DEFAULT_PRECISION),
+            **_display_limit_fields(meta),
+            **common_fields,
+        )
+    elif dtype is str:
+        record = builder.longStringIn(pv, length=_string_length(meta), **common_fields)
+    elif issubclass(dtype, enum.Enum):
+        if len(enum_names(dtype)) > MBB_MAX_CHOICES:
+            record = builder.longStringIn(pv, **common_fields)
+        else:
+            common_fields.update(create_state_keys(dtype))
+            record = builder.mbbIn(pv, **common_fields)
+    elif issubclass(dtype, np.ndarray):
+        record = builder.WaveformIn(pv, length=_array_length(meta), **common_fields)
+    else:
+        raise FastCSError(f"EPICS unsupported datatype on {attribute}: {dtype}")
 
-    def datatype_updater(datatype: DataType):
-        for name, value in asdict(datatype).items():
-            if name in DATATYPE_FIELD_TO_IN_RECORD_FIELD:
-                record.set_field(DATATYPE_FIELD_TO_IN_RECORD_FIELD[name], value)
-
-    attribute.add_update_datatype_callback(datatype_updater)
+    _mirror_meta_onto_record(attribute, record, _in_record_fields)
     return record
 
 
 def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWrapper:
+    meta = attribute.meta
+    dtype = attribute.dtype
     common_fields = {
         "DESC": attribute.description,
         "initial_value": cast_to_epics_type(
-            attribute.datatype,
+            attribute,
             attribute.readback
             if isinstance(attribute, AttrRW)
-            else attribute.datatype.initial_value,
+            else attribute.default_value(),
         ),
         "on_update": on_update,
         "always_update": True,
         "blocking": True,
     }
 
-    match attribute.datatype:
-        case Bool():
-            record = builder.boolOut(pv, ZNAM="False", ONAM="True", **common_fields)
-        case Int():
-            record = builder.longOut(
-                pv,
-                LOPR=attribute.datatype.min_alarm,
-                HOPR=attribute.datatype.max_alarm,
-                EGU=attribute.datatype.units,
-                DRVL=attribute.datatype.min,
-                DRVH=attribute.datatype.max,
-                **common_fields,
-            )
-        case Float():
-            record = builder.aOut(
-                pv,
-                LOPR=attribute.datatype.min_alarm,
-                HOPR=attribute.datatype.max_alarm,
-                EGU=attribute.datatype.units,
-                PREC=attribute.datatype.prec,
-                DRVL=attribute.datatype.min,
-                DRVH=attribute.datatype.max,
-                **common_fields,
-            )
-        case String():
+    if dtype is bool:
+        record = builder.boolOut(pv, ZNAM="False", ONAM="True", **common_fields)
+    elif dtype is int:
+        record = builder.longOut(
+            pv,
+            EGU=meta.get("units"),
+            **_display_limit_fields(meta),
+            **_control_limit_fields(meta),
+            **common_fields,
+        )
+    elif dtype is float:
+        record = builder.aOut(
+            pv,
+            EGU=meta.get("units"),
+            PREC=meta.get("precision", DEFAULT_PRECISION),
+            **_display_limit_fields(meta),
+            **_control_limit_fields(meta),
+            **common_fields,
+        )
+    elif dtype is str:
+        record = builder.longStringOut(pv, length=_string_length(meta), **common_fields)
+    elif issubclass(dtype, enum.Enum):
+        names = enum_names(dtype)
+        if len(names) > MBB_MAX_CHOICES:
+
+            def _verify_in_names(_, value):
+                return value in names
+
             record = builder.longStringOut(
-                pv,
-                length=(attribute.datatype.length + 1)
-                if attribute.datatype.length
-                else DEFAULT_STRING_WAVEFORM_LENGTH + 1,
-                **common_fields,
+                pv, validate=_verify_in_names, **common_fields
             )
-        case Enum():
-            if len(attribute.datatype.members) > MBB_MAX_CHOICES:
-                datatype: Enum = attribute.datatype
+        else:
+            common_fields.update(create_state_keys(dtype))
+            record = builder.mbbOut(pv, **common_fields)
+    elif issubclass(dtype, np.ndarray):
+        record = builder.WaveformOut(pv, length=_array_length(meta), **common_fields)
+    else:
+        raise FastCSError(f"EPICS unsupported datatype on {attribute}: {dtype}")
 
-                def _verify_in_datatype(_, value):
-                    return value in datatype.names
-
-                record = builder.longStringOut(
-                    pv,
-                    validate=_verify_in_datatype,
-                    **common_fields,
-                )
-
-            else:
-                common_fields.update(create_state_keys(attribute.datatype))
-                record = builder.mbbOut(
-                    pv,
-                    **common_fields,
-                )
-        case Waveform():
-            record = builder.WaveformOut(
-                pv,
-                length=attribute.datatype.shape[0],
-                **common_fields,
-            )
-        case _:
-            raise FastCSError(
-                f"EPICS unsupported datatype on {attribute}: {attribute.datatype}"
-            )
-
-    def datatype_updater(datatype: DataType):
-        for name, value in asdict(datatype).items():
-            if name in DATATYPE_FIELD_TO_OUT_RECORD_FIELD:
-                record.set_field(DATATYPE_FIELD_TO_OUT_RECORD_FIELD[name], value)
-
-    attribute.add_update_datatype_callback(datatype_updater)
+    _mirror_meta_onto_record(attribute, record, _out_record_fields)
     return record
 
 
-def create_state_keys(datatype: Enum):
+def _in_record_fields(meta: Meta) -> dict[str, Any]:
+    return {
+        "PREC": meta.get("precision"),
+        "EGU": meta.get("units"),
+        **_display_limit_fields(meta),
+    }
+
+
+def _out_record_fields(meta: Meta) -> dict[str, Any]:
+    return {**_in_record_fields(meta), **_control_limit_fields(meta)}
+
+
+def _mirror_meta_onto_record(
+    attribute: Attribute,
+    record: RecordWrapper,
+    fields_from_meta: Callable[[Meta], dict[str, Any]],
+) -> None:
+    """Push later metadata changes - new units, say - onto the record."""
+
+    def meta_updater(meta: Meta) -> None:
+        for field, value in fields_from_meta(meta).items():
+            if value is not None:
+                record.set_field(field, value)
+
+    attribute.add_update_meta_callback(meta_updater)
+
+
+def create_state_keys(dtype: type[enum.Enum]) -> dict[str, str]:
     """Creates a dictionary of state field keys to names"""
     return dict(
         zip(
             MBB_STATE_FIELDS,
-            datatype.names,
+            enum_names(dtype),
             strict=False,
         )
     )
 
 
-def cast_from_epics_type(datatype: DataType[DType_T], value: object) -> DType_T:
-    """Casts from an EPICS datatype to a FastCS datatype."""
-    match datatype:
-        case Bool():
-            if value == 0:
-                return False
-            elif value == 1:
-                return True
-            else:
-                raise ValueError(f"Invalid bool value from EPICS record {value}")
-        case Enum():
-            if len(datatype.members) <= MBB_MAX_CHOICES:
-                assert isinstance(value, int), "Got non-integer value for Enum"
-                return datatype.validate(datatype.members[value])
-            else:  # enum backed by string record
-                assert isinstance(value, str), "Got non-string value for long Enum"
-                # python typing can't narrow the nested generic enum_cls
-                assert issubclass(datatype.enum_cls, enum.Enum), "Invalid Enum.enum_cls"
-                enum_member = datatype.enum_cls[value]
-                return datatype.validate(enum_member)
-        case datatype if issubclass(type(datatype), EPICS_ALLOWED_DATATYPES):
-            return datatype.validate(value)  # type: ignore
-        case _:
-            raise ValueError(f"Unsupported datatype {datatype}")
+def cast_from_epics_type(attribute: Attribute[DType_T], value: object) -> DType_T:
+    """Casts from an EPICS value to an attribute's datatype."""
+    dtype = attribute.dtype
+
+    if dtype is bool:
+        if value == 0:
+            return False  # pyright: ignore[reportReturnType]
+        elif value == 1:
+            return True  # pyright: ignore[reportReturnType]
+        else:
+            raise ValueError(f"Invalid bool value from EPICS record {value}")
+
+    if issubclass(dtype, enum.Enum):
+        if len(enum_names(dtype)) <= MBB_MAX_CHOICES:
+            assert isinstance(value, int), "Got non-integer value for Enum"
+            return attribute.validate(list(dtype)[value])
+        # enum backed by string record
+        assert isinstance(value, str), "Got non-string value for long Enum"
+        return attribute.validate(dtype[value])
+
+    if is_epics_supported(dtype):
+        return attribute.validate(value)
+
+    raise ValueError(f"Unsupported datatype {dtype}")
 
 
-def cast_to_epics_type(datatype: DataType[DType_T], value: DType_T) -> Any:
-    """Casts from an attribute's datatype to an EPICS datatype."""
-    match datatype:
-        case Enum():
-            if len(datatype.members) <= MBB_MAX_CHOICES:
-                return datatype.index_of(datatype.validate(value))
-            else:  # enum backed by string record
-                return datatype.validate(value).name
-        case String() as string:
-            if string.length is not None:
-                return value[: string.length]
-            else:
-                return value[:DEFAULT_STRING_WAVEFORM_LENGTH]
-        case datatype if issubclass(type(datatype), EPICS_ALLOWED_DATATYPES):
-            return value
-        case _:
-            raise ValueError(f"Unsupported datatype {datatype}")
+def cast_to_epics_type(attribute: Attribute[DType_T], value: DType_T) -> Any:
+    """Casts from an attribute's value to an EPICS value."""
+    dtype = attribute.dtype
+
+    if issubclass(dtype, enum.Enum):
+        member = cast(enum.Enum, attribute.validate(value))
+        if len(enum_names(dtype)) <= MBB_MAX_CHOICES:
+            return list(dtype).index(member)
+        # enum backed by string record
+        return member.name
+
+    if dtype is str:
+        length = attribute.meta.get("length") or DEFAULT_STRING_WAVEFORM_LENGTH
+        return str(value)[:length]
+
+    if is_epics_supported(dtype):
+        return value
+
+    raise ValueError(f"Unsupported datatype {dtype}")

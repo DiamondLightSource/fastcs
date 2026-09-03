@@ -4,6 +4,7 @@ from pvi.device import (
     LED,
     ButtonPanel,
     CheckBox,
+    ImageColorMap,
     ImageRead,
     SignalR,
     SignalW,
@@ -17,22 +18,24 @@ from pvi.device import (
 
 from fastcs.attributes import AttrR, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Table, Waveform
-from fastcs.transports.epics.gui import EpicsGUI
+from fastcs.datatypes import Table
 from fastcs.transports.epics.pva.gui import PvaEpicsGUI
 
 
 @pytest.mark.parametrize(
-    "datatype, widget",
+    "attribute, widget",
     [
-        (Waveform(array_dtype=np.int32), ImageRead()),
+        (
+            AttrR(np.ndarray, array_dtype=np.int32, shape=(10, 20)),
+            ImageRead(height=10, width=20, color_map=ImageColorMap.GRAY),
+        ),
     ],
 )
-def test_pva_get_attribute_component_r(datatype, widget):
-    gui = EpicsGUI(ControllerAPI())
+def test_pva_get_attribute_component_r(attribute, widget):
+    gui = PvaEpicsGUI(ControllerAPI())
 
-    assert gui._get_attribute_component(["DEVICE"], "Attr", AttrR(datatype)) == SignalR(
-        name="Attr", read_pv="DEVICE:Attr", read_widget=widget
+    assert gui._get_attribute_component(["DEVICE"], "Attr", attribute) == SignalR(
+        name="Attr", read_pv="pva://DEVICE:Attr", read_widget=widget
     )
 
 
@@ -51,13 +54,12 @@ def test_get_attribute_component_table_write():
         ["DEVICE"],
         "Table",
         AttrW(
-            Table(
-                structured_dtype=[
-                    ("FIELD1", np.uint32),
-                    ("FIELD2", np.bool),
-                    ("FIELD3", np.dtype("S1000")),
-                ]
-            )
+            Table,
+            structured_dtype=[
+                ("FIELD1", np.uint32),
+                ("FIELD2", np.bool),
+                ("FIELD3", np.dtype("S1000")),
+            ],
         ),
     )
 
@@ -77,13 +79,12 @@ def test_get_attribute_component_table_read():
         ["DEVICE"],
         "Table",
         AttrR(
-            Table(
-                structured_dtype=[
-                    ("FIELD1", np.uint32),
-                    ("FIELD2", np.bool),
-                    ("FIELD3", np.dtype("S1000")),
-                ]
-            )
+            Table,
+            structured_dtype=[
+                ("FIELD1", np.uint32),
+                ("FIELD2", np.bool),
+                ("FIELD3", np.dtype("S1000")),
+            ],
         ),
     )
 

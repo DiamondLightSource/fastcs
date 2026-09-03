@@ -107,7 +107,7 @@ layer.
 |----------|-----------------|--------------|-----------|---------|
 | Readback | `add_readback_callback()` | `attr.update(value)` | Publish ↑ | Update protocol representation when the attribute's readback changes |
 | Setpoint | `add_setpoint_callback()` | `attr.set(value)` | Publish ↑ | Update protocol representation when the attribute's setpoint changes |
-| Update Datatype | `add_update_datatype_callback()` | `datatype` property changes | Publish ↑ | Update protocol metadata when datatype changes |
+| Update Metadata | `add_update_meta_callback()` | `meta` property changes | Publish ↑ | Update protocol metadata when it changes |
 | Set | `attr.set(value)` | Transport receives user input | Set ↓ | Forward write requests from protocol to attribute |
 
 ### Readback Callbacks
@@ -129,9 +129,11 @@ The callback receives the new value and should update the protocol-specific
 representation (e.g., posting to a PV, updating a REST endpoint cache, publishing the
 change to a subscriber).
 
-### Update Datatype Callbacks
+### Update Metadata Callbacks
 
-Use `add_update_datatype_callback()` to update protocol metadata when an attribute's datatype changes. This is useful for protocols that expose datatype metadata (like EPICS record fields).
+Use `add_update_meta_callback()` to update protocol metadata when an attribute's
+metadata changes. This is useful for protocols that expose that metadata (like EPICS
+record fields).
 
 ```python
 def create_read(name, attribute):
@@ -139,14 +141,18 @@ def create_read(name, attribute):
 
     attribute.add_readback_callback(update_protocol_value)
 
-    def update_protocol_metadata(datatype: DataType):
-        protocol_read.set_units(datatype.units)
-        protocol_read.set_limits(datatype.min, datatype.max)
+    def update_protocol_metadata(meta: Meta):
+        protocol_read.set_units(meta.get("units"))
+        limits = meta.get("limits")
+        if limits is not None:
+            protocol_read.set_limits(limits.control.low, limits.control.high)
 
-    attribute.add_update_datatype_callback(update_protocol_metadata)
+    attribute.add_update_meta_callback(update_protocol_metadata)
 ```
 
-The callback receives the new `DataType` instance and should update the protocol's metadata representation (e.g., EPICS record fields like `EGU`, `HOPR`, `LOPR`).
+The callback receives the new `Meta` and should update the protocol's metadata
+representation (e.g., EPICS record fields like `EGU`, `HOPR`, `LOPR`). Every field is
+optional, so read them with `.get()`.
 
 ### Setpoint Callbacks
 

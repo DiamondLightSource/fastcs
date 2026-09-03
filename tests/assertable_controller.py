@@ -6,14 +6,13 @@ from pytest_mock import MockerFixture, MockType
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import Int
 from fastcs.methods import command, scan
 
 
 class TestSubController(Controller):
     def __init__(self) -> None:
         super().__init__()
-        self.read_int = AttrR(Int())
+        self.read_int = AttrR(int)
 
 
 class MyTestController(Controller):

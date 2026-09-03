@@ -37,13 +37,12 @@ sets it back to `True`.
 ```python
 from fastcs.controllers import Controller
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.datatypes import Float, String
 from fastcs.methods import scan
 
 
 class TemperatureController(Controller):
-    temperature = AttrR(Float(units="degC"))
-    setpoint = AttrRW(Float(units="degC"))
+    temperature = AttrR(float, units="degC")
+    setpoint = AttrRW(float, units="degC")
 
     async def connect(self):
         self._client = await DeviceClient.connect(self._host, self._port)
@@ -73,7 +72,7 @@ controller also has connection logic, the parent must invoke it explicitly:
 
 ```python
 class ChannelController(Controller):
-    value = AttrR(Float())
+    value = AttrR(float)
 
     async def connect(self):
         ...
@@ -108,7 +107,7 @@ from fastcs.controllers import Controller, ControllerVector
 
 
 class ChannelController(Controller):
-    value = AttrR(Float())
+    value = AttrR(float)
 
 
 class RootController(Controller):

@@ -3,7 +3,6 @@ import asyncio
 from fastcs import FastCS
 from fastcs.attributes import AttrR, AttrW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Bool, Int
 from fastcs.transports.epics.ca.transport import EpicsCATransport
 from fastcs.transports.rest.options import RestServerOptions
 from fastcs.transports.rest.transport import RestTransport
@@ -11,8 +10,8 @@ from fastcs.transports.tango.transport import TangoTransport
 
 
 class MyTestController(Controller):
-    read_int: AttrR = AttrR(Int(), initial_value=0)
-    write_bool: AttrW = AttrW(Bool())
+    read_int: AttrR = AttrR(int, initial_value=0)
+    write_bool: AttrW = AttrW(bool)
 
 
 def run():

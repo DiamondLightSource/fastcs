@@ -10,7 +10,7 @@ from strawberry.types.field import StrawberryField
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes.datatype import DType_T
+from fastcs.datatypes import DType_T
 from fastcs.exceptions import FastCSError
 from fastcs.logging import intercept_std_logger
 from fastcs.methods import Command
@@ -151,8 +151,8 @@ def _wrap_attr_set(
 
     # Add type annotations for validation, schema, conversions
     _dynamic_f.__name__ = attr_name
-    _dynamic_f.__annotations__["value"] = attribute.datatype.dtype
-    _dynamic_f.__annotations__["return"] = attribute.datatype.dtype
+    _dynamic_f.__annotations__["value"] = attribute.dtype
+    _dynamic_f.__annotations__["return"] = attribute.dtype
 
     return _dynamic_f
 
@@ -166,7 +166,7 @@ def _wrap_attr_get(
         return attribute.readback
 
     _dynamic_f.__name__ = attr_name
-    _dynamic_f.__annotations__["return"] = attribute.datatype.dtype
+    _dynamic_f.__annotations__["return"] = attribute.dtype
 
     return _dynamic_f
 

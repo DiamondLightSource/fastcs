@@ -3,7 +3,6 @@ from pathlib import Path
 from fastcs.attributes import AttrR, Polled
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import String
 from fastcs.launch import FastCS
 from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -16,7 +15,7 @@ class TemperatureController(Controller):
 
         super().__init__()
 
-        self.device_id = AttrR(String(), getter=Polled(self._get_device_id, period=0.2))
+        self.device_id = AttrR(str, getter=Polled(self._get_device_id, period=0.2))
 
     async def _get_device_id(self) -> str:
         response = await self._connection.send_query("ID?\r\n")

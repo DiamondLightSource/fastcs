@@ -2,12 +2,26 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
-from typing import Any
+from typing import Any, Unpack, overload
 
 from fastcs.attributes._infer_datatype import infer_datatype_from_setter
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
 from fastcs.attributes.update import Update
-from fastcs.datatypes import DataType, DType_T
+from fastcs.datatypes import (
+    Array1DMeta,
+    Array_T,
+    BoolMeta,
+    DType_T,
+    Enum_T,
+    EnumMeta,
+    FloatMeta,
+    Inferred_T,
+    IntMeta,
+    Meta,
+    StrMeta,
+    Table,
+    TableMeta,
+)
 from fastcs.logging import logger
 
 Setter = Callable[[DType_T], Awaitable[None | DType_T | Update[DType_T]]]
@@ -19,19 +33,94 @@ AttrSetpointCallback = Callable[[DType_T], Coroutine[None, None, None]]
 class AttrW(Attribute[DType_T]):
     """A write-only ``Attribute``."""
 
+    # One overload per datatype, so that metadata a datatype has no use for is
+    # a type error rather than a field silently ignored: ``AttrW(str,
+    # precision=3)`` does not type check. The last overload is the
+    # inferred-datatype case, where the datatype is only known from the
+    # getter/setter annotation, so the metadata is checked at runtime.
+    #
+    # Overload resolution takes the first datatype a call matches, and ``bool``
+    # matches ``int`` while ``int`` matches ``float``. So ``AttrW(bool,
+    # units=...)`` resolves to the ``int`` overload rather than failing here -
+    # the constructor's runtime check is what rejects it. A call whose metadata
+    # is valid always picks its own datatype's overload.
+    @overload
+    def __init__(
+        self: AttrW[bool],
+        datatype: type[bool],
+        setter: Setter[bool] | None = None,
+        **meta: Unpack[BoolMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[int],
+        datatype: type[int],
+        setter: Setter[int] | None = None,
+        **meta: Unpack[IntMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[float],
+        datatype: type[float],
+        setter: Setter[float] | None = None,
+        **meta: Unpack[FloatMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[str],
+        datatype: type[str],
+        setter: Setter[str] | None = None,
+        **meta: Unpack[StrMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Enum_T],
+        datatype: type[Enum_T],
+        setter: Setter[Enum_T] | None = None,
+        **meta: Unpack[EnumMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Table],
+        datatype: type[Table],
+        setter: Setter[Table] | None = None,
+        **meta: Unpack[TableMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Array_T],
+        datatype: type[Array_T],
+        setter: Setter[Array_T] | None = None,
+        **meta: Unpack[Array1DMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Inferred_T],
+        datatype: None = None,
+        setter: Setter[Inferred_T] | None = None,
+        **meta: Unpack[Meta],
+    ) -> None: ...
+
     def __init__(
         self,
-        datatype: DataType[DType_T] | None = None,
-        setter: Setter[DType_T] | None = None,
-        **kwargs: Any,
+        datatype: Any = None,
+        setter: Any = None,
+        **meta: Any,
     ) -> None:
         if datatype is None and setter is not None:
             datatype = infer_datatype_from_setter(setter)
 
-        super().__init__(datatype, **kwargs)
+        super().__init__(datatype, **meta)
 
-        self._setter = setter
-        self._setpoint: DType_T = self._datatype.initial_value
+        self._setter: Setter[DType_T] | None = setter
+        self._setpoint: DType_T = self.default_value()
         self._setpoint_known = False
         """Whether the setpoint reflects a real value rather than the datatype default
 
@@ -69,7 +158,7 @@ class AttrW(Attribute[DType_T]):
         This does no IO - it is the setpoint-side counterpart of ``AttrR.update``.
 
         """
-        self._setpoint = self._datatype.validate(value)
+        self._setpoint = self.validate(value)
         self._setpoint_known = True
 
         if self._setpoint_callbacks:

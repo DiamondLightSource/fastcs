@@ -80,7 +80,7 @@ doesn't have a connection.
 :::
 In [1]: controller.device_id
 
-Out[1]: AttrR(String())
+Out[1]: AttrR(name=device_id, dtype=str)
 
 In [2]: controller.device_id.readback
 
