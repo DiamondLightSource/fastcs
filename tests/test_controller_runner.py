@@ -6,7 +6,6 @@ import pytest
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller, ControllerRunner
 from fastcs.controllers.runner import RECONNECT_PERIOD
-from fastcs.datatypes import Int
 from fastcs.methods import scan
 from fastcs.util import ONCE
 
@@ -17,7 +16,7 @@ class LifecycleController(Controller):
     def __init__(self):
         super().__init__()
         self.events: list[str] = []
-        self.count = AttrR(Int())
+        self.count = AttrR(int)
 
     async def initialise(self):
         self.events.append("initialise")
