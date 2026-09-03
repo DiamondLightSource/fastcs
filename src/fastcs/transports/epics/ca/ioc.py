@@ -258,6 +258,20 @@ def _create_and_link_command_pvs(
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, method in controller_api.command_methods.items():
+            if not method.is_void:
+                # A PV is a value, not a call: there is no representation of
+                # "call with these arguments, get this back" that is not already
+                # a set of attributes. Skip rather than refuse to serve the
+                # controller at all (ADR 0015).
+                logger.warning(
+                    "EPICS CA transport cannot serve a command that takes "
+                    "arguments or returns a value",
+                    command=attr_name,
+                    signature=str(method.signature),
+                )
+                method.enabled = False
+                continue
+
             pv_name = snake_to_pascal(attr_name)
             alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
 
