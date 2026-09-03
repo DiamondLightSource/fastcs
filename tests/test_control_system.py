@@ -94,18 +94,19 @@ async def test_update_periods():
     assert controller.update_once.readback == 1
     assert controller.update_never.readback == 0
 
-    assert len(fastcs._scan_tasks) == 1
-    assert len(fastcs._initial_coros) == 1
+    # One periodic scan task per distinct period, plus one reconnect watcher
+    assert len(fastcs._runner._scan_coros) == 1
+    assert len(fastcs._runner._initial_coros) == 1
 
 
 @pytest.mark.asyncio
 async def test_controller_connect_disconnect():
     class MyTestController(Controller):
         async def connect(self):
-            self.connected = True
+            self.connect_called = True
 
         async def disconnect(self):
-            self.connected = False
+            self.connect_called = False
 
     controller = MyTestController()
 
@@ -116,10 +117,10 @@ async def test_controller_connect_disconnect():
 
     # connect is called at the start of serve
     await asyncio.sleep(0.1)
-    assert controller.connected
+    assert controller.connect_called
 
     task.cancel()
 
     # disconnect is called at the end of serve
     await asyncio.sleep(0.1)
-    assert not controller.connected
+    assert not controller.connect_called

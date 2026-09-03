@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import KW_ONLY, dataclass, replace
 from typing import Any, Generic, Unpack, overload
 
 from fastcs.attributes._infer_datatype import infer_datatype_from_getter
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
+from fastcs.attributes.severity import Severity
 from fastcs.attributes.update import Update
 from fastcs.attributes.util import AttrValuePredicate, PredicateEvent
 from fastcs.datatypes import (
@@ -192,6 +194,11 @@ class AttrR(Attribute[DType_T]):
         self._value: DType_T = (
             self.default_value() if initial_value is None else initial_value
         )
+        self._timestamp: float = time.time()
+        """When the cached value was obtained, or when the attribute was created"""
+        self._severity: Severity = Severity.NO_ALARM
+        """How wrong the cached value is, as last reported"""
+        self._getter = resolved_getter
         self._getter: Getter[DType_T] | None = resolved_getter
         self._poll_period: float | None = poll_period
         """Period in seconds between calls to poll(), or ONCE, or None (on-demand)"""
@@ -206,6 +213,20 @@ class AttrR(Attribute[DType_T]):
     def readback(self) -> DType_T:
         """The last known value of the attribute."""
         return self._value
+
+    @property
+    def timestamp(self) -> float:
+        """When the last known value was obtained, as a unix timestamp.
+
+        The time the source reported, if it reported one, and otherwise the
+        time the update reached FastCS.
+        """
+        return self._timestamp
+
+    @property
+    def severity(self) -> Severity:
+        """How wrong the last known value is, as the source last reported."""
+        return self._severity
 
     def has_getter(self) -> bool:
         return self._getter is not None
@@ -231,6 +252,10 @@ class AttrR(Attribute[DType_T]):
         To request a change to the setpoint of the attribute, use the ``set`` method,
         which will attempt to apply the change to the underlying source.
 
+        A value that arrives as an ``Update`` may carry the time it was obtained
+        and how wrong it is; a bare value is stamped with the time it arrived and
+        reported as ``Severity.NO_ALARM``.
+
         Args:
             value: The new value of the attribute, or an ``Update`` wrapping it
 
@@ -238,8 +263,13 @@ class AttrR(Attribute[DType_T]):
             ValueError: If the value fails to be validated to DType_T
 
         """
+        received_at = time.time()
         if isinstance(value, Update):
+            timestamp = received_at if value.timestamp is None else value.timestamp
+            severity = Severity.NO_ALARM if value.severity is None else value.severity
             value = value.readback
+        else:
+            timestamp, severity = received_at, Severity.NO_ALARM
 
         self.log_event("Attribute set", value=repr(value), attribute=self)
 
@@ -249,6 +279,10 @@ class AttrR(Attribute[DType_T]):
         except ValueError:
             logger.error("Failed to validate value", value=repr(value), attribute=self)
             raise
+
+        # Only once the value is known good, so a rejected update leaves the
+        # cached value and the time it was obtained agreeing with each other.
+        self._timestamp, self._severity = timestamp, severity
 
         self.log_event("Value validated", value=repr(self._value), attribute=self)
 

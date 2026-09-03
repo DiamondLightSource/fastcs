@@ -1,4 +1,5 @@
 import asyncio
+import time
 from functools import partial
 
 import numpy as np
@@ -6,7 +7,15 @@ import numpy.typing as npt
 import pytest
 from pytest_mock import MockerFixture
 
-from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled, Polled, Update
+from fastcs.attributes import (
+    AttrR,
+    AttrRW,
+    AttrW,
+    NotPolled,
+    Polled,
+    Severity,
+    Update,
+)
 from fastcs.controllers import Controller
 from fastcs.datatypes import (
     DEFAULT_ARRAY_SHAPE,
@@ -452,6 +461,71 @@ async def test_dynamic_attribute_getter_setter_specification():
 
     await c.int_parameter.set(20)
     assert c.int_parameter.readback == 20
+
+
+@pytest.mark.parametrize("value", [3, Update(readback=3)], ids=["bare", "Update"])
+@pytest.mark.asyncio
+async def test_a_value_with_no_timestamp_is_stamped_when_it_arrived(value):
+    attr = AttrR(int)
+    before = time.time()
+
+    await attr.update(value)
+
+    assert before <= attr.timestamp <= time.time()
+
+
+@pytest.mark.parametrize("value", [3, Update(readback=3)], ids=["bare", "Update"])
+@pytest.mark.asyncio
+async def test_a_value_with_no_severity_is_reported_as_no_alarm(value):
+    attr = AttrR(int)
+
+    await attr.update(value)
+
+    assert attr.severity is Severity.NO_ALARM
+
+
+@pytest.mark.asyncio
+async def test_an_update_can_carry_the_time_the_value_was_obtained():
+    attr = AttrR(int)
+
+    await attr.update(Update(readback=3, timestamp=1234.5))
+
+    assert attr.timestamp == 1234.5
+
+
+@pytest.mark.asyncio
+async def test_an_update_can_carry_a_severity():
+    attr = AttrR(int)
+
+    await attr.update(Update(readback=3, severity=Severity.MAJOR))
+
+    assert attr.severity is Severity.MAJOR
+
+
+@pytest.mark.asyncio
+async def test_a_getter_can_report_a_timestamp_and_severity():
+    async def get_value() -> Update[int]:
+        return Update(readback=7, timestamp=99.0, severity=Severity.MINOR)
+
+    attr = AttrR(int, getter=get_value)
+
+    assert await attr.poll() == 7
+    assert attr.timestamp == 99.0
+    assert attr.severity is Severity.MINOR
+
+
+@pytest.mark.asyncio
+async def test_a_rejected_value_leaves_the_timestamp_alone():
+    """The cached value and the time it was obtained must agree."""
+    attr = AttrRW(int, limits=NumericLimits(control=Limits(low=0)), getter=None)
+
+    await attr.update(Update(readback=1, timestamp=10.0))
+
+    with pytest.raises(ValueError):
+        await attr.update(Update(readback=-1, timestamp=20.0))
+
+    assert attr.readback == 1
+    assert attr.timestamp == 10.0
 
 
 def test_metadata_is_held_on_the_attribute():
