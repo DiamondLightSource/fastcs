@@ -23,8 +23,11 @@ from fastcs.transports.epics.ca.ioc import (
     EpicsCAIOC,
     _add_alias,
     _add_attr_pvi_info,
+    _add_command_enum_alias,
     _add_pvi_info,
+    _add_read_enum_alias,
     _add_sub_controller_pvi_info,
+    _add_write_enum_alias,
     _create_and_link_command_pv,
     _create_and_link_read_pv,
     _create_and_link_write_pv,
@@ -133,14 +136,35 @@ async def test_add_alias_skips_alias_if_too_long(mocker: MockerFixture):
     too_long_alias_name = f"long_{alias_name}"
 
     record = mocker.MagicMock()
-    _add_alias(record, alias_name)
+    _add_alias(record, alias_name, "attr")
     record.add_alias.assert_called_once_with(alias_name)
 
-    _add_alias(record, too_long_alias_name)
+    _add_alias(record, too_long_alias_name, "attr")
 
     with pytest.raises(AssertionError):
         # assert alias that is too long is not added
         record.add_alias.assert_called_once_with(too_long_alias_name)
+
+
+@pytest.mark.parametrize("alias_type", ("read", "write", "command"))
+@pytest.mark.asyncio
+async def test_enum_alias_skips_pv_if_too_long(mocker: MockerFixture, alias_type: str):
+    alias = EnumMapping(pv="alias", mapping={"One": 1})
+    mocker.patch(
+        "fastcs.transports.epics.ca.ioc.EPICS_MAX_NAME_LENGTH", len(alias.pv) - 1
+    )
+    make_in_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")
+    make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
+
+    if alias_type == "read":
+        _add_read_enum_alias(alias, AttrR(Int()), AttrR(Enum(OnOffStates)))
+    elif alias_type == "write":
+        _add_write_enum_alias(alias, AttrW(Int()), AttrW(Enum(OnOffStates)))
+    else:
+        _add_command_enum_alias(alias, Command(do_nothing), AttrW(Enum(OnOffStates)))
+
+    make_in_record.assert_not_called()
+    make_out_record.assert_not_called()
 
 
 @pytest.mark.asyncio
