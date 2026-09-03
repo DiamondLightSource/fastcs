@@ -1,6 +1,6 @@
 import asyncio
 from collections import Counter
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from enum import IntEnum
 from typing import Any, Literal, TypeVar
 
@@ -35,7 +35,7 @@ class EpicsCAIOC:
     def __init__(
         self,
         controller_apis: list[ControllerAPI],
-        aliases: dict[str, str | EnumMapping | list[str] | list[EnumMapping]],
+        aliases: Mapping[str, str | EnumMapping | list[str] | list[EnumMapping]],
     ):
         alias_pvs = []
 
@@ -139,7 +139,7 @@ def _add_sub_controller_pvi_info(parent: ControllerAPI):
 
 def _create_and_link_attribute_pvs(
     root_controller_api: ControllerAPI,
-    aliases: dict[str, str | EnumMapping | list[str] | list[EnumMapping]],
+    aliases: Mapping[str, str | EnumMapping | list[str] | list[EnumMapping]],
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
@@ -166,7 +166,7 @@ def _create_and_link_attribute_pvs(
                 )
                 continue
 
-            alias = aliases.pop(f"{pv_prefix}:{pv_name}", None)
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
             match attribute:
                 case AttrRW():
                     if full_pv_name_length > (EPICS_MAX_NAME_LENGTH - 4):
@@ -177,7 +177,7 @@ def _create_and_link_attribute_pvs(
                         )
                         attribute.enabled = False
                     else:
-                        alias_rbv = aliases.pop(
+                        alias_rbv = aliases.get(
                             f"{pv_prefix}:{pv_name}{RBV_SUFFIX}", None
                         )
                         _create_and_link_read_pv(
@@ -296,14 +296,14 @@ def _create_and_link_write_pv(
 
 def _create_and_link_command_pvs(
     root_controller_api: ControllerAPI,
-    aliases: dict[str, str | EnumMapping | list[str] | list[EnumMapping]],
+    aliases: Mapping[str, str | EnumMapping | list[str] | list[EnumMapping]],
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, method in controller_api.command_methods.items():
             pv_name = snake_to_pascal(attr_name)
-            alias = aliases.pop(f"{pv_prefix}:{pv_name}", None)
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
 
             if len(f"{pv_prefix}:{pv_name}") > EPICS_MAX_NAME_LENGTH:
                 print(
