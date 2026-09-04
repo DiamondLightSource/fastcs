@@ -161,7 +161,9 @@ async def test_stream_connection_reads_and_writes_lines():
 
 @pytest.mark.asyncio
 async def test_serial_connect_opens_the_settings_it_was_given():
-    connection = SerialConnection(SerialConnectionSettings(port="/dev/ttyS0", baud=9600))
+    connection = SerialConnection(
+        SerialConnectionSettings(port="/dev/ttyS0", baud=9600)
+    )
 
     with patch("aioserial.AioSerial") as aioserial:
         await connection.connect()
