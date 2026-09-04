@@ -4,7 +4,7 @@ from typing import TypeVar
 
 from fastcs.connections.connection import Connection
 
-C = TypeVar("C", bound=Connection)
+Connection_T = TypeVar("Connection_T", bound=Connection)
 
 
 class Connections:
@@ -37,7 +37,7 @@ class Connections:
         self._connections = dict(connections)
         self._claimed: set[str] = set()
 
-    def get(self, name: str, expected: type[C]) -> C:
+    def get(self, name: str, expected: type[Connection_T]) -> Connection_T:
         """Claim a connection by name, asserting its type.
 
         Called from ``__init__``, so a bad name or type fails at construction -

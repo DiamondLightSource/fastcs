@@ -21,7 +21,7 @@ class SerialConnectionSettings:
 class SerialConnection(Connection[None]):
     """A serial connection.
 
-    The settings are given at construction rather than to `connect`, because the
+    The settings are given at construction rather than to ``connect``, because the
     framework opens and reopens the link without knowing anything about it.
 
     Args:

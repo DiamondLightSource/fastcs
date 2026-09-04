@@ -145,9 +145,10 @@ its own getter/setter logic and connection, but there are some built in connecti
 options.
 
 Update the controller to create an `IPConnection` to communicate with the simulator over
-TCP and implement a `connect` method that establishes the connection. The `connect`
-method is called by the FastCS application at the appropriate time during start up to
-ensure the connection is established before it is used.
+TCP, giving it the settings it needs. A driver never opens the connection itself: FastCS
+opens it at the appropriate time during start up, before anything uses it, and reopens
+it if it drops. Declaring `connection: IPConnection` on the class narrows the base
+class's connection so this controller's own code can call `IPConnection`'s methods.
 
 :::{note}
 The simulator control connection is on port 25565.
@@ -157,7 +158,7 @@ The simulator control connection is on port 25565.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static06.py
-:emphasize-lines: 4,15-22,27-28
+:emphasize-lines: 4,12,19,25-26
 :::
 
 ::::
@@ -183,7 +184,7 @@ Passing the getter bare, as here, means it is called once at start up. Wrap it i
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static07.py
-:emphasize-lines: 13-19,21-23
+:emphasize-lines: 12,15,19,21-23
 :::
 
 ::::
@@ -226,7 +227,7 @@ constructor to perform the cast.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static08.py
-:emphasize-lines: 12,15-27,34,38-39,41-45
+:emphasize-lines: 12,15-27,35,39-40,42-46
 :::
 
 ::::
@@ -250,7 +251,7 @@ The set commands do not return a response, so the setter uses `send_command` ins
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static09.py
-:emphasize-lines: 4,40-45,53-57
+:emphasize-lines: 4,41-46,54-57
 :::
 
 ::::
@@ -291,11 +292,15 @@ Create a `TemperatureRampController` with two `AttrRW`s for the ramp start and e
 to define how many ramps there are, which is used to register the correct number of ramp
 controllers with the parent.
 
+Each ramp holds the *same* `IPConnection` object as its parent rather than one of its
+own, so the whole tree has one health state and one reconnect task between it: when the
+link drops, every ramp's polling pauses with it and they all resume together.
+
 ::::{admonition} Code 10
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 30-53,57,73-77
+:emphasize-lines: 30,32-56,75-79
 :::
 
 ::::
@@ -320,7 +325,7 @@ Add an `AttrRW` to the `TemperatureRampController`s with an `Enum` type, using a
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static11.py
-:emphasize-lines: 1,31-33,48-53,67-71
+:emphasize-lines: 1,31-33,51-56,70-74
 :::
 
 ::::
@@ -375,7 +380,7 @@ above.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static12.py
-:emphasize-lines: 11,56-58,78-82,123-129
+:emphasize-lines: 11,59-61,81-85,121-127
 :::
 
 ::::
@@ -396,7 +401,7 @@ controller by calling `set` on each `enabled` attribute.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static13.py
-:emphasize-lines: 1,132-137
+:emphasize-lines: 1,133-138
 :::
 
 ::::
@@ -428,7 +433,7 @@ inside `TemperatureProtocol.send_command` to log the commands it sends.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 12,28,145,150
+:emphasize-lines: 12,28,146,151
 :::
 
 ::::
@@ -456,7 +461,7 @@ is enabled the messages are visible.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static15.py
-:emphasize-lines: 12,14,21,34-36,41,125,153
+:emphasize-lines: 12,14,21,34-36,41,129,154
 :::
 
 ::::

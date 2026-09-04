@@ -17,16 +17,16 @@ ValueT = TypeVar("ValueT")
 
 class TemperatureProtocol:
     def __init__(self, connection: IPConnection, suffix: str = ""):
-        self.connection = connection
+        self._connection = connection
         self._suffix = suffix
 
     async def send_command(self, param: str, value: ValueT, dtype: type[ValueT]):
         command = f"{param}{self._suffix}={dtype(value)}"  # type: ignore[call-arg]
-        await self.connection.send_command(f"{command}\r\n")
+        await self._connection.send_command(f"{command}\r\n")
 
     async def send_query(self, param: str, dtype: type[ValueT]) -> ValueT:
         query = f"{param}{self._suffix}?"
-        response = await self.connection.send_query(f"{query}\r\n")
+        response = await self._connection.send_query(f"{query}\r\n")
         return dtype(response.strip("\r\n"))  # type: ignore[call-arg]
 
 
@@ -36,8 +36,11 @@ class OnOffEnum(enum.StrEnum):
 
 
 class TemperatureRampController(Controller):
+    connection: IPConnection
+
     def __init__(self, index: int, connection: IPConnection) -> None:
         suffix = f"{index:02d}"
+        self.connection = connection
         self._protocol = TemperatureProtocol(connection, suffix)
         super().__init__(f"Ramp{suffix}")
 
@@ -82,6 +85,8 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
+    connection: IPConnection
+
     def __init__(self, ramp_count: int, settings: IPConnectionSettings):
         self.connection = IPConnection(settings)
         self._protocol = TemperatureProtocol(self.connection)

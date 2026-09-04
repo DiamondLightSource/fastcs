@@ -50,7 +50,7 @@ class StreamConnection:
 class IPConnection(Connection[None], Tracer):
     """For connecting to an ip using a `StreamConnection`.
 
-    The settings are given at construction rather than to `connect`, because the
+    The settings are given at construction rather than to ``connect``, because the
     framework opens and reopens the link without knowing anything about it. IO
     marks the connection down when the *transport* fails, so everything holding it
     stops and its reconnect task wakes.

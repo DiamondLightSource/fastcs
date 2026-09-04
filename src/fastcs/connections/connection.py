@@ -4,7 +4,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
-T = TypeVar("T")
+Introspection_T = TypeVar("Introspection_T")
 
 DEFAULT_RECONNECT_PERIOD = 1.0
 """Seconds a connection waits between reconnect attempts, unless it says otherwise."""
@@ -13,7 +13,7 @@ DEFAULT_MAX_ATTEMPTS = 10
 """Reconnect attempts a connection makes before giving up, unless it says otherwise."""
 
 
-class Connection(ABC, Generic[T]):
+class Connection(ABC, Generic[Introspection_T]):
     """A link to hardware. Owns its own health state.
 
     Several controllers may share one instance - a sub controller that talks to the
@@ -22,8 +22,8 @@ class Connection(ABC, Generic[T]):
     controllers behind one socket has one health state, one reconnect task and one
     retry budget between them.
 
-    A concrete connection opens the link in `connect` and closes it in `close`, and
-    calls `set_disconnected` from its own IO when the *transport* fails. That is the
+    A concrete connection opens the link in ``connect`` and closes it in ``close``,
+    and calls `set_disconnected` from its own IO when the *transport* fails. That is the
     one place that can tell "the socket died" from "the device rejected that
     parameter", and only the first is a connection failure::
 
@@ -82,13 +82,13 @@ class Connection(ABC, Generic[T]):
     def connected(self) -> bool:
         """Whether the link is currently believed to be usable.
 
-        Set by the framework - a driver never writes it. `connect` returning cleanly
+        Set by the framework - a driver never writes it. ``connect`` returning cleanly
         marks it up; `set_disconnected` from the connection's own IO marks it down.
         """
         return self._connected
 
     @abstractmethod
-    async def connect(self) -> T:
+    async def connect(self) -> Introspection_T:
         """Open the link, or raise. Return whatever introspection the caller needs.
 
         This means "make the link usable", not merely "open the socket" - a device

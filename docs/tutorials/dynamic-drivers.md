@@ -61,7 +61,7 @@ methods to create these attributes dynamically, passing the shared `TemperatureP
 down to `create_attributes` so the dynamically-created getters/setters can use it.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 82-128
+:lines: 82-123
 :::
 
 TODO: Add `enabled` back in to `TemperatureRampController` and recreate `disable_all` to
