@@ -487,20 +487,6 @@ async def test_a_device_that_comes_back_different_is_fatal():
 
 
 @pytest.mark.asyncio
-async def test_an_uncomparable_introspection_result_says_so():
-    class Ambiguous:
-        def __ne__(self, other):
-            raise ValueError("truth value of an array is ambiguous")
-
-    connection = FakeConnection(Ambiguous(), reconnect_period=0.001)  # type: ignore[arg-type]
-    runner = ControllerRunner(LifecycleController(connection))
-    await runner.build()
-
-    with pytest.raises(TypeError, match="did not give a single bool"):
-        await runner._attempt(connection)
-
-
-@pytest.mark.asyncio
 async def test_scans_are_gated_on_the_connection():
     connection = FakeConnection(reconnect_period=0.001)
 
@@ -615,3 +601,98 @@ def test_a_class_default_sits_between_the_framework_and_the_constructor():
     assert Patient().max_attempts == 60
     assert Patient(reconnect_period=0.5).reconnect_period == 0.5
     assert Patient(max_attempts=2).max_attempts == 2
+
+
+@pytest.mark.asyncio
+async def test_a_failed_build_closes_what_it_opened():
+    """Startup aborts, and no task exists yet for a later `stop` to clean up."""
+    connection = FakeConnection()
+
+    class Unbuildable(Controller):
+        def __init__(self):
+            self.connection = connection
+            super().__init__()
+
+        async def build(self):
+            raise RuntimeError("cannot build")
+
+    runner = ControllerRunner(Unbuildable())
+
+    with pytest.raises(RuntimeError, match="cannot build"):
+        await runner.build()
+
+    assert connection.closes == 1
+
+
+@pytest.mark.asyncio
+async def test_a_failed_setup_closes_what_it_opened():
+    connection = FakeConnection()
+
+    class Unsetuppable(Controller):
+        def __init__(self):
+            self.connection = connection
+            super().__init__()
+
+        async def setup(self):
+            raise RuntimeError("cannot set up")
+
+    runner = ControllerRunner(Unsetuppable())
+
+    with pytest.raises(RuntimeError, match="cannot set up"):
+        await runner.start()
+
+    assert connection.closes == 1
+
+
+@pytest.mark.asyncio
+async def test_a_dependency_the_runner_does_not_supervise_is_rejected():
+    """It would never be opened, so the dependent could never be attempted."""
+    unsupervised = FakeConnection()
+    layered = FakeConnection(depends_on=unsupervised)
+
+    runner = ControllerRunner(LifecycleController(layered))
+
+    with pytest.raises(ValueError, match="does not supervise"):
+        await runner.build()
+
+
+@pytest.mark.asyncio
+async def test_an_unopened_connection_in_call_build_says_what_is_wrong():
+    """A bare KeyError here would hide the diagnostic written for this case."""
+
+    class LateIntrospector(Controller):
+        def __init__(self):
+            self.connection = FakeConnection()
+            super().__init__()
+
+        async def build(self, info: str) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+            ...
+
+    class Parent(Controller):
+        async def build(self):
+            self.add_sub_controller("LATE", LateIntrospector())
+
+    with pytest.raises(RuntimeError, match="did not open"):
+        await ControllerRunner(Parent()).build()
+
+
+@pytest.mark.asyncio
+async def test_an_uncomparable_introspection_result_is_reported_not_raised():
+    """Raising here would kill the reconnect task silently, hanging every scan."""
+
+    class Ambiguous:
+        def __ne__(self, other):
+            raise ValueError("truth value of an array is ambiguous")
+
+    connection = FakeConnection(Ambiguous(), reconnect_period=0.001)  # type: ignore[arg-type]
+    runner = ControllerRunner(LifecycleController(connection))
+    await runner.start()
+    try:
+        connection.set_disconnected()
+
+        await asyncio.wait_for(runner.fatal_error.wait(), timeout=2)
+
+        assert isinstance(runner.fatal_reason, TypeError)
+        assert "did not give a single bool" in str(runner.fatal_reason)
+    finally:
+        await runner.stop()

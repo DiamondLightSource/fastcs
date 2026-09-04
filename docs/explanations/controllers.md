@@ -69,7 +69,8 @@ class TemperatureController(Controller):
 
     @scan(period=1.0)
     async def update_temperature(self):
-        value = await self._client.get_temperature()
+        # Gated on the connection: while it is down this does not run at all.
+        value = await self.connection.get_temperature()
         await self.temperature.update(value)
 ```
 

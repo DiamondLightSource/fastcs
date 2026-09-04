@@ -38,7 +38,8 @@ class DetectorConnection(Connection[DetectorInfo]):
         self._client: AsyncClient | None = None
 
     async def connect(self) -> DetectorInfo:
-        self._client = AsyncClient(base_url=f"http://{self._settings.ip}")
+        base = f"http://{self._settings.ip}:{self._settings.port}"
+        self._client = AsyncClient(base_url=base)
         return DetectorInfo(
             api_version=await self.get("detector/api/version"),
             parameters=tuple(await self.get("detector/api/1.8.0/config/keys")),

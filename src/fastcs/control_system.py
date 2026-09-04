@@ -95,6 +95,30 @@ class FastCS:
             interactive: Whether to create an interactive IPython shell
 
         """
+        try:
+            coros = await self._start(interactive)
+        except BaseException:
+            # A failure during startup aborts: a partly built application is worse
+            # than none, because clients connect successfully and never find what
+            # they are looking for. Close whatever was opened on the way up, then
+            # let the caller - or the orchestrator - see why.
+            await self._runner.stop()
+            raise
+
+        try:
+            await asyncio.gather(*coros)
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("Unhandled exception in serve")
+        finally:
+            logger.info("Shutting down FastCS")
+            await self._runner.stop()
+            if self._runner.fatal_reason is not None:
+                raise self._runner.fatal_reason
+
+    async def _start(self, interactive: bool) -> list[Coroutine]:
+        """Bring the application up, and return what ``serve`` should await."""
         # Build the APIs before wiring transports to them: a transport
         # registers its callbacks when it connects, and would miss the first
         # readback if the controllers had already started.
@@ -156,17 +180,7 @@ class FastCS:
 
         coros.append(fail_on_fatal())
 
-        try:
-            await asyncio.gather(*coros)
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception("Unhandled exception in serve")
-        finally:
-            logger.info("Shutting down FastCS")
-            await self._runner.stop()
-            if self._runner.fatal_reason is not None:
-                raise self._runner.fatal_reason
+        return coros
 
     async def _interactive_shell(self, context: dict[str, Any]):
         """Spawn interactive shell in another thread and wait for it to complete."""

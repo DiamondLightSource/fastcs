@@ -5,8 +5,12 @@ from fastcs.connections.connection import Connection
 from fastcs.tracer import Tracer
 
 
-class DisconnectedError(Exception):
-    """Raised if the ip connection is disconnected."""
+class DisconnectedError(ConnectionError):
+    """Raised if the ip connection is disconnected.
+
+    A `ConnectionError`, and so an `OSError`, because that is what the rest of this
+    module treats as "the transport is gone" rather than "the device complained".
+    """
 
     pass
 
@@ -96,6 +100,15 @@ class IPConnection(Connection[None], Tracer):
             try:
                 await connection.send_message(message)
                 response = await connection.receive_response()
+                if not response:
+                    # ``readline`` returns b"" at EOF, so a peer that closed the
+                    # socket rather than answering looks like an empty reply. It
+                    # is a dead link, and nothing else here would notice: the
+                    # caller would get "" and fail to parse it, over and over,
+                    # while the reconnect task stayed idle.
+                    raise DisconnectedError(
+                        "Connection closed by peer while awaiting a response"
+                    )
             except OSError:
                 self.set_disconnected()
                 raise

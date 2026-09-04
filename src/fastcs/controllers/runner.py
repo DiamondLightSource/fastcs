@@ -144,8 +144,18 @@ class ControllerRunner:
             The API of each controller, in the order they were given
 
         """
+        try:
+            return await self._open_and_build()
+        except BaseException:
+            # Startup aborts, but the connections opened before the failure are
+            # still open, and no task exists yet for a later ``stop`` to be called
+            # to cancel - so nothing else would ever close them.
+            await self._close_connections()
+            raise
+
+    async def _open_and_build(self) -> list[ControllerAPI]:
         self._connections = self._collect_connections()
-        self._check_for_dependency_cycles()
+        self._check_dependencies()
 
         for connection in self._connections:
             state = _ReconnectState()
@@ -177,6 +187,15 @@ class ControllerRunner:
         if not self._controller_apis:
             await self.build()
 
+        try:
+            await self._setup_and_run()
+        except BaseException:
+            # As in ``build``: a ``setup`` or an initial read that raises leaves
+            # every connection open with nothing to close them.
+            await self.stop()
+            raise
+
+    async def _setup_and_run(self) -> None:
         for controller in self._walk_controllers():
             await controller.setup()
 
@@ -202,7 +221,9 @@ class ControllerRunner:
         last configured state.
         """
         self._cancel_tasks()
+        await self._close_connections()
 
+    async def _close_connections(self) -> None:
         for connection in reversed(self._connections):
             try:
                 await connection.close()
@@ -230,16 +251,27 @@ class ControllerRunner:
                 seen[id(connection)] = connection
         return list(seen.values())
 
-    def _check_for_dependency_cycles(self) -> None:
-        """``depends_on`` is declared, so two connections can name each other.
+    def _check_dependencies(self) -> None:
+        """``depends_on`` is declared, so it can name anything at all.
 
-        A cycle would leave both waiting on the other forever, with nothing said, so
-        it fails at startup instead.
+        A connection can name one the runner does not supervise, or two can name
+        each other. Either leaves a connection waiting forever with nothing said,
+        so both fail at startup instead.
         """
         for connection in self._connections:
             seen = [connection]
             dependency = connection.depends_on
             while dependency is not None:
+                if not self._supervises(dependency):
+                    # It would never be opened, so it would sit at
+                    # ``connected is False`` forever and this connection would
+                    # never be attempted again.
+                    raise ValueError(
+                        f"{type(connection).__name__} depends on a "
+                        f"{type(dependency).__name__} the runner does not "
+                        "supervise, so it would never be opened. Declare it "
+                        "alongside the connection that depends on it."
+                    )
                 if any(dependency is node for node in seen):
                     chain = " -> ".join(type(node).__name__ for node in seen)
                     raise ValueError(
@@ -248,6 +280,10 @@ class ControllerRunner:
                     )
                 seen.append(dependency)
                 dependency = dependency.depends_on
+
+    def _supervises(self, connection: Connection) -> bool:
+        """Whether this runner opened, and will reconnect, a connection."""
+        return any(connection is known for known in self._connections)
 
     async def _build_phase(self) -> None:
         """Walk the tree top-down calling ``build``, to a fixpoint.
@@ -291,7 +327,14 @@ class ControllerRunner:
                 "argument, but the controller has no connection to get one from."
             )
 
-        await controller.build(self._state[connection].introspection)  # type: ignore[call-arg]
+        state = self._state.get(connection)
+        if state is None:
+            # A controller added during ``build`` that holds an unopened
+            # connection reaches here before the pass that would catch it, and a
+            # bare KeyError would say nothing useful.
+            raise self._unsupervised_connection_error(controller, connection)
+
+        await controller.build(state.introspection)  # type: ignore[call-arg]
 
     def _check_connections_are_known(self) -> None:
         """A connection the runner never opened would never be reconnected either."""
@@ -300,12 +343,18 @@ class ControllerRunner:
             if connection is None or connection in self._state:
                 continue
 
-            raise RuntimeError(
-                f"Controller {'.'.join(controller.path) or type(controller).__name__} "
-                f"holds a {type(connection).__name__} the runner did not open. A "
-                "connection created during `build` cannot be supervised - declare it "
-                "up front and claim it from the `Connections` registry."
-            )
+            raise self._unsupervised_connection_error(controller, connection)
+
+    @staticmethod
+    def _unsupervised_connection_error(
+        controller: BaseController, connection: Connection
+    ) -> RuntimeError:
+        return RuntimeError(
+            f"Controller {'.'.join(controller.path) or type(controller).__name__} "
+            f"holds a {type(connection).__name__} the runner did not open. A "
+            "connection created during `build` cannot be supervised - declare it "
+            "up front and claim it from the `Connections` registry."
+        )
 
     def _warn_about_unclaimed_connections(self) -> None:
         if self._registry is None:
@@ -450,7 +499,20 @@ class ControllerRunner:
                 )
             return
 
-        if self._introspection_differs(introspection, state.introspection):
+        try:
+            differs = self._introspection_differs(introspection, state.introspection)
+        except TypeError as error:
+            # Raised for an introspection result that cannot be compared. Letting
+            # it out of here would kill this reconnect task silently - nothing
+            # awaits it - and every scan gated on this connection would then wait
+            # in `wait_up` forever. Report it the same way a mismatch is reported.
+            logger.exception(
+                "Cannot compare introspection", connection=self._name_of(connection)
+            )
+            self._fail(error)
+            return
+
+        if differs:
             self._fatal_introspection_mismatch(
                 connection, state.introspection, introspection
             )
