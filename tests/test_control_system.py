@@ -6,6 +6,7 @@ from fastcs.attributes import AttrR, NotPolled, Polled
 from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
+from fastcs.controllers.runner import IntrospectionMismatchError
 from fastcs.methods import Command, command
 from fastcs.util import ONCE
 
@@ -138,3 +139,38 @@ async def test_serve_opens_and_closes_the_connection():
     # ...and closes them at the end of it
     await asyncio.sleep(0.1)
     assert not connection.open
+
+
+@pytest.mark.asyncio
+async def test_a_fatal_runner_condition_comes_out_of_serve():
+    """Not `sys.exit`: an embedded FastCS must be able to see this and decide."""
+
+    class MyTestConnection(Connection[str]):
+        def __init__(self):
+            super().__init__()
+            self.introspection = "v1"
+
+        async def connect(self) -> str:
+            return self.introspection
+
+        async def close(self) -> None: ...
+
+    class MyTestController(Controller):
+        def __init__(self, connection):
+            self.connection = connection
+            super().__init__()
+
+    connection = MyTestConnection()
+    connection.reconnect_period = 0.001
+    fastcs = FastCS(MyTestController(connection), [], asyncio.get_event_loop())
+
+    task = asyncio.create_task(fastcs.serve(interactive=False))
+    await asyncio.sleep(0.1)
+
+    # The device comes back describing itself differently, which `build` cannot
+    # be re-run to accommodate.
+    connection.introspection = "v2"
+    connection.set_disconnected()
+
+    with pytest.raises(IntrospectionMismatchError, match="describing itself"):
+        await asyncio.wait_for(task, timeout=5)
