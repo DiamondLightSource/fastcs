@@ -68,8 +68,8 @@ Notes:
 
 `temperature_attr.py` and `eiger.py` have current-API baselines that can be written **now** (deliberately messy against the
 pre-refactor API) and are cleaned up as each framework PR lands. `hello_world.py`
-and `temperature_scpi.py` need framework work first (`@attr` #397;
-`ControllerFiller` #394). See each issue's `Blocked by:` line.
+followed `@attr` (#397) landing; `temperature_scpi.py` still waits on
+`ControllerFiller` (#394). See each issue's `Blocked by:` line.
 
 `literalinclude` region markers are added to each module as part of writing its
 tutorial (the umbrella docs pass,
