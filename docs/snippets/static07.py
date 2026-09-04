@@ -9,20 +9,18 @@ from fastcs.transports.epics.ca import EpicsCATransport
 
 
 class TemperatureController(Controller):
+    connection: IPConnection
+
     def __init__(self, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
+        self.connection = IPConnection(settings)
 
         super().__init__()
 
         self.device_id = AttrR(str, getter=Polled(self._get_device_id, period=0.2))
 
     async def _get_device_id(self) -> str:
-        response = await self._connection.send_query("ID?\r\n")
+        response = await self.connection.send_query("ID?\r\n")
         return response.strip("\r\n")
-
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")

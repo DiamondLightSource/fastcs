@@ -700,8 +700,7 @@ async def test_setpoint_seeded_by_initial_poll_reaches_transport(
 
     controller = SeedController()
     controller.set_path([str(uuid4())])
-    await controller.initialise()
-    controller.post_initialise()
+    await controller.build()
     controller_api, _, initial_coros = controller.create_api_and_tasks()
 
     attribute = controller_api.attributes["a"]

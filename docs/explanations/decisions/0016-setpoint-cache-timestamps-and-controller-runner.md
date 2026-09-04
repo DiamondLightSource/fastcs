@@ -118,3 +118,50 @@ surface referenced by decision 13 of #388.
    responsibility**.
 4. **Who owns reconnect?** The runner owns the whole lifecycle, including
    reconnect.
+
+## Amendment: connections own reconnect (#422)
+
+Question 4 above says the runner owns reconnect, and stops there. It left the
+*subject* of reconnect implicit, and the first implementation took it to be the
+controller — which cannot work once controllers share a link, because
+reconnecting a controller that does not own its connection is a no-op.
+
+The subject is the **connection**. Connection state moves off `Controller` onto a
+first-class `Connection` object: controllers hold one, several may hold the same
+one, and it owns its own health, reconnect task and retry budget. See
+[connections](../connections.md) for the shape, and the design attached to
+[issue #422](https://github.com/DiamondLightSource/fastcs/issues/422).
+
+What this amends:
+
+- **`Controller.connect`/`reconnect`/`disconnect`/`_connected` are removed.** A
+  driver never touches a connected flag; `Connection.connect()` opens the link or
+  raises, and the framework decides what that means.
+- **`initialise`/`post_initialise` become `build`/`setup`**, splitting "structure
+  that depends on the device" from "hardware writes once the tree is built".
+  `build` optionally receives whatever the connection's `connect()` returned.
+- **Introspection is checked on every reconnect.** `build` runs once, so a device
+  that comes back describing itself differently cannot be accommodated.
+- **The runner owns the startup order** — connections, then `build` to a fixpoint,
+  then `setup`, then tasks — and shutdown, closing connections in reverse.
+
+Points the review of #420 asked to settle, and how they land:
+
+- **`connection._connected = True` from outside.** There is a framework-only
+  `_set_connected()` next to `set_disconnected()`, so the flag has one owner.
+- **What "fatal" means for an introspection mismatch.** Not `sys.exit`: an
+  embedded FastCS must survive it. The runner sets `fatal_error` (an
+  `asyncio.Event`) and records `fatal_reason`; `FastCS.serve` raises it, and an
+  embedder observes it instead.
+- **How build info is compared.** With `!=`, which means an introspection result
+  must compare to a single bool. An ambiguous comparison (a dict of numpy arrays)
+  raises a message saying so rather than escaping a background task.
+- **`check()` skipped while IO is succeeding.** Dropped. There is no separate
+  health-check hook: a connection with any polling is proved alive by that
+  polling, and a device that needs a heartbeat gets a `@scan`, which is ordinary
+  driver code. A connection nothing polls is warned about at startup.
+- **`depends_on` cycles.** Declared rather than derived, and detected at startup.
+- **`max_attempts` exhausting to a terminal state.** Kept as the design specifies
+  (default 10), and *not* propagated to dependents — the parent's give-up message
+  names what it blocks. Whether the default should instead be retry-forever is
+  left open; it is one constant.

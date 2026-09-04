@@ -98,7 +98,7 @@ class FastCS:
         # Build the APIs before wiring transports to them: a transport
         # registers its callbacks when it connects, and would miss the first
         # readback if the controllers had already started.
-        self.controller_apis = await self._runner.setup()
+        self.controller_apis = await self._runner.build()
 
         context = {
             "controllers": {_context_key(c): c for c in self._controllers},
@@ -143,6 +143,19 @@ class FastCS:
 
         await self._runner.start()
 
+        # A fatal runner condition - a device coming back describing itself
+        # differently, say - happens in a background task, where a raise would be
+        # invisible. The runner records it instead, and this coroutine is where the
+        # process notices and comes down rather than serving a tree that no longer
+        # matches the hardware. Nothing calls ``sys.exit``, so an embedder sees an
+        # exception out of ``serve`` rather than losing its process.
+        async def fail_on_fatal() -> None:
+            await self._runner.fatal_error.wait()
+            assert self._runner.fatal_reason is not None
+            raise self._runner.fatal_reason
+
+        coros.append(fail_on_fatal())
+
         try:
             await asyncio.gather(*coros)
         except asyncio.CancelledError:
@@ -152,6 +165,8 @@ class FastCS:
         finally:
             logger.info("Shutting down FastCS")
             await self._runner.stop()
+            if self._runner.fatal_reason is not None:
+                raise self._runner.fatal_reason
 
     async def _interactive_shell(self, context: dict[str, Any]):
         """Spawn interactive shell in another thread and wait for it to complete."""

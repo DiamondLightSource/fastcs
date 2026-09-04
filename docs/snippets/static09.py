@@ -13,24 +13,25 @@ ValueT = TypeVar("ValueT")
 
 class TemperatureProtocol:
     def __init__(self, connection: IPConnection, suffix: str = ""):
-        self._connection = connection
+        self.connection = connection
         self._suffix = suffix
 
     async def send_command(self, param: str, value: ValueT, dtype: type[ValueT]):
         command = f"{param}{self._suffix}={dtype(value)}"  # type: ignore[call-arg]
-        await self._connection.send_command(f"{command}\r\n")
+        await self.connection.send_command(f"{command}\r\n")
 
     async def send_query(self, param: str, dtype: type[ValueT]) -> ValueT:
         query = f"{param}{self._suffix}?"
-        response = await self._connection.send_query(f"{query}\r\n")
+        response = await self.connection.send_query(f"{query}\r\n")
         return dtype(response.strip("\r\n"))  # type: ignore[call-arg]
 
 
 class TemperatureController(Controller):
+    connection: IPConnection
+
     def __init__(self, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
-        self._protocol = TemperatureProtocol(self._connection)
+        self.connection = IPConnection(settings)
+        self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
 
@@ -53,9 +54,6 @@ class TemperatureController(Controller):
 
     async def _set_ramp_rate(self, value: float) -> None:
         await self._protocol.send_command("R", value, float)
-
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")

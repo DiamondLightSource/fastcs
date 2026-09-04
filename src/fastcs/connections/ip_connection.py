@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 
+from fastcs.connections.connection import Connection
 from fastcs.tracer import Tracer
 
 
@@ -46,12 +47,26 @@ class StreamConnection:
         await self.writer.wait_closed()
 
 
-class IPConnection(Tracer):
-    """For connecting to an ip using a `StreamConnection`."""
+class IPConnection(Connection[None], Tracer):
+    """For connecting to an ip using a `StreamConnection`.
 
-    def __init__(self):
-        super().__init__()
-        self.__connection = None
+    The settings are given at construction rather than to `connect`, because the
+    framework opens and reopens the link without knowing anything about it. IO
+    marks the connection down when the *transport* fails, so everything holding it
+    stops and its reconnect task wakes.
+
+    Args:
+        settings: Where to connect to
+        kwargs: Passed to `Connection` - ``depends_on``, ``reconnect_period``,
+            ``max_attempts``
+
+    """
+
+    def __init__(self, settings: IPConnectionSettings | None = None, **kwargs) -> None:
+        Connection.__init__(self, **kwargs)
+        Tracer.__init__(self)
+        self._settings = settings or IPConnectionSettings()
+        self.__connection: StreamConnection | None = None
 
     @property
     def _connection(self) -> StreamConnection:
@@ -60,18 +75,31 @@ class IPConnection(Tracer):
 
         return self.__connection
 
-    async def connect(self, settings: IPConnectionSettings):
-        reader, writer = await asyncio.open_connection(settings.ip, settings.port)
+    async def connect(self) -> None:
+        reader, writer = await asyncio.open_connection(
+            self._settings.ip, self._settings.port
+        )
         self.__connection = StreamConnection(reader, writer)
 
     async def send_command(self, message: str) -> None:
         async with self._connection as connection:
-            await connection.send_message(message)
+            try:
+                await connection.send_message(message)
+            except OSError:
+                # The socket is gone, rather than the device complaining. Everything
+                # holding this connection is now down.
+                self.set_disconnected()
+                raise
 
     async def send_query(self, message: str) -> str:
         async with self._connection as connection:
-            await connection.send_message(message)
-            response = await connection.receive_response()
+            try:
+                await connection.send_message(message)
+                response = await connection.receive_response()
+            except OSError:
+                self.set_disconnected()
+                raise
+
             self.log_event(
                 "Received query response",
                 query=message.strip(),
@@ -79,7 +107,7 @@ class IPConnection(Tracer):
             )
             return response
 
-    async def close(self):
+    async def close(self) -> None:
         if self.__connection is None:
             return
 

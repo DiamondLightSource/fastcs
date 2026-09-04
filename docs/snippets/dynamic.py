@@ -90,7 +90,7 @@ class TemperatureRampController(Controller):
         self._protocol = protocol
         super().__init__(f"Ramp{index}")
 
-    async def initialise(self):
+    async def build(self):
         for name, attribute in create_attributes(
             self._parameters, self._protocol
         ).items():
@@ -98,20 +98,20 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
+    connection: IPConnection
+
     def __init__(self, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
-        self._protocol = TemperatureProtocol(self._connection)
+        # Opening it, and reopening it after a failure, is the runner's job.
+        self.connection = IPConnection(settings)
+        self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
 
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
-
-    async def initialise(self):
-        await self.connect()
-
-        api = json.loads((await self._connection.send_query("API?\r\n")).strip("\r\n"))
+    async def build(self):
+        # Runs with the connection already open. The ramp controllers added here get
+        # their own `build` called by the runner on a later pass, so there is no
+        # need - and no way - to drive their lifecycle from this one.
+        api = json.loads((await self.connection.send_query("API?\r\n")).strip("\r\n"))
 
         ramps_api = api.pop("Ramps")
 
@@ -122,10 +122,7 @@ class TemperatureController(Controller):
             ramp_controller = TemperatureRampController(
                 idx + 1, ramp_parameters, self._protocol
             )
-            await ramp_controller.initialise()
             self.add_sub_controller(f"Ramp{idx + 1:02d}", ramp_controller)
-
-        await self._connection.close()
 
 
 epics_ca = EpicsCATransport()

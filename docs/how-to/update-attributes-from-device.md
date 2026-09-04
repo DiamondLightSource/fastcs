@@ -236,13 +236,13 @@ class SubscriptionController(Controller):
         super().__init__()
         self._client = subscription_client
 
-    async def connect(self):
+    async def setup(self):
         # Register an async callback that forwards updates into the attribute.
+        # `setup` runs once the whole tree is built and every connection is open.
         async def on_temperature_change(value: float) -> None:
             await self.temperature.update(value)
 
         await self._client.subscribe("temperature", on_temperature_change)
-        await super().connect()
 ```
 
 If the library only supports synchronous callbacks, schedule the coroutine onto the

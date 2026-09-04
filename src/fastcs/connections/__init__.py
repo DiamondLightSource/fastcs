@@ -1,5 +1,9 @@
+from .connection import DEFAULT_MAX_ATTEMPTS as DEFAULT_MAX_ATTEMPTS
+from .connection import DEFAULT_RECONNECT_PERIOD as DEFAULT_RECONNECT_PERIOD
+from .connection import Connection as Connection
 from .ip_connection import IPConnection as IPConnection
 from .ip_connection import IPConnectionSettings as IPConnectionSettings
 from .ip_connection import StreamConnection as StreamConnection
+from .registry import Connections as Connections
 from .serial_connection import SerialConnection as SerialConnection
 from .serial_connection import SerialConnectionSettings as SerialConnectionSettings

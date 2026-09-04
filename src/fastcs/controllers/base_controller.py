@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from inspect import getattr_static
 from typing import (
+    Any,
     TypeVar,
     _GenericAlias,  # type: ignore
     get_args,
@@ -35,6 +36,29 @@ class BaseController(Tracer):
     # behaviour of instantiated controllers
     root_attribute: Attribute | None = None
     description: str | None = None
+
+    connection: Any = None
+    """The link this controller does its IO over, if it has one.
+
+    A `Connection`, or ``None``. Set in ``__init__``, usually by claiming it from a
+    `Connections` registry. A controller holds at most one - two devices means two
+    controllers - and several controllers may hold the same object, in which case
+    they share one health state, one reconnect task and one retry budget.
+
+    A controller with no connection (a soft grouping controller, or a
+    `ControllerVector`) is never gated and never reconnected.
+
+    Typed ``Any`` rather than ``Connection | None`` so that a driver can narrow it to
+    the connection it actually holds, and call that connection's own methods::
+
+        class TemperatureController(Controller):
+            connection: IPConnection
+
+    A mutable attribute is invariant, so a driver cannot narrow a declared
+    ``Connection | None`` without a type checker objecting to every driver in
+    existence. The framework reads this attribute in exactly two places - the scan
+    gate and the runner - both of which state the type they expect.
+    """
 
     def __init__(
         self,
@@ -179,13 +203,35 @@ class BaseController(Tracer):
         else:
             super().__setattr__(name, value)
 
-    async def initialise(self):
-        """Hook for subclasses to dynamically add attributes before building the API"""
+    async def build(self):
+        """Hook for structure that depends on the device.
+
+        Called by the framework once this controller's connection is open, and
+        before anything is set up. Add the attributes and sub controllers that could
+        only be known by asking the device - the ones knowable without it belong in
+        ``__init__``, which is where a controller can be constructed and inspected in
+        a test with no hardware.
+
+        A controller whose connection returns introspection from ``connect`` may
+        declare ``build(self, info)`` to receive it; the framework inspects the
+        signature, so ``build(self)`` is equally valid.
+
+        No hardware *writes* here. A device that needs a mode set before
+        introspection works has that write in `Connection.connect`, which means
+        "make the link usable" rather than merely "open the socket".
+        """
         pass
 
-    def post_initialise(self):
-        """Hook to call after all attributes added, before serving the application"""
-        self._validate_type_hints()
+    async def setup(self):
+        """Hook for hardware writes and checks, once the whole tree is built.
+
+        Called by the framework after every controller's ``build`` has run and every
+        connection is open, so this can read and write across the tree.
+
+        No new attributes or sub controllers here - anything created now would never
+        get its own ``build`` or ``setup`` called.
+        """
+        pass
 
     def _validate_type_hints(self):
         """Validate all type-hints were introspected"""

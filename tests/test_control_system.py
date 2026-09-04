@@ -3,6 +3,7 @@ import asyncio
 import pytest
 
 from fastcs.attributes import AttrR, NotPolled, Polled
+from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.methods import Command, command
@@ -30,7 +31,7 @@ async def test_controller_api_methods():
         def __init__(self):
             super().__init__()
 
-        async def initialise(self):
+        async def build(self):
             async def do_nothing_dynamic() -> None:
                 pass
 
@@ -94,33 +95,46 @@ async def test_update_periods():
     assert controller.update_once.readback == 1
     assert controller.update_never.readback == 0
 
-    # One periodic scan task per distinct period, plus one reconnect watcher
+    # One periodic scan task per distinct period
     assert len(fastcs._runner._scan_coros) == 1
     assert len(fastcs._runner._initial_coros) == 1
 
 
 @pytest.mark.asyncio
-async def test_controller_connect_disconnect():
+async def test_serve_opens_and_closes_the_connection():
+    """Opening and closing the link is the runner's job, not the controller's."""
+
+    class MyTestConnection(Connection[None]):
+        def __init__(self):
+            super().__init__()
+            self.open = False
+
+        async def connect(self) -> None:
+            self.open = True
+
+        async def close(self) -> None:
+            self.open = False
+
     class MyTestController(Controller):
-        async def connect(self):
-            self.connect_called = True
+        def __init__(self, connection):
+            self.connection = connection
+            super().__init__()
 
-        async def disconnect(self):
-            self.connect_called = False
-
-    controller = MyTestController()
+    connection = MyTestConnection()
+    controller = MyTestController(connection)
 
     loop = asyncio.get_event_loop()
     fastcs = FastCS(controller, [], loop)
 
     task = asyncio.create_task(fastcs.serve(interactive=False))
 
-    # connect is called at the start of serve
+    # The runner opens every connection at the start of serve
     await asyncio.sleep(0.1)
-    assert controller.connect_called
+    assert connection.open
+    assert controller.connected
 
     task.cancel()
 
-    # disconnect is called at the end of serve
+    # ...and closes them at the end of it
     await asyncio.sleep(0.1)
-    assert not controller.connect_called
+    assert not connection.open
