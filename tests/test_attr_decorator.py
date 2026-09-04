@@ -195,13 +195,12 @@ async def test_update_return_annotation_is_unwrapped():
 
 
 def test_metadata_is_validated_against_the_inferred_datatype():
+    class Device(Controller):
+        @attr(precision=3)
+        async def label(self) -> str:
+            return "x"
+
     with pytest.raises(TypeError, match="'precision' is not valid metadata"):
-
-        class Device(Controller):
-            @attr(precision=3)
-            async def label(self) -> str:
-                return "x"
-
         Device()
 
 
@@ -225,21 +224,19 @@ def test_matching_type_hint_is_satisfied_by_the_decorated_attribute():
             return "x"
 
     controller = Device()
-    controller.post_initialise()
 
     assert isinstance(controller.label, AttrR)
 
 
 def test_type_hint_of_the_wrong_access_mode_raises():
+    class Device(Controller):
+        label: AttrRW[str]  # pyright: ignore[reportRedeclaration]
+
+        @attr
+        async def label(self) -> str:
+            return "x"
+
     with pytest.raises(RuntimeError, match="does not match defined access mode"):
-
-        class Device(Controller):
-            label: AttrRW[str]  # pyright: ignore[reportRedeclaration]
-
-            @attr
-            async def label(self) -> str:
-                return "x"
-
         Device()
 
 
@@ -263,7 +260,7 @@ def test_name_clash_with_an_attribute_added_later_raises():
 def test_getter_must_be_async():
     with pytest.raises(TypeError, match="getter .* must be an async function"):
 
-        @attr  # pyright: ignore[reportArgumentType, reportCallIssue]
+        @attr()  # pyright: ignore[reportArgumentType]
         def voltage(self) -> float:
             return 0.0
 
@@ -285,7 +282,7 @@ def test_getter_must_annotate_its_return_type():
 
 
 def test_getter_must_return_a_supported_datatype():
-    with pytest.raises(TypeError, match="must annotate the datatype"):
+    with pytest.raises(TypeError, match="must annotate a supported datatype"):
 
         @attr()  # pyright: ignore[reportArgumentType]
         async def voltage(self) -> list[int]:
@@ -335,13 +332,11 @@ def test_setter_value_annotation_is_optional():
     async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
         return 0.0
 
-    voltage = voltage.setter(_untyped_setter)
+    @voltage.setter
+    async def voltage(self, value) -> None:
+        pass
 
     assert voltage.has_setter()
-
-
-async def _untyped_setter(self, value) -> None:
-    pass
 
 
 def test_only_one_setter():
