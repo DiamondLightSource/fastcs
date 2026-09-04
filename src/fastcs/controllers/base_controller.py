@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from inspect import getattr_static
 from typing import (
     TypeVar,
     _GenericAlias,  # type: ignore
@@ -9,7 +10,7 @@ from typing import (
     get_type_hints,
 )
 
-from fastcs.attributes import Attribute, HintedAttribute
+from fastcs.attributes import Attribute, HintedAttribute, UnboundAttr
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.logging import logger
 from fastcs.methods import Command, Method, Scan, UnboundCommand, UnboundScan
@@ -117,6 +118,9 @@ class BaseController(Tracer):
         controller class. For Methods, this requires creating a bound method from a
         class method and a controller instance, so that it can be called from any
         context with the controller instance passed as the ``self`` argument.
+        An ``@attr``-decorated getter is an `UnboundAttr` declaration rather than
+        an Attribute, and is bound the same way the Methods are - into a fresh
+        Attribute whose getter and setter are methods of this instance.
 
         """
         class_dir = dict.fromkeys(self._walk_mro())
@@ -128,6 +132,13 @@ class BaseController(Tracer):
 
         for attr_name in {**class_dir, **class_type_hints}:
             if attr_name == "root_attribute":
+                continue
+
+            # An ``UnboundAttr`` is a descriptor that refuses to be read before
+            # it is bound, so reach past it to the declaration itself.
+            declaration = getattr_static(self, attr_name, None)
+            if isinstance(declaration, UnboundAttr):
+                self.add_attribute(attr_name, declaration.bind(self))
                 continue
 
             attr = getattr(self, attr_name, None)

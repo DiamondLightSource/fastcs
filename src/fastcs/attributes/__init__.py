@@ -1,3 +1,8 @@
+from .attr_decorator import UnboundAttr as UnboundAttr
+from .attr_decorator import UnboundAttrRW as UnboundAttrRW
+from .attr_decorator import UnboundGetter as UnboundGetter
+from .attr_decorator import UnboundSetter as UnboundSetter
+from .attr_decorator import attr as attr
 from .attr_r import AttrR as AttrR
 from .attr_r import Getter as Getter
 from .attr_r import NotPolled as NotPolled
