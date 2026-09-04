@@ -58,37 +58,23 @@ def _summary(docstring: str | None) -> str | None:
     return " ".join(docstring.split("\n\n", 1)[0].split()) or None
 
 
-def _method_signature(fn: Callable, expected: int, kind: str) -> Signature:
-    """The signature of an ``@attr`` getter or setter, once it is known to be one.
+def _method_signature(fn: Callable) -> Signature:
+    """Resolve the signature of an async ``@attr`` getter or setter.
 
     Args:
         fn: The decorated function
-        expected: How many parameters it takes, including the ``self`` it is
-            bound to - one for a getter, two for a setter
-        kind: What the function is, to name it in errors
 
     Returns:
         The signature, with its annotations resolved
 
     Raises:
-        TypeError: If the function is not an async method of the right arity
+        TypeError: If the function is not an async method
 
     """
     if not iscoroutinefunction(fn):
-        raise TypeError(f"@attr {kind} {fn.__qualname__} must be an async function")
+        raise TypeError("must be an async function")
 
-    fn_signature = signature(fn, eval_str=True)
-    parameters = list(fn_signature.parameters.values())
-    takes = "self" if expected == 1 else "self and the value to set"
-    if len(parameters) != expected or any(
-        parameter.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
-        for parameter in parameters
-    ):
-        raise TypeError(
-            f"@attr {kind} {fn.__qualname__} must be a method taking {takes}"
-        )
-
-    return fn_signature
+    return signature(fn, eval_str=True)
 
 
 class UnboundAttr(Generic[Controller_T, DType_T]):
@@ -114,12 +100,25 @@ class UnboundAttr(Generic[Controller_T, DType_T]):
         meta: Meta | None = None,
         setter: UnboundSetter[Controller_T, DType_T] | None = None,
     ) -> None:
-        getter_signature = _method_signature(getter, expected=1, kind="getter")
+        try:
+            getter_signature = _method_signature(getter)
+            getter_parameters = list(getter_signature.parameters.values())
+            if len(getter_parameters) != 1 or any(
+                parameter.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
+                for parameter in getter_parameters
+            ):
+                raise TypeError("must be a method taking self")
+        except TypeError as error:
+            raise TypeError(f"@attr getter {getter.__qualname__} {error}") from error
 
-        datatype = _datatype_for_annotation(
-            _unwrap_update_annotation(getter_signature.return_annotation)
-        )
+        annotation = _unwrap_update_annotation(getter_signature.return_annotation)
+        datatype = _datatype_for_annotation(annotation)
         if datatype is None:
+            if annotation is not Signature.empty:
+                raise TypeError(
+                    f"@attr getter {getter.__qualname__} must annotate a supported "
+                    f"datatype, got {_type_name(annotation)}"
+                )
             raise TypeError(
                 f"@attr getter {getter.__qualname__} must annotate the datatype "
                 "the attribute holds as its return type, for example `-> float`"
@@ -199,7 +198,16 @@ class UnboundAttr(Generic[Controller_T, DType_T]):
                 f"@attr getter {self._getter.__qualname__} already has a setter"
             )
 
-        setter_signature = _method_signature(fn, expected=2, kind="setter")
+        try:
+            setter_signature = _method_signature(fn)
+            setter_parameters = list(setter_signature.parameters.values())
+            if len(setter_parameters) != 2 or any(
+                parameter.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
+                for parameter in setter_parameters
+            ):
+                raise TypeError("must be a method taking self and the value to set")
+        except TypeError as error:
+            raise TypeError(f"@attr setter {fn.__qualname__} {error}") from error
 
         value = list(setter_signature.parameters.values())[1]
         if value.annotation is not Signature.empty:
@@ -263,7 +271,7 @@ class UnboundAttrRW(UnboundAttr[Controller_T, DType_T]):
     ``AttrRW`` it becomes, and one without it as an ``AttrR``.
     """
 
-    @overload  # pyright: ignore[reportIncompatibleMethodOverride]
+    @overload
     def __get__(
         self, instance: None, owner: type | None = None, /
     ) -> UnboundAttrRW[Controller_T, DType_T]: ...
