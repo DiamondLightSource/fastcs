@@ -20,9 +20,7 @@ def controller() -> TemperatureController:
         num_ramp_controllers=4,
         ip_settings=IPConnectionSettings(ip="localhost", port=25565),
     )
-    controller = TemperatureController(settings)
-    controller.post_initialise()
-    return controller
+    return TemperatureController(settings)
 
 
 @pytest.fixture

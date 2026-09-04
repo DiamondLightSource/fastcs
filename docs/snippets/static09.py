@@ -27,10 +27,11 @@ class TemperatureProtocol:
 
 
 class TemperatureController(Controller):
+    connection: IPConnection
+
     def __init__(self, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
-        self._protocol = TemperatureProtocol(self._connection)
+        self.connection = IPConnection(settings)
+        self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
 
@@ -53,9 +54,6 @@ class TemperatureController(Controller):
 
     async def _set_ramp_rate(self, value: float) -> None:
         await self._protocol.send_command("R", value, float)
-
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")

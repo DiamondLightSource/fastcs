@@ -6,6 +6,7 @@ import pytest
 import pytest_asyncio
 
 from fastcs.attributes import AttrR, AttrRW
+from fastcs.controllers import ControllerRunner
 from fastcs.demo.eiger import UPDATE_PERIOD, EigerDetector
 from fastcs.demo.simulation.eiger import EigerParameter, create_eiger_sim_app
 from fastcs.util import ONCE
@@ -18,11 +19,10 @@ SimState = dict[str, dict[str, EigerParameter]]
 async def _eiger():
     app = create_eiger_sim_app()
     controller = EigerDetector(transport=httpx.ASGITransport(app=app))
-    await controller.connect()
-    await controller.initialise()
-    controller.post_initialise()
+    runner = ControllerRunner(controller)
+    await runner.build()
     yield controller, app.state.sim
-    await controller.disconnect()
+    await runner.stop()
 
 
 @pytest_asyncio.fixture
@@ -120,9 +120,8 @@ async def test_temperature_oscillation_seen_via_subscribe():
     app = create_eiger_sim_app()
     async with app.router.lifespan_context(app):
         controller = EigerDetector(transport=httpx.ASGITransport(app=app))
-        await controller.connect()
-        await controller.initialise()
-        controller.post_initialise()
+        runner = ControllerRunner(controller)
+        await runner.build()
 
         temperature = controller.attributes["temperature"]
         assert isinstance(temperature, AttrR)
@@ -139,6 +138,6 @@ async def test_temperature_oscillation_seen_via_subscribe():
             await temperature.poll()
             await asyncio.sleep(0.2)
 
-        await controller.disconnect()
+        await runner.stop()
 
     assert len(set(seen)) > 1, f"temperature did not change: {seen}"

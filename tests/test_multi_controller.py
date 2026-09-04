@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR
+from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions
@@ -299,28 +300,38 @@ def test_tango_transport_rejects_post_sanitisation_class_name_collision():
     assert "'DEV_1'" in message
 
 
+class _LifecycleConnection(Connection[None]):
+    """Records whether the runner opened and closed the link."""
+
+    def __init__(self):
+        super().__init__()
+        self.open = False
+
+    async def connect(self) -> None:
+        self.open = True
+
+    async def close(self) -> None:
+        self.open = False
+
+
 class _LifecycleController(Controller):
     """Records lifecycle hook calls for end-to-end assertions."""
+
+    connection: _LifecycleConnection
 
     foo = AttrR(int)
 
     def __init__(self):
+        self.connection = _LifecycleConnection()
         super().__init__()
-        self.connect_called = False
-        self.initialised = False
-        self.post_initialised = False
+        self.built = False
+        self.set_up = False
 
-    async def initialise(self):
-        self.initialised = True
+    async def build(self):
+        self.built = True
 
-    def post_initialise(self):
-        self.post_initialised = True
-
-    async def connect(self):
-        self.connect_called = True
-
-    async def disconnect(self):
-        self.connect_called = False
+    async def setup(self):
+        self.set_up = True
 
 
 class _OtherLifecycleController(_LifecycleController):
@@ -347,9 +358,9 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
         await asyncio.sleep(0.1)
 
         for controller in (a, b):
-            assert controller.initialised
-            assert controller.post_initialised
-            assert controller.connect_called
+            assert controller.built
+            assert controller.set_up
+            assert controller.connection.open
 
         with TestClient(transport._server._app) as client:
             assert client.get("/alpha/foo").status_code == 200
@@ -369,4 +380,4 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
             pass
 
     for controller in (a, b):
-        assert not controller.connect_called
+        assert not controller.connection.open

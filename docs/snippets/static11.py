@@ -33,8 +33,11 @@ class OnOffEnum(enum.StrEnum):
 
 
 class TemperatureRampController(Controller):
+    connection: IPConnection
+
     def __init__(self, index: int, connection: IPConnection) -> None:
         suffix = f"{index:02d}"
+        self.connection = connection
         self._protocol = TemperatureProtocol(connection, suffix)
         super().__init__(f"Ramp{suffix}")
 
@@ -70,10 +73,11 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
+    connection: IPConnection
+
     def __init__(self, ramp_count: int, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
-        self._protocol = TemperatureProtocol(self._connection)
+        self.connection = IPConnection(settings)
+        self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
 
@@ -87,7 +91,7 @@ class TemperatureController(Controller):
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, ramp_count + 1):
-            controller = TemperatureRampController(index, self._connection)
+            controller = TemperatureRampController(index, self.connection)
             self._ramp_controllers.append(controller)
             self.add_sub_controller(f"R{index}", controller)
 
@@ -102,9 +106,6 @@ class TemperatureController(Controller):
 
     async def _set_ramp_rate(self, value: float) -> None:
         await self._protocol.send_command("R", value, float)
-
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
