@@ -80,14 +80,20 @@ def create_attributes(
 
 
 class TemperatureRampController(Controller):
+    connection: IPConnection
+
     def __init__(
         self,
         index: int,
         parameters: dict[str, TemperatureControllerParameter],
         protocol: TemperatureProtocol,
+        connection: IPConnection,
     ):
         self._parameters = parameters
         self._protocol = protocol
+        # The same connection the parent holds, so this controller's polled
+        # attributes pause with it while it is down.
+        self.connection = connection
         super().__init__(f"Ramp{index}")
 
     async def build(self):
@@ -120,7 +126,7 @@ class TemperatureController(Controller):
 
         for idx, ramp_parameters in enumerate(ramps_api):
             ramp_controller = TemperatureRampController(
-                idx + 1, ramp_parameters, self._protocol
+                idx + 1, ramp_parameters, self._protocol, self.connection
             )
             self.add_sub_controller(f"Ramp{idx + 1:02d}", ramp_controller)
 
