@@ -25,7 +25,7 @@ same vocabulary the procedural ``AttrR(float, getter=Polled(...), units="s")``
 form uses; ``@attr`` is sugar over those constructors rather than a second way
 of doing it.
 
-Where to go next: `fastcs.demo.temperature_attr` wires the same attributes to a
+Where to go next: ``fastcs.demo.temperature_attr`` wires the same attributes to a
 real device by passing bound protocol methods to ``AttrRW(getter=...,
 setter=...)``, which is what you want as soon as there is IO to do.
 """

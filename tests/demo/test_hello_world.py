@@ -25,7 +25,9 @@ def test_derived_attributes_are_read_only(controller: HelloWorldController):
 def test_docstrings_become_descriptions(controller: HelloWorldController):
     assert controller.greeting.description == "The word to greet with."
     assert controller.message.description == "The greeting as it currently reads."
-    assert controller.uptime.description == "Seconds since the controller was constructed."
+    assert (
+        controller.uptime.description == "Seconds since the controller was constructed."
+    )
 
 
 def test_schedules(controller: HelloWorldController):
