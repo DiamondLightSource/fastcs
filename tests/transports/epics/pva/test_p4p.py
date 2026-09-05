@@ -2,6 +2,7 @@ import asyncio
 import enum
 from datetime import datetime
 from multiprocessing import Queue
+from typing import cast
 from unittest.mock import ANY
 from uuid import uuid4
 
@@ -224,17 +225,20 @@ def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
 
 def test_read_signal_set():
     class SomeController(Controller):
-        a: AttrRW = AttrRW(
-            int,
-            limits=NumericLimits(
-                control=Limits(high=400_000), alarm=Limits(high=40_000)
-            ),
-        )
-        b: AttrR = AttrR(
-            float,
-            limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5)),
-            precision=2,
-        )
+        def __init__(self) -> None:
+            super().__init__()
+
+            self.a = AttrRW(
+                int,
+                limits=NumericLimits(
+                    control=Limits(high=400_000), alarm=Limits(high=40_000)
+                ),
+            )
+            self.b = AttrR(
+                float,
+                limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5)),
+                precision=2,
+            )
 
     controller = SomeController()
     pv_prefix = str(uuid4())
@@ -274,29 +278,31 @@ def test_read_signal_set():
 
 def test_pvi_grouping():
     class ChildChildController(Controller):
-        attr_e: AttrRW = AttrRW(int)
-        attr_f: AttrR = AttrR(str)
+        attr_e: AttrRW[int]
+        attr_f: AttrR[str]
 
     class ChildController(Controller):
-        attr_c: AttrW = AttrW(bool, description="Some bool")
-        attr_d: AttrW = AttrW(str)
+        attr_d: AttrW[str]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.attr_c = AttrW(bool, description="Some bool")
 
     class SomeController(Controller):
         description = "some controller"
-        attr_1: AttrRW = AttrRW(
-            int,
-            limits=NumericLimits(
-                control=Limits(high=400_000), alarm=Limits(high=40_000)
-            ),
-        )
-        attr_1: AttrRW = AttrRW(
-            float,
-            limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5)),
-            precision=2,
-        )
-        another_attr_0: AttrRW = AttrRW(int)
-        another_attr_1000: AttrRW = AttrRW(int)
-        a_third_attr: AttrW = AttrW(int)
+
+        another_attr_0: AttrRW[int]
+        another_attr_1000: AttrRW[int]
+        a_third_attr: AttrW[int]
+
+        def __init__(self) -> None:
+            super().__init__()
+
+            self.attr_1 = AttrRW(
+                float,
+                limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5)),
+                precision=2,
+            )
 
     controller = SomeController()
 
@@ -433,9 +439,13 @@ async def test_more_exotic_datatypes():
         C = 3
 
     class SomeController(Controller):
-        some_waveform: AttrRW = AttrRW(Array1D[np.int64], shape=(10, 10))
-        some_table: AttrRW = AttrRW(Table, structured_dtype=table_columns)
-        some_enum: AttrRW = AttrRW(AnEnum)
+        some_enum: AttrRW[AnEnum]
+
+        def __init__(self) -> None:
+            super().__init__()
+
+            self.some_waveform = AttrRW(Array1D[np.int64], shape=(10, 10))
+            self.some_table = AttrRW(Table, structured_dtype=table_columns)
 
     controller = SomeController()
     pv_prefix = str(uuid4())
@@ -467,7 +477,9 @@ async def test_more_exotic_datatypes():
         # resulting in only a change in the read back.
         await asyncio.gather(
             controller.some_waveform.update(server_set_waveform_value),
-            controller.some_table.update(server_set_table_value),
+            # A `Table` is held as a plain structured ndarray; the attribute
+            # validates the columns at runtime.
+            controller.some_table.update(cast(Table, server_set_table_value)),
             controller.some_enum.update(server_set_enum_value),
         )
 

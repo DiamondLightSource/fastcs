@@ -111,10 +111,6 @@ class BaseController(Tracer):
 
             attr = getattr(self, attr_name, None)
             if isinstance(attr, Attribute):
-                if attr_name in self.filler.declarations:
-                    # A class body that both declares and assigns is the old
-                    # spelling of one thing; the hint is the one that survives.
-                    continue
                 raise TypeError(
                     f"{type(self).__name__}.{attr_name} is an "
                     f"{type(attr).__name__} in the class body, which would be "
