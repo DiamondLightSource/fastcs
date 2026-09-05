@@ -138,6 +138,27 @@ class AttrW(Attribute[DType_T]):
     def has_setter(self) -> bool:
         return self._setter is not None
 
+    def set_setter(self, setter: Setter[DType_T]) -> None:
+        """Provision the IO that writes this attribute, after construction.
+
+        The counterpart to `AttrR.set_getter`, and used the same way: by the
+        `ControllerFiller`, to fill an attribute a class-body hint declared.
+
+        Args:
+            setter: The setter to apply values with
+
+        Raises:
+            ValueError: If the attribute already has a setter
+
+        """
+        if self._setter is not None:
+            raise ValueError(
+                f"Attribute {self.full_name or type(self).__name__} already has a "
+                "setter"
+            )
+
+        self._setter = setter
+
     @property
     def access_mode(self) -> AttributeAccessMode:
         return "w"

@@ -231,6 +231,44 @@ class AttrR(Attribute[DType_T]):
     def has_getter(self) -> bool:
         return self._getter is not None
 
+    def set_getter(self, getter: Getter[DType_T] | Schedule[DType_T]) -> None:
+        """Provision the IO that reads this attribute, after construction.
+
+        The `ControllerFiller` calls this to fill an attribute a class-body
+        hint declared but could not wire up, so that a reference taken during
+        ``__init__`` stays valid. It is not for changing the IO of an attribute
+        that already has some - that would silently swap what a running
+        transport is reading.
+
+        Args:
+            getter: The getter, optionally wrapped in a `Polled`/`NotPolled`
+                schedule; a bare getter is read once, on connect
+
+        Raises:
+            ValueError: If the attribute already has a getter, or a schedule
+                was passed with nothing to schedule
+
+        """
+        if self._getter is not None:
+            raise ValueError(
+                f"Attribute {self.full_name or type(self).__name__} already has a "
+                "getter"
+            )
+
+        match getter:
+            case Polled() | NotPolled():
+                if getter.getter is None:
+                    raise ValueError(
+                        f"{type(getter).__name__} was given no getter to schedule"
+                    )
+                self._getter = getter.getter
+                self._poll_period = (
+                    getter.period if isinstance(getter, Polled) else None
+                )
+            case _:
+                self._getter = getter
+                self._poll_period = ONCE
+
     @property
     def poll_period(self) -> float | None:
         return self._poll_period

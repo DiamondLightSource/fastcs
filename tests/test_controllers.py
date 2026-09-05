@@ -3,7 +3,7 @@ import enum
 
 import pytest
 
-from fastcs.attributes import AttrR, AttrRW
+from fastcs.attributes import AttrR, AttrRW, AttrW, Polled
 from fastcs.controllers import Controller, ControllerVector
 from fastcs.methods import Command, Scan, command, scan
 
@@ -32,15 +32,15 @@ class SomeSubController(Controller):
     def __init__(self):
         super().__init__()
 
-    sub_attribute = AttrR(int)
+    sub_attribute: AttrR[int]
 
     root_attribute = AttrR(int)
 
 
 class SomeController(Controller):
     annotated_attr_not_defined_in_init: AttrR[int]
-    equal_attr = AttrR(int)
-    annotated_and_equal_attr: AttrR[int] = AttrR(int)
+    equal_attr: AttrR[int]
+    annotated_and_equal_attr: AttrR[int]
 
     def __init__(self, sub_controller: Controller):
         super().__init__()
@@ -61,16 +61,17 @@ def test_attribute_parsing():
         "_attributes_attr",
         "attr_on_object",
         "_attributes_attr_equal",
+        "annotated_attr_not_defined_in_init",
         "annotated_and_equal_attr",
         "equal_attr",
         "sub_controller",
     }
 
-    assert SomeController.equal_attr is not controller.equal_attr
-    assert (
-        SomeController.annotated_and_equal_attr
-        is not controller.annotated_and_equal_attr
-    )
+    # Every hinted attribute is created for this instance alone, so two
+    # controllers of the same class never share one.
+    other = SomeController(SomeSubController())
+    assert other.equal_attr is not controller.equal_attr
+    assert other.annotated_and_equal_attr is not controller.annotated_and_equal_attr
 
     assert sub_controller.attributes == {
         "sub_attribute": sub_controller.sub_attribute,
@@ -99,11 +100,11 @@ def test_conflicting_attributes_and_controllers_and_commands(
     member_name, member_value, expected_error
 ):
     class ConflictingController(Controller):
-        attr = AttrR(int)
         cmd = Command(noop)
 
         def __init__(self):
             super().__init__()
+            self.attr = AttrR(int)
             self.sub_controller = Controller()
 
     controller = ConflictingController()
@@ -155,26 +156,103 @@ def test_controller_vector_iter():
         assert sub_controllers[index] == child
 
 
-def test_attribute_hint_validation():
+def test_a_hint_with_a_datatype_is_created_unfilled():
     class HintedController(Controller):
         read_write_int: AttrRW[int]
 
     controller = HintedController()
 
-    with pytest.raises(RuntimeError, match="does not match defined datatype"):
-        controller.add_attribute("read_write_int", AttrRW(float))
+    # The rule from ADR 0013: it exists as soon as __init__ returns, so the
+    # rest of __init__ may reference it.
+    assert isinstance(controller.read_write_int, AttrRW)
+    assert controller.read_write_int.dtype is int
+    assert not controller.read_write_int.has_getter()
+    assert not controller.read_write_int.has_setter()
+
+    controller.check_filled()
+
+
+@pytest.mark.asyncio
+async def test_filling_a_hinted_attribute():
+    class HintedController(Controller):
+        read_write_int: AttrRW[int]
+
+    controller = HintedController()
+    attribute = controller.read_write_int
+
+    async def get() -> int:
+        return 7
+
+    async def put(value: int) -> None:
+        pass
+
+    controller.filler.fill_attribute(
+        "read_write_int", getter=Polled(get, period=0.5), setter=put, units="counts"
+    )
+
+    # Filled in place, so a reference taken during __init__ is still the one
+    # that ends up serving the device.
+    assert controller.read_write_int is attribute
+    assert attribute.poll_period == 0.5
+    assert attribute.meta.get("units") == "counts"
+    assert await attribute.poll() == 7
+
+
+def test_filling_the_wrong_datatype_raises():
+    class HintedController(Controller):
+        read_write_int: AttrRW[int]
+
+    controller = HintedController()
+
+    with pytest.raises(TypeError, match="wrong datatype"):
+        controller.filler.fill_attribute("read_write_int", datatype=float)
+
+
+def test_filling_metadata_the_datatype_has_no_use_for_raises():
+    class HintedController(Controller):
+        label: AttrR[str]
+
+    controller = HintedController()
+
+    with pytest.raises(TypeError, match="'precision' is not valid metadata for str"):
+        controller.filler.fill_attribute("label", precision=3)
+
+
+def test_filling_something_that_was_never_declared_raises():
+    class HintedController(Controller):
+        read_write_int: AttrRW[int]
+
+    controller = HintedController()
+
+    with pytest.raises(KeyError, match="no attribute declaration"):
+        controller.filler.fill_attribute("not_declared")
+
+
+def test_a_hint_without_a_datatype_is_promised_not_created():
+    class HintedController(Controller):
+        # The datatype is only knowable over the wire, so the filler cannot
+        # build this one - introspection must add it.
+        state: AttrR
+
+    controller = HintedController()
+
+    assert "state" not in controller.attributes
+
+    with pytest.raises(RuntimeError, match="state .declared AttrR, never added."):
+        controller.check_filled("the device")
 
     with pytest.raises(RuntimeError, match="does not match defined access mode"):
-        controller.add_attribute("read_write_int", AttrR(int))
+        controller.add_attribute("state", AttrW(int))
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted attribute"):
-        controller.read_write_int = 5  # type: ignore
-        controller._validate_type_hints()
+    controller.add_attribute("state", AttrR(int))
+    controller.check_filled()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted attribute"):
-        controller._validate_type_hints()
 
-    controller.add_attribute("read_write_int", AttrRW(int))
+def test_an_optional_hint_is_not_required():
+    class HintedController(Controller):
+        maybe: AttrR | None
+
+    HintedController().check_filled()
 
 
 def test_enum_attribute_hint_validation():
@@ -185,14 +263,14 @@ def test_enum_attribute_hint_validation():
         VAL = 0
 
     class HintedController(Controller):
-        enum: AttrRW[GoodEnum]
+        enum: AttrRW
 
     controller = HintedController()
 
-    with pytest.raises(RuntimeError, match="does not match defined datatype"):
-        controller.add_attribute("enum", AttrRW(BadEnum))
+    with pytest.raises(RuntimeError, match="does not match defined access mode"):
+        controller.add_attribute("enum", AttrR(GoodEnum))
 
-    controller.add_attribute("enum", AttrRW(GoodEnum))
+    controller.add_attribute("enum", AttrRW(BadEnum))
 
 
 @pytest.mark.asyncio
@@ -202,14 +280,14 @@ async def test_sub_controller_hint_validation():
 
     controller = HintedController()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted controller"):
-        controller._validate_type_hints()
+    with pytest.raises(RuntimeError, match="child .declared SomeSubController"):
+        controller.check_filled()
 
     with pytest.raises(RuntimeError, match="does not match defined type"):
         controller.add_sub_controller("child", Controller())
 
     controller.add_sub_controller("child", SomeSubController())
-    controller._validate_type_hints()
+    controller.check_filled()
 
 
 @pytest.mark.asyncio
@@ -219,23 +297,22 @@ async def test_method_hint_validation():
 
     controller = HintedController()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted method"):
-        controller._validate_type_hints()
+    with pytest.raises(RuntimeError, match="method .declared Scan, never added."):
+        controller.check_filled()
 
     with pytest.raises(RuntimeError, match="Cannot add command method"):
         controller.add_command("method", Command(noop))
 
     controller.add_scan("method", Scan(fn=noop, period=0.1))
 
-    controller._validate_type_hints()
+    controller.check_filled()
 
 
 def test_controller_api():
     class MyTestController(Controller):
-        attr1: AttrRW[int] = AttrRW(int)
-
         def __init__(self):
             super().__init__(description="Controller for testing")
+            self.attr1 = AttrRW(int)
 
             self.attr2 = AttrRW(int)
 

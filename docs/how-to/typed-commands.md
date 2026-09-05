@@ -74,8 +74,8 @@ and results on attributes:
 
 ```python
 class Stage(Controller):
-    target = AttrRW(float)
-    last_position = AttrR(float)
+    target: AttrRW[float]
+    last_position: AttrR[float]
 
     @command()
     async def move(self) -> None:
