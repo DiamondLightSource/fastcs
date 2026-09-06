@@ -48,12 +48,14 @@ def test_decorator_keywords_are_metadata(controller: HelloWorldController):
 
 @pytest.mark.asyncio
 async def test_message_follows_the_greeting(controller: HelloWorldController):
+    greeting = controller.greeting
+    assert isinstance(greeting, AttrRW)
     assert await controller.message.poll() == "Hello, world!"
 
-    await controller.greeting.set("Goodbye")
+    await greeting.set("Goodbye")
 
-    assert controller.greeting.setpoint == "Goodbye"
-    assert await controller.greeting.poll() == "Goodbye"
+    assert greeting.setpoint == "Goodbye"
+    assert await greeting.poll() == "Goodbye"
     assert await controller.message.poll() == "Goodbye, world!"
 
 
@@ -72,17 +74,8 @@ async def test_uptime_advances(controller: HelloWorldController):
     assert second >= first
 
 
-def test_each_instance_gets_its_own_attributes():
-    one, two = HelloWorldController(), HelloWorldController()
-
-    assert one.greeting is not two.greeting
-
-
 @pytest.mark.asyncio
-async def test_setting_one_instance_leaves_the_other_alone():
-    one, two = HelloWorldController(), HelloWorldController()
+async def test_the_setter_is_also_an_ordinary_method(controller: HelloWorldController):
+    await controller.set_greeting("Goodbye")
 
-    await one.greeting.set("Goodbye")
-
-    assert await one.message.poll() == "Goodbye, world!"
-    assert await two.message.poll() == "Hello, world!"
+    assert await controller.message.poll() == "Goodbye, world!"

@@ -14,9 +14,15 @@ An attribute is the method that reads it::
 
 That single decorated method is a read-only ``AttrR[str]``: the datatype is the
 return annotation, and the docstring's first line becomes the description a
-transport shows next to the value. Adding a ``@greeting.setter`` makes the pair
-an ``AttrRW[str]``, exactly as ``@property``/``@x.setter`` do for a plain
-Python attribute.
+transport shows next to the value. Adding a ``@greeting.setter`` method makes
+``greeting`` an ``AttrRW[str]``::
+
+    @greeting.setter
+    async def set_greeting(self, value: str) -> None:
+        self._greeting = value
+
+The setter has a name of its own, as PyTango's ``write_greeting`` does, so the
+two halves of one attribute are never two declarations of one name.
 
 The decorator's optional leading argument is a schedule, and its keyword
 arguments are the attribute's metadata - so ``@attr(Polled(period=0.2),
@@ -53,14 +59,14 @@ class HelloWorldController(Controller):
         self._started = time.monotonic()
 
     @attr
-    async def greeting(self) -> str:  # pyright: ignore[reportRedeclaration]
+    async def greeting(self) -> str:
         """The word to greet with."""
         # A bare `@attr` is read once, when the controller connects, which is
         # what a value only changes because you changed it needs.
         return self._greeting
 
     @greeting.setter
-    async def greeting(self, value: str) -> None:
+    async def set_greeting(self, value: str) -> None:
         self._greeting = value
 
     @attr(Polled(period=0.2))

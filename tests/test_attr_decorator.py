@@ -7,6 +7,7 @@ import pytest
 from fastcs.attributes import (
     AttrR,
     AttrRW,
+    AttrSetter,
     NotPolled,
     Polled,
     UnboundAttr,
@@ -33,7 +34,7 @@ class PowerSupply(Controller):
         self._voltage = 1.5
 
     @attr(Polled(period=0.5), units="V", precision=3)
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
+    async def voltage(self) -> float:
         """Output voltage.
 
         The rest of the docstring says more than a description should.
@@ -41,7 +42,7 @@ class PowerSupply(Controller):
         return self._voltage
 
     @voltage.setter
-    async def voltage(self, value: float) -> None:
+    async def set_voltage(self, value: float) -> None:
         self.sent.append(value)
         self._voltage = value
 
@@ -133,6 +134,7 @@ async def test_bound_getter_reads_from_its_own_instance():
 @pytest.mark.asyncio
 async def test_bound_setter_writes_to_its_own_instance():
     one, two = PowerSupply(), PowerSupply()
+    assert isinstance(one.voltage, AttrRW)
 
     await one.voltage.set(2.5)
 
@@ -291,19 +293,19 @@ def test_getter_must_return_a_supported_datatype():
 
 def test_setter_must_be_async():
     @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
+    async def voltage(self) -> float:
         return 0.0
 
     with pytest.raises(TypeError, match="setter .* must be an async function"):
 
         @voltage.setter  # pyright: ignore[reportArgumentType]
-        def voltage(self, value: float) -> None:
+        def set_voltage(self, value: float) -> None:
             pass
 
 
 def test_setter_must_take_a_value():
     @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
+    async def voltage(self) -> float:
         return 0.0
 
     with pytest.raises(
@@ -311,48 +313,80 @@ def test_setter_must_take_a_value():
     ):
 
         @voltage.setter  # pyright: ignore[reportArgumentType]
-        async def voltage(self) -> None:
+        async def set_voltage(self) -> None:
             pass
 
 
 def test_setter_value_must_match_the_getter_datatype():
     @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
+    async def voltage(self) -> float:
         return 0.0
 
     with pytest.raises(TypeError, match="takes a str, but its getter returns a float"):
 
         @voltage.setter  # pyright: ignore[reportArgumentType]
-        async def voltage(self, value: str) -> None:
+        async def set_voltage(self, value: str) -> None:
             pass
 
 
 def test_setter_value_annotation_is_optional():
-    @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
-        return 0.0
+    class Device(Controller):
+        @attr
+        async def voltage(self) -> float:
+            return 0.0
 
-    @voltage.setter
-    async def voltage(self, value) -> None:
-        pass
+        @voltage.setter
+        async def set_voltage(self, value) -> None:
+            pass
 
-    assert voltage.has_setter()
+    assert Device.voltage.has_setter()
+
+
+@pytest.mark.asyncio
+async def test_the_setter_is_still_a_method_of_the_controller():
+    class Device(Controller):
+        def __init__(self) -> None:
+            super().__init__()
+
+            self.sent: list[float] = []
+
+        @attr
+        async def voltage(self) -> float:
+            return 0.0
+
+        @voltage.setter
+        async def set_voltage(self, value: float) -> None:
+            self.sent.append(value)
+
+    controller = Device()
+
+    assert isinstance(Device.set_voltage, AttrSetter)
+
+    await controller.set_voltage(2.5)
+
+    assert controller.sent == [2.5]
 
 
 def test_only_one_setter():
-    @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
-        return 0.0
+    with pytest.raises(Exception) as exc_info:
 
-    @voltage.setter
-    async def voltage(self, value: float) -> None:
-        pass
+        class Device(Controller):
+            @attr
+            async def voltage(self) -> float:
+                return 0.0
 
-    with pytest.raises(TypeError, match="already has a setter"):
+            @voltage.setter
+            async def set_voltage(self, value: float) -> None:
+                pass
 
-        @voltage.setter
-        async def voltage(self, value: float) -> None:
-            pass
+            @voltage.setter
+            async def write_voltage(self, value: float) -> None:
+                pass
+
+    # Python 3.11 wraps an error raised from __set_name__ in a RuntimeError.
+    error = exc_info.value.__cause__ or exc_info.value
+    assert isinstance(error, TypeError)
+    assert "already has a setter" in str(error)
 
 
 def test_setter_does_not_leak_onto_the_class_it_was_inherited_from():
@@ -363,7 +397,7 @@ def test_setter_does_not_leak_onto_the_class_it_was_inherited_from():
 
     class Child(Base):
         @Base.voltage.setter  # pyright: ignore[reportArgumentType]
-        async def voltage(self, value: float) -> None:
+        async def set_voltage(self, value: float) -> None:
             pass
 
     assert not Base.voltage.has_setter()

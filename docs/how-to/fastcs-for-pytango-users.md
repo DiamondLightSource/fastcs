@@ -46,8 +46,9 @@ Two differences to notice:
 
 ## Writing as well as reading
 
-PyTango pairs a getter with a `@x.write` method (or `@x.setter` in the
-`attribute` decorator form). FastCS mirrors `@property`:
+PyTango pairs a `voltage` attribute with a separately named `write_voltage`
+method. FastCS does the same, with the pairing made by a decorator rather than
+by the name:
 
 ```python
 class PowerSupply(Controller):
@@ -57,13 +58,21 @@ class PowerSupply(Controller):
         return float(await self._conn.query("V?"))
 
     @voltage.setter
-    async def voltage(self, value: float) -> None:
+    async def set_voltage(self, value: float) -> None:
         await self._conn.send(f"V={value}")
 ```
 
-A getter alone gives you a read-only `AttrR`; adding a setter makes the same
-name an `AttrRW`. There is no write-only decorator - a write-only attribute is
-rare enough to be written longhand as `AttrW(setter=...)`.
+A getter alone gives you a read-only `AttrR`; adding a `@voltage.setter`
+method makes `voltage` an `AttrRW`. There is no write-only decorator - a
+write-only attribute is rare enough to be written longhand as
+`AttrW(setter=...)`.
+
+The setter keeps a name of its own - `set_voltage` here, but it can be called
+whatever reads best - so the two halves of one attribute are never two
+declarations of one name. It also stays an ordinary method, so
+`await self.set_voltage(2.5)` writes to the device directly, while
+`await self.voltage.set(2.5)` writes through the attribute and updates what
+clients see.
 
 The getter's docstring becomes the attribute's description, and keyword
 arguments to `@attr` are the attribute's metadata - `units`, `precision`,
@@ -72,19 +81,21 @@ getter returns, so `precision` on a `-> str` getter is an error rather than a
 field that is silently ignored.
 
 :::{note}
-Type checkers special-case the builtin `property` but not decorators that
-imitate it, so pyright reports the getter as *obscured by a declaration of the
-same name*, and mypy as *already defined*. The two declarations are deliberate,
-so silence it at the getter:
+A type checker reads `voltage` as the read-only declaration the `@attr` line
+makes, since nothing later in the class body can change the type of a name
+already bound. So `self.voltage` is an `AttrR[float]` to your type checker even
+where a setter has made it an `AttrRW[float]` at runtime, and a call to
+`self.voltage.set(...)` needs narrowing:
 
 ```python
-@attr(units="V")
-async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
-    ...
+assert isinstance(self.voltage, AttrRW)
+await self.voltage.set(2.5)
 ```
 
-Only read-write attributes need this. A read-only `@attr` declares its name
-once and needs nothing.
+Writing through your own setter method - `await self.set_voltage(2.5)` - needs
+nothing, and is usually what a controller wants anyway. Build the attribute in
+`__init__` with `AttrRW(getter=..., setter=...)` if you would rather have the
+narrower static type at every use site.
 :::
 
 ## Deciding when a value is read

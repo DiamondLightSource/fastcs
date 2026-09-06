@@ -8,6 +8,10 @@ decorator only - there is no free-function ``attr()`` factory, and no
 that plus a ``@x.setter``, and a write-only ``AttrW`` is rare enough to write
 longhand.
 
+The setter carries a name of its own, as PyTango's ``write_voltage`` does
+rather than ``@property``'s second ``def voltage``, so neither half of a
+read-write attribute redeclares a name the other has already taken.
+
 Binding follows ``@command``/``@scan``: the class body holds an `UnboundAttr`
 describing the attribute, and each controller instance gets a fresh
 ``AttrR``/``AttrRW`` built from it at construction time. Nothing is deepcopied
@@ -99,6 +103,7 @@ class UnboundAttr(Generic[Controller_T, DType_T]):
         schedule: Schedule[DType_T] | None = None,
         meta: Meta | None = None,
         setter: UnboundSetter[Controller_T, DType_T] | None = None,
+        name: str | None = None,
     ) -> None:
         try:
             getter_signature = _method_signature(getter)
@@ -135,7 +140,7 @@ class UnboundAttr(Generic[Controller_T, DType_T]):
         self._schedule = schedule
         self._datatype = datatype
         self._meta: dict[str, Any] = dict(meta or {})
-        self._name = getter.__name__
+        self._name = name or getter.__name__
 
     def __set_name__(self, owner: type, name: str) -> None:
         self._name = name
@@ -165,28 +170,35 @@ class UnboundAttr(Generic[Controller_T, DType_T]):
         """The datatype inferred from the getter's return annotation."""
         return self._datatype
 
+    @property
+    def name(self) -> str:
+        """The name this declaration has in the `Controller` class body."""
+        return self._name
+
     def has_setter(self) -> bool:
         return self._setter is not None
 
     def setter(
         self, fn: UnboundSetter[Controller_T, DType_T]
-    ) -> UnboundAttrRW[Controller_T, DType_T]:
+    ) -> AttrSetter[Controller_T, DType_T]:
         """Declare the writer half, making this an ``AttrRW``.
 
-        Mirrors ``@property``/``@x.setter``, so a read-write attribute is one
-        name with two decorated methods::
+        The setter keeps a name of its own, as PyTango's ``write_voltage`` does
+        for a ``voltage`` attribute, so the two halves of one attribute are
+        never two declarations of one name::
 
             @voltage.setter
-            async def voltage(self, value: float) -> None:
+            async def set_voltage(self, value: float) -> None:
                 await self._conn.send(f"V={value}")
 
         Args:
             fn: The setter, taking ``self`` and the value to apply
 
         Returns:
-            A new `UnboundAttrRW` with the setter attached. This one is left
-            alone, so a subclass declaring a setter does not also give one to
-            the base class it inherited the getter from.
+            An `AttrSetter` declaration, which replaces the getter's
+            declaration with a read-write one when the class is created. This
+            one is left alone, so a subclass declaring a setter does not also
+            give one to the base class it inherited the getter from.
 
         Raises:
             TypeError: If the setter is not an async method taking a value, or
@@ -218,12 +230,40 @@ class UnboundAttr(Generic[Controller_T, DType_T]):
                     f"{_type_name(self._datatype)}"
                 )
 
-        return UnboundAttrRW(
+        return AttrSetter(self, fn)
+
+    def declare_setter_on(
+        self, owner: type, fn: UnboundSetter[Controller_T, DType_T]
+    ) -> None:
+        """Make this declaration read-write, on one `Controller` class.
+
+        Called by an `AttrSetter` when the class it was declared in is created.
+        The read-write declaration replaces this one in ``owner``'s own
+        namespace, so a subclass writing ``@Base.voltage.setter`` leaves the
+        base class it inherited the getter from read-only.
+
+        Args:
+            owner: The `Controller` class the setter was declared in
+            fn: The setter, taking ``self`` and the value to apply
+
+        Raises:
+            TypeError: If the attribute already has a setter in ``owner``
+
+        """
+        if isinstance(owner.__dict__.get(self._name), UnboundAttrRW):
+            raise TypeError(
+                f"@attr getter {self._getter.__qualname__} already has a setter"
+            )
+
+        declaration = UnboundAttrRW(
             self._getter,
             schedule=self._schedule,
             meta=cast(Meta, self._meta),
             setter=fn,
+            name=self._name,
         )
+
+        setattr(owner, self._name, declaration)
 
     def bind(self, controller: Controller_T) -> AttrR[DType_T]:
         """Build the attribute this declares, for one `Controller` instance.
@@ -288,6 +328,55 @@ class UnboundAttrRW(UnboundAttr[Controller_T, DType_T]):
         return cast(AttrRW[DType_T], super().bind(controller))
 
 
+class AttrSetter(Generic[Controller_T, DType_T]):
+    """The writer half of an ``@attr``, declared by ``@<getter>.setter``.
+
+    The decorated method keeps a name of its own in the class body -
+    ``set_voltage`` for a ``voltage`` attribute, the way PyTango writes
+    ``write_voltage`` - rather than redeclaring the getter's name. When the
+    class is created this replaces the getter's declaration with a read-write
+    one, so ``voltage`` binds an ``AttrRW`` while ``set_voltage`` stays
+    callable as an ordinary method of the controller.
+
+    Replacing the declaration is done on the class that declared the setter, so
+    a subclass writing ``@Base.voltage.setter`` leaves ``Base`` read-only.
+    """
+
+    def __init__(
+        self,
+        declaration: UnboundAttr[Controller_T, DType_T],
+        fn: UnboundSetter[Controller_T, DType_T],
+    ) -> None:
+        self._declaration = declaration
+        self._fn = fn
+        self.__doc__ = fn.__doc__
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self._declaration.declare_setter_on(owner, self._fn)
+
+    @overload
+    def __get__(
+        self, instance: None, owner: type | None = None, /
+    ) -> AttrSetter[Controller_T, DType_T]: ...
+
+    @overload
+    def __get__(
+        self, instance: Controller_T, owner: type | None = None, /
+    ) -> Callable[[DType_T], Awaitable[None | DType_T | Update[DType_T]]]: ...
+
+    def __get__(self, instance: Any, owner: type | None = None, /) -> Any:
+        if instance is None:
+            return self
+
+        return MethodType(self._fn, instance)
+
+    def __repr__(self) -> str:
+        return (
+            f"{type(self).__name__}({self._fn.__qualname__}, "
+            f"attribute={self._declaration.name!r})"
+        )
+
+
 @overload
 def attr(
     getter: UnboundGetter[Controller_T, DType_T], /
@@ -316,8 +405,12 @@ def attr(getter_or_schedule: Any = None, /, **meta: Any) -> Any:
                 return float(await self._conn.query("V?"))
 
             @voltage.setter
-            async def voltage(self, value: float) -> None:
+            async def set_voltage(self, value: float) -> None:
                 await self._conn.send(f"V={value}")
+
+    A decorated getter on its own is an ``AttrR``; adding a ``@x.setter``
+    method - named whatever reads best, since it is a method in its own right -
+    makes the attribute an ``AttrRW``.
 
     The optional leading positional argument is a schedule - the same
     `Polled`/`NotPolled` objects the procedural form wraps its getter in, so
