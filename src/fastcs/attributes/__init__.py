@@ -1,3 +1,4 @@
+from .attr_decorator import AttrSetter as AttrSetter
 from .attr_decorator import UnboundAttr as UnboundAttr
 from .attr_decorator import UnboundAttrRW as UnboundAttrRW
 from .attr_decorator import UnboundGetter as UnboundGetter
