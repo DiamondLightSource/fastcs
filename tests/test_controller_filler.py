@@ -10,7 +10,6 @@ import pytest
 from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled, attr
 from fastcs.controllers import BaseController, Controller, ControllerVector
 from fastcs.datatypes import Array1D
-from fastcs.methods import Command, Scan
 
 
 class Colour(enum.Enum):
@@ -90,7 +89,7 @@ def test_extras_from_an_annotated_hint_are_handed_back():
 
     controller = Declared()
 
-    assert controller.filler.declarations["power"].extras == (spec,)
+    assert controller.filler.declarations["power"].hint.extras == (spec,)
     assert list(controller.filler) == [(controller.power, (spec,))]
 
 
@@ -102,8 +101,8 @@ def test_extras_survive_an_optional_annotated_hint():
 
     declaration = Declared().filler.declarations["maybe"]
 
-    assert declaration.extras == (spec,)
-    assert declaration.optional
+    assert declaration.hint.extras == (spec,)
+    assert declaration.hint.optional
 
 
 class Child(Controller):
@@ -119,15 +118,13 @@ class VectorHintedParent(Controller):
 
 
 @pytest.mark.parametrize(
-    "parent_type, name, expected",
+    "parent_type, expected",
     [
-        (ChildHintedParent, "child", "child .declared Child, never added."),
-        (VectorHintedParent, "children", "children .declared ControllerVector"),
+        (ChildHintedParent, "child .declared Child, never added."),
+        (VectorHintedParent, "children .declared ControllerVector"),
     ],
 )
-def test_a_controller_hint_is_not_created(
-    parent_type: type[Controller], name: str, expected: str
-):
+def test_a_controller_hint_is_not_created(parent_type: type[Controller], expected: str):
     controller = parent_type()
 
     assert controller.sub_controllers == {}
@@ -199,6 +196,23 @@ async def test_a_decorated_attribute_satisfies_a_hint_of_the_same_name():
     controller.check_filled()
 
 
+def test_a_decorated_attribute_is_the_declarations_child():
+    # So a protocol layer reading `Annotated` extras off the filler reaches the
+    # attribute the decorator provided, rather than `None`.
+    spec = object()
+
+    class Declared(Controller):
+        voltage: Annotated[AttrR[float], spec]  # pyright: ignore[reportRedeclaration]
+
+        @attr
+        async def voltage(self) -> float:
+            return 1.5
+
+    controller = Declared()
+
+    assert list(controller.filler) == [(controller.voltage, (spec,))]
+
+
 def test_a_decorated_attribute_disagreeing_with_its_hint_raises():
     class Declared(Controller):
         voltage: AttrR[int]  # pyright: ignore[reportRedeclaration]
@@ -268,6 +282,44 @@ def test_filling_twice_raises():
         controller.filler.fill_attribute("reading", getter=get)
 
 
+@pytest.mark.asyncio
+async def test_a_rejected_fill_leaves_the_attribute_unfilled():
+    # So the corrected call is not refused by IO the failed one had installed.
+    class Declared(Controller):
+        reading: AttrR[float]
+
+    controller = Declared()
+
+    async def get() -> float:
+        return 3.5
+
+    async def put(value: float) -> None:
+        pass
+
+    with pytest.raises(TypeError, match="nothing to write"):
+        controller.filler.fill_attribute("reading", getter=get, setter=put)
+
+    controller.filler.fill_attribute("reading", getter=get)
+
+    assert await controller.reading.poll() == 3.5
+
+
+def test_a_rejected_fill_leaves_the_metadata_alone():
+    class Declared(Controller):
+        reading: AttrR[float]
+
+    controller = Declared()
+
+    with pytest.raises(TypeError, match="not valid metadata"):
+        controller.filler.fill_attribute(
+            "reading",
+            units="mm",
+            structured_dtype=[("index", np.int32)],  # pyright: ignore[reportCallIssue]
+        )
+
+    assert controller.reading.meta == {}
+
+
 def test_fill_meta_takes_a_whole_meta_dict():
     class Declared(Controller):
         reading: AttrR[float]
@@ -276,25 +328,6 @@ def test_fill_meta_takes_a_whole_meta_dict():
     controller.filler.fill_meta("reading", {"units": "mm", "precision": 2})
 
     assert controller.reading.meta == {"units": "mm", "precision": 2}
-
-
-def test_a_method_hint_is_promised():
-    async def noop() -> None:
-        pass
-
-    class Declared(Controller):
-        sweep: Scan
-
-    controller = Declared()
-
-    with pytest.raises(RuntimeError, match="sweep .declared Scan, never added."):
-        controller.check_filled()
-
-    with pytest.raises(RuntimeError, match="Cannot add command method"):
-        controller.add_command("sweep", Command(noop))
-
-    controller.add_scan("sweep", Scan(fn=noop, period=0.1))
-    controller.check_filled()
 
 
 def test_hinted_attributes_are_not_shared_between_instances():

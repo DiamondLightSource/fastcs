@@ -198,3 +198,46 @@ Conventions for this repository. Follow these when writing or reviewing code and
 - Keep them separate when the *shape* of the test differs, not just its data: a case
   that needs different setup, different assertions, or a different name to make sense
   is a different test.
+
+## Unused names
+
+- Declare a name only where something reads it. An unused local, argument or
+  `@pytest.mark.parametrize` column is a reader's question with no answer: they have to
+  scan the whole body to find out that nothing uses it.
+- This bites hardest when a parametrized test is split off another one. The columns are
+  copied across whole, and a column the new body never reads survives in every case:
+
+  ```python
+  # Bad: `name` is in every case and read by nothing
+  @pytest.mark.parametrize(
+      "parent_type, name, expected",
+      [
+          (ChildHintedParent, "child", "child .declared Child, never added."),
+          (VectorHintedParent, "children", "children .declared ControllerVector"),
+      ],
+  )
+  def test_a_controller_hint_is_not_created(
+      parent_type: type[Controller], name: str, expected: str
+  ):
+      controller = parent_type()
+
+      with pytest.raises(RuntimeError, match=expected):
+          controller.check_filled()
+
+  # Good
+  @pytest.mark.parametrize(
+      "parent_type, expected",
+      [
+          (ChildHintedParent, "child .declared Child, never added."),
+          (VectorHintedParent, "children .declared ControllerVector"),
+      ],
+  )
+  def test_a_controller_hint_is_not_created(
+      parent_type: type[Controller], expected: str
+  ):
+      ...
+  ```
+
+- The exception is a name a caller outside your control decides: a signature that
+  implements an interface, or an unpacking that has to consume every element. Prefix
+  those with an underscore rather than deleting them.

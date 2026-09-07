@@ -4,4 +4,5 @@ from .controller_api import ControllerAPI as ControllerAPI
 from .controller_vector import ControllerVector as ControllerVector
 from .filler import ControllerFiller as ControllerFiller
 from .filler import Declaration as Declaration
+from .filler import Hint as Hint
 from .runner import ControllerRunner as ControllerRunner

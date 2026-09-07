@@ -256,18 +256,18 @@ class BaseController(Tracer):
         if declaration is None:
             return
 
-        declared = declaration.declared_type
+        declared = declaration.hint.declared_type
         if not isinstance(member, declared):
             raise RuntimeError(
                 f"expected '{declared.__name__}', got '{type(member).__name__}'"
             )
 
-        if declaration.datatype is None or not isinstance(member, Attribute):
+        if declaration.hint.datatype is None or not isinstance(member, Attribute):
             return
 
         # The hint holds the datatype as it was written, so `AttrR[Array1D[np.int32]]`
         # has to be resolved to the `np.ndarray` an attribute reports.
-        declared_datatype, _ = resolve_datatype(declaration.datatype)
+        declared_datatype, _ = resolve_datatype(declaration.hint.datatype)
         if declared_datatype != member.dtype:
             raise RuntimeError(
                 f"expected datatype '{declared_datatype.__name__}', "
