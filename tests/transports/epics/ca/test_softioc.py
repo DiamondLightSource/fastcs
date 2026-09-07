@@ -355,14 +355,17 @@ def test_get_output_record_raises(mocker: MockerFixture):
 
 
 class EpicsController(MyTestController):
-    read_int = AttrR(int)
-    read_write_int = AttrRW(int)
-    read_write_float = AttrRW(float)
-    read_bool = AttrR(bool)
-    write_bool = AttrW(bool)
-    read_string = AttrRW(str)
-    enum = AttrRW(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2}))
-    one_d_waveform = AttrRW(Array1D[np.int32], shape=(10,))
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.enum = AttrRW(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2}))
+        self.one_d_waveform = AttrRW(Array1D[np.int32], shape=(10,))
+
+    read_int: AttrR[int]
+    read_write_int: AttrRW[int]
+    read_write_float: AttrRW[float]
+    read_bool: AttrR[bool]
+    write_bool: AttrW[bool]
+    read_string: AttrRW[str]
 
 
 @pytest.fixture()
@@ -585,9 +588,9 @@ async def do_nothing(): ...
 
 
 class ControllerLongNames(Controller):
-    attr_r_with_reallyreallyreallyreallyreallyreallyreally_long_name = AttrR(int)
-    attr_rw_with_a_reallyreally_long_name_that_is_too_long_for_rbv = AttrRW(int)
-    attr_rw_short_name = AttrRW(int)
+    attr_r_with_reallyreallyreallyreallyreallyreallyreally_long_name: AttrR[int]
+    attr_rw_with_a_reallyreally_long_name_that_is_too_long_for_rbv: AttrRW[int]
+    attr_rw_short_name: AttrRW[int]
     command_with_reallyreallyreallyreallyreallyreallyreally_long_name = Command(
         do_nothing
     )

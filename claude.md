@@ -53,6 +53,51 @@ Conventions for this repository. Follow these when writing or reviewing code and
   Rule of thumb: a helper's parameters should describe *what it's being asked to
   validate/produce*, never *whether/how the caller wants it validated*.
 
+- The same applies to a parameter that only names *where the data came from* so the
+  helper can put it in its message (`source`, `origin`, `context`). The call-site
+  already knows that; if it wants it in the error, it should catch the helper's plain
+  exception and say so itself. Prefer a generic exception from the helper to a
+  parameter that exists only to decorate one.
+
+  ```python
+  # Bad: `source` is threaded in purely to phrase the message
+  def check_filled(self, source: str | None = None) -> None:
+      ...
+      raise RuntimeError(f"did not provision from {source}: {missing}")
+
+  # Good: the helper says what it knows
+  def check_filled(self) -> None:
+      ...
+      raise RuntimeError(f"did not provision: {missing}")
+  ```
+
+## Typing
+
+- Do **not** annotate a parameter `Any` when a narrower type says what the function
+  actually accepts. `Any` in a signature is a promise the function cannot keep: it
+  turns an author-time error into a runtime one, or into no error at all.
+
+  ```python
+  # Bad: any object at all type checks
+  def fill_attribute(self, name: str, datatype: Any = None) -> Attribute: ...
+
+  # Good: only the types an attribute can hold
+  def fill_attribute(self, name: str, datatype: type[DType_T] | None = None) -> Attribute: ...
+  ```
+
+- This holds especially for callables that will be attached to something already
+  typed. IO handed to an existing `Attribute` must be typed with the datatype
+  TypeVar (`Getter[DType_T]`, `Setter[DType_T]`), not `Getter[Any]` - otherwise a
+  setter taking a `datetime.datetime` type checks against a `float` attribute and only
+  fails, if at all, at runtime. Type it so the author is warned where they wrote it.
+
+- A `# type: ignore` or `# pyright: ignore` must be **required**. Before adding one,
+  remove it and re-run the type checker: if nothing is reported, it does not belong.
+  Before reaching for one at all, look for a signature that makes it unnecessary -
+  `**meta: Unpack[Meta]` rather than `**meta: Any` plus an ignore at the call that
+  passes them on. Every remaining ignore should be specific (`[reportCallIssue]`, not
+  bare) and should have a reason a reader can check.
+
 ## Tests: `pytest.raises`
 
 - The `with pytest.raises(...):` block should contain the **minimal code that raises
@@ -115,3 +160,41 @@ Conventions for this repository. Follow these when writing or reviewing code and
 
   This keeps tests readable as documentation: every line is evidence for the claim in
   the test's name, not incidental noise carried over from copy-pasting another test.
+
+## Tests: one behaviour per test
+
+- A test checks **one** thing, and its name says which. Do not put two `pytest.raises`
+  blocks, or a failing case and a happy path, in one test: they are separate claims
+  about the code, and when the first fails the rest never run.
+- Setup shared by the split tests belongs in a fixture, a module-level class, or a
+  couple of repeated lines - repeating three lines of setup is cheaper than a test
+  that verifies four unrelated things.
+
+  ```python
+  # Bad: three claims, one name, and the last two only run if the first passes
+  def test_hint_validation():
+      controller = HintedController()
+
+      with pytest.raises(RuntimeError, match="never added"):
+          controller.check_filled()
+
+      with pytest.raises(RuntimeError, match="expected 'AttrR'"):
+          controller.add_attribute("state", AttrW(int))
+
+      controller.add_attribute("state", AttrR(int))
+      controller.check_filled()
+
+  # Good: one claim each, each named for what it checks
+  def test_a_hint_without_a_datatype_is_promised(): ...
+  def test_adding_a_promised_attribute_with_the_wrong_access_mode_raises(): ...
+  def test_adding_a_promised_attribute_satisfies_the_declaration(): ...
+  ```
+
+## Tests: parametrize instead of near-identical tests
+
+- If two or more tests differ only in the values they use - a different hint, a
+  different datatype, a different expected message - write one
+  `@pytest.mark.parametrize`d test rather than copies of one body.
+- Keep them separate when the *shape* of the test differs, not just its data: a case
+  that needs different setup, different assertions, or a different name to make sense
+  is a different test.

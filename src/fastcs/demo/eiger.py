@@ -111,7 +111,7 @@ class EigerDetector(Controller):
     # Derived (soft): built on top of the introspected ``state`` param. Declaring
     # ``state`` as a checked attribute is what lets us reference it in code and
     # publish something computed from it - here, whether the detector is idle.
-    idle = AttrR(bool)
+    idle: AttrR[bool]
 
     def __init__(
         self,
@@ -153,22 +153,36 @@ class EigerDetector(Controller):
                 datatype = _datatype(param, data)
 
                 if data["access_mode"] == "rw":
-                    attr = AttrRW(
-                        datatype,
-                        getter=self._getter(subsystem, param),
-                        setter=self._setter(subsystem, param),
-                    )
+                    getter = self._getter(subsystem, param)
+                    setter = self._setter(subsystem, param)
                 else:
                     # Read-only params are status values that change on the device,
                     # so poll them periodically rather than reading once.
-                    attr = AttrR(
-                        datatype,
-                        getter=Polled(
-                            self._getter(subsystem, param), period=UPDATE_PERIOD
-                        ),
+                    getter = Polled(
+                        self._getter(subsystem, param), period=UPDATE_PERIOD
+                    )
+                    setter = None
+
+                declaration = self.filler.declarations.get(param)
+                if declaration is not None and declaration.child is not None:
+                    # A parameter the class body declared already exists as an
+                    # unfilled attribute, so provision that one rather than
+                    # adding a second of the same name. The filler checks the
+                    # access mode and datatype the hint promised against what
+                    # the device turned out to report.
+                    self.filler.fill_attribute(
+                        param, datatype=datatype, getter=getter, setter=setter
+                    )
+                elif setter is None:
+                    self.add_attribute(param, AttrR(datatype, getter=getter))
+                else:
+                    self.add_attribute(
+                        param, AttrRW(datatype, getter=getter, setter=setter)
                     )
 
-                self.add_attribute(param, attr)
+        # Every hinted parameter should have turned up in the tree the device
+        # reported.
+        self.filler.check_filled()
 
         # Keep the derived ``idle`` flag in sync with the introspected ``state``.
         self.state.add_readback_callback(self._update_idle)

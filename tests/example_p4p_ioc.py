@@ -22,27 +22,38 @@ class FEnum(enum.Enum):
 
 
 class ParentController(Controller):
-    description = "some controller"
-    a: AttrRW = AttrRW(
-        int,
-        limits=NumericLimits(control=Limits(high=400_000), alarm=Limits(high=40_000)),
-    )
-    b: AttrW = AttrW(
-        float, limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5))
-    )
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.a = AttrRW(
+            int,
+            limits=NumericLimits(
+                control=Limits(high=400_000), alarm=Limits(high=40_000)
+            ),
+        )
+        self.b = AttrW(
+            float, limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5))
+        )
+        self.table = AttrRW(
+            Table,
+            structured_dtype=[
+                ("A", np.int32),
+                ("B", "i"),
+                ("C", "?"),
+                ("D", np.float64),
+            ],
+        )
 
-    table: AttrRW = AttrRW(
-        Table,
-        structured_dtype=[("A", np.int32), ("B", "i"), ("C", "?"), ("D", np.float64)],
-    )
+    description = "some controller"
 
 
 class ChildController(Controller):
     fail_on_next_e = True
-    c: AttrW = AttrW(int)
+    c: AttrW[int]
 
     def __init__(self, description: str | None = None):
         super().__init__(description=description)
+        self.g = AttrRW(Array1D[np.int64], shape=(3,))
+        self.h = AttrRW(Array1D[np.float64], shape=(3, 3))
 
         # A getter/setter pair against an in-memory "device", doing what an
         # AttributeIO used to do. The setter clamps the requested value and
@@ -65,15 +76,13 @@ class ChildController(Controller):
         print("D: FINISHED")
         await self.j.update(self.j.readback + 1)
 
-    e: AttrR = AttrR(bool)
+    e: AttrR[bool]
 
     @scan(1)
     async def flip_flop(self):
         await self.e.update(not self.e.readback)
 
-    f: AttrRW = AttrRW(FEnum)
-    g: AttrRW = AttrRW(Array1D[np.int64], shape=(3,))
-    h: AttrRW = AttrRW(Array1D[np.float64], shape=(3, 3))
+    f: AttrRW[FEnum]
 
     @command()
     async def i(self):
@@ -87,7 +96,7 @@ class ChildController(Controller):
             print("I: FINISHED")
             await self.j.update(self.j.readback + 1)
 
-    j: AttrR = AttrR(int)
+    j: AttrR[int]
 
 
 def run(id="P4P_TEST_DEVICE"):
@@ -97,10 +106,9 @@ def run(id="P4P_TEST_DEVICE"):
     controller.set_path([id])
 
     class ChildVector(ControllerVector):
-        vector_attribute: AttrR = AttrR(int)
-
         def __init__(self, children, description=None):
             super().__init__(children, description)
+            self.vector_attribute = AttrR(int)
 
     sub_controller = ChildVector(
         {

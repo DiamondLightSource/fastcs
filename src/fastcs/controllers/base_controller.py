@@ -1,19 +1,13 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from inspect import getattr_static
-from typing import (
-    TypeVar,
-    _GenericAlias,  # type: ignore
-    get_args,
-    get_origin,
-    get_type_hints,
-)
+from typing import TypeVar
 
-from fastcs.attributes import Attribute, HintedAttribute, UnboundAttr
+from fastcs.attributes import Attribute, UnboundAttr
 from fastcs.controllers.controller_api import ControllerAPI
-from fastcs.logging import logger
-from fastcs.methods import Command, Method, Scan, UnboundCommand, UnboundScan
+from fastcs.controllers.filler import ControllerFiller
+from fastcs.datatypes import resolve_datatype
+from fastcs.methods import Command, Scan, UnboundCommand, UnboundScan
 from fastcs.tracer import Tracer
 
 T = TypeVar("T")
@@ -55,42 +49,12 @@ class BaseController(Tracer):
         self.__command_methods: dict[str, Command] = {}
         self.__scan_methods: dict[str, Scan] = {}
 
-        self.__hinted_attributes: dict[str, HintedAttribute] = {}
-        self.__hinted_methods: dict[str, type[Method]] = {}
-        self.__hinted_sub_controllers: dict[str, type[BaseController]] = {}
-        self._find_type_hints()
+        self.filler = ControllerFiller(self)
+        """Creates and tracks the children this controller's class body declares"""
 
+        self.filler.read_hints()
         self._bind_attrs()
-
-    def _find_type_hints(self):
-        """Find `Attribute` and `Controller` type hints for introspection validation"""
-        for name, hint in get_type_hints(type(self)).items():
-            if isinstance(hint, _GenericAlias):  # e.g. AttrR[int]
-                args = get_args(hint)
-                hint = get_origin(hint)
-            else:
-                args = None
-
-            if isinstance(hint, type) and issubclass(hint, Attribute):
-                if args is None:
-                    dtype = None
-                else:
-                    if len(args) == 1:
-                        dtype = args[0]
-                    else:
-                        raise TypeError(
-                            f"Invalid type hint for attribute {name}: {hint}"
-                        )
-
-                self.__hinted_attributes[name] = HintedAttribute(
-                    attr_type=hint, dtype=dtype
-                )
-
-            elif isinstance(hint, type) and issubclass(hint, BaseController):
-                self.__hinted_sub_controllers[name] = hint
-
-            elif isinstance(hint, type) and issubclass(hint, Method):
-                self.__hinted_methods[name] = hint
+        self.filler.create_children_from_hints()
 
     @classmethod
     def _walk_mro(cls):
@@ -110,27 +74,22 @@ class BaseController(Tracer):
         return class_dir
 
     def _bind_attrs(self) -> None:
-        """Bind Attributes and Methods to this instance.
+        """Bind the class body's declarations to this instance.
 
-        This method will bind the attributes of this controller class to
-        this specific instance. For Attributes, this is just a case of copying and
-        re-assigning to ``self`` to make it unique across multiple instances of this
-        controller class. For Methods, this requires creating a bound method from a
-        class method and a controller instance, so that it can be called from any
-        context with the controller instance passed as the ``self`` argument.
-        An ``@attr``-decorated getter is an `UnboundAttr` declaration rather than
-        an Attribute, and is bound the same way the Methods are - into a fresh
-        Attribute whose getter and setter are methods of this instance.
+        A class body holds declarations and decorated behaviour, never
+        `Attribute` instances (ADR 0013), so there is nothing to copy: each
+        kind of declaration is built fresh for this instance.
 
+        - an ``@attr``-decorated getter is an `UnboundAttr`, bound into an
+          ``AttrR``/``AttrRW`` whose getter and setter are methods of this
+          instance
+        - a ``@command``/``@scan`` method is bound the same way, so it can be
+          called from any context with this instance as ``self``
+
+        Bare type hints are the third kind, and `ControllerFiller` handles
+        those separately - they create children rather than binding them.
         """
-        class_dir = dict.fromkeys(self._walk_mro())
-        class_type_hints = {
-            key: value
-            for key, value in get_type_hints(type(self)).items()
-            if not key.startswith("_")
-        }
-
-        for attr_name in {**class_dir, **class_type_hints}:
+        for attr_name in dict.fromkeys(self._walk_mro()):
             if attr_name == "root_attribute":
                 continue
 
@@ -143,22 +102,28 @@ class BaseController(Tracer):
 
             attr = getattr(self, attr_name, None)
             if isinstance(attr, Attribute):
-                setattr(self, attr_name, deepcopy(attr))
-            else:
-                if isinstance(attr, Command):
-                    self.add_command(attr_name, attr)
-                elif isinstance(attr, Scan):
-                    self.add_scan(attr_name, attr)
-                elif isinstance(
-                    unbound_command := getattr(attr, "__unbound_command__", None),
-                    UnboundCommand,
-                ):
-                    self.add_command(attr_name, unbound_command.bind(self))
-                elif isinstance(
-                    unbound_scan := getattr(attr, "__unbound_scan__", None),
-                    UnboundScan,
-                ):
-                    self.add_scan(attr_name, unbound_scan.bind(self))
+                raise TypeError(
+                    f"{type(self).__name__}.{attr_name} is an "
+                    f"{type(attr).__name__} in the class body, which would be "
+                    "shared by every instance of this controller. Construct it in "
+                    "`__init__`, or declare it as a type hint "
+                    f"(`{attr_name}: {type(attr).__name__}[...]`) and let the "
+                    "filler create it."
+                )
+            if isinstance(attr, Command):
+                self.add_command(attr_name, attr)
+            elif isinstance(attr, Scan):
+                self.add_scan(attr_name, attr)
+            elif isinstance(
+                unbound_command := getattr(attr, "__unbound_command__", None),
+                UnboundCommand,
+            ):
+                self.add_command(attr_name, unbound_command.bind(self))
+            elif isinstance(
+                unbound_scan := getattr(attr, "__unbound_scan__", None),
+                UnboundScan,
+            ):
+                self.add_scan(attr_name, unbound_scan.bind(self))
 
     def __repr__(self):
         name = self.__class__.__name__
@@ -185,73 +150,19 @@ class BaseController(Tracer):
 
     def post_initialise(self):
         """Hook to call after all attributes added, before serving the application"""
-        self._validate_type_hints()
+        self.check_filled()
 
-    def _validate_type_hints(self):
-        """Validate all type-hints were introspected"""
-        for name in self.__hinted_attributes:
-            self._validate_hinted_attribute(name)
+    def check_filled(self):
+        """Check that every class-body declaration was provisioned, recursively.
 
-        for name in self.__hinted_sub_controllers:
-            self._validate_hinted_controller(name)
+        A driver may call ``self.filler.check_filled()`` itself at the end of
+        its own ``initialise``; the framework calls this afterwards so that a
+        controller which forgot to does not serve a half-built API.
+        """
+        self.filler.check_filled()
 
-        for name in self.__hinted_methods:
-            self._validate_hinted_method(name)
-
-        for subcontroller in self.sub_controllers.values():
-            subcontroller._validate_type_hints()  # noqa: SLF001
-
-    def _validate_hinted_member(self, name: str, expected_type: type[T]) -> T:
-        """Validate that a hinted member exists on the controller"""
-        member = getattr(self, name, None)
-        if member is None or not isinstance(member, expected_type):
-            raise RuntimeError()
-        return member
-
-    def _validate_hinted_method(self, name: str):
-        """Check that a `Method` with the given name exists on the controller"""
-        try:
-            method = self._validate_hinted_member(name, Method)
-        except RuntimeError:
-            raise RuntimeError(
-                f"Controller `{self.__class__.__name__}` failed to introspect "
-                f"hinted method `{name}` during initialisation"
-            ) from None
-
-        logger.debug(
-            "Validated hinted method", name=name, controller=self, method=method
-        )
-
-    def _validate_hinted_attribute(self, name: str):
-        """Check that an `Attribute` with the given name exists on the controller"""
-        try:
-            attr = self._validate_hinted_member(name, Attribute)
-        except RuntimeError:
-            raise RuntimeError(
-                f"Controller `{self.__class__.__name__}` failed to introspect "
-                f"hinted attribute `{name}` during initialisation"
-            ) from None
-
-        logger.debug(
-            "Validated hinted attribute", name=name, controller=self, attribute=attr
-        )
-
-    def _validate_hinted_controller(self, name: str):
-        """Check that a sub controller with the given name exists on the controller"""
-        try:
-            controller = self._validate_hinted_member(name, BaseController)
-        except RuntimeError:
-            raise RuntimeError(
-                f"Controller `{self.__class__.__name__}` failed to introspect "
-                f"hinted controller `{name}` during initialisation"
-            ) from None
-
-        logger.debug(
-            "Validated hinted sub controller",
-            name=name,
-            controller=self,
-            sub_controller=controller,
-        )
+        for sub_controller in self.sub_controllers.values():
+            sub_controller.check_filled()
 
     @property
     def path(self) -> list[str]:
@@ -286,21 +197,13 @@ class BaseController(Tracer):
         except ValueError as exc:
             raise ValueError(f"Cannot add attribute {attr}.") from exc
 
-        if name in self.__hinted_attributes:
-            hint = self.__hinted_attributes[name]
-            if not isinstance(attr, hint.attr_type):
-                raise RuntimeError(
-                    f"Controller '{self.__class__.__name__}' introspection of "
-                    f"hinted attribute '{name}' does not match defined access mode. "
-                    f"Expected '{hint.attr_type.__name__}' got '{type(attr).__name__}'."
-                )
-            if hint.dtype is not None and hint.dtype != attr.dtype:
-                raise RuntimeError(
-                    f"Controller '{self.__class__.__name__}' introspection of "
-                    f"hinted attribute '{name}' does not match defined datatype. "
-                    f"Expected '{hint.dtype.__name__}', "
-                    f"got '{attr.dtype.__name__}'."
-                )
+        try:
+            self._check_against_declaration(name, attr)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Cannot add attribute {attr}: it does not match the access mode "
+                f"or datatype hinted for '{name}' - {exc}."
+            ) from exc
 
         attr.set_name(name)
         attr.set_path(self.path)
@@ -317,15 +220,13 @@ class BaseController(Tracer):
         except ValueError as exc:
             raise ValueError(f"Cannot add sub controller {sub_controller}.") from exc
 
-        if name in self.__hinted_sub_controllers:
-            hint = self.__hinted_sub_controllers[name]
-            if not isinstance(sub_controller, hint):
-                raise RuntimeError(
-                    f"Controller '{self.__class__.__name__}' introspection of "
-                    f"hinted sub controller '{name}' does not match defined type. "
-                    f"Expected '{hint.__name__}' got "
-                    f"'{sub_controller.__class__.__name__}'."
-                )
+        try:
+            self._check_against_declaration(name, sub_controller)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Cannot add sub controller {sub_controller}: it does not match "
+                f"the type hinted for '{name}' - {exc}."
+            ) from exc
 
         sub_controller.set_path(self.path + [name])
         self.__sub_controllers[name] = sub_controller
@@ -338,23 +239,54 @@ class BaseController(Tracer):
     def sub_controllers(self) -> dict[str, BaseController]:
         return self.__sub_controllers
 
-    def _validate_method(self, name: str, method: Method):
-        if name in self.__hinted_methods:
-            hint = self.__hinted_methods[name]
-            if not isinstance(method, hint):
-                raise RuntimeError(
-                    f"Controller '{self.__class__.__name__}' introspection of "
-                    f"hinted method '{name}' does not match defined type. "
-                    f"Expected '{hint.__name__}' got "
-                    f"'{method.__class__.__name__}'."
-                )
+    def _check_against_declaration(self, name: str, member: object):
+        """Check a member being added matches what the class body declared.
+
+        The filler creates what it can from a hint, so what reaches here is
+        either introspection satisfying a promise (``state: AttrR``) or a
+        driver adding something that clashes with a declaration.
+
+        Raises:
+            RuntimeError: Saying what was declared and what arrived. The caller
+                is what knows which kind of member this is, so it catches this
+                and re-raises with that context.
+
+        """
+        declaration = self.filler.declarations.get(name)
+        if declaration is None:
+            return
+
+        declared = declaration.declared_type
+        if not isinstance(member, declared):
+            raise RuntimeError(
+                f"expected '{declared.__name__}', got '{type(member).__name__}'"
+            )
+
+        if declaration.datatype is None or not isinstance(member, Attribute):
+            return
+
+        # The hint holds the datatype as it was written, so `AttrR[Array1D[np.int32]]`
+        # has to be resolved to the `np.ndarray` an attribute reports.
+        declared_datatype, _ = resolve_datatype(declaration.datatype)
+        if declared_datatype != member.dtype:
+            raise RuntimeError(
+                f"expected datatype '{declared_datatype.__name__}', "
+                f"got '{member.dtype.__name__}'"
+            )
 
     def add_command(self, name: str, command: Command):
         try:
             self._check_for_name_clash(name)
-            self._validate_method(name, command)
-        except (ValueError, RuntimeError) as exc:
-            raise exc.__class__(f"Cannot add command method {command}.") from exc
+        except ValueError as exc:
+            raise ValueError(f"Cannot add command method {command}.") from exc
+
+        try:
+            self._check_against_declaration(name, command)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Cannot add command method {command}: it does not match the type "
+                f"hinted for '{name}' - {exc}."
+            ) from exc
 
         self.__command_methods[name] = command
         super().__setattr__(name, command)
@@ -366,9 +298,16 @@ class BaseController(Tracer):
     def add_scan(self, name: str, scan: Scan):
         try:
             self._check_for_name_clash(name)
-            self._validate_method(name, scan)
-        except (ValueError, RuntimeError) as exc:
-            raise exc.__class__(f"Cannot add scan method {scan}.") from exc
+        except ValueError as exc:
+            raise ValueError(f"Cannot add scan method {scan}.") from exc
+
+        try:
+            self._check_against_declaration(name, scan)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Cannot add scan method {scan}: it does not match the type "
+                f"hinted for '{name}' - {exc}."
+            ) from exc
 
         self.__scan_methods[name] = scan
         super().__setattr__(name, scan)

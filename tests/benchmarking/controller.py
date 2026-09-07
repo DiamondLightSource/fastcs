@@ -10,8 +10,11 @@ from fastcs.transports.tango.transport import TangoTransport
 
 
 class MyTestController(Controller):
-    read_int: AttrR = AttrR(int, initial_value=0)
-    write_bool: AttrW = AttrW(bool)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.read_int = AttrR(int, initial_value=0)
+
+    write_bool: AttrW[bool]
 
 
 def run():

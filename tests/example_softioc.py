@@ -12,8 +12,8 @@ from fastcs.transports.epics.ca.transport import (
 
 
 class ParentController(Controller):
-    a: AttrR = AttrR(int)
-    b: AttrRW = AttrRW(int)
+    a: AttrR[int]
+    b: AttrRW[int]
 
     def __init__(self, description: str | None = None) -> None:
         super().__init__(description)
@@ -29,7 +29,7 @@ class ParentController(Controller):
 
 
 class ChildController(Controller):
-    c: AttrW = AttrW(int)
+    c: AttrW[int]
 
     @command()
     async def d(self):
