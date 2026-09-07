@@ -236,7 +236,7 @@ def test_type_hint_of_the_wrong_access_mode_raises():
         async def label(self) -> str:
             return "x"
 
-    with pytest.raises(RuntimeError, match="does not match defined access mode"):
+    with pytest.raises(RuntimeError, match="expected 'AttrRW', got 'AttrR'"):
         Device()
 
 

@@ -33,12 +33,20 @@ from __future__ import annotations
 import types
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Union, get_args, get_origin, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Union,
+    Unpack,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from fastcs.attributes import Attribute, AttrR, AttrW
 from fastcs.attributes.attr_r import Getter, Schedule
 from fastcs.attributes.attr_w import Setter
-from fastcs.datatypes import Meta
+from fastcs.datatypes import DType_T, Meta
 from fastcs.methods import Method
 
 if TYPE_CHECKING:
@@ -55,6 +63,11 @@ class Declaration:
     """The name as the class body wrote it, trailing underscore and all"""
     hint: Any
     """The declared type, with ``Annotated``/``Optional`` unwrapped"""
+    declared_type: type
+    """The class the hint names - ``AttrR`` for an ``AttrR[int]`` hint"""
+    datatype: Any = None
+    """The datatype the hint subscripts its class with, or ``None`` for a hint
+    that does not say what it holds"""
     extras: tuple[Any, ...] = ()
     """Whatever else an ``Annotated`` hint carried, for a protocol layer to read"""
     optional: bool = False
@@ -69,6 +82,13 @@ class _Hint:
     """A class-body hint, taken apart."""
 
     type_: Any
+    """The hint with ``Annotated``/``| None`` stripped - ``AttrR[int]``"""
+    declared_type: Any
+    """What the hint is a subscript of - ``AttrR``, and ``AttrR`` for a bare
+    ``AttrR`` too. Not necessarily a class: a ``list[int] | str`` hint leaves a
+    ``typing.Union`` here, which is why the filler checks before using it."""
+    datatype: Any = None
+    """The subscript, where there is exactly one - ``int`` for ``AttrR[int]``"""
     extras: tuple[Any, ...] = field(default_factory=tuple)
     optional: bool = False
 
@@ -93,7 +113,13 @@ def _unwrap(hint: Any) -> _Hint:
             inner = _unwrap(hint)
             hint, extras = inner.type_, extras or inner.extras
 
-    return _Hint(hint, extras, optional)
+    return _Hint(
+        type_=hint,
+        declared_type=get_origin(hint) or hint,
+        datatype=_datatype_of(hint),
+        extras=extras,
+        optional=optional,
+    )
 
 
 def _datatype_of(hint: Any) -> Any:
@@ -137,11 +163,17 @@ class ControllerFiller:
                 continue
 
             hint = _unwrap(raw_hint)
-            origin = get_origin(hint.type_) or hint.type_
-            if not isinstance(origin, type):
+
+            # What a hint declares is the class it subscripts, but not every
+            # hint has one: `power: Annotated[AttrRW[float], spec] | AttrRW[int]`
+            # unwraps to a `typing.Union`, and `power: dict[str, int]` to a
+            # `dict`. The `issubclass` below is what rejects the second, and it
+            # raises `TypeError` rather than returning False for the first, so
+            # anything that is not a class is dropped before it gets there.
+            if not isinstance(hint.declared_type, type):
                 continue
 
-            if not issubclass(origin, Attribute | Method | BaseController):
+            if not issubclass(hint.declared_type, Attribute | Method | BaseController):
                 continue
 
             # ophyd-async's convention: a trailing underscore keeps a name that
@@ -153,6 +185,8 @@ class ControllerFiller:
                 name=name,
                 raw_name=raw_name,
                 hint=hint.type_,
+                declared_type=hint.declared_type,
+                datatype=hint.datatype,
                 extras=hint.extras,
                 optional=hint.optional,
             )
@@ -167,26 +201,23 @@ class ControllerFiller:
         one class body.
         """
         for declaration in self._declarations.values():
-            origin = get_origin(declaration.hint) or declaration.hint
-            if not (isinstance(origin, type) and issubclass(origin, Attribute)):
+            if not issubclass(declaration.declared_type, Attribute):
                 continue
 
             if declaration.name in self._controller.attributes:
                 continue
 
-            self._create_attribute(declaration, origin)
+            self._create_attribute(declaration)
 
-    def _create_attribute(
-        self, declaration: Declaration, attr_type: type[Attribute]
-    ) -> None:
-        datatype = _datatype_of(declaration.hint)
-        if datatype is None:
+    def _create_attribute(self, declaration: Declaration) -> None:
+        if declaration.datatype is None:
             # A hint that does not say what it holds cannot be built, only
             # promised. `state: AttrR` on an introspecting controller is the
             # motivating case - the enum's members are only known over the wire.
             return
 
-        attribute = attr_type(datatype)  # pyright: ignore[reportCallIssue]
+        attr_type: type[Attribute] = declaration.declared_type
+        attribute = attr_type(declaration.datatype)
         declaration.child = attribute
         self._controller.add_attribute(declaration.name, attribute)
 
@@ -210,10 +241,10 @@ class ControllerFiller:
     def fill_attribute(
         self,
         name: str,
-        getter: Getter[Any] | Schedule[Any] | None = None,
-        setter: Setter[Any] | None = None,
-        datatype: Any = None,
-        **meta: Any,
+        getter: Getter[DType_T] | Schedule[DType_T] | None = None,
+        setter: Setter[DType_T] | None = None,
+        datatype: type[DType_T] | None = None,
+        **meta: Unpack[Meta],
     ) -> Attribute:
         """Provision a declared attribute with its IO and metadata.
 
@@ -240,11 +271,22 @@ class ControllerFiller:
 
         """
         declaration = self._declarations.get(name)
-        if declaration is None or declaration.child is None:
+        if declaration is None:
             raise KeyError(
                 f"{type(self._controller).__name__} has no attribute declaration "
                 f"named '{name}' to fill. Declare it as a class-body hint with its "
                 "datatype, or add the attribute with `add_attribute`."
+            )
+
+        if declaration.child is None:
+            # A hint that does not name its datatype - `state: AttrR` - is a
+            # promise rather than something the filler could build, so there is
+            # no attribute here to provision.
+            raise KeyError(
+                f"{type(self._controller).__name__} declared '{name}' as "
+                f"{declaration.hint} without a datatype, so there is no attribute "
+                "to fill. Subscript the hint with the datatype it holds, or add "
+                "the attribute with `add_attribute`."
             )
 
         attribute = declaration.child
@@ -277,8 +319,8 @@ class ControllerFiller:
             # `update_meta` validates the fields against the datatype the hint
             # declared, which is the runtime counterpart to the static
             # `Unpack[FloatMeta]` check on the constructors.
-            merged: dict[str, Any] = {**attribute.meta, **meta}
-            attribute.update_meta(merged)  # pyright: ignore[reportArgumentType]
+            merged: Meta = {**attribute.meta, **meta}
+            attribute.update_meta(merged)
 
         return attribute
 
@@ -290,7 +332,7 @@ class ControllerFiller:
         """
         return self.fill_attribute(name, **meta)
 
-    def check_filled(self, source: str | None = None) -> None:
+    def check_filled(self) -> None:
         """Raise if anything the class body promised does not exist.
 
         A declaration the filler could create is satisfied by having been
@@ -298,10 +340,6 @@ class ControllerFiller:
         datatype was not knowable at author time, which introspection was
         therefore expected to add and did not. An ``| None`` hint is not
         required.
-
-        Args:
-            source: Where the filling data came from, named in the error so a
-                driver author can tell which introspection fell short
 
         Raises:
             RuntimeError: Listing, by name, what is still missing
@@ -313,23 +351,23 @@ class ControllerFiller:
             if declaration.optional:
                 continue
 
-            origin = get_origin(declaration.hint) or declaration.hint
+            declared = declaration.declared_type
             member = getattr(self._controller, name, None)
-            if isinstance(member, origin):
+            if isinstance(member, declared):
                 continue
 
             if member is None:
-                missing.append(f"{name} (declared {origin.__name__}, never added)")
+                missing.append(f"{name} (declared {declared.__name__}, never added)")
             else:
                 missing.append(
-                    f"{name} (declared {origin.__name__}, got {type(member).__name__})"
+                    f"{name} (declared {declared.__name__}, "
+                    f"got {type(member).__name__})"
                 )
 
         if not missing:
             return
 
-        from_source = f" from {source}" if source is not None else ""
         raise RuntimeError(
-            f"Controller `{type(self._controller).__name__}` did not provision"
-            f"{from_source}: " + ", ".join(sorted(missing))
+            f"Controller `{type(self._controller).__name__}` did not provision: "
+            + ", ".join(sorted(missing))
         )

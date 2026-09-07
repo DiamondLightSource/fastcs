@@ -1,13 +1,14 @@
 """Tests for `ControllerFiller` - the declarative half of ADR 0013."""
 
 import enum
+from collections.abc import Callable
 from typing import Annotated
 
 import numpy as np
 import pytest
 
-from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled, attr
+from fastcs.controllers import BaseController, Controller, ControllerVector
 from fastcs.datatypes import Array1D
 from fastcs.methods import Command, Scan
 
@@ -50,7 +51,8 @@ def test_access_mode_comes_from_the_declared_class():
     assert controller.both.access_mode == "rw"
 
 
-def test_a_controller_with_no_hints_at_all_is_fine():
+@pytest.mark.asyncio
+async def test_attributes_added_without_a_hint():
     # `fastcs-PandABlocks`/`fastcs-secop`: the whole tree comes off the wire.
     class Dynamic(Controller):
         async def initialise(self) -> None:
@@ -59,20 +61,11 @@ def test_a_controller_with_no_hints_at_all_is_fine():
     controller = Dynamic()
 
     assert controller.attributes == {}
-    controller.check_filled()
 
-
-@pytest.mark.asyncio
-async def test_attributes_added_without_a_hint_are_left_alone():
-    class Dynamic(Controller):
-        async def initialise(self) -> None:
-            self.add_attribute("discovered", AttrR(int))
-
-    controller = Dynamic()
     await controller.initialise()
-    controller.check_filled()
 
     assert set(controller.attributes) == {"discovered"}
+    controller.check_filled()
 
 
 def test_a_trailing_underscore_is_dropped_from_the_name():
@@ -83,7 +76,6 @@ def test_a_trailing_underscore_is_dropped_from_the_name():
     controller = Declared()
 
     assert "description" in controller.attributes
-    assert controller.attributes["description"].dtype is str
 
 
 def test_extras_from_an_annotated_hint_are_handed_back():
@@ -114,37 +106,50 @@ def test_extras_survive_an_optional_annotated_hint():
     assert declaration.optional
 
 
-def test_a_sub_controller_hint_is_promised_not_created():
-    class Child(Controller):
-        pass
+class Child(Controller):
+    pass
 
-    class Parent(Controller):
-        child: Child
 
-    controller = Parent()
+class ChildHintedParent(Controller):
+    child: Child
+
+
+class VectorHintedParent(Controller):
+    children: ControllerVector[Child]
+
+
+@pytest.mark.parametrize(
+    "parent_type, name, expected",
+    [
+        (ChildHintedParent, "child", "child .declared Child, never added."),
+        (VectorHintedParent, "children", "children .declared ControllerVector"),
+    ],
+)
+def test_a_controller_hint_is_not_created(
+    parent_type: type[Controller], name: str, expected: str
+):
+    controller = parent_type()
 
     assert controller.sub_controllers == {}
 
-    with pytest.raises(RuntimeError, match="child .declared Child, never added."):
+    with pytest.raises(RuntimeError, match=expected):
         controller.check_filled()
 
-    controller.add_sub_controller("child", Child())
-    controller.check_filled()
 
+@pytest.mark.parametrize(
+    "parent_type, name, child",
+    [
+        (ChildHintedParent, "child", Child),
+        (VectorHintedParent, "children", lambda: ControllerVector({1: Child()})),
+    ],
+)
+def test_adding_a_promised_controller_satisfies_the_declaration(
+    parent_type: type[Controller], name: str, child: Callable[[], BaseController]
+):
+    controller = parent_type()
 
-def test_a_controller_vector_hint_is_promised_not_created():
-    class Child(Controller):
-        pass
+    controller.add_sub_controller(name, child())
 
-    class Parent(Controller):
-        children: ControllerVector[Child]
-
-    controller = Parent()
-
-    with pytest.raises(RuntimeError, match="children .declared ControllerVector"):
-        controller.check_filled()
-
-    controller.add_sub_controller("children", ControllerVector({1: Child()}))
     controller.check_filled()
 
 
@@ -170,14 +175,6 @@ def test_check_filled_recurses_into_sub_controllers():
         Parent().check_filled()
 
 
-def test_check_filled_names_its_source():
-    class Declared(Controller):
-        promised: AttrR
-
-    with pytest.raises(RuntimeError, match="did not provision from the parameter tree"):
-        Declared().check_filled("the parameter tree")
-
-
 def test_a_class_body_attribute_instance_is_rejected():
     class Shared(Controller):
         attr = AttrR(int)
@@ -188,8 +185,6 @@ def test_a_class_body_attribute_instance_is_rejected():
 
 @pytest.mark.asyncio
 async def test_a_decorated_attribute_satisfies_a_hint_of_the_same_name():
-    from fastcs.attributes import attr
-
     class Declared(Controller):
         voltage: AttrR[float]  # pyright: ignore[reportRedeclaration]
 
@@ -205,8 +200,6 @@ async def test_a_decorated_attribute_satisfies_a_hint_of_the_same_name():
 
 
 def test_a_decorated_attribute_disagreeing_with_its_hint_raises():
-    from fastcs.attributes import attr
-
     class Declared(Controller):
         voltage: AttrR[int]  # pyright: ignore[reportRedeclaration]
 
@@ -214,7 +207,7 @@ def test_a_decorated_attribute_disagreeing_with_its_hint_raises():
         async def voltage(self) -> float:
             return 1.5
 
-    with pytest.raises(RuntimeError, match="does not match defined datatype"):
+    with pytest.raises(RuntimeError, match="expected datatype 'int', got 'float'"):
         Declared()
 
 

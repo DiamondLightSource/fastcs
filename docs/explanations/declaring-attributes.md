@@ -53,7 +53,7 @@ class OdinDetector(Controller):
                 name, getter=spec.getter, setter=spec.setter, **spec.meta
             )
 
-        self.filler.check_filled("the Odin parameter tree")
+        self.filler.check_filled()
 ```
 
 The hint is not a promise to build something later. `self.frames` **exists as
@@ -102,11 +102,11 @@ own without FastCS knowing anything about it.
 
 ## Checking what was promised
 
-`check_filled(source)` raises if anything the class body declared is missing,
-listing it by name and naming where the data was supposed to come from. FastCS
-calls it across the whole controller tree after `initialise`, so a driver that
-forgets cannot serve a half-built API; call it yourself at the end of your own
-`initialise` to get the better error message. An `| None` hint is not required.
+`check_filled()` raises if anything the class body declared is missing, listing
+it by name. FastCS calls it across the whole controller tree after
+`initialise`, so a driver that forgets cannot serve a half-built API; call it
+yourself at the end of your own `initialise` to fail before anything else runs.
+An `| None` hint is not required.
 
 ## Summary
 

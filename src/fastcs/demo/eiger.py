@@ -181,8 +181,8 @@ class EigerDetector(Controller):
                     )
 
         # Every hinted parameter should have turned up in the tree the device
-        # reported; say so with the source named if one did not.
-        self.filler.check_filled("the Eiger REST parameter tree")
+        # reported.
+        self.filler.check_filled()
 
         # Keep the derived ``idle`` flag in sync with the introspected ``state``.
         self.state.add_readback_callback(self._update_idle)

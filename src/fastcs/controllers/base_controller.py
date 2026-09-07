@@ -1,25 +1,16 @@
 from __future__ import annotations
 
 from inspect import getattr_static
-from typing import (
-    TypeVar,
-    get_args,
-    get_origin,
-)
+from typing import TypeVar
 
 from fastcs.attributes import Attribute, UnboundAttr
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.controllers.filler import ControllerFiller
+from fastcs.datatypes import resolve_datatype
 from fastcs.methods import Command, Scan, UnboundCommand, UnboundScan
 from fastcs.tracer import Tracer
 
 T = TypeVar("T")
-
-
-def _declared_datatype(hint: object) -> type | None:
-    """The datatype an ``AttrR[int]``-style hint names, if it names one."""
-    args = get_args(hint)
-    return args[0] if len(args) == 1 and isinstance(args[0], type) else None
 
 
 class BaseController(Tracer):
@@ -161,18 +152,17 @@ class BaseController(Tracer):
         """Hook to call after all attributes added, before serving the application"""
         self.check_filled()
 
-    def check_filled(self, source: str | None = None):
+    def check_filled(self):
         """Check that every class-body declaration was provisioned, recursively.
 
-        A driver may call ``self.filler.check_filled(source)`` itself at the
-        end of its own ``initialise``, naming where its data came from; the
-        framework calls this afterwards so that a controller which forgot to
-        does not serve a half-built API.
+        A driver may call ``self.filler.check_filled()`` itself at the end of
+        its own ``initialise``; the framework calls this afterwards so that a
+        controller which forgot to does not serve a half-built API.
         """
-        self.filler.check_filled(source)
+        self.filler.check_filled()
 
         for sub_controller in self.sub_controllers.values():
-            sub_controller.check_filled(source)
+            sub_controller.check_filled()
 
     @property
     def path(self) -> list[str]:
@@ -207,7 +197,13 @@ class BaseController(Tracer):
         except ValueError as exc:
             raise ValueError(f"Cannot add attribute {attr}.") from exc
 
-        self._check_against_declaration(name, attr, "attribute", "access mode")
+        try:
+            self._check_against_declaration(name, attr)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Cannot add attribute {attr}: it does not match the access mode "
+                f"or datatype hinted for '{name}' - {exc}."
+            ) from exc
 
         attr.set_name(name)
         attr.set_path(self.path)
@@ -224,7 +220,13 @@ class BaseController(Tracer):
         except ValueError as exc:
             raise ValueError(f"Cannot add sub controller {sub_controller}.") from exc
 
-        self._check_against_declaration(name, sub_controller, "sub controller", "type")
+        try:
+            self._check_against_declaration(name, sub_controller)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Cannot add sub controller {sub_controller}: it does not match "
+                f"the type hinted for '{name}' - {exc}."
+            ) from exc
 
         sub_controller.set_path(self.path + [name])
         self.__sub_controllers[name] = sub_controller
@@ -237,45 +239,54 @@ class BaseController(Tracer):
     def sub_controllers(self) -> dict[str, BaseController]:
         return self.__sub_controllers
 
-    def _check_against_declaration(
-        self, name: str, member: object, kind: str, mismatch: str
-    ):
+    def _check_against_declaration(self, name: str, member: object):
         """Check a member being added matches what the class body declared.
 
         The filler creates what it can from a hint, so what reaches here is
         either introspection satisfying a promise (``state: AttrR``) or a
         driver adding something that clashes with a declaration.
+
+        Raises:
+            RuntimeError: Saying what was declared and what arrived. The caller
+                is what knows which kind of member this is, so it catches this
+                and re-raises with that context.
+
         """
         declaration = self.filler.declarations.get(name)
         if declaration is None:
             return
 
-        expected = get_origin(declaration.hint) or declaration.hint
-        if not isinstance(member, expected):
+        declared = declaration.declared_type
+        if not isinstance(member, declared):
             raise RuntimeError(
-                f"Controller '{self.__class__.__name__}' introspection of "
-                f"hinted {kind} '{name}' does not match defined {mismatch}. "
-                f"Expected '{expected.__name__}' got '{type(member).__name__}'."
+                f"expected '{declared.__name__}', got '{type(member).__name__}'"
             )
 
-        datatype = _declared_datatype(declaration.hint)
-        if (
-            datatype is not None
-            and isinstance(member, Attribute)
-            and datatype != member.dtype
-        ):
+        if declaration.datatype is None or not isinstance(member, Attribute):
+            return
+
+        # The hint holds the datatype as it was written, so `AttrR[Array1D[np.int32]]`
+        # has to be resolved to the `np.ndarray` an attribute reports.
+        declared_datatype, _ = resolve_datatype(declaration.datatype)
+        if declared_datatype != member.dtype:
             raise RuntimeError(
-                f"Controller '{self.__class__.__name__}' introspection of "
-                f"hinted {kind} '{name}' does not match defined datatype. "
-                f"Expected '{datatype.__name__}', got '{member.dtype.__name__}'."
+                f"expected datatype '{declared_datatype.__name__}', "
+                f"got '{member.dtype.__name__}'"
             )
 
     def add_command(self, name: str, command: Command):
         try:
             self._check_for_name_clash(name)
-            self._check_against_declaration(name, command, "command method", "type")
-        except (ValueError, RuntimeError) as exc:
-            raise exc.__class__(f"Cannot add command method {command}.") from exc
+        except ValueError as exc:
+            raise ValueError(f"Cannot add command method {command}.") from exc
+
+        try:
+            self._check_against_declaration(name, command)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Cannot add command method {command}: it does not match the type "
+                f"hinted for '{name}' - {exc}."
+            ) from exc
 
         self.__command_methods[name] = command
         super().__setattr__(name, command)
@@ -287,9 +298,16 @@ class BaseController(Tracer):
     def add_scan(self, name: str, scan: Scan):
         try:
             self._check_for_name_clash(name)
-            self._check_against_declaration(name, scan, "scan method", "type")
-        except (ValueError, RuntimeError) as exc:
-            raise exc.__class__(f"Cannot add scan method {scan}.") from exc
+        except ValueError as exc:
+            raise ValueError(f"Cannot add scan method {scan}.") from exc
+
+        try:
+            self._check_against_declaration(name, scan)
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Cannot add scan method {scan}: it does not match the type "
+                f"hinted for '{name}' - {exc}."
+            ) from exc
 
         self.__scan_methods[name] = scan
         super().__setattr__(name, scan)

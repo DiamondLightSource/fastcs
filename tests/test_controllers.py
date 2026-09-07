@@ -228,23 +228,37 @@ def test_filling_something_that_was_never_declared_raises():
         controller.filler.fill_attribute("not_declared")
 
 
-def test_a_hint_without_a_datatype_is_promised_not_created():
-    class HintedController(Controller):
-        # The datatype is only knowable over the wire, so the filler cannot
-        # build this one - introspection must add it.
-        state: AttrR
+class PromisedAttrController(Controller):
+    # The datatype is only knowable over the wire, so the filler cannot build
+    # this one - introspection must add it.
+    state: AttrR
 
-    controller = HintedController()
+
+def test_a_hint_without_a_datatype_is_not_created():
+    controller = PromisedAttrController()
 
     assert "state" not in controller.attributes
 
-    with pytest.raises(RuntimeError, match="state .declared AttrR, never added."):
-        controller.check_filled("the device")
 
-    with pytest.raises(RuntimeError, match="does not match defined access mode"):
+def test_a_hint_without_a_datatype_is_promised():
+    controller = PromisedAttrController()
+
+    with pytest.raises(RuntimeError, match="state .declared AttrR, never added."):
+        controller.check_filled()
+
+
+def test_adding_a_promised_attribute_with_the_wrong_access_mode_raises():
+    controller = PromisedAttrController()
+
+    with pytest.raises(RuntimeError, match="expected 'AttrR', got 'AttrW'"):
         controller.add_attribute("state", AttrW(int))
 
+
+def test_adding_a_promised_attribute_satisfies_the_declaration():
+    controller = PromisedAttrController()
+
     controller.add_attribute("state", AttrR(int))
+
     controller.check_filled()
 
 
@@ -255,53 +269,79 @@ def test_an_optional_hint_is_not_required():
     HintedController().check_filled()
 
 
-def test_enum_attribute_hint_validation():
-    class GoodEnum(enum.IntEnum):
-        VAL = 0
-
-    class BadEnum(enum.IntEnum):
-        VAL = 0
-
-    class HintedController(Controller):
-        enum: AttrRW
-
-    controller = HintedController()
-
-    with pytest.raises(RuntimeError, match="does not match defined access mode"):
-        controller.add_attribute("enum", AttrR(GoodEnum))
-
-    controller.add_attribute("enum", AttrRW(BadEnum))
+class GoodEnum(enum.IntEnum):
+    VAL = 0
 
 
-@pytest.mark.asyncio
-async def test_sub_controller_hint_validation():
-    class HintedController(Controller):
-        child: SomeSubController
+class BadEnum(enum.IntEnum):
+    VAL = 0
 
-    controller = HintedController()
+
+class EnumHintedController(Controller):
+    colour: AttrRW[GoodEnum]
+
+
+def test_filling_an_enum_attribute_with_another_enum_raises():
+    controller = EnumHintedController()
+
+    with pytest.raises(TypeError, match="wrong datatype"):
+        controller.filler.fill_attribute("colour", datatype=BadEnum)
+
+
+def test_filling_an_enum_attribute_with_the_declared_enum_is_accepted():
+    controller = EnumHintedController()
+
+    controller.filler.fill_attribute("colour", datatype=GoodEnum)
+
+    assert controller.colour.dtype is GoodEnum
+
+
+class SubControllerHintedController(Controller):
+    child: SomeSubController
+
+
+def test_a_sub_controller_hint_is_promised():
+    controller = SubControllerHintedController()
 
     with pytest.raises(RuntimeError, match="child .declared SomeSubController"):
         controller.check_filled()
 
-    with pytest.raises(RuntimeError, match="does not match defined type"):
+
+def test_adding_a_sub_controller_of_the_wrong_type_raises():
+    controller = SubControllerHintedController()
+
+    with pytest.raises(RuntimeError, match="expected 'SomeSubController'"):
         controller.add_sub_controller("child", Controller())
 
+
+def test_adding_the_declared_sub_controller_satisfies_the_declaration():
+    controller = SubControllerHintedController()
+
     controller.add_sub_controller("child", SomeSubController())
+
     controller.check_filled()
 
 
-@pytest.mark.asyncio
-async def test_method_hint_validation():
-    class HintedController(Controller):
-        method: Scan
+class MethodHintedController(Controller):
+    method: Scan
 
-    controller = HintedController()
+
+def test_a_method_hint_is_promised():
+    controller = MethodHintedController()
 
     with pytest.raises(RuntimeError, match="method .declared Scan, never added."):
         controller.check_filled()
 
-    with pytest.raises(RuntimeError, match="Cannot add command method"):
+
+def test_adding_a_method_of_the_wrong_kind_raises():
+    controller = MethodHintedController()
+
+    with pytest.raises(RuntimeError, match="expected 'Scan', got 'Command'"):
         controller.add_command("method", Command(noop))
+
+
+def test_adding_the_declared_method_satisfies_the_declaration():
+    controller = MethodHintedController()
 
     controller.add_scan("method", Scan(fn=noop, period=0.1))
 
