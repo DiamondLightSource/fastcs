@@ -1,3 +1,5 @@
+from typing import assert_type
+
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW
@@ -13,6 +15,15 @@ def controller() -> HelloWorldController:
 def test_greeting_is_read_write(controller: HelloWorldController):
     assert isinstance(controller.greeting, AttrRW)
     assert controller.greeting.dtype is str
+
+
+def test_the_declared_class_is_the_static_type(controller: HelloWorldController):
+    # `assert_type` is checked by pyright rather than at runtime, which is the
+    # point: naming the class in the decorator is what makes
+    # `controller.greeting.set(...)` need no narrowing at its use sites.
+    assert_type(controller.greeting, AttrRW[str])
+    assert_type(controller.message, AttrR[str])
+    assert_type(controller.uptime, AttrR[float])
 
 
 def test_derived_attributes_are_read_only(controller: HelloWorldController):
@@ -31,7 +42,7 @@ def test_docstrings_become_descriptions(controller: HelloWorldController):
 
 
 def test_schedules(controller: HelloWorldController):
-    # A bare `@attr` is read once, on connect; the derived values are polled.
+    # A bare declaration is read once, on connect; the derived values are polled.
     assert controller.greeting.poll_period == ONCE
     assert controller.message.poll_period == 0.2
     assert controller.uptime.poll_period == 0.2
@@ -48,14 +59,12 @@ def test_decorator_keywords_are_metadata(controller: HelloWorldController):
 
 @pytest.mark.asyncio
 async def test_message_follows_the_greeting(controller: HelloWorldController):
-    greeting = controller.greeting
-    assert isinstance(greeting, AttrRW)
     assert await controller.message.poll() == "Hello, world!"
 
-    await greeting.set("Goodbye")
+    await controller.greeting.set("Goodbye")
 
-    assert greeting.setpoint == "Goodbye"
-    assert await greeting.poll() == "Goodbye"
+    assert controller.greeting.setpoint == "Goodbye"
+    assert await controller.greeting.poll() == "Goodbye"
     assert await controller.message.poll() == "Goodbye, world!"
 
 

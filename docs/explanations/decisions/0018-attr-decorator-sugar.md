@@ -154,3 +154,44 @@ an introspected name and a decorated name raises.
    shadowed; a clash between an introspected name and a decorated name raises.
 5. **Does the getter's docstring become the `description`?** Yes, as
    `@command`/`@scan` already do.
+
+## Amendment: the spelling is `AttrR.declare`/`AttrRW.declare` (#425)
+
+Resolved question 1 above records the spelling as `@attr` + `@x.setter`,
+mirroring `@property`. Building it found a cost the ADR did not anticipate, and
+review settled on a different spelling. This section records that; the rest of
+the ADR stands.
+
+**The problem.** Mirroring `@property` means two `def voltage` in one class
+body, which type checkers reject for everything but the builtin `property`
+(pyright: *obscured by a declaration of the same name*). Giving the setter a
+name of its own - `set_voltage`, as PyTango writes `write_voltage` - removes
+that, but leaves a second cost: a type checker binds `voltage` at the `@attr`
+line, and nothing later in the class body can change the type of a name already
+bound, so `self.voltage` reads as `AttrR[float]` even where a setter has made it
+an `AttrRW[float]`, and `self.voltage.set(...)` needs narrowing at every use.
+
+**The decision.** The decorator names the class it builds, as an alternate
+constructor on that class:
+
+```python
+@AttrR.declare
+async def uptime(self) -> float: ...
+
+@AttrRW.declare(Polled(period=0.2), units="s")
+async def voltage(self) -> float: ...
+
+@voltage.setter
+async def set_voltage(self, value: float) -> None: ...
+```
+
+There is no `attr` decorator. `AttrR.declare` is read-only and has no `setter`
+at all; `AttrRW.declare` expects one, and a declaration that never gets one
+fails when the controller is constructed, naming the attribute. Everything else
+the ADR decided - the datatype from the return annotation, the docstring as the
+description, `Unpack[Meta]` keyword arguments, the leading `Polled`/`NotPolled`
+schedule, no write-only decorator - is unchanged, and applies to both.
+
+The type is now in the declaration rather than inferred from what follows it, so
+`self.voltage` is an `AttrRW[float]` statically as well as at runtime and there
+is no narrowing and no suppression comment anywhere in the repo.

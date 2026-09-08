@@ -14,6 +14,7 @@ from .meta import StrMeta as StrMeta
 from .meta import TableMeta as TableMeta
 from .types import Array1D as Array1D
 from .types import Array_T as Array_T
+from .types import Declared_T as Declared_T
 from .types import DType as DType
 from .types import DType_T as DType_T
 from .types import Enum_T as Enum_T
