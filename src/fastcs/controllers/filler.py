@@ -184,24 +184,19 @@ class ControllerFiller:
         """Create an unfilled `Attribute` for every hint that can produce one.
 
         Called once by ``BaseController.__init__``, after the class body's
-        ``@attr`` declarations have been bound - a hint whose name one of those
-        already provided is a check on it rather than something to create,
-        which is how ADR 0018's decorated attributes and ADR 0013's hints share
-        one class body.
+        declarations have been bound. A name cannot be declared both by an
+        attribute decorator and by a type hint.
         """
         for declaration in self._declarations.values():
             if not issubclass(declaration.hint.declared_type, Attribute):
                 continue
 
-            if (
-                existing := self._controller.attributes.get(declaration.name)
-            ) is not None:
-                # An `@attr` of the same name already provided it, so the hint
-                # is a check on that attribute rather than something to create -
-                # but it is still the declaration's child, so that an
-                # `Annotated` hint's extras reach it through `__iter__`.
-                declaration.child = existing
-                continue
+            if declaration.name in self._controller.attributes:
+                raise TypeError(
+                    f"Controller `{type(self._controller).__name__}` cannot "
+                    f"declare '{declaration.name}' with both an attribute "
+                    "decorator and a type hint"
+                )
 
             self._create_attribute(declaration)
 
