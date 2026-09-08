@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Unpack, overload
 
-from fastcs.attributes.attr_r import AttrR, Getter, Schedule
+from fastcs.attributes.attr_r import AttrR, Getter, Schedule, UnboundGetter
 from fastcs.attributes.attr_w import AttrW, Setter
 from fastcs.attributes.attribute import AttributeAccessMode
 from fastcs.attributes.update import Update
@@ -27,7 +27,7 @@ from fastcs.logging import logger
 from fastcs.util import Controller_T
 
 if TYPE_CHECKING:
-    from fastcs.attributes.attr_decorator import UnboundAttrRW, UnboundGetter
+    from fastcs.attributes.attr_decorator import UnboundAttrRW
 
 
 class AttrRW(AttrR[DType_T], AttrW[DType_T]):

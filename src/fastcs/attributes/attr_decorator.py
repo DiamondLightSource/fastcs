@@ -44,18 +44,18 @@ from fastcs.attributes._infer_datatype import (
     _datatype_for_annotation,
     _unwrap_update_annotation,
 )
-from fastcs.attributes.attr_r import AttrR, NotPolled, Polled, Schedule
+from fastcs.attributes.attr_r import (
+    AttrR,
+    NotPolled,
+    Polled,
+    Schedule,
+    UnboundGetter,
+)
 from fastcs.attributes.attr_rw import AttrRW
+from fastcs.attributes.attr_w import UnboundSetter
 from fastcs.attributes.update import Update
 from fastcs.datatypes import DType_T, Meta
 from fastcs.util import Controller_T
-
-UnboundGetter = Callable[[Controller_T], Awaitable[DType_T | Update[DType_T]]]
-"""A declared getter, taking the `Controller` it will be bound to as ``self``"""
-UnboundSetter = Callable[
-    [Controller_T, DType_T], Awaitable[None | DType_T | Update[DType_T]]
-]
-"""An ``@x.setter`` setter, taking the `Controller` it will be bound to as ``self``"""
 
 
 def _type_name(datatype: Any) -> str:

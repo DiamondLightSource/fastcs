@@ -23,9 +23,14 @@ from fastcs.datatypes import (
     TableMeta,
 )
 from fastcs.logging import logger
+from fastcs.util import Controller_T
 
 Setter = Callable[[DType_T], Awaitable[None | DType_T | Update[DType_T]]]
 """A callable that applies a new setpoint to an attribute's source"""
+UnboundSetter = Callable[
+    [Controller_T, DType_T], Awaitable[None | DType_T | Update[DType_T]]
+]
+"""An ``@x.setter`` setter, taking the `Controller` it will be bound to as ``self``"""
 AttrSetpointCallback = Callable[[DType_T], Coroutine[None, None, None]]
 """A callback to be called when the setpoint of the attribute updates"""
 

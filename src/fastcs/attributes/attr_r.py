@@ -31,10 +31,12 @@ from fastcs.logging import logger
 from fastcs.util import ONCE, Controller_T
 
 if TYPE_CHECKING:
-    from fastcs.attributes.attr_decorator import UnboundAttr, UnboundGetter
+    from fastcs.attributes.attr_decorator import UnboundAttr
 
 Getter = Callable[[], Awaitable[DType_T | Update[DType_T]]]
 """A callable that fetches a fresh value for an attribute from its source"""
+UnboundGetter = Callable[[Controller_T], Awaitable[DType_T | Update[DType_T]]]
+"""A declared getter, taking the `Controller` it will be bound to as ``self``"""
 AttrReadbackCallback = Callable[[DType_T], Coroutine[None, None, None]]
 """A callback to be called when the readback of the attribute updates"""
 
