@@ -210,6 +210,19 @@ def test_datatype_inferred_from_the_return_annotation():
     assert controller.trace.meta == {"array_dtype": np.int32, "shape": (4,)}
 
 
+def test_matching_array_datatypes_are_allowed_on_getter_and_setter():
+    class Device(Controller):
+        @AttrRW.declare
+        async def trace(self) -> Array1D[np.int32]:
+            return np.zeros(4, dtype=np.int32)
+
+        @trace.setter
+        async def set_trace(self, value: Array1D[np.int32]) -> None:
+            pass
+
+    assert Device.trace.has_setter()
+
+
 @pytest.mark.asyncio
 async def test_update_return_annotation_is_unwrapped():
     class Device(Controller):
