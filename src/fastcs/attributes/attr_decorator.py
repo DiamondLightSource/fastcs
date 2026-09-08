@@ -313,19 +313,26 @@ class UnboundAttrRW(UnboundAttr[Controller_T, DType_T]):
 
         Called by an `AttrSetter` when the class it was declared in is created.
         The declaration carrying the setter replaces this one in ``owner``'s
-        own namespace, so a subclass writing ``@Base.voltage.setter`` leaves
-        the base class it inherited the getter from without one.
+        own namespace. The getter declaration must also be declared on
+        ``owner``; an inherited getter cannot be given a setter this way.
 
         Args:
             owner: The `Controller` class the setter was declared in
             fn: The setter, taking ``self`` and the value to apply
 
         Raises:
-            TypeError: If the attribute already has a setter in ``owner``
+            TypeError: If ``owner`` has no matching read-write declaration, or
+                the attribute already has a setter
 
         """
         declared = owner.__dict__.get(self._name)
-        if isinstance(declared, UnboundAttrRW) and declared.has_setter():
+        if not isinstance(declared, UnboundAttrRW):
+            raise TypeError(
+                f"Cannot add setter for '{self._name}' to {owner.__name__}: "
+                "the read-write declaration is not defined on that class"
+            )
+
+        if declared.has_setter():
             raise TypeError(
                 f"Declared getter {self._getter.__qualname__} already has a setter"
             )
