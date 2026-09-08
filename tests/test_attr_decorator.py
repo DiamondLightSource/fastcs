@@ -56,8 +56,13 @@ class PowerSupply(Controller):
         return 3
 
 
-def test_getter_only_is_read_only():
-    controller = PowerSupply()
+@pytest.fixture
+def power_supply() -> PowerSupply:
+    return PowerSupply()
+
+
+def test_getter_only_is_read_only(power_supply: PowerSupply):
+    controller = power_supply
 
     assert isinstance(controller.serial, AttrR)
     assert not isinstance(controller.serial, AttrRW)
@@ -65,24 +70,24 @@ def test_getter_only_is_read_only():
     assert controller.serial.access_mode == "r"
 
 
-def test_getter_and_setter_is_read_write():
-    controller = PowerSupply()
+def test_getter_and_setter_is_read_write(power_supply: PowerSupply):
+    controller = power_supply
 
     assert isinstance(controller.voltage, AttrRW)
     assert controller.voltage.dtype is float
     assert controller.voltage.access_mode == "rw"
 
 
-def test_attributes_are_registered_with_the_controller():
-    controller = PowerSupply()
+def test_attributes_are_registered_with_the_controller(power_supply: PowerSupply):
+    controller = power_supply
 
     assert list(controller.attributes) == ["voltage", "serial", "retries"]
     assert controller.attributes["voltage"] is controller.voltage
     assert controller.voltage.name == "voltage"
 
 
-def test_metadata_from_decorator():
-    controller = PowerSupply()
+def test_metadata_from_decorator(power_supply: PowerSupply):
+    controller = power_supply
 
     assert controller.voltage.meta == {
         "units": "V",
@@ -93,8 +98,8 @@ def test_metadata_from_decorator():
     assert controller.retries.group == "Config"
 
 
-def test_docstring_summary_becomes_the_description():
-    controller = PowerSupply()
+def test_docstring_summary_becomes_the_description(power_supply: PowerSupply):
+    controller = power_supply
 
     # Only the first paragraph - a description is a one-line label.
     assert controller.voltage.description == "Output voltage."
@@ -112,8 +117,8 @@ def test_explicit_description_wins_over_the_docstring():
     assert Device().label.description == "From the decorator"
 
 
-def test_schedules():
-    controller = PowerSupply()
+def test_schedules(power_supply: PowerSupply):
+    controller = power_supply
 
     assert controller.voltage.poll_period == 0.5
     # A bare declaration means what a bare ``getter=`` means - read once, at connect.
@@ -166,9 +171,11 @@ def test_the_declaration_names_the_class_it_will_build():
 
 
 def test_a_read_only_declaration_cannot_be_given_a_setter():
-    # Only `AttrRW.declare` carries `setter`, so a read-only attribute cannot
-    # quietly become read-write further down the class body.
-    assert not hasattr(PowerSupply.serial, "setter")
+    with pytest.raises(AttributeError, match="has no attribute 'setter'"):
+
+        @PowerSupply.serial.setter  # pyright: ignore[reportAttributeAccessIssue]
+        async def set_serial(self, value: str) -> None:
+            pass
 
 
 def test_a_read_write_declaration_without_a_setter_raises():
@@ -364,24 +371,12 @@ def test_setter_value_annotation_is_optional():
 
 
 @pytest.mark.asyncio
-async def test_the_setter_is_still_a_method_of_the_controller():
-    class Device(Controller):
-        def __init__(self) -> None:
-            super().__init__()
+async def test_the_setter_is_still_a_method_of_the_controller(
+    power_supply: PowerSupply,
+):
+    controller = power_supply
 
-            self.sent: list[float] = []
-
-        @AttrRW.declare
-        async def voltage(self) -> float:
-            return 0.0
-
-        @voltage.setter
-        async def set_voltage(self, value: float) -> None:
-            self.sent.append(value)
-
-    controller = Device()
-
-    assert isinstance(Device.set_voltage, AttrSetter)
+    assert isinstance(PowerSupply.set_voltage, AttrSetter)
 
     await controller.set_voltage(2.5)
 
@@ -389,41 +384,29 @@ async def test_the_setter_is_still_a_method_of_the_controller():
 
 
 def test_only_one_setter():
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(TypeError, match="already has a setter"):
 
-        class Device(Controller):
-            @AttrRW.declare
-            async def voltage(self) -> float:
-                return 0.0
-
-            @voltage.setter
-            async def set_voltage(self, value: float) -> None:
-                pass
-
-            @voltage.setter
-            async def write_voltage(self, value: float) -> None:
-                pass
-
-    # Python 3.11 wraps an error raised from __set_name__ in a RuntimeError.
-    error = exc_info.value.__cause__ or exc_info.value
-    assert isinstance(error, TypeError)
-    assert "already has a setter" in str(error)
+        @PowerSupply.voltage.setter
+        async def write_voltage(self, value: float) -> None:
+            pass
 
 
-def test_setter_does_not_leak_onto_the_class_it_was_inherited_from():
+def test_a_setter_requires_a_declaration_on_the_same_class():
     class Base(Controller):
         @AttrRW.declare
         async def voltage(self) -> float:
             return 0.0
 
-    class Child(Base):
-        @Base.voltage.setter  # pyright: ignore[reportArgumentType]
-        async def set_voltage(self, value: float) -> None:
-            pass
+    with pytest.raises(Exception) as exc_info:
 
-    assert not Base.voltage.has_setter()
-    assert Child.voltage.has_setter()
-    assert isinstance(Child().voltage, AttrRW)
+        class Child(Base):
+            @Base.voltage.setter  # pyright: ignore[reportArgumentType]
+            async def set_voltage(self, value: float) -> None:
+                pass
+
+    error = exc_info.value.__cause__ or exc_info.value
+    assert isinstance(error, TypeError)
+    assert "read-write declaration is not defined on that class" in str(error)
 
 
 def test_schedule_must_not_already_have_a_getter():
@@ -438,8 +421,8 @@ def test_schedule_must_not_already_have_a_getter():
 
 
 @pytest.mark.asyncio
-async def test_polled_attributes_are_scheduled():
-    controller = PowerSupply()
+async def test_polled_attributes_are_scheduled(power_supply: PowerSupply):
+    controller = power_supply
     _, periodic, initial = controller.create_api_and_tasks()
 
     # ``serial`` is read once at connect; ``voltage`` is polled at 0.5s;
