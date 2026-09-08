@@ -118,9 +118,10 @@ class BaseController(Tracer):
         controller class. For Methods, this requires creating a bound method from a
         class method and a controller instance, so that it can be called from any
         context with the controller instance passed as the ``self`` argument.
-        An ``@attr``-decorated getter is an `UnboundAttr` declaration rather than
-        an Attribute, and is bound the same way the Methods are - into a fresh
-        Attribute whose getter and setter are methods of this instance.
+        An ``AttrR.declare``/``AttrRW.declare``-decorated getter is an
+        `UnboundAttr` declaration rather than an Attribute, and is bound the
+        same way the Methods are - into a fresh Attribute whose getter and
+        setter are methods of this instance.
 
         """
         class_dir = dict.fromkeys(self._walk_mro())

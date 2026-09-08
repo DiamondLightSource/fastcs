@@ -4,7 +4,7 @@ import asyncio
 import time
 from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import KW_ONLY, dataclass, replace
-from typing import Any, Generic, Unpack, overload
+from typing import TYPE_CHECKING, Any, Generic, Unpack, overload
 
 from fastcs.attributes._infer_datatype import infer_datatype_from_getter
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
@@ -15,6 +15,7 @@ from fastcs.datatypes import (
     Array1DMeta,
     Array_T,
     BoolMeta,
+    Declared_T,
     DType_T,
     Enum_T,
     EnumMeta,
@@ -27,10 +28,15 @@ from fastcs.datatypes import (
     TableMeta,
 )
 from fastcs.logging import logger
-from fastcs.util import ONCE
+from fastcs.util import ONCE, Controller_T
+
+if TYPE_CHECKING:
+    from fastcs.attributes.attr_decorator import UnboundAttr
 
 Getter = Callable[[], Awaitable[DType_T | Update[DType_T]]]
 """A callable that fetches a fresh value for an attribute from its source"""
+UnboundGetter = Callable[[Controller_T], Awaitable[DType_T | Update[DType_T]]]
+"""A declared getter, taking the `Controller` it will be bound to as ``self``"""
 AttrReadbackCallback = Callable[[DType_T], Coroutine[None, None, None]]
 """A callback to be called when the readback of the attribute updates"""
 
@@ -181,7 +187,7 @@ class AttrR(Attribute[DType_T]):
                 resolved_getter, poll_period = None, None
             case _:
                 # A getter with no schedule is read once, when the controller
-                # connects - the safe default, and what a bare ``@attr`` means.
+                # connects - the safe default, and what a bare declaration means.
                 resolved_getter, poll_period = getter, ONCE
 
         if datatype is None and resolved_getter is not None:
@@ -208,6 +214,68 @@ class AttrR(Attribute[DType_T]):
         """Callbacks to publish changes to the readback of the attribute"""
         self._on_update_events: set[PredicateEvent[DType_T]] = set()
         """Events to set when the value satisifies some predicate"""
+
+    @staticmethod
+    @overload
+    def declare(
+        getter: UnboundGetter[Controller_T, Declared_T], /
+    ) -> UnboundAttr[Controller_T, Declared_T]: ...
+
+    @staticmethod
+    @overload
+    def declare(
+        schedule: Schedule[Any] | None = None, /, **meta: Unpack[Meta]
+    ) -> Callable[
+        [UnboundGetter[Controller_T, Declared_T]],
+        UnboundAttr[Controller_T, Declared_T],
+    ]: ...
+
+    @staticmethod
+    def declare(getter_or_schedule: Any = None, /, **meta: Any) -> Any:
+        """Declare a read-only attribute from the method that reads it.
+
+        The datatype is the getter's return annotation and the getter's
+        docstring is the attribute's description, so the common "one attribute,
+        one device call" case is a single decorated method::
+
+            class PowerSupply(Controller):
+                @AttrR.declare(Polled(period=0.5), units="V")
+                async def voltage(self) -> float:
+                    \"\"\"Output voltage.\"\"\"
+                    return float(await self._conn.query("V?"))
+
+        A getter declared this way is read-only and stays that way; declare it
+        with `AttrRW.declare` if the device can be written to.
+
+        The optional leading positional argument is a schedule - the same
+        `Polled`/`NotPolled` objects the procedural form wraps its getter in,
+        so the two spellings share one vocabulary:
+
+        - ``@AttrR.declare(units="V")`` is read once, when the controller
+          connects, which is what a bare ``getter=`` means and what a bare
+          ``@AttrR.declare`` means
+        - ``@AttrR.declare(Polled(period=0.5))`` is read every 0.5 seconds, as
+          ``AttrR(getter=Polled(g, period=0.5))`` is
+        - ``@AttrR.declare(NotPolled())`` is never read on a schedule, as
+          ``AttrR(getter=NotPolled(g))`` is
+
+        Args:
+            getter_or_schedule: The getter, when used bare as
+                ``@AttrR.declare``; otherwise a `Polled` or `NotPolled`
+                schedule, or nothing
+            meta: Metadata for the attribute, checked against the datatype the
+                getter returns - ``precision`` on a ``str`` attribute raises
+
+        Returns:
+            An `UnboundAttr`, which each `Controller` instance binds into an
+            attribute of its own
+
+        """
+        # Imported here because the decorator builds an ``AttrR``, so the
+        # module defining it imports this one.
+        from fastcs.attributes.attr_decorator import UnboundAttr, declare_attribute
+
+        return declare_attribute(UnboundAttr, getter_or_schedule, meta)
 
     @property
     def readback(self) -> DType_T:
