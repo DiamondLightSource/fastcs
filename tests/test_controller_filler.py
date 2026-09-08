@@ -7,7 +7,7 @@ from typing import Annotated
 import numpy as np
 import pytest
 
-from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled, attr
+from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled
 from fastcs.controllers import BaseController, Controller, ControllerVector
 from fastcs.datatypes import Array1D
 
@@ -184,7 +184,7 @@ def test_a_decorated_attribute_cannot_satisfy_a_hint_of_the_same_name():
     class Declared(Controller):
         voltage: AttrR[float]  # pyright: ignore[reportRedeclaration]
 
-        @attr
+        @AttrR.declare
         async def voltage(self) -> float:
             return 1.5
 
@@ -196,7 +196,7 @@ def test_a_decorated_attribute_disagreeing_with_its_hint_raises():
     class Declared(Controller):
         voltage: AttrR[int]  # pyright: ignore[reportRedeclaration]
 
-        @attr
+        @AttrR.declare
         async def voltage(self) -> float:
             return 1.5
 
