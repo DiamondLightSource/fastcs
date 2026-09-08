@@ -44,6 +44,14 @@ in the same signature that annotates ``self``, and a class-scoped TypeVar cannot
 be used there.
 """
 
+Declared_T = TypeVar("Declared_T", bound=DType)
+"""A TypeVar of `DType` for the ``AttrR.declare``/``AttrRW.declare`` decorators
+
+Distinct from `DType_T` for the same reason as `Inferred_T`: ``declare`` is a
+static method of a generic class, so the class's own TypeVar would leave the
+declared datatype unsolved rather than binding it from the decorated getter.
+"""
+
 Array1D: TypeAlias = np.ndarray[tuple[int], np.dtype[NumpyScalar_T]]
 """A one dimensional numpy array, subscripted with its element type.
 

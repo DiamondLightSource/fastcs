@@ -76,9 +76,16 @@ class BaseController(Tracer):
     def _bind_attrs(self) -> None:
         """Bind the class body's declarations to this instance.
 
-        A class body holds declarations and decorated behaviour, never
-        `Attribute` instances (ADR 0013), so there is nothing to copy: each
-        kind of declaration is built fresh for this instance.
+        This method will bind the attributes of this controller class to
+        this specific instance. For Attributes, this is just a case of copying and
+        re-assigning to ``self`` to make it unique across multiple instances of this
+        controller class. For Methods, this requires creating a bound method from a
+        class method and a controller instance, so that it can be called from any
+        context with the controller instance passed as the ``self`` argument.
+        An ``AttrR.declare``/``AttrRW.declare``-decorated getter is an
+        `UnboundAttr` declaration rather than an Attribute, and is bound the
+        same way the Methods are - into a fresh Attribute whose getter and
+        setter are methods of this instance.
 
         - an ``@attr``-decorated getter is an `UnboundAttr`, bound into an
           ``AttrR``/``AttrRW`` whose getter and setter are methods of this

@@ -7,11 +7,12 @@ import pytest
 from fastcs.attributes import (
     AttrR,
     AttrRW,
+    AttrSetter,
     NotPolled,
     Polled,
     UnboundAttr,
+    UnboundAttrRW,
     Update,
-    attr,
 )
 from fastcs.controllers import Controller
 from fastcs.datatypes import Array1D, Limits, NumericLimits
@@ -24,7 +25,7 @@ class State(Enum):
 
 
 class PowerSupply(Controller):
-    """A controller declaring its attributes with ``@attr``."""
+    """A controller declaring its attributes with the decorators."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -32,8 +33,8 @@ class PowerSupply(Controller):
         self.sent: list[float] = []
         self._voltage = 1.5
 
-    @attr(Polled(period=0.5), units="V", precision=3)
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
+    @AttrRW.declare(Polled(period=0.5), units="V", precision=3)
+    async def voltage(self) -> float:
         """Output voltage.
 
         The rest of the docstring says more than a description should.
@@ -41,22 +42,27 @@ class PowerSupply(Controller):
         return self._voltage
 
     @voltage.setter
-    async def voltage(self, value: float) -> None:
+    async def set_voltage(self, value: float) -> None:
         self.sent.append(value)
         self._voltage = value
 
-    @attr
+    @AttrR.declare
     async def serial(self) -> str:
         """Serial number."""
         return "PSU-1"
 
-    @attr(NotPolled(), group="Config")
+    @AttrR.declare(NotPolled(), group="Config")
     async def retries(self) -> int:
         return 3
 
 
-def test_getter_only_is_read_only():
-    controller = PowerSupply()
+@pytest.fixture
+def power_supply() -> PowerSupply:
+    return PowerSupply()
+
+
+def test_getter_only_is_read_only(power_supply: PowerSupply):
+    controller = power_supply
 
     assert isinstance(controller.serial, AttrR)
     assert not isinstance(controller.serial, AttrRW)
@@ -64,24 +70,24 @@ def test_getter_only_is_read_only():
     assert controller.serial.access_mode == "r"
 
 
-def test_getter_and_setter_is_read_write():
-    controller = PowerSupply()
+def test_getter_and_setter_is_read_write(power_supply: PowerSupply):
+    controller = power_supply
 
     assert isinstance(controller.voltage, AttrRW)
     assert controller.voltage.dtype is float
     assert controller.voltage.access_mode == "rw"
 
 
-def test_attributes_are_registered_with_the_controller():
-    controller = PowerSupply()
+def test_attributes_are_registered_with_the_controller(power_supply: PowerSupply):
+    controller = power_supply
 
     assert list(controller.attributes) == ["voltage", "serial", "retries"]
     assert controller.attributes["voltage"] is controller.voltage
     assert controller.voltage.name == "voltage"
 
 
-def test_metadata_from_decorator():
-    controller = PowerSupply()
+def test_metadata_from_decorator(power_supply: PowerSupply):
+    controller = power_supply
 
     assert controller.voltage.meta == {
         "units": "V",
@@ -92,8 +98,8 @@ def test_metadata_from_decorator():
     assert controller.retries.group == "Config"
 
 
-def test_docstring_summary_becomes_the_description():
-    controller = PowerSupply()
+def test_docstring_summary_becomes_the_description(power_supply: PowerSupply):
+    controller = power_supply
 
     # Only the first paragraph - a description is a one-line label.
     assert controller.voltage.description == "Output voltage."
@@ -103,7 +109,7 @@ def test_docstring_summary_becomes_the_description():
 
 def test_explicit_description_wins_over_the_docstring():
     class Device(Controller):
-        @attr(description="From the decorator")
+        @AttrR.declare(description="From the decorator")
         async def label(self) -> str:
             """From the docstring."""
             return "x"
@@ -111,11 +117,11 @@ def test_explicit_description_wins_over_the_docstring():
     assert Device().label.description == "From the decorator"
 
 
-def test_schedules():
-    controller = PowerSupply()
+def test_schedules(power_supply: PowerSupply):
+    controller = power_supply
 
     assert controller.voltage.poll_period == 0.5
-    # A bare ``@attr`` means what a bare ``getter=`` means - read once, at connect.
+    # A bare declaration means what a bare ``getter=`` means - read once, at connect.
     assert controller.serial.poll_period is ONCE
     assert controller.retries.poll_period is None
     assert controller.retries.has_getter()
@@ -133,6 +139,7 @@ async def test_bound_getter_reads_from_its_own_instance():
 @pytest.mark.asyncio
 async def test_bound_setter_writes_to_its_own_instance():
     one, two = PowerSupply(), PowerSupply()
+    assert isinstance(one.voltage, AttrRW)
 
     await one.voltage.set(2.5)
 
@@ -158,17 +165,40 @@ def test_class_body_holds_the_declaration():
     assert "access_mode='rw'" in repr(PowerSupply.voltage)
 
 
+def test_the_declaration_names_the_class_it_will_build():
+    assert isinstance(PowerSupply.voltage, UnboundAttrRW)
+    assert not isinstance(PowerSupply.serial, UnboundAttrRW)
+
+
+def test_a_read_only_declaration_cannot_be_given_a_setter():
+    with pytest.raises(AttributeError, match="has no attribute 'setter'"):
+
+        @PowerSupply.serial.setter  # pyright: ignore[reportAttributeAccessIssue]
+        async def set_serial(self, value: str) -> None:
+            pass
+
+
+def test_a_read_write_declaration_without_a_setter_raises():
+    class Device(Controller):
+        @AttrRW.declare
+        async def voltage(self) -> float:
+            return 0.0
+
+    with pytest.raises(TypeError, match="declared with AttrRW.declare but has no set"):
+        Device()
+
+
 def test_datatype_inferred_from_the_return_annotation():
     class Device(Controller):
-        @attr
+        @AttrR.declare
         async def flag(self) -> bool:
             return True
 
-        @attr
+        @AttrR.declare
         async def state(self) -> State:
             return State.IDLE
 
-        @attr(shape=(4,))
+        @AttrR.declare(shape=(4,))
         async def trace(self) -> Array1D[np.int32]:
             return np.zeros(4, dtype=np.int32)
 
@@ -180,10 +210,23 @@ def test_datatype_inferred_from_the_return_annotation():
     assert controller.trace.meta == {"array_dtype": np.int32, "shape": (4,)}
 
 
+def test_matching_array_datatypes_are_allowed_on_getter_and_setter():
+    class Device(Controller):
+        @AttrRW.declare
+        async def trace(self) -> Array1D[np.int32]:
+            return np.zeros(4, dtype=np.int32)
+
+        @trace.setter
+        async def set_trace(self, value: Array1D[np.int32]) -> None:
+            pass
+
+    assert Device.trace.has_setter()
+
+
 @pytest.mark.asyncio
 async def test_update_return_annotation_is_unwrapped():
     class Device(Controller):
-        @attr
+        @AttrR.declare
         async def temperature(self) -> Update[float]:
             return Update(readback=20.5, timestamp=1000.0)
 
@@ -196,7 +239,7 @@ async def test_update_return_annotation_is_unwrapped():
 
 def test_metadata_is_validated_against_the_inferred_datatype():
     class Device(Controller):
-        @attr(precision=3)
+        @AttrR.declare(precision=3)
         async def label(self) -> str:
             return "x"
 
@@ -206,7 +249,7 @@ def test_metadata_is_validated_against_the_inferred_datatype():
 
 def test_limits_metadata():
     class Device(Controller):
-        @attr(limits=NumericLimits(control=Limits(0.0, 10.0)))
+        @AttrR.declare(limits=NumericLimits(control=Limits(0.0, 10.0)))
         async def setpoint(self) -> float:
             return 1.0
 
@@ -219,7 +262,7 @@ def test_matching_type_hint_is_satisfied_by_the_decorated_attribute():
     class Device(Controller):
         label: AttrR[str]  # pyright: ignore[reportRedeclaration]
 
-        @attr
+        @AttrR.declare
         async def label(self) -> str:
             return "x"
 
@@ -232,7 +275,7 @@ def test_type_hint_of_the_wrong_access_mode_raises():
     class Device(Controller):
         label: AttrRW[str]  # pyright: ignore[reportRedeclaration]
 
-        @attr
+        @AttrR.declare
         async def label(self) -> str:
             return "x"
 
@@ -247,7 +290,7 @@ def test_name_clash_with_an_attribute_added_later_raises():
 
             self.label = AttrR(str)  # pyright: ignore[reportAttributeAccessIssue]
 
-        @attr
+        @AttrR.declare
         async def label(self) -> str:
             return "x"
 
@@ -260,7 +303,7 @@ def test_name_clash_with_an_attribute_added_later_raises():
 def test_getter_must_be_async():
     with pytest.raises(TypeError, match="getter .* must be an async function"):
 
-        @attr()  # pyright: ignore[reportArgumentType]
+        @AttrR.declare()  # pyright: ignore[reportArgumentType]
         def voltage(self) -> float:
             return 0.0
 
@@ -268,7 +311,7 @@ def test_getter_must_be_async():
 def test_getter_must_take_only_self():
     with pytest.raises(TypeError, match="getter .* must be a method taking self"):
 
-        @attr()  # pyright: ignore[reportArgumentType]
+        @AttrR.declare()  # pyright: ignore[reportArgumentType]
         async def voltage(self, index: int) -> float:
             return 0.0
 
@@ -276,7 +319,7 @@ def test_getter_must_take_only_self():
 def test_getter_must_annotate_its_return_type():
     with pytest.raises(TypeError, match="must annotate the datatype"):
 
-        @attr()
+        @AttrR.declare()
         async def voltage(self):
             return 0.0
 
@@ -284,26 +327,26 @@ def test_getter_must_annotate_its_return_type():
 def test_getter_must_return_a_supported_datatype():
     with pytest.raises(TypeError, match="must annotate a supported datatype"):
 
-        @attr()  # pyright: ignore[reportArgumentType]
+        @AttrR.declare()  # pyright: ignore[reportArgumentType]
         async def voltage(self) -> list[int]:
             return []
 
 
 def test_setter_must_be_async():
-    @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
+    @AttrRW.declare
+    async def voltage(self) -> float:
         return 0.0
 
     with pytest.raises(TypeError, match="setter .* must be an async function"):
 
         @voltage.setter  # pyright: ignore[reportArgumentType]
-        def voltage(self, value: float) -> None:
+        def set_voltage(self, value: float) -> None:
             pass
 
 
 def test_setter_must_take_a_value():
-    @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
+    @AttrRW.declare
+    async def voltage(self) -> float:
         return 0.0
 
     with pytest.raises(
@@ -311,65 +354,72 @@ def test_setter_must_take_a_value():
     ):
 
         @voltage.setter  # pyright: ignore[reportArgumentType]
-        async def voltage(self) -> None:
+        async def set_voltage(self) -> None:
             pass
 
 
 def test_setter_value_must_match_the_getter_datatype():
-    @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
+    @AttrRW.declare
+    async def voltage(self) -> float:
         return 0.0
 
     with pytest.raises(TypeError, match="takes a str, but its getter returns a float"):
 
         @voltage.setter  # pyright: ignore[reportArgumentType]
-        async def voltage(self, value: str) -> None:
+        async def set_voltage(self, value: str) -> None:
             pass
 
 
 def test_setter_value_annotation_is_optional():
-    @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
-        return 0.0
-
-    @voltage.setter
-    async def voltage(self, value) -> None:
-        pass
-
-    assert voltage.has_setter()
-
-
-def test_only_one_setter():
-    @attr
-    async def voltage(self) -> float:  # pyright: ignore[reportRedeclaration]
-        return 0.0
-
-    @voltage.setter
-    async def voltage(self, value: float) -> None:
-        pass
-
-    with pytest.raises(TypeError, match="already has a setter"):
-
-        @voltage.setter
-        async def voltage(self, value: float) -> None:
-            pass
-
-
-def test_setter_does_not_leak_onto_the_class_it_was_inherited_from():
-    class Base(Controller):
-        @attr
+    class Device(Controller):
+        @AttrRW.declare
         async def voltage(self) -> float:
             return 0.0
 
-    class Child(Base):
-        @Base.voltage.setter  # pyright: ignore[reportArgumentType]
-        async def voltage(self, value: float) -> None:
+        @voltage.setter
+        async def set_voltage(self, value) -> None:
             pass
 
-    assert not Base.voltage.has_setter()
-    assert Child.voltage.has_setter()
-    assert not isinstance(Base().voltage, AttrRW)
-    assert isinstance(Child().voltage, AttrRW)
+    assert Device.voltage.has_setter()
+
+
+@pytest.mark.asyncio
+async def test_the_setter_is_still_a_method_of_the_controller(
+    power_supply: PowerSupply,
+):
+    controller = power_supply
+
+    assert isinstance(PowerSupply.set_voltage, AttrSetter)
+
+    await controller.set_voltage(2.5)
+
+    assert controller.sent == [2.5]
+
+
+def test_only_one_setter():
+    with pytest.raises(TypeError, match="already has a setter"):
+
+        @PowerSupply.voltage.setter
+        async def write_voltage(self, value: float) -> None:
+            pass
+
+
+def test_a_setter_requires_a_declaration_on_the_same_class():
+    class Base(Controller):
+        @AttrRW.declare
+        async def voltage(self) -> float:
+            return 0.0
+
+    with pytest.raises(Exception) as exc_info:
+
+        class Child(Base):
+            @Base.voltage.setter  # pyright: ignore[reportArgumentType]
+            async def set_voltage(self, value: float) -> None:
+                pass
+
+    error = exc_info.value.__cause__ or exc_info.value
+    assert isinstance(error, TypeError)
+    assert "read-write declaration is not defined on that class" in str(error)
 
 
 def test_schedule_must_not_already_have_a_getter():
@@ -378,14 +428,14 @@ def test_schedule_must_not_already_have_a_getter():
 
     with pytest.raises(TypeError, match="already has a getter"):
 
-        @attr(Polled(read, period=0.1))
+        @AttrR.declare(Polled(read, period=0.1))
         async def voltage(self) -> float:
             return 0.0
 
 
 @pytest.mark.asyncio
-async def test_polled_attributes_are_scheduled():
-    controller = PowerSupply()
+async def test_polled_attributes_are_scheduled(power_supply: PowerSupply):
+    controller = power_supply
     _, periodic, initial = controller.create_api_and_tasks()
 
     # ``serial`` is read once at connect; ``voltage`` is polled at 0.5s;
