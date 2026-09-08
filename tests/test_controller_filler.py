@@ -180,8 +180,7 @@ def test_a_class_body_attribute_instance_is_rejected():
         Shared()
 
 
-@pytest.mark.asyncio
-async def test_a_decorated_attribute_satisfies_a_hint_of_the_same_name():
+def test_a_decorated_attribute_cannot_satisfy_a_hint_of_the_same_name():
     class Declared(Controller):
         voltage: AttrR[float]  # pyright: ignore[reportRedeclaration]
 
@@ -189,28 +188,8 @@ async def test_a_decorated_attribute_satisfies_a_hint_of_the_same_name():
         async def voltage(self) -> float:
             return 1.5
 
-    controller = Declared()
-
-    # The decorator provided it, so the filler did not create a second one.
-    assert await controller.voltage.poll() == 1.5
-    controller.check_filled()
-
-
-def test_a_decorated_attribute_is_the_declarations_child():
-    # So a protocol layer reading `Annotated` extras off the filler reaches the
-    # attribute the decorator provided, rather than `None`.
-    spec = object()
-
-    class Declared(Controller):
-        voltage: Annotated[AttrR[float], spec]  # pyright: ignore[reportRedeclaration]
-
-        @attr
-        async def voltage(self) -> float:
-            return 1.5
-
-    controller = Declared()
-
-    assert list(controller.filler) == [(controller.voltage, (spec,))]
+    with pytest.raises(TypeError, match="both an attribute decorator and a type hint"):
+        Declared()
 
 
 def test_a_decorated_attribute_disagreeing_with_its_hint_raises():
