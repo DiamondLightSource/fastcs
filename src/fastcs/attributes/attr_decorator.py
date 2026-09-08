@@ -297,7 +297,7 @@ class UnboundAttrRW(UnboundAttr[Controller_T, DType_T]):
 
         value = list(setter_signature.parameters.values())[1]
         if value.annotation is not Signature.empty:
-            if _datatype_for_annotation(value.annotation) is not self._datatype:
+            if _datatype_for_annotation(value.annotation) != self._datatype:
                 raise TypeError(
                     f"Declared setter {fn.__qualname__} takes a "
                     f"{_type_name(value.annotation)}, but its getter returns a "
