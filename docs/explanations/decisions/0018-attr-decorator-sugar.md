@@ -8,7 +8,12 @@ Date: 2026-07-20
 
 ## Status
 
-Proposed
+Superseded
+
+The `@attr` spelling described in this historical decision is no longer
+available. It was superseded by `AttrR.declare` and `AttrRW.declare`, which
+make the access mode explicit while retaining the getter and setter declaration
+model. The amendment below records the replacement spelling.
 
 ## Context
 
@@ -44,6 +49,10 @@ prototypes), they carry none of the aliasing hazard that class-scope
 removes the latter but keeps `@command`/`@scan`.
 
 ## Decision
+
+> **Historical decision, superseded:** The `@attr` examples and rules below
+> record the design considered at the time. Use `AttrR.declare` or
+> `AttrRW.declare` in current code instead.
 
 Add `@attr` as pure sugar over `AttrR`/`AttrRW` plus generated getter/setter
 callables ([ADR 14](0014-attribute-io-rw-rework.md)), built on the same
