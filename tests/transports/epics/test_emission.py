@@ -23,11 +23,11 @@ from fastcs.transports.epics.pva.gui import PvaEpicsGUI
 
 
 class _Alpha(Controller):
-    foo = AttrR(int)
+    foo: AttrR[int]
 
 
 class _Beta(Controller):
-    bar = AttrR(int)
+    bar: AttrR[int]
 
 
 def _api_with_id(controller_class: type[Controller], name: str):

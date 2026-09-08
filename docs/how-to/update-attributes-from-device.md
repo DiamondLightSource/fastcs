@@ -136,7 +136,7 @@ from fastcs.methods import scan
 
 
 class ChannelController(Controller):
-    voltage = AttrR(float)  # No getter — updated by parent scan method
+    voltage: AttrR[float]  # No getter — updated by parent scan method
 
     def __init__(self, index: int, connection):
         super().__init__(f"Ch{index:02d}")
@@ -230,7 +230,7 @@ from fastcs.controllers import Controller
 
 
 class SubscriptionController(Controller):
-    temperature = AttrR(float)
+    temperature: AttrR[float]
 
     def __init__(self, subscription_client):
         super().__init__()

@@ -41,12 +41,12 @@ def clear_softioc_records():
 
 
 class BackendTestController(MyTestController):
-    read_int: AttrR = AttrR(int)
-    read_write_int: AttrRW = AttrRW(int)
-    read_write_float: AttrRW = AttrRW(float)
-    read_bool: AttrR = AttrR(bool)
-    write_bool: AttrW = AttrW(bool)
-    read_string: AttrRW = AttrRW(str)
+    read_int: AttrR[int]
+    read_write_int: AttrRW[int]
+    read_write_float: AttrRW[float]
+    read_bool: AttrR[bool]
+    write_bool: AttrW[bool]
+    read_string: AttrRW[str]
 
 
 @pytest.fixture

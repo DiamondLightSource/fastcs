@@ -193,11 +193,11 @@ def test_get_command_component():
 
 
 class _A(Controller):
-    foo = AttrR(int)
+    foo: AttrR[int]
 
 
 class _B(Controller):
-    bar = AttrR(int)
+    bar: AttrR[int]
 
 
 def _api_with_id(cls, name):

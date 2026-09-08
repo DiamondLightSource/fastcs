@@ -29,7 +29,7 @@ class TypedCommandController(Controller):
     calls: list[tuple] = []
 
     # The GraphQL transport refuses an API with nothing to read
-    position = AttrR(float)
+    position: AttrR[float]
 
     @command()
     async def stop(self) -> None:

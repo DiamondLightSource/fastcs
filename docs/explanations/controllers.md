@@ -20,10 +20,15 @@ lifecycle, if required.
 
 | Method | Purpose |
 |---|---|
-| `initialise` | Dynamically add attributes on startup, before the API is built |
+| `initialise` | Fill declared attributes, and add dynamic ones, before the API is built |
 | `connect` | Open connection to device |
 | `reconnect` | Re-open connection after scan error |
 | `disconnect` | Release device resources before shutdown |
+
+Attributes are constructed in `__init__`, or declared as class-body type hints
+and created for you - see [](declaring-attributes.md) for which to use when.
+An `Attribute` assigned in the class body is rejected: one object would be
+shared by every instance of the controller.
 
 ### Scan task behaviour
 
@@ -41,8 +46,12 @@ from fastcs.methods import scan
 
 
 class TemperatureController(Controller):
-    temperature = AttrR(float, units="degC")
-    setpoint = AttrRW(float, units="degC")
+    def __init__(self, host, port):
+        super().__init__()
+        self._host, self._port = host, port
+
+        self.temperature = AttrR(float, units="degC")
+        self.setpoint = AttrRW(float, units="degC")
 
     async def connect(self):
         self._client = await DeviceClient.connect(self._host, self._port)
@@ -72,7 +81,9 @@ controller also has connection logic, the parent must invoke it explicitly:
 
 ```python
 class ChannelController(Controller):
-    value = AttrR(float)
+    def __init__(self):
+        super().__init__()
+        self.value = AttrR(float)
 
     async def connect(self):
         ...
@@ -107,7 +118,9 @@ from fastcs.controllers import Controller, ControllerVector
 
 
 class ChannelController(Controller):
-    value = AttrR(float)
+    def __init__(self):
+        super().__init__()
+        self.value = AttrR(float)
 
 
 class RootController(Controller):

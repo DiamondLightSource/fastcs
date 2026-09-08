@@ -13,8 +13,8 @@ from fastcs.controllers import Controller
 from fastcs.methods import command
 
 class MotorController(Controller):
-    position: AttrR[int] = AttrR(int)
-    target: AttrR[int] = AttrR(int)
+    position: AttrR[int]
+    target: AttrR[int]
 
     @command()
     async def move_and_wait(self):
@@ -39,7 +39,7 @@ from fastcs.controllers import Controller
 from fastcs.methods import command
 
 class TemperatureController(Controller):
-    temperature: AttrR[float] = AttrR(float)
+    temperature: AttrR[float]
 
     @command()
     async def wait_for_stable(self):
@@ -90,9 +90,9 @@ from fastcs.controllers import Controller
 from fastcs.methods import command
 
 class MultiAxisController(Controller):
-    x_position = AttrR(float)
-    y_position = AttrR(float)
-    z_position = AttrR(float)
+    x_position: AttrR[float]
+    y_position: AttrR[float]
+    z_position: AttrR[float]
 
     @command()
     async def move_all_and_wait(self):

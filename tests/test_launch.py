@@ -44,7 +44,7 @@ class NotHinted(Controller):
 
 
 class IsHinted(Controller):
-    read = AttrR(int)
+    read: AttrR[int]
 
     def __init__(self, arg: SomeConfig) -> None:
         super().__init__()

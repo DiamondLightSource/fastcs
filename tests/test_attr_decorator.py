@@ -266,20 +266,7 @@ def test_matching_type_hint_is_satisfied_by_the_decorated_attribute():
         async def label(self) -> str:
             return "x"
 
-    controller = Device()
-
-    assert isinstance(controller.label, AttrR)
-
-
-def test_type_hint_of_the_wrong_access_mode_raises():
-    class Device(Controller):
-        label: AttrRW[str]  # pyright: ignore[reportRedeclaration]
-
-        @AttrR.declare
-        async def label(self) -> str:
-            return "x"
-
-    with pytest.raises(RuntimeError, match="does not match defined access mode"):
+    with pytest.raises(TypeError, match="both an attribute decorator and a type hint"):
         Device()
 
 
