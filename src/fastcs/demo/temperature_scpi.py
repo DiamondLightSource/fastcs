@@ -86,9 +86,7 @@ class TemperatureRampController(SCPIController):
     voltage: AttrR[float]
 
     def __init__(self, index: int, connection: IPConnection) -> None:
-        super().__init__(
-            connection, suffix=f"{index:02d}", description=f"Ramp {index}"
-        )
+        super().__init__(connection, suffix=f"{index:02d}", description=f"Ramp {index}")
 
     async def initialise(self) -> None:
         await super().initialise()
@@ -160,7 +158,7 @@ class TemperatureController(SCPIController):
         """One query for every ramp's voltage, fanned out to each of them.
 
         The device reports them together, so reading them together is one round
-        trip rather than one per ramp - which is why `voltage` is declared without
+        trip rather than one per ramp - which is why ``voltage`` is declared without
         a command token of its own.
         """
         response = (await self.connection.send_query("V?\r\n")).strip("\r\n")

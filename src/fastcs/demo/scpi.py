@@ -9,7 +9,7 @@ written by hand, in the class body, as annotated hints::
 
 That is the declarative half of ADR 0013 for a device that cannot be introspected:
 the class body says what exists and `SCPIController` provisions it, rather than
-`__init__` wiring each getter and setter by hand as
+``__init__`` wiring each getter and setter by hand as
 :mod:`fastcs.demo.temperature_attr` does.
 
 **This lives in the demo, not core FastCS** (ADR 0014 decision 3). Core defines no
