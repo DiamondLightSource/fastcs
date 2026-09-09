@@ -30,15 +30,18 @@ def mock_run_threadsafe_blocking(module_mocker: MockerFixture):
 
 
 class TangoController(MyTestController):
-    read_int = AttrR(int)
-    read_write_int = AttrRW(int)
-    read_write_float = AttrRW(float)
-    read_bool = AttrR(bool)
-    write_bool = AttrW(bool)
-    read_string = AttrRW(str)
-    enum = AttrRW(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2}))
-    one_d_waveform = AttrRW(Array1D[np.int32], shape=(10,))
-    two_d_waveform = AttrRW(Array1D[np.int32], shape=(10, 10))
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.enum = AttrRW(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2}))
+        self.one_d_waveform = AttrRW(Array1D[np.int32], shape=(10,))
+        self.two_d_waveform = AttrRW(Array1D[np.int32], shape=(10, 10))
+
+    read_int: AttrR[int]
+    read_write_int: AttrRW[int]
+    read_write_float: AttrRW[float]
+    read_bool: AttrR[bool]
+    write_bool: AttrW[bool]
+    read_string: AttrRW[str]
 
 
 @pytest.fixture(scope="class")

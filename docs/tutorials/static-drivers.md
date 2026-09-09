@@ -58,7 +58,13 @@ The simulator has an API to get its ID. To expose this in the driver, an `Attrib
 be added to the `Controller`. There are 3 types of `Attribute`: `AttrR`, `AttrW` and
 `AttrRW`, representing the access mode of the API. The ID can be read, but it cannot be
 written, so add an `AttrR`. An `Attribute` also needs a type. The ID from the simulator
-is a string, so `String` should be used.
+is a string, so `str` should be used.
+
+Written as a type hint in the class body, the attribute is created for you, once per
+controller instance, and is there to be referenced as soon as the controller is
+constructed. Once there is a device to read it from, the same attribute gets its
+`getter` - see [](../explanations/declaring-attributes.md) for the two spellings and
+when to reach for each.
 
 ::::{admonition} Code 3
 :class: dropdown, hint

@@ -5,7 +5,7 @@ from fastcs.transports.epics.ca.transport import EpicsCATransport
 
 
 class TemperatureController(Controller):
-    device_id = AttrR(str)
+    device_id: AttrR[str]
 
 
 epics_ca = EpicsCATransport()

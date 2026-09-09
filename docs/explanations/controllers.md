@@ -21,7 +21,7 @@ never drives a child's lifecycle to compensate for sequencing.
 | Method | Purpose |
 |---|---|
 | `__init__` | Everything knowable without the device: settings, static attributes |
-| `build` | Structure that depends on the device - attributes and sub controllers |
+| `build` | Structure that depends on the device - fill declared attributes, and add dynamic attributes and sub controllers |
 | `setup` | Hardware writes and checks, once the whole tree is built |
 
 The same question, three ways:
@@ -39,6 +39,11 @@ runner - see [connections](./connections.md).
 `build` optionally receives whatever its connection's `connect` returned: write
 `build(self)` for nothing, or `build(self, info)` to be handed the connection's
 introspection result.
+
+Attributes are constructed in `__init__`, or declared as class-body type hints
+and created for you - see [](declaring-attributes.md) for which to use when.
+An `Attribute` assigned in the class body is rejected: one object would be
+shared by every instance of the controller.
 
 ### Scan task behaviour
 
@@ -60,12 +65,12 @@ from fastcs.methods import scan
 class TemperatureController(Controller):
     connection: DeviceConnection
 
-    temperature = AttrR(float, units="degC")
-    setpoint = AttrRW(float, units="degC")
-
     def __init__(self, connections: Connections):
         self.connection = connections.get("device", DeviceConnection)
         super().__init__()
+
+        self.temperature = AttrR(float, units="degC")
+        self.setpoint = AttrRW(float, units="degC")
 
     @scan(period=1.0)
     async def update_temperature(self):
@@ -85,11 +90,11 @@ than consulting it, so the two share one health state and one reconnect task:
 class ChannelController(Controller):
     connection: DeviceConnection
 
-    value = AttrR(float)
-
     def __init__(self, connection: DeviceConnection):
         self.connection = connection
         super().__init__()
+
+        self.value = AttrR(float)
 
 
 class RootController(Controller):
@@ -122,7 +127,9 @@ from fastcs.controllers import Controller, ControllerVector
 
 
 class ChannelController(Controller):
-    value = AttrR(float)
+    def __init__(self):
+        super().__init__()
+        self.value = AttrR(float)
 
 
 class RootController(Controller):

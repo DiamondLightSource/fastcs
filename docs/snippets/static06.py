@@ -11,7 +11,7 @@ from fastcs.transports.epics.ca import EpicsCATransport
 class TemperatureController(Controller):
     connection: IPConnection
 
-    device_id = AttrR(str)
+    device_id: AttrR[str]
 
     def __init__(self, settings: IPConnectionSettings):
         super().__init__()

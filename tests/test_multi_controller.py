@@ -26,11 +26,11 @@ class _IdController(Controller):
 
 
 class _OneAttrController(Controller):
-    foo = AttrR(int)
+    foo: AttrR[int]
 
 
 class _OtherAttrController(Controller):
-    bar = AttrR(int)
+    bar: AttrR[int]
 
 
 def test_controller_api_path_uses_id():
@@ -319,7 +319,7 @@ class _LifecycleController(Controller):
 
     connection: _LifecycleConnection
 
-    foo = AttrR(int)
+    foo: AttrR[int]
 
     def __init__(self):
         self.connection = _LifecycleConnection()
@@ -335,7 +335,7 @@ class _LifecycleController(Controller):
 
 
 class _OtherLifecycleController(_LifecycleController):
-    bar = AttrR(int)
+    bar: AttrR[int]
 
 
 @pytest.mark.asyncio

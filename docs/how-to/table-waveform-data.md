@@ -14,11 +14,14 @@ from fastcs.controllers import Controller
 from fastcs.datatypes import Array1D
 
 class SpectrumController(Controller):
-    # 1D array of 1000 float64 values
-    spectrum = AttrR(Array1D[np.float64], shape=(1000,))
+    def __init__(self):
+        super().__init__()
 
-    # Writable array
-    setpoints = AttrRW(Array1D[np.float64], shape=(100,))
+        # 1D array of 1000 float64 values
+        self.spectrum = AttrR(Array1D[np.float64], shape=(1000,))
+
+        # Writable array
+        self.setpoints = AttrRW(Array1D[np.float64], shape=(100,))
 ```
 
 ### 2D Arrays (Images)
@@ -29,11 +32,14 @@ ophyd-async-compatible spelling, so write it as `np.ndarray` with an explicit
 
 ```python
 class CameraController(Controller):
-    # 2D array for images (max 1024x1024 uint16)
-    image = AttrR(np.ndarray, array_dtype=np.uint16, shape=(1024, 1024))
+    def __init__(self):
+        super().__init__()
 
-    # Smaller region of interest
-    roi = AttrRW(np.ndarray, array_dtype=np.uint16, shape=(256, 256))
+        # 2D array for images (max 1024x1024 uint16)
+        self.image = AttrR(np.ndarray, array_dtype=np.uint16, shape=(1024, 1024))
+
+        # Smaller region of interest
+        self.roi = AttrRW(np.ndarray, array_dtype=np.uint16, shape=(256, 256))
 ```
 
 ### Array Metadata
@@ -49,7 +55,9 @@ class CameraController(Controller):
 from fastcs.methods import scan
 
 class SpectrumController(Controller):
-    spectrum = AttrR(Array1D[np.float64], shape=(1000,))
+    def __init__(self):
+        super().__init__()
+        self.spectrum = AttrR(Array1D[np.float64], shape=(1000,))
 
     @scan(period=0.1)
     async def read_spectrum(self):
@@ -88,15 +96,18 @@ from fastcs.controllers import Controller
 from fastcs.datatypes import Table
 
 class MeasurementController(Controller):
-    # Table with columns: name (string), value (float), valid (bool)
-    results = AttrR(
-        Table,
-        structured_dtype=[
-            ("name", "S32"),       # 32-character string
-            ("value", np.float64),
-            ("valid", np.bool_),
-        ],
-    )
+    def __init__(self):
+        super().__init__()
+
+        # Table with columns: name (string), value (float), valid (bool)
+        self.results = AttrR(
+            Table,
+            structured_dtype=[
+                ("name", "S32"),       # 32-character string
+                ("value", np.float64),
+                ("valid", np.bool_),
+            ],
+        )
 ```
 
 ### Table Metadata
@@ -113,14 +124,17 @@ from fastcs.controllers import Controller
 from fastcs.datatypes import Table
 
 class ChannelController(Controller):
-    channel_data = AttrR(
-        Table,
-        structured_dtype=[
-            ("channel", np.int32),
-            ("temperature", np.float64),
-            ("status", "S10"),
-        ],
-    )
+    def __init__(self):
+        super().__init__()
+
+        self.channel_data = AttrR(
+            Table,
+            structured_dtype=[
+                ("channel", np.int32),
+                ("temperature", np.float64),
+                ("status", "S10"),
+            ],
+        )
 
 # Create data using numpy structured array
 data = np.array([

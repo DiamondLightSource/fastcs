@@ -107,6 +107,11 @@ nitpick_ignore = [
     # A ParamSpec gets no target of its own, so `Command[P, T]` renders a
     # reference to a bare `P` that resolves to nothing
     ("py:class", "P"),
+    # `UnboundGetter` resolves where it is a parameter's own annotation, but
+    # not where it is nested inside the `Callable[...]` an `AttrR.declare` /
+    # `AttrRW.declare` overload returns: a type alias is a `py:data` target,
+    # and a nested argument is rendered as a `py:class` reference
+    ("py:class", "UnboundGetter"),
 ]
 nitpick_ignore_regex = [
     ("py:class", r"fastcs.*.DType_T"),

@@ -8,7 +8,7 @@ from fastcs.transports.epics.ca import EpicsCATransport
 
 
 class TemperatureController(Controller):
-    device_id = AttrR(str)
+    device_id: AttrR[str]
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")

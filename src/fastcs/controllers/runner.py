@@ -168,7 +168,9 @@ class ControllerRunner:
         await self._build_phase()
 
         for controller in self._controllers:
-            controller._validate_type_hints()  # noqa: SLF001
+            # Every class-body declaration must have been provisioned by now: the
+            # build walk is finished, so nothing else is going to fill one in.
+            controller.check_filled()
 
         self._controller_apis = []
         self._scan_coros = []

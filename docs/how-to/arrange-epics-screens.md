@@ -20,12 +20,15 @@ from fastcs.methods import command
 
 
 class PowerSupplyController(Controller):
-    voltage = AttrRW(float, group="Output")
-    current = AttrRW(float, group="Output")
-    power = AttrR(float, group="Output")
+    def __init__(self) -> None:
+        super().__init__()
 
-    temperature = AttrR(float, group="Status")
-    fault_code = AttrR(int, group="Status")
+        self.voltage = AttrRW(float, group="Output")
+        self.current = AttrRW(float, group="Output")
+        self.power = AttrR(float, group="Output")
+
+        self.temperature = AttrR(float, group="Status")
+        self.fault_code = AttrR(int, group="Status")
 
     @command(group="Actions")
     async def reset_faults(self) -> None:
@@ -54,9 +57,12 @@ from fastcs.methods import command
 
 
 class ChannelController(Controller):
-    voltage = AttrRW(float, group="Output")
-    current = AttrRW(float, group="Output")
-    temperature = AttrR(float, group="Status")
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.voltage = AttrRW(float, group="Output")
+        self.current = AttrRW(float, group="Output")
+        self.temperature = AttrR(float, group="Status")
 
     @command(group="Actions")
     async def enable(self) -> None:
@@ -64,14 +70,14 @@ class ChannelController(Controller):
 
 
 class MultiChannelPSU(Controller):
-    total_power = AttrR(float)
-
     @command()
     async def disable_all(self) -> None:
         ...
 
     def __init__(self, num_channels: int) -> None:
         super().__init__()
+
+        self.total_power = AttrR(float)
         for i in range(1, num_channels + 1):
             self.add_sub_controller(f"Ch{i:02d}", ChannelController())
 ```
