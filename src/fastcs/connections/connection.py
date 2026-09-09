@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import Generic, TypeVar
 
 Introspection_T = TypeVar("Introspection_T")
@@ -11,6 +12,17 @@ DEFAULT_RECONNECT_PERIOD = 1.0
 
 DEFAULT_MAX_ATTEMPTS = 10
 """Reconnect attempts a connection makes before giving up, unless it says otherwise."""
+
+
+def normalise_depends_on(
+    depends_on: Connection | Sequence[Connection] | None,
+) -> list[Connection]:
+    """``depends_on`` as a list, whether it was given as one, several or nothing."""
+    if depends_on is None:
+        return []
+    if isinstance(depends_on, Connection):
+        return [depends_on]
+    return list(depends_on)
 
 
 class Connection(ABC, Generic[Introspection_T]):
@@ -44,8 +56,9 @@ class Connection(ABC, Generic[Introspection_T]):
     are two connections, and an ``__eq__`` would silently collapse them.
 
     Args:
-        depends_on: A connection this one is layered over, if any. Declared, never
-            derived - the runner will not attempt this one while that one is down.
+        depends_on: The connection(s) this one is layered over, if any - one, or a
+            sequence of them. Declared, never derived: the runner will not attempt
+            this one until *every* one of them is up, and stalls it if any gives up.
         reconnect_period: Seconds between reconnect attempts. Defaults to the class
             attribute of the same name.
         max_attempts: Consecutive failed attempts before this connection gives up.
@@ -60,7 +73,7 @@ class Connection(ABC, Generic[Introspection_T]):
 
     def __init__(
         self,
-        depends_on: Connection | None = None,
+        depends_on: Connection | Sequence[Connection] | None = None,
         reconnect_period: float | None = None,
         max_attempts: int | None = None,
     ) -> None:
@@ -69,9 +82,10 @@ class Connection(ABC, Generic[Introspection_T]):
         self._down = asyncio.Event()
         self._down.set()
 
-        # Declared, never derived. A connection layered over another names it here;
-        # the runner will not attempt this one while that one is down.
-        self.depends_on = depends_on
+        # Declared, never derived. A connection layered over others names them here;
+        # the runner will not attempt this one until all of them are up. Always a
+        # list, so the runner has one shape to handle rather than three.
+        self.depends_on: list[Connection] = normalise_depends_on(depends_on)
 
         if reconnect_period is not None:
             self.reconnect_period = reconnect_period

@@ -108,11 +108,40 @@ its parent's connection is not consulting its parent - it holds the same object.
 Failure, gating and recovery all resolve through that shared object, never through
 the tree.
 
+## Declaring them
+
+The registry is built once and forwarded down the tree - by hand, or by the launcher
+from the `connections:` block of a controller's own entry in `fastcs.yaml`:
+
+```yaml
+controllers:
+  - id: PITCH
+    type: fastcs_motor.MotorController
+    connections:
+      motor:
+        type: fastcs.SerialConnection
+        settings: {port: /dev/ttyS0}
+```
+
+Per entry rather than globally, because the key is the *role* the driver asks for and
+the entry identifies the instance: two motors both claim `"motor"` and each resolves
+to a different object. A single global block cannot express that, since the driver's
+hardcoded role name and the deployment's instance name would have to be the same
+string.
+
+The consequence is that sibling entries cannot share a connection or depend on each
+other. A gateway with several instruments behind one link is one tree, with the
+gateway as the top-level controller.
+
+See [](../how-to/launch-framework.md) for the configuration in full.
+
 ## Startup
 
 The `ControllerRunner` owns the order:
 
-1. Open every connection, in declaration order, keeping what `connect` returned.
+1. Open every connection, in dependency order - declaration order, except that
+   anything named in a `depends_on` is opened before whatever names it - keeping what
+   `connect` returned.
 2. Walk the tree calling `build`, repeating over anything newly added until a pass
    adds nothing.
 3. Call `setup` across the whole built tree.
@@ -139,18 +168,21 @@ process restarts; a clean connection restores the budget.
 
 ### Dependencies
 
-A connection layered over another declares it, rather than having it derived from
-where controllers sit in the tree:
+A connection layered over others declares them, rather than having them derived from
+where controllers sit in the tree - one, or several:
 
 ```python
 odin = OdinConnection(settings, depends_on=detector)
+motion = PmacMotionConnection(settings, depends_on=[ssh, status])
 ```
 
-While the dependency is down, the dependent waits instead of attempting - and because
-no attempt means no increment, its retry budget freezes rather than being burnt
-against a dead dependency. If the dependency gives up entirely, the dependent is
-released rather than left hanging: it logs that it is stalled and waits for a
-restart. Cycles are caught at startup.
+All of them must be up: a connection layered over two links is no more usable with
+one of them than with neither. While any is down, the dependent waits instead of
+attempting - and because no attempt means no increment, its retry budget freezes
+rather than being burnt against a dead dependency. If any one of them gives up
+entirely, the dependent is released rather than left hanging: it logs that it is
+stalled and waits for a restart. Cycles are caught at startup, and in config before
+that.
 
 ### Introspection is checked, not re-applied
 

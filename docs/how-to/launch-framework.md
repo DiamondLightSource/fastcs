@@ -128,6 +128,81 @@ the full set, and uses the per-entry id as the addressing prefix
 (EPICS PV prefix, REST route prefix, GraphQL top-level Query field, Tango
 device name segment).
 
+### Declaring connections
+
+A controller's connections are declared in its own entry, under `connections:`.
+Hand the `Connection` classes an entry may name to `launch` alongside the
+controller classes; each is selected by the same dotted `type:` discriminator:
+
+```python
+launch(MotorController, connection_classes=[SerialConnection])
+```
+
+```yaml
+# fastcs.yaml
+controllers:
+  - id: PITCH
+    type: my_driver.MotorController
+    connections:
+      motor:
+        type: fastcs.SerialConnection
+        settings:
+          port: /dev/ttyS0
+  - id: YAW
+    type: my_driver.MotorController
+    connections:
+      motor:
+        type: fastcs.SerialConnection
+        settings:
+          port: /dev/ttyS1
+        reconnect_period: 5.0
+
+transport:
+  - epicsca: {}
+```
+
+The key is the **role** the driver code asks for - `connections.get("motor", ...)` -
+and the entry it sits in identifies the instance. Both motors above claim `"motor"`
+and each resolves to a different object, which a single global block could not
+express, because the driver's hardcoded role name and the deployment's instance name
+would have to be the same string.
+
+One `Connections` registry is built per entry, from that entry's block, and passed
+to a controller that takes a `connections` argument:
+
+```python
+class MotorController(Controller):
+    def __init__(self, connections: Connections) -> None:
+        self.connection = connections.get("motor", SerialConnection)
+        super().__init__()
+```
+
+`connections` is a reserved name, in both the config and the signature: it does not
+count towards the argument limit below, so a controller may take it *and* an options
+object, and an options type may not declare a field called `connections`.
+
+Sibling entries therefore cannot share a connection or depend on each other. A
+gateway device with several instruments behind one link is modelled as one tree, with
+the gateway as the top-level controller.
+
+A connection layered over others names them by role, as one name or a list:
+
+```yaml
+connections:
+  ssh:
+    type: my_driver.PmacSshConnection
+    settings: {ip: 192.168.0.9, port: 22}
+  status:
+    type: my_driver.StatusConnection
+    settings: {ip: 192.168.0.9}
+  motion:
+    type: my_driver.PmacMotionConnection
+    depends_on: [ssh, status]
+```
+
+Names resolve within the same entry. An unknown name is a config error listing that
+entry's declared roles, and a cycle is rejected before anything is opened.
+
 ## Schema Generation
 
 Generate JSON schema for the configuration yaml:
@@ -204,7 +279,8 @@ FastCS: 0.12.0
 
 The `launch()` function requires:
 
-1. Controller `__init__` must have at most 2 arguments (including `self`)
+1. Controller `__init__` must have at most 2 arguments (including `self`), not
+   counting a `connections` argument, which is reserved and always allowed
 2. If a configuration argument exists, it must have a type hint
 
 Using a dataclass or Pydantic model is recommended for the configuration type, as it enables JSON schema generation. Other type-hinted types will work, but will not produce a useful schema.
@@ -223,6 +299,11 @@ class ConfiguredController(Controller):
 # Invalid - missing type hint
 class BadController(Controller):
     def __init__(self, settings):  # Error: no type hint
+        super().__init__()
+
+# Valid - `connections` does not count towards the limit
+class ConnectedController(Controller):
+    def __init__(self, connections: Connections, settings: MySettings):
         super().__init__()
 
 # Invalid - too many arguments

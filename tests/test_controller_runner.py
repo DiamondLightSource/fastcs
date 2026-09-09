@@ -455,10 +455,115 @@ async def test_a_dependent_is_released_when_its_dependency_gives_up(monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_a_dependent_waits_for_every_dependency():
+    """All of them must be up: a connection layered over two links is no more
+    usable with one of them than with neither."""
+    first = FakeConnection(reconnect_period=0.001, max_attempts=1000)
+    second = FakeConnection(reconnect_period=0.001, max_attempts=1000)
+    layered = FakeConnection(depends_on=[first, second], reconnect_period=0.001)
+
+    runner = ControllerRunner(
+        [
+            LifecycleController(first),
+            LifecycleController(second),
+            LifecycleController(layered),
+        ]
+    )
+    await runner.start()
+    try:
+        for connection in (first, second):
+            connection.fail_next = RuntimeError("down")
+            connection.set_disconnected()
+        layered.set_disconnected()
+
+        # Only one of the two comes back
+        first.fail_next = None
+        await asyncio.wait_for(first.wait_up(), timeout=2)
+        await asyncio.sleep(0.05)
+
+        assert runner._state[layered].attempts == 0
+        assert not layered.connected
+
+        second.fail_next = None
+        await asyncio.wait_for(layered.wait_up(), timeout=2)
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_any_dependency_giving_up_stalls_the_dependent(monkeypatch):
+    """One that has given up is enough to make the dependent unusable, however
+    healthy the others are."""
+    errors: list[dict] = []
+    monkeypatch.setattr(
+        "fastcs.controllers.runner.logger.error",
+        lambda event, **kwargs: errors.append({"event": event, **kwargs}),
+    )
+
+    healthy = FakeConnection(reconnect_period=0.001, max_attempts=1000)
+    doomed = FakeConnection(reconnect_period=0.001, max_attempts=1)
+    layered = FakeConnection(depends_on=[healthy, doomed], reconnect_period=0.001)
+
+    runner = ControllerRunner(
+        [
+            LifecycleController(healthy),
+            LifecycleController(doomed),
+            LifecycleController(layered),
+        ],
+        connections=Connections(
+            {"healthy": healthy, "doomed": doomed, "layered": layered}
+        ),
+    )
+    await runner.start()
+    try:
+        doomed.fail_next = RuntimeError("down for good")
+        doomed.set_disconnected()
+        layered.set_disconnected()
+
+        await asyncio.sleep(0.2)
+
+        stalled = [e for e in errors if e["event"].startswith("Stalled")]
+        assert stalled and stalled[0]["connection"] == "layered"
+        assert stalled[0]["dependencies"] == ["doomed"]
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_connections_are_opened_in_dependency_order():
+    """A connection layered over another must not be opened before it, however
+    the two were declared."""
+    opened: list[str] = []
+
+    class Recorded(FakeConnection):
+        def __init__(self, name: str, **kwargs) -> None:
+            super().__init__(**kwargs)
+            self.name = name
+
+        async def connect(self) -> str:
+            opened.append(self.name)
+            return await super().connect()
+
+    base = Recorded("base")
+    layered = Recorded("layered", depends_on=base)
+
+    # Declared the wrong way round on purpose
+    runner = ControllerRunner(
+        [LifecycleController(layered), LifecycleController(base)],
+        connections=Connections({"layered": layered, "base": base}),
+    )
+    await runner.build()
+    try:
+        assert opened == ["base", "layered"]
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
 async def test_a_dependency_cycle_is_caught_at_startup():
     first = FakeConnection()
     second = FakeConnection(depends_on=first)
-    first.depends_on = second
+    first.depends_on = [second]
 
     runner = ControllerRunner([LifecycleController(first), LifecycleController(second)])
 

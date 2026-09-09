@@ -156,6 +156,8 @@ class ControllerRunner:
     async def _open_and_build(self) -> list[ControllerAPI]:
         self._connections = self._collect_connections()
         self._check_dependencies()
+        # Only safe once the cycle check above has passed.
+        self._connections = self._in_dependency_order(self._connections)
 
         for connection in self._connections:
             state = _ReconnectState()
@@ -259,27 +261,58 @@ class ControllerRunner:
         so both fail at startup instead.
         """
         for connection in self._connections:
-            seen = [connection]
-            dependency = connection.depends_on
-            while dependency is not None:
-                if not self._supervises(dependency):
-                    # It would never be opened, so it would sit at
-                    # ``connected is False`` forever and this connection would
-                    # never be attempted again.
-                    raise ValueError(
-                        f"{type(connection).__name__} depends on a "
-                        f"{type(dependency).__name__} the runner does not "
-                        "supervise, so it would never be opened. Declare it "
-                        "alongside the connection that depends on it."
-                    )
-                if any(dependency is node for node in seen):
-                    chain = " -> ".join(type(node).__name__ for node in seen)
-                    raise ValueError(
-                        f"Cycle in connection dependencies: {chain} -> "
-                        f"{type(dependency).__name__}"
-                    )
-                seen.append(dependency)
-                dependency = dependency.depends_on
+            self._check_dependencies_of(connection, [connection])
+
+    def _check_dependencies_of(
+        self, connection: Connection, path: list[Connection]
+    ) -> None:
+        """Depth-first over one connection's dependencies, carrying the path.
+
+        A connection may name several, so the walk branches; ``path`` is the chain
+        that got here, which is both how a cycle is spotted and what names it.
+        """
+        for dependency in connection.depends_on:
+            if not self._supervises(dependency):
+                # It would never be opened, so it would sit at
+                # ``connected is False`` forever and this connection would
+                # never be attempted again.
+                raise ValueError(
+                    f"{type(connection).__name__} depends on a "
+                    f"{type(dependency).__name__} the runner does not "
+                    "supervise, so it would never be opened. Declare it "
+                    "alongside the connection that depends on it."
+                )
+            if any(dependency is node for node in path):
+                chain = " -> ".join(type(node).__name__ for node in path)
+                raise ValueError(
+                    f"Cycle in connection dependencies: {chain} -> "
+                    f"{type(dependency).__name__}"
+                )
+            self._check_dependencies_of(dependency, [*path, dependency])
+
+    @staticmethod
+    def _in_dependency_order(connections: list[Connection]) -> list[Connection]:
+        """Declaration order, except that a dependency comes before its dependent.
+
+        The initial open is sequential, so a connection layered over another must
+        not be opened first - and ``depends_on`` need not follow the order they were
+        declared in. Shutdown walks this list backwards, which closes a dependent
+        before what it rides on for the same reason.
+
+        Assumes the dependency graph is acyclic - `_check_dependencies` has run.
+        """
+        ordered: list[Connection] = []
+
+        def visit(connection: Connection) -> None:
+            if any(connection is done for done in ordered):
+                return
+            for dependency in connection.depends_on:
+                visit(dependency)
+            ordered.append(connection)
+
+        for connection in connections:
+            visit(connection)
+        return ordered
 
     def _supervises(self, connection: Connection) -> bool:
         """Whether this runner opened, and will reconnect, a connection."""
@@ -425,25 +458,32 @@ class ControllerRunner:
             if state.exhausted.is_set():
                 return
 
-            # If what we ride on is down, wait for it rather than attempting. No
+            # If anything we ride on is down, wait for it rather than attempting. No
             # attempt means no increment, so the retry budget freezes while waiting.
-            dependency = connection.depends_on
-            if dependency is not None and not dependency.connected:
+            # All of them must be up: a connection layered over two links is no more
+            # usable with one of them than with neither.
+            down = [
+                dependency
+                for dependency in connection.depends_on
+                if not dependency.connected
+            ]
+            if down:
                 logger.info(
-                    "Waiting on dependency",
+                    "Waiting on dependencies",
                     connection=self._name_of(connection),
-                    dependency=self._name_of(dependency),
+                    dependencies=[self._name_of(d) for d in down],
                 )
-                await self._await_dependency(dependency)
+                await self._await_dependencies(down)
 
-                if not dependency.connected:
-                    # The dependency gave up. This connection cannot succeed, but it
+                stalled = [d for d in down if not d.connected]
+                if stalled:
+                    # A dependency gave up. This connection cannot succeed, but it
                     # is not itself exhausted - it has spent nothing. Say so, then
                     # wait; only a restart will change anything.
                     logger.error(
                         "Stalled: dependency gave up",
                         connection=self._name_of(connection),
-                        dependency=self._name_of(dependency),
+                        dependencies=[self._name_of(d) for d in stalled],
                     )
                     return
 
@@ -452,19 +492,26 @@ class ControllerRunner:
             if not connection.connected and not state.exhausted.is_set():
                 await asyncio.sleep(connection.reconnect_period)
 
-    async def _await_dependency(self, dependency: Connection) -> None:
-        """Block until the dependency either comes back or gives up.
+    async def _await_dependencies(self, dependencies: list[Connection]) -> None:
+        """Block until every dependency is back, or any one of them gives up.
 
-        Waiting on recovery alone would hang forever once the dependency exhausts, so
-        both outcomes are awaited and whichever lands first wins.
+        Waiting on recovery alone would hang forever once a dependency exhausts, so
+        both outcomes are awaited and whichever lands first wins. Recovery is *all*
+        of them - a gather - while exhaustion is any single one, because one that has
+        given up is enough to make this connection unusable.
         """
-        dependency_state = self._state[dependency]
 
-        recovered = asyncio.create_task(dependency.wait_up())
-        gave_up = asyncio.create_task(dependency_state.exhausted.wait())
+        async def all_up() -> None:
+            await asyncio.gather(*(dependency.wait_up() for dependency in dependencies))
+
+        recovered = asyncio.create_task(all_up())
+        gave_up = [
+            asyncio.create_task(self._state[dependency].exhausted.wait())
+            for dependency in dependencies
+        ]
 
         _, pending = await asyncio.wait(
-            {recovered, gave_up}, return_when=asyncio.FIRST_COMPLETED
+            {recovered, *gave_up}, return_when=asyncio.FIRST_COMPLETED
         )
         for task in pending:
             task.cancel()
@@ -570,7 +617,8 @@ class ControllerRunner:
         return [
             other
             for other in self._connections
-            if other.depends_on is connection  # identity: declared, not derived
+            # identity: declared, not derived
+            if any(dependency is connection for dependency in other.depends_on)
         ]
 
     # Helpers

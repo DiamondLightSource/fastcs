@@ -31,7 +31,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from fastcs.attributes import AttrR, AttrRW, Polled
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import Connections, IPConnection
 from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Array1D, DType_T
 from fastcs.logging import logger
@@ -46,7 +46,6 @@ class OnOffEnum(enum.StrEnum):
 @dataclass
 class TemperatureControllerSettings:
     num_ramp_controllers: int
-    ip_settings: IPConnectionSettings
 
 
 class TemperatureProtocol:
@@ -130,12 +129,15 @@ class TemperatureController(Controller):
     # can call the methods of the connection it actually holds.
     connection: IPConnection
 
-    def __init__(self, settings: TemperatureControllerSettings) -> None:
-        # The ramps below hold this same object rather than consulting this
-        # controller, so the whole tree has one health state and one reconnect task
-        # between it. Opening it, and reopening it after a failure, is the runner's
-        # job - nothing here connects.
-        self.connection = IPConnection(settings.ip_settings)
+    def __init__(
+        self, connections: Connections, settings: TemperatureControllerSettings
+    ) -> None:
+        # Claimed by the role name this driver's code asks for, which the deployment
+        # declares under `connections:` in its own entry. The ramps below hold this
+        # same object rather than consulting this controller, so the whole tree has
+        # one health state and one reconnect task between it. Opening it, and
+        # reopening it after a failure, is the runner's job - nothing here connects.
+        self.connection = connections.get("temperature", IPConnection)
         self._settings = settings
         self._protocol = TemperatureProtocol(self.connection)
 

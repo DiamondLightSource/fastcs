@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from fastcs.attributes import AttrW
-from fastcs.connections import IPConnectionSettings
+from fastcs.connections import Connections, IPConnection, IPConnectionSettings
 from fastcs.controllers import ControllerVector
 from fastcs.demo.temperature_attr import (
     OnOffEnum,
@@ -16,11 +16,12 @@ from fastcs.demo.temperature_attr import (
 
 @pytest.fixture
 def controller() -> TemperatureController:
-    settings = TemperatureControllerSettings(
-        num_ramp_controllers=4,
-        ip_settings=IPConnectionSettings(ip="localhost", port=25565),
+    connections = Connections(
+        {"temperature": IPConnection(IPConnectionSettings(ip="localhost", port=25565))}
     )
-    return TemperatureController(settings)
+    return TemperatureController(
+        connections, TemperatureControllerSettings(num_ramp_controllers=4)
+    )
 
 
 @pytest.fixture
