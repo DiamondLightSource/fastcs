@@ -183,13 +183,13 @@ class BaseController(Tracer):
         ``__init__``, which is where a controller can be constructed and inspected in
         a test with no hardware.
 
-        A controller whose connection returns introspection from ``connect`` may
-        declare ``build(self, info)`` to receive it; the framework inspects the
-        signature, so ``build(self)`` is equally valid.
+        The connection is open by the time this runs, so a controller that has to
+        ask the device what it has - how many channels, which parameters - reads it
+        here and creates what it finds.
 
-        No hardware *writes* here. A device that needs a mode set before
-        introspection works has that write in `Connection.connect`, which means
-        "make the link usable" rather than merely "open the socket".
+        No hardware *writes* here. A device that needs a mode set before it can be
+        read has that write in `Connection.connect`, which means "make the link
+        usable" rather than merely "open the socket".
         """
         pass
 

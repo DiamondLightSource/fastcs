@@ -10,17 +10,18 @@ from fastcs.connections import (
     IPConnectionSettings,
     SerialConnection,
     SerialConnectionSettings,
+    SimConnection,
 )
 from fastcs.connections.ip_connection import DisconnectedError, StreamConnection
 from fastcs.connections.serial_connection import NotOpenedError
 
 
-class OneConnection(Connection[None]):
+class OneConnection(Connection):
     async def connect(self) -> None: ...
     async def close(self) -> None: ...
 
 
-class AnotherConnection(Connection[None]):
+class AnotherConnection(Connection):
     async def connect(self) -> None: ...
     async def close(self) -> None: ...
 
@@ -221,3 +222,45 @@ async def test_a_serial_port_that_goes_away_marks_the_link_down():
     with pytest.raises(OSError):
         await connection.send_query(b"ID?\r\n", 4)
     assert not connection.connected
+
+
+# SimConnection
+
+
+@pytest.mark.asyncio
+async def test_a_sim_connection_opens_and_closes_without_a_transport():
+    """The pretending is all a driver writes: there is nothing here to fail."""
+
+    class SimDevice(SimConnection):
+        def __init__(self, **kwargs) -> None:
+            super().__init__(**kwargs)
+            self.position = 0
+
+        async def move(self, steps: int) -> None:
+            self.position += steps
+
+    connection = SimDevice()
+    await connection.connect()
+    connection._set_connected()  # noqa: SLF001
+
+    await connection.move(3)
+    assert connection.position == 3
+    assert connection.connected
+
+    await connection.close()
+
+
+@pytest.mark.asyncio
+async def test_a_sim_connection_is_a_sibling_of_the_real_transports():
+    """Not a subclass of one: it would inherit a handle it never opens.
+
+    It is a `Connection` like any other, so it takes the same reconnect settings
+    and is chosen by ``type:`` in the same place - even though its reconnect task
+    will idle forever.
+    """
+    assert issubclass(SimConnection, Connection)
+    assert not issubclass(SimConnection, IPConnection | SerialConnection)
+
+    connection = SimConnection.__new__(SimConnection)
+    Connection.__init__(connection, reconnect_period=2.0)
+    assert connection.reconnect_period == 2.0

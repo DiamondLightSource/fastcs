@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from fastcs.attributes import AttrR, AttrRW, Polled
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import Connections, IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.launch import FastCS
 from fastcs.logging import LogLevel, configure_logging, logger
@@ -156,7 +156,10 @@ connection_settings = IPConnectionSettings("localhost", 25565)
 logger.info("Configuring connection settings", connection_settings=connection_settings)
 controller = TemperatureController(4, connection_settings)
 controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+# Every connection an application runs is declared up front, so the runner can
+# open them all before it walks the tree.
+connections = Connections({"temperature": controller.connection})
+fastcs = FastCS(controller, [epics_ca], connections=connections)
 
 if __name__ == "__main__":
     fastcs.run()

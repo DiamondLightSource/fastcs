@@ -7,6 +7,7 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
+from fastcs.connections import Connections
 from fastcs.controllers import Controller, ControllerAPI, ControllerRunner
 from fastcs.logging import logger
 from fastcs.tracer import Tracer
@@ -38,6 +39,10 @@ class FastCS:
             either a single ``Controller`` or a sequence of them.
         transports: A list of transports to serve the API over
         loop: Optional event loop to run the control system in
+        connections: The declared connections - one `Connections` registry, or one
+            per top-level controller entry, since role names are local to an entry.
+            These are the connections the runner opens and reconnects; a tree of
+            purely soft controllers declares none.
     """
 
     def __init__(
@@ -45,6 +50,7 @@ class FastCS:
         controllers: Controller | Sequence[Controller],
         transports: Sequence[Transport],
         loop: asyncio.AbstractEventLoop | None = None,
+        connections: Connections | Sequence[Connections] | None = None,
     ):
         if isinstance(controllers, Controller):
             controllers = [controllers]
@@ -61,7 +67,9 @@ class FastCS:
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
-        self._runner = ControllerRunner(self._controllers, self._loop)
+        if connections is None:
+            connections = []
+        self._runner = ControllerRunner(self._controllers, connections, self._loop)
         self.controller_apis: list[ControllerAPI] = []
 
     def run(self, interactive: bool = True):

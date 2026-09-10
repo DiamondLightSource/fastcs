@@ -36,9 +36,9 @@ There is no `connect`, `reconnect` or `disconnect` hook. Opening the link, reope
 it after a failure and closing it at shutdown belong to the `Connection` and the
 runner - see [connections](./connections.md).
 
-`build` optionally receives whatever its connection's `connect` returned: write
-`build(self)` for nothing, or `build(self, info)` to be handed the connection's
-introspection result.
+`build` runs with every connection already open, so a controller that has to ask the
+device what it has - how many channels, which parameters - reads it there and creates
+what it finds.
 
 Attributes are constructed in `__init__`, or declared as class-body type hints
 and created for you - see [](declaring-attributes.md) for which to use when.

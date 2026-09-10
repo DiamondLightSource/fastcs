@@ -156,6 +156,10 @@ opens it at the appropriate time during start up, before anything uses it, and r
 it if it drops. Declaring `connection: IPConnection` on the class narrows the base
 class's connection so this controller's own code can call `IPConnection`'s methods.
 
+Every connection an application runs is declared up front, in a `Connections` registry
+handed to `FastCS`, so the framework can open them all before it walks the controller
+tree - a connection it has not been given is one it could never reopen.
+
 :::{note}
 The simulator control connection is on port 25565.
 :::
@@ -439,7 +443,7 @@ inside `TemperatureProtocol.send_command` to log the commands it sends.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 12,28,146,151
+:emphasize-lines: 12,28,146,154
 :::
 
 ::::

@@ -3,10 +3,9 @@ import asyncio
 import pytest
 
 from fastcs.attributes import AttrR, NotPolled, Polled
-from fastcs.connections import Connection
+from fastcs.connections import Connection, Connections
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
-from fastcs.controllers.runner import IntrospectionMismatchError
 from fastcs.methods import Command, command
 from fastcs.util import ONCE
 
@@ -105,7 +104,7 @@ async def test_update_periods():
 async def test_serve_opens_and_closes_the_connection():
     """Opening and closing the link is the runner's job, not the controller's."""
 
-    class MyTestConnection(Connection[None]):
+    class MyTestConnection(Connection):
         def __init__(self):
             super().__init__()
             self.open = False
@@ -125,7 +124,7 @@ async def test_serve_opens_and_closes_the_connection():
     controller = MyTestController(connection)
 
     loop = asyncio.get_event_loop()
-    fastcs = FastCS(controller, [], loop)
+    fastcs = FastCS(controller, [], loop, Connections({"device": connection}))
 
     task = asyncio.create_task(fastcs.serve(interactive=False))
 
@@ -143,34 +142,21 @@ async def test_serve_opens_and_closes_the_connection():
 
 @pytest.mark.asyncio
 async def test_a_fatal_runner_condition_comes_out_of_serve():
-    """Not `sys.exit`: an embedded FastCS must be able to see this and decide."""
+    """Not `sys.exit`: an embedded FastCS must be able to see this and decide.
 
-    class MyTestConnection(Connection[str]):
-        def __init__(self):
-            super().__init__()
-            self.introspection = "v1"
-
-        async def connect(self) -> str:
-            return self.introspection
-
-        async def close(self) -> None: ...
+    Reported rather than raised, because whatever hits it is a background task with
+    nothing awaiting it.
+    """
 
     class MyTestController(Controller):
-        def __init__(self, connection):
-            self.connection = connection
-            super().__init__()
+        pass
 
-    connection = MyTestConnection()
-    connection.reconnect_period = 0.001
-    fastcs = FastCS(MyTestController(connection), [], asyncio.get_event_loop())
+    fastcs = FastCS(MyTestController(), [], asyncio.get_event_loop())
 
     task = asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
 
-    # The device comes back describing itself differently, which `build` cannot
-    # be re-run to accommodate.
-    connection.introspection = "v2"
-    connection.set_disconnected()
+    fastcs._runner.fail(RuntimeError("the device is beyond saving"))
 
-    with pytest.raises(IntrospectionMismatchError, match="describing itself"):
+    with pytest.raises(RuntimeError, match="beyond saving"):
         await asyncio.wait_for(task, timeout=5)

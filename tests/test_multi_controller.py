@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR
-from fastcs.connections import Connection
+from fastcs.connections import Connection, Connections
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions
@@ -300,7 +300,7 @@ def test_tango_transport_rejects_post_sanitisation_class_name_collision():
     assert "'DEV_1'" in message
 
 
-class _LifecycleConnection(Connection[None]):
+class _LifecycleConnection(Connection):
     """Records whether the runner opened and closed the link."""
 
     def __init__(self):
@@ -352,7 +352,17 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     # app directly through TestClient.
     mocker.patch.object(RestTransport, "serve", new=lambda self: asyncio.sleep(3600))
 
-    fastcs = FastCS([a, b], [transport], asyncio.get_event_loop())
+    # One registry per entry, as the launcher builds them: each controller
+    # declares its own link under the same local role name.
+    fastcs = FastCS(
+        [a, b],
+        [transport],
+        asyncio.get_event_loop(),
+        [
+            Connections({"device": a.connection}),
+            Connections({"device": b.connection}),
+        ],
+    )
     task = asyncio.create_task(fastcs.serve(interactive=False))
     try:
         await asyncio.sleep(0.1)

@@ -18,7 +18,7 @@ class SerialConnectionSettings:
     baud: int = 115200
 
 
-class SerialConnection(Connection[None]):
+class SerialConnection(Connection):
     """A serial connection.
 
     The settings are given at construction rather than to ``connect``, because the
@@ -27,7 +27,7 @@ class SerialConnection(Connection[None]):
     Args:
         settings: Which port to open, and at what baud rate
         kwargs: Passed to `Connection` - ``depends_on``, ``reconnect_period``,
-            ``max_attempts``
+            ``reconnect_attempts``
 
     """
 

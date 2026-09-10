@@ -4,7 +4,7 @@ from typing import Any, Literal, TypeVar
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from fastcs.attributes import Attribute, AttrR, AttrRW
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import Connections, IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.datatypes import DType
 from fastcs.launch import FastCS
@@ -135,7 +135,10 @@ epics_ca = EpicsCATransport()
 connection_settings = IPConnectionSettings("localhost", 25565)
 controller = TemperatureController(connection_settings)
 controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+# Every connection an application runs is declared up front, so the runner can
+# open them all before it walks the tree.
+connections = Connections({"temperature": controller.connection})
+fastcs = FastCS(controller, [epics_ca], connections=connections)
 
 
 if __name__ == "__main__":

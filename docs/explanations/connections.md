@@ -13,37 +13,22 @@ link that is actually down.
 Subclass `Connection`, open the link in `connect` and close it in `close`:
 
 ```python
-from dataclasses import dataclass
-
 from fastcs.connections import Connection
 
 
-@dataclass
-class DetectorInfo:
-    """Returned by connect(). Compared against the startup value on every
-    reconnect, so it must compare by value - hence the dataclass."""
-
-    api_version: str
-    parameters: tuple[str, ...]
-
-
-class DetectorConnection(Connection[DetectorInfo]):
+class DetectorConnection(Connection):
     # Class defaults sit between the framework defaults and any constructor argument.
     reconnect_period = 5.0
-    max_attempts = 60
+    reconnect_attempts = 60
 
-    def __init__(self, settings: IPConnectionSettings, **kwargs) -> None:
+    def __init__(self, settings: DetectorSettings, **kwargs) -> None:
         super().__init__(**kwargs)
         self._settings = settings
         self._client: AsyncClient | None = None
 
-    async def connect(self) -> DetectorInfo:
-        base = f"http://{self._settings.ip}:{self._settings.port}"
+    async def connect(self) -> None:
+        base = f"http://{self._settings.host}:{self._settings.port}"
         self._client = AsyncClient(base_url=base)
-        return DetectorInfo(
-            api_version=await self.get("detector/api/version"),
-            parameters=tuple(await self.get("detector/api/1.8.0/config/keys")),
-        )
 
     async def close(self) -> None:
         if self._client is not None:
@@ -64,7 +49,28 @@ class DetectorConnection(Connection[DetectorInfo]):
 ```
 
 `connect` means "make the link usable", not merely "open the socket": a device that
-needs a mode set before it can be introspected has that write here.
+needs a mode set before a driver can read it has that write here.
+
+### The ones that come with FastCS
+
+Most drivers need none of the above. `IPConnection` and `SerialConnection` cover the
+stream transports; `HTTPConnection` covers REST devices, with `get`, `get_bytes`,
+`put` and the `request` underneath them, so a driver that only needs a different URL
+layout writes that and nothing else:
+
+```python
+class DetectorConnection(HTTPConnection):
+    # The detector wraps every value as {"value": ...}, which is the detector's
+    # convention rather than HTTP's - so this is the whole subclass.
+    async def get(self, path: str):
+        return (await super().get(path))["value"]
+```
+
+`SimConnection` is the base for a simulated device: it opens and closes trivially,
+can never fail, and its reconnect task idles forever. A simulator is a *sibling* of
+the real transport rather than a subclass - inheriting `SerialConnection` would
+inherit a serial handle it never opens - and which one an application gets is decided
+by `type:` in `fastcs.yaml`, not by a magic port value or an environment check.
 
 **The important part is the `except` clause.** The connection is the only place that
 can tell "the socket died" from "the device rejected that parameter", and only the
@@ -94,8 +100,9 @@ class DetectorController(Controller):
         self.connection = connections.get("detector", DetectorConnection)
         super().__init__()
 
-    async def build(self, info: DetectorInfo) -> None:
-        for parameter in info.parameters:
+    async def build(self) -> None:
+        # The connection is open by now, so this can ask the device what it has.
+        for parameter in await self.connection.get("detector/api/1.8.0/config/keys"):
             ...  # one attribute per reported key
 ```
 
@@ -110,8 +117,10 @@ the tree.
 
 ## Declaring them
 
-The registry is built once and forwarded down the tree - by hand, or by the launcher
-from the `connections:` block of a controller's own entry in `fastcs.yaml`:
+Every connection an application has is declared up front, which is what lets the
+runner open them all before the tree is walked. The registry is built once and
+forwarded down the tree - by hand, or by the launcher from the `connections:` block
+of a controller's own entry in `fastcs.yaml`:
 
 ```yaml
 controllers:
@@ -129,8 +138,12 @@ to a different object. A single global block cannot express that, since the driv
 hardcoded role name and the deployment's instance name would have to be the same
 string.
 
-The consequence is that sibling entries cannot share a connection or depend on each
-other. A gateway with several instruments behind one link is one tree, with the
+A connection cannot be created later: one made during `build` could not have been
+opened before the tree was walked, so it would never be supervised or reconnected,
+and the runner rejects it saying so.
+
+The consequence of the per-entry block is that sibling entries cannot share a
+connection or depend on each other. A gateway with several instruments behind one link is one tree, with the
 gateway as the top-level controller.
 
 See [](../how-to/launch-framework.md) for the configuration in full.
@@ -140,8 +153,7 @@ See [](../how-to/launch-framework.md) for the configuration in full.
 The `ControllerRunner` owns the order:
 
 1. Open every connection, in dependency order - declaration order, except that
-   anything named in a `depends_on` is opened before whatever names it - keeping what
-   `connect` returned.
+   anything named in a `depends_on` is opened before whatever names it.
 2. Walk the tree calling `build`, repeating over anything newly added until a pass
    adds nothing.
 3. Call `setup` across the whole built tree.
@@ -162,9 +174,9 @@ down - a healthy connection costs nothing, and each connection recovers at its o
 pace. A detector that wants to retry every five seconds does not have to compromise
 with a writer that wants one.
 
-Each attempt closes the link, reopens it, and compares what `connect` returned
-against the startup value. `max_attempts` consecutive failures is terminal until the
-process restarts; a clean connection restores the budget.
+Each attempt closes the link and reopens it. `reconnect_attempts` consecutive
+failures is terminal until the process restarts; a clean connection restores the
+budget.
 
 ### Dependencies
 
@@ -183,17 +195,6 @@ rather than being burnt against a dead dependency. If any one of them gives up
 entirely, the dependent is released rather than left hanging: it logs that it is
 stalled and waits for a restart. Cycles are caught at startup, and in config before
 that.
-
-### Introspection is checked, not re-applied
-
-`build` cannot run again, so a device that comes back describing itself differently
-cannot be accommodated. Rather than carrying on against a structure that no longer
-matches the hardware, the runner records the mismatch and `FastCS.serve` raises it -
-an explicit, observable failure rather than a `sys.exit` an embedder cannot survive.
-
-Because the comparison is `!=`, an introspection result has to compare to a single
-bool. A dataclass of plain fields does; an array of values does not, and the runner
-says so rather than letting an ambiguous truth value escape from a background task.
 
 ## Warnings
 

@@ -219,12 +219,15 @@ def _launch(
 
             raise LaunchError("Failed to validate config") from e
 
-        controllers = _instantiate_controllers(instance_options.controllers)
+        controllers, connections = _instantiate_controllers(
+            instance_options.controllers
+        )
 
         instance = FastCS(
             controllers,
             instance_options.transport,
             loop=asyncio.get_event_loop(),
+            connections=connections,
         )
 
         instance.run()
@@ -234,7 +237,7 @@ def _launch(
 
 def _instantiate_controllers(
     controllers_options: list[Any],
-) -> list[Controller]:
+) -> tuple[list[Controller], list[Connections]]:
     """Instantiate each entry under `controllers:` and seed its path.
 
     Each item in ``controllers_options`` is a dynamically-built Pydantic
@@ -249,6 +252,12 @@ def _instantiate_controllers(
     block, and forwarded down its subtree. Role names are therefore local to
     an entry: two motors can both claim ``"motor"`` and get different
     objects, which a single global block could not express.
+
+    Returns:
+        The controllers, and the registry of each entry that declared one -
+        which is the whole set of connections the runner will supervise, since
+        a connection that is not declared here cannot be created later.
+
     """
     seen_ids: set[str] = set()
     duplicates: list[str] = []
@@ -262,6 +271,7 @@ def _instantiate_controllers(
         )
 
     controllers: list[Controller] = []
+    registries: list[Connections] = []
     for entry in controllers_options:
         entry_cls: type[BaseModel] = type(entry)
         registered = _ENTRY_REGISTRY[entry_cls]
@@ -270,7 +280,9 @@ def _instantiate_controllers(
         args: list[Any] = []
 
         if registered.expects_connections:
-            args.append(_build_connections(entry.id, block))
+            registry = _build_connections(entry.id, block)
+            registries.append(registry)
+            args.append(registry)
         elif block:
             raise LaunchError(
                 f"Controller {entry.id!r} declares connections "
@@ -289,7 +301,7 @@ def _instantiate_controllers(
         controller = registered.cls(*args)
         controller.set_path([entry.id])
         controllers.append(controller)
-    return controllers
+    return controllers, registries
 
 
 def _depends_on_names(declared: str | list[str]) -> list[str]:
@@ -412,7 +424,7 @@ def _connection_field_definitions(
     treatment `_options_field_definitions` gives an options type. ``**kwargs``
     forwarded to `Connection` stands in for that base class's own arguments, so a
     connection that only forwards them still gets ``reconnect_period`` and
-    ``max_attempts`` in its schema.
+    ``reconnect_attempts`` in its schema.
 
     ``depends_on`` is deliberately absent: it names other connections, which do
     not exist while the block is being read, so `_build_connections` resolves it

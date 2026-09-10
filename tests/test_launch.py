@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 
 from fastcs import __version__
 from fastcs.attributes import AttrR
-from fastcs.connections import Connection, Connections
+from fastcs.connections import Connection, Connections, HTTPConnection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.exceptions import LaunchError
@@ -75,7 +75,7 @@ class LinkSettings:
     port: int = 22
 
 
-class FakeConnection(Connection[None]):
+class FakeConnection(Connection):
     def __init__(self, settings: LinkSettings, **kwargs) -> None:
         super().__init__(**kwargs)
         self.settings = settings
@@ -85,7 +85,7 @@ class FakeConnection(Connection[None]):
     async def close(self) -> None: ...
 
 
-class OtherConnection(Connection[None]):
+class OtherConnection(Connection):
     type_name: ClassVar[str] = "other-connection"
 
     def __init__(self, label: str = "unlabelled", **kwargs) -> None:
@@ -375,6 +375,13 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
 
 def _build(controllers: list[dict], classes=None, connections=None) -> list[Controller]:
     """Validate a `controllers:` list and instantiate it, as ``run`` does."""
+    return _build_with_registries(controllers, classes, connections)[0]
+
+
+def _build_with_registries(
+    controllers: list[dict], classes=None, connections=None
+) -> tuple[list[Controller], list[Connections]]:
+    """As `_build`, but also the registries the launcher hands the runner."""
     options_model = _build_options_model(
         classes or [NeedsConnections], connections or [FakeConnection]
     )
@@ -643,7 +650,7 @@ def test_a_single_connection_class_need_not_be_a_list():
 
 
 def test_a_connection_argument_without_a_type_hint():
-    class Unhinted(Connection[None]):
+    class Unhinted(Connection):
         def __init__(self, settings) -> None:
             super().__init__()
 
@@ -656,7 +663,7 @@ def test_a_connection_argument_without_a_type_hint():
 
 
 def test_a_connection_taking_star_args():
-    class Starred(Connection[None]):
+    class Starred(Connection):
         def __init__(self, *settings: str) -> None:
             super().__init__()
 
@@ -669,7 +676,7 @@ def test_a_connection_taking_star_args():
 
 
 def test_a_connection_argument_colliding_with_a_framework_key():
-    class Colliding(Connection[None]):
+    class Colliding(Connection):
         def __init__(self, type: str) -> None:  # noqa: A002
             super().__init__()
 
@@ -679,6 +686,38 @@ def test_a_connection_argument_colliding_with_a_framework_key():
 
     with pytest.raises(LaunchError, match="collides with a launch-framework key"):
         _build_options_model([NeedsConnections], [Colliding])
+
+
+def test_the_framework_http_connection_is_usable_from_config():
+    """A REST driver names `fastcs.HTTPConnection` and writes no connection at all."""
+
+    class NeedsHTTP(Controller):
+        def __init__(self, connections: Connections) -> None:
+            super().__init__()
+            self.connection = connections.get("link", HTTPConnection)
+
+    controllers = _build(
+        [
+            {
+                "id": "OD",
+                "type": "tests.NeedsHTTP",
+                "connections": {
+                    "link": {
+                        "type": "fastcs.HTTPConnection",
+                        "settings": {"host": "odin", "port": 8888},
+                        "reconnect_period": 5.0,
+                    }
+                },
+            }
+        ],
+        classes=[NeedsHTTP],
+        connections=[HTTPConnection],
+    )
+
+    connection = controllers[0].connection
+    assert isinstance(connection, HTTPConnection)
+    assert connection._settings.base_url == "http://odin:8888"
+    assert connection.reconnect_period == 5.0
 
 
 def test_connections_block_in_the_schema():
@@ -692,6 +731,6 @@ def test_connections_block_in_the_schema():
     assert connection["properties"]["type"]["const"] == "tests.FakeConnection"
     # Forwarded `**kwargs` stand in for `Connection`'s own arguments
     assert "reconnect_period" in connection["properties"]
-    assert "max_attempts" in connection["properties"]
+    assert "reconnect_attempts" in connection["properties"]
     # Resolved after the block is built, so it is names here rather than objects
     assert "depends_on" in connection["properties"]

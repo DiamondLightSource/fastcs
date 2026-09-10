@@ -139,9 +139,8 @@ What this amends:
   raises, and the framework decides what that means.
 - **`initialise`/`post_initialise` become `build`/`setup`**, splitting "structure
   that depends on the device" from "hardware writes once the tree is built".
-  `build` optionally receives whatever the connection's `connect()` returned.
-- **Introspection is checked on every reconnect.** `build` runs once, so a device
-  that comes back describing itself differently cannot be accommodated.
+  `build` runs with the connection open, so a controller that must ask the device
+  what it has does so there.
 - **The runner owns the startup order** — connections, then `build` to a fixpoint,
   then `setup`, then tasks — and shutdown, closing connections in reverse.
 
@@ -149,19 +148,43 @@ Points the review of #420 asked to settle, and how they land:
 
 - **`connection._connected = True` from outside.** There is a framework-only
   `_set_connected()` next to `set_disconnected()`, so the flag has one owner.
-- **What "fatal" means for an introspection mismatch.** Not `sys.exit`: an
-  embedded FastCS must survive it. The runner sets `fatal_error` (an
-  `asyncio.Event`) and records `fatal_reason`; `FastCS.serve` raises it, and an
-  embedder observes it instead.
-- **How build info is compared.** With `!=`, which means an introspection result
-  must compare to a single bool. An ambiguous comparison (a dict of numpy arrays)
-  raises a message saying so rather than escaping a background task.
+- **What "fatal" means.** Not `sys.exit`: an embedded FastCS must survive it. The
+  runner sets `fatal_error` (an `asyncio.Event`) and records `fatal_reason`;
+  `FastCS.serve` raises it, and an embedder observes it instead.
 - **`check()` skipped while IO is succeeding.** Dropped. There is no separate
   health-check hook: a connection with any polling is proved alive by that
   polling, and a device that needs a heartbeat gets a `@scan`, which is ordinary
   driver code. A connection nothing polls is warned about at startup.
 - **`depends_on` cycles.** Declared rather than derived, and detected at startup.
-- **`max_attempts` exhausting to a terminal state.** Kept as the design specifies
+- **`reconnect_attempts` exhausting to a terminal state.** Kept as the design specifies
   (default 10), and *not* propagated to dependents — the parent's give-up message
   names what it blocks. Whether the default should instead be retry-forever is
   left open; it is one constant.
+
+## Amendment: no introspection, and one HTTP connection (#424 review)
+
+The amendment above made `Connection` generic in what `connect()` returned, handed
+that value to `build`, and compared it on every reconnect. All of it is removed,
+per the spec attached to [this review
+comment](https://github.com/DiamondLightSource/fastcs/pull/424#issuecomment-5604015457).
+
+- **Introspection is a larger design problem than it looked**, and gets its own
+  issue rather than riding along here. A controller that must ask the device what it
+  has still does - in `build`, against an open connection - but the framework neither
+  carries the answer nor compares it. The unsolved part is a connection whose
+  *existence* depends on introspection: it cannot be declared in `fastcs.yaml`,
+  because it does not exist at config-parse time.
+- **Every connection is declared up front**, so the runner's list is exactly what the
+  launcher built. No tree walking to collect connections, no deduplication by
+  identity, no second sweep after the build phase - and `ControllerRunner` requires
+  its connections argument rather than falling back to the tree.
+- **`HTTPConnection` joins `IPConnection` and `SerialConnection`.** `fastcs-eiger`
+  and `fastcs-odin` each hand-roll an HTTP client, on different libraries; one
+  framework class replaces both. httpx, because it is already a FastCS dependency.
+- **`SimConnection` is the base for a simulated device**, a sibling of the real
+  transports rather than a subclass of one, selected by `type:` in `fastcs.yaml`.
+- **`max_attempts` becomes `reconnect_attempts`**, pairing with `reconnect_period`.
+
+The consequence for `fatal_error` is that nothing in the framework sets it: its one
+producer was the introspection mismatch. The channel is kept, because the problem it
+solves - a background task that cannot usefully raise - has not gone anywhere.

@@ -51,7 +51,7 @@ class StreamConnection:
         await self.writer.wait_closed()
 
 
-class IPConnection(Connection[None], Tracer):
+class IPConnection(Connection, Tracer):
     """For connecting to an ip using a `StreamConnection`.
 
     The settings are given at construction rather than to ``connect``, because the
@@ -62,7 +62,7 @@ class IPConnection(Connection[None], Tracer):
     Args:
         settings: Where to connect to
         kwargs: Passed to `Connection` - ``depends_on``, ``reconnect_period``,
-            ``max_attempts``
+            ``reconnect_attempts``
 
     """
 

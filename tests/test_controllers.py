@@ -402,7 +402,7 @@ async def test_a_raising_scan_is_logged_and_retried():
 
 @pytest.mark.asyncio
 async def test_scans_wait_while_the_connection_is_down():
-    class MyTestConnection(Connection[None]):
+    class MyTestConnection(Connection):
         async def connect(self) -> None: ...
         async def close(self) -> None: ...
 

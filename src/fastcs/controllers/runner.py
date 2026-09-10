@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 from collections import deque
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
@@ -20,22 +19,9 @@ per tier; a cap catches runaway construction rather than hanging.
 """
 
 
-class IntrospectionMismatchError(RuntimeError):
-    """A device came back from a reconnect describing itself differently.
-
-    ``build`` runs once, so there is no way to accommodate the new shape: the
-    application has an attribute tree that no longer matches the hardware. The runner
-    treats this as fatal - it stops, and `ControllerRunner.fatal_error` is set so
-    whatever is running it can exit.
-    """
-
-
 @dataclass
 class _ReconnectState:
     """What the runner remembers about one connection."""
-
-    introspection: object = None
-    """What ``connect`` returned at startup, compared against on every reconnect."""
 
     attempts: int = 0
     """Consecutive failed attempts. Reset by a clean connection."""
@@ -58,7 +44,7 @@ class ControllerRunner:
     `FastCS` uses it and adds transports on top; an embedded caller that only wants
     the controllers running can use it on its own::
 
-        runner = ControllerRunner(controller, connections=connections)
+        runner = ControllerRunner(controller, connections)
         await runner.start()
         ...
         await runner.stop()
@@ -84,25 +70,28 @@ class ControllerRunner:
     Args:
         controllers: The controller(s) to run. Accepts either a single
             ``Controller`` or a sequence of them.
+        connections: The declared connections - one `Connections` registry, or one
+            per top-level entry, since role names are local to an entry. Required,
+            and the whole list: every connection is declared up front, so the runner
+            never looks in the tree for one. A tree with no connections at all
+            passes an empty registry.
         loop: Optional event loop to create the tasks in
-        connections: The declared connections. When given, they are opened in
-            declaration order before the tree is walked, so a ``build`` that adds sub
-            controllers can hand them an already-open connection. When omitted, the
-            runner collects the connections the tree already holds, by identity.
 
     """
 
     def __init__(
         self,
         controllers: Controller | Sequence[Controller],
+        connections: Connections | Sequence[Connections],
         loop: asyncio.AbstractEventLoop | None = None,
-        connections: Connections | None = None,
     ) -> None:
         if isinstance(controllers, Controller):
             controllers = [controllers]
         self._controllers: list[Controller] = list(controllers)
         self._loop = loop
-        self._registry = connections
+        if isinstance(connections, Connections):
+            connections = [connections]
+        self._registries: list[Connections] = list(connections)
 
         self._connections: list[Connection] = []
         self._state: dict[Connection, _ReconnectState] = {}
@@ -119,6 +108,11 @@ class ControllerRunner:
         embedded FastCS must not call ``sys.exit``, so a fatal condition is reported
         here instead. `FastCS` awaits it and shuts down; an embedder can do the same,
         and read `fatal_reason` for what happened.
+
+        Nothing in the framework sets this today: its one producer was the
+        introspection mismatch on reconnect, which went with introspection itself.
+        The channel is kept because the problem it solves - a background task that
+        cannot raise - has not gone anywhere.
         """
 
         self.fatal_reason: BaseException | None = None
@@ -160,9 +154,8 @@ class ControllerRunner:
         self._connections = self._in_dependency_order(self._connections)
 
         for connection in self._connections:
-            state = _ReconnectState()
-            self._state[connection] = state
-            state.introspection = await connection.connect()
+            self._state[connection] = _ReconnectState()
+            await connection.connect()
             connection._set_connected()  # noqa: SLF001
 
         await self._build_phase()
@@ -239,21 +232,17 @@ class ControllerRunner:
     def _collect_connections(self) -> list[Connection]:
         """Every connection the runner supervises, in the order it opens them.
 
-        From the registry when there is one - declaration order, and known before any
-        controller is constructed, which is what lets a ``build`` add a sub controller
-        holding an already-open connection. Otherwise from the tree, level order and
-        deduplicated by identity: two sockets with matching settings are two
-        connections, so identity rather than equality.
+        The declared ones, in declaration order, and nothing else. They are known
+        before any controller is constructed, which is what lets a ``build`` add a
+        sub controller holding an already-open connection - and what makes the
+        list exact: a connection created later could not have been opened up front,
+        so there is nothing to find by walking the tree.
         """
-        if self._registry is not None:
-            return self._registry.values()
-
-        seen: dict[int, Connection] = {}
-        for controller in self._walk_controllers():
-            connection: Connection | None = controller.connection
-            if connection is not None and id(connection) not in seen:
-                seen[id(connection)] = connection
-        return list(seen.values())
+        return [
+            connection
+            for registry in self._registries
+            for connection in registry.values()
+        ]
 
     def _check_dependencies(self) -> None:
         """``depends_on`` is declared, so it can name anything at all.
@@ -336,40 +325,12 @@ class ControllerRunner:
 
             for controller in pending:
                 built.add(id(controller))
-                await self._call_build(controller)
+                await controller.build()
 
         raise RuntimeError(
             f"Controller tree did not settle in {MAX_BUILD_PASSES} build passes. "
             "A `build` that adds a sub controller on every pass never finishes."
         )
-
-    async def _call_build(self, controller: BaseController) -> None:
-        """Call ``build``, passing the connection's introspection if it wants it.
-
-        ``build(self)`` gets nothing and ``build(self, info)`` gets whatever this
-        controller's connection returned from ``connect``.
-        """
-        wants_introspection = bool(inspect.signature(controller.build).parameters)
-
-        if not wants_introspection:
-            await controller.build()
-            return
-
-        connection: Connection | None = controller.connection
-        if connection is None:
-            raise TypeError(
-                f"{type(controller).__name__}.build takes an introspection "
-                "argument, but the controller has no connection to get one from."
-            )
-
-        state = self._state.get(connection)
-        if state is None:
-            # A controller added during ``build`` that holds an unopened
-            # connection reaches here before the pass that would catch it, and a
-            # bare KeyError would say nothing useful.
-            raise self._unsupervised_connection_error(controller, connection)
-
-        await controller.build(state.introspection)  # type: ignore[call-arg]
 
     def _check_connections_are_known(self) -> None:
         """A connection the runner never opened would never be reconnected either."""
@@ -392,15 +353,17 @@ class ControllerRunner:
         )
 
     def _warn_about_unclaimed_connections(self) -> None:
-        if self._registry is None:
-            return
+        for registry in self._registries:
+            for name in sorted(registry.unclaimed()):
+                self._warn_unclaimed(name)
 
-        for name in sorted(self._registry.unclaimed()):
-            logger.warning(
-                "Connection declared but never used. It will be opened and "
-                "reconnected forever while doing nothing.",
-                connection=name,
-            )
+    @staticmethod
+    def _warn_unclaimed(name: str) -> None:
+        logger.warning(
+            "Connection declared but never used. It will be opened and "
+            "reconnected forever while doing nothing.",
+            connection=name,
+        )
 
     def _warn_about_unpolled_connections(self) -> None:
         """Nothing detects a connection failing unless something uses it regularly.
@@ -521,18 +484,17 @@ class ControllerRunner:
     async def _attempt(self, connection: Connection) -> None:
         """One reconnect attempt.
 
-        Owns retry accounting and the introspection check, and is the only place a
-        connection is marked back up.
+        Owns retry accounting, and is the only place a connection is marked back up.
         """
         state = self._state[connection]
         state.attempts += 1
 
         try:
             await connection.close()  # tolerate an already-closed link
-            introspection = await connection.connect()
+            await connection.connect()
         except Exception:
             logger.exception("Reconnect failed", connection=self._name_of(connection))
-            if state.attempts >= connection.max_attempts:
+            if state.attempts >= connection.reconnect_attempts:
                 # Terminal until the process restarts. Setting the event releases
                 # anything waiting on this connection, so dependents stall loudly
                 # instead of hanging silently.
@@ -548,63 +510,10 @@ class ControllerRunner:
                 )
             return
 
-        try:
-            differs = self._introspection_differs(introspection, state.introspection)
-        except TypeError as error:
-            # Raised for an introspection result that cannot be compared. Letting
-            # it out of here would kill this reconnect task silently - nothing
-            # awaits it - and every scan gated on this connection would then wait
-            # in `wait_up` forever. Report it the same way a mismatch is reported.
-            logger.exception(
-                "Cannot compare introspection", connection=self._name_of(connection)
-            )
-            self._fail(error)
-            return
-
-        if differs:
-            self._fatal_introspection_mismatch(
-                connection, state.introspection, introspection
-            )
-            return
-
         connection._set_connected()  # noqa: SLF001
         state.attempts = 0  # a clean connection restores the budget
 
-    @staticmethod
-    def _introspection_differs(new: object, old: object) -> bool:
-        """Whether a device is describing itself differently than it did at startup.
-
-        ``!=`` is the comparison, which means an introspection result has to compare
-        to a single bool - a dataclass does, an array of values does not. Saying so
-        beats an ``ambiguous truth value`` escaping from a background task.
-        """
-        try:
-            return bool(new != old)
-        except (TypeError, ValueError) as exc:
-            raise TypeError(
-                "Introspection results are compared with `!=` on every reconnect, "
-                f"but comparing {type(new).__name__} did not give a single bool. "
-                "Return something that compares by value, such as a dataclass of "
-                "plain fields."
-            ) from exc
-
-    def _fatal_introspection_mismatch(
-        self, connection: Connection, expected: object, received: object
-    ) -> None:
-        error = IntrospectionMismatchError(
-            f"Connection {self._name_of(connection)} came back describing itself "
-            f"differently: expected {expected!r}, got {received!r}. `build` cannot "
-            "run again, so the application cannot represent this device any more."
-        )
-        logger.error(
-            "Introspection mismatch on reconnect",
-            connection=self._name_of(connection),
-            expected=repr(expected),
-            received=repr(received),
-        )
-        self._fail(error)
-
-    def _fail(self, error: BaseException) -> None:
+    def fail(self, error: BaseException) -> None:
         """Report a condition the runner cannot carry on from.
 
         Raising here would be invisible - this runs in a background task with nothing
@@ -627,8 +536,8 @@ class ControllerRunner:
 
     def _name_of(self, connection: Connection) -> str:
         """What to call a connection in a log line."""
-        if self._registry is not None:
-            name = self._registry.name_of(connection)
+        for registry in self._registries:
+            name = registry.name_of(connection)
             if name is not None:
                 return name
         return type(connection).__name__

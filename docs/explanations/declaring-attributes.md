@@ -79,7 +79,7 @@ class EigerDetector(Controller):
     state: AttrR          # enum built from the device's `allowed_values`
 ```
 
-FastCS cannot create that one, so it is a **promise** instead: introspection
+FastCS cannot create that one, so it is a **promise** instead: `build`
 must add it with `add_attribute`, and `check_filled` fails if nothing did. The
 access mode is still checked — adding an `AttrW` where an `AttrR` was promised
 raises.

@@ -91,6 +91,8 @@ nitpick_ignore = [
     ("py:class", "p4p.nt.NTTable"),
     # httpx and fastapi don't have intersphinx mappings
     ("py:class", "httpx.AsyncBaseTransport"),
+    ("py:class", "httpx.AsyncClient"),
+    ("py:class", "httpx.Response"),
     ("py:class", "fastapi.applications.FastAPI"),
     # Problems in FastCS itself
     ("py:class", "BaseController"),
@@ -116,9 +118,7 @@ nitpick_ignore = [
 nitpick_ignore_regex = [
     ("py:class", r"fastcs.*.DType_T"),
     ("py:class", r"fastcs.*.Numeric_T"),
-    ("py:class", r"fastcs.*.Introspection_T"),
     ("py:class", r"fastcs.*.Connection_T"),
-    ("py:obj", r"fastcs.*.Introspection_T"),
     ("py:obj", r"fastcs.*.Connection_T"),
     ("py:obj", r"fastcs.*.DType_T"),
     (r"py:.*", r"fastcs\.demo.*"),
