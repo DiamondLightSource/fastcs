@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from fastcs.attributes import AttrR, AttrRW, Polled
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import Connections, IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.launch import FastCS
 from fastcs.methods import scan
@@ -35,8 +35,11 @@ class OnOffEnum(enum.StrEnum):
 
 
 class TemperatureRampController(Controller):
+    connection: IPConnection
+
     def __init__(self, index: int, connection: IPConnection) -> None:
         suffix = f"{index:02d}"
+        self.connection = connection
         self._protocol = TemperatureProtocol(connection, suffix)
         super().__init__(f"Ramp{suffix}")
 
@@ -81,10 +84,11 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
+    connection: IPConnection
+
     def __init__(self, ramp_count: int, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
-        self._protocol = TemperatureProtocol(self._connection)
+        self.connection = IPConnection(settings)
+        self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
 
@@ -98,7 +102,7 @@ class TemperatureController(Controller):
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, ramp_count + 1):
-            controller = TemperatureRampController(index, self._connection)
+            controller = TemperatureRampController(index, self.connection)
             self._ramp_controllers.append(controller)
             self.add_sub_controller(f"R{index}", controller)
 
@@ -114,13 +118,10 @@ class TemperatureController(Controller):
     async def _set_ramp_rate(self, value: float) -> None:
         await self._protocol.send_command("R", value, float)
 
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
-
     @scan(0.1)
     async def update_voltages(self):
         voltages = json.loads(
-            (await self._connection.send_query("V?\r\n")).strip("\r\n")
+            (await self.connection.send_query("V?\r\n")).strip("\r\n")
         )
         for index, controller in enumerate(self._ramp_controllers):
             await controller.voltage.update(float(voltages[index]))
@@ -131,7 +132,10 @@ epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
 controller = TemperatureController(4, connection_settings)
 controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+# Every connection an application runs is declared up front, so the runner can
+# open them all before it walks the tree.
+connections = Connections({"temperature": controller.connection})
+fastcs = FastCS(controller, [epics_ca], connections=connections)
 
 if __name__ == "__main__":
     fastcs.run()

@@ -165,8 +165,11 @@ class MultiChannelController(Controller):
             await channel.voltage.update(float(voltage))
 ```
 
-The scan period (here `0.1` seconds) sets how often the batched query runs. Scans that
-raise an exception will pause and wait for `reconnect()` to be called before resuming.
+The scan period (here `0.1` seconds) sets how often the batched query runs. A scan that
+raises is logged and tried again on the next period. If the failure was the connection
+itself going down, the scan waits for the connection to come back up rather than
+querying a dead link - the runner reopens it, and there is nothing for a driver to
+call. See [](../explanations/connections.md).
 
 ### Scan as a cache for getters
 
@@ -236,13 +239,13 @@ class SubscriptionController(Controller):
         super().__init__()
         self._client = subscription_client
 
-    async def connect(self):
+    async def setup(self):
         # Register an async callback that forwards updates into the attribute.
+        # `setup` runs once the whole tree is built and every connection is open.
         async def on_temperature_change(value: float) -> None:
             await self.temperature.update(value)
 
         await self._client.subscribe("temperature", on_temperature_change)
-        await super().connect()
 ```
 
 If the library only supports synchronous callbacks, schedule the coroutine onto the

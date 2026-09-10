@@ -13,11 +13,11 @@ still constructing::
     class OdinDetector(Controller):
         frames: AttrRW[int]        # exists as soon as __init__ returns
 
-        async def initialise(self) -> None:
+        async def build(self) -> None:
             self.filler.fill_attribute("frames", getter=..., setter=...)
 
 so ``self.frames`` can be referenced by the rest of ``__init__`` - the rule
-ADR 0013 takes from ophyd-async, and what makes ``initialise`` safe to run in
+ADR 0013 takes from ophyd-async, and what makes ``build`` safe to run in
 parallel across controllers. Filling provisions the IO and metadata on the
 attribute that is already there, so a reference taken during ``__init__`` stays
 valid.
@@ -25,7 +25,7 @@ valid.
 A hint that cannot say what it holds - ``state: AttrR``, where the datatype is
 an enum whose members only exist on the wire - is a **promise** instead: it is
 not created, and `ControllerFiller.check_filled` requires that introspection
-added it by the time the controller is initialised.
+added it by the time the controller is built.
 """
 
 from __future__ import annotations

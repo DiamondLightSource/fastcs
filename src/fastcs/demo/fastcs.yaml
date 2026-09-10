@@ -2,15 +2,21 @@
 controllers:
   - id: MAIN
     type: fastcs.TemperatureController
-    ip_settings:
-      ip: "localhost"
-      port: 25565
+    connections:
+      temperature:
+        type: fastcs.IPConnection
+        settings:
+          ip: "localhost"
+          port: 25565
     num_ramp_controllers: 4
   - id: AUX
     type: fastcs.TemperatureController
-    ip_settings:
-      ip: "localhost"
-      port: 25566
+    connections:
+      temperature:
+        type: fastcs.IPConnection
+        settings:
+          ip: "localhost"
+          port: 25566
     num_ramp_controllers: 2
 transport:
   - graphql:

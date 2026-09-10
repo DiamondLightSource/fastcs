@@ -3,6 +3,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 
 from fastcs.attributes.attr_r import AttrR
+from fastcs.connections import Connection
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.logging import logger
@@ -18,7 +19,6 @@ class Controller(BaseController):
         description: str | None = None,
     ) -> None:
         super().__init__(description=description)
-        self._connected = False
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
         if name.isdigit():
@@ -30,37 +30,15 @@ class Controller(BaseController):
 
     @property
     def connected(self) -> bool:
-        """Whether the controller believes it can talk to its device.
+        """Whether this controller can talk to its device.
 
-        Set by `connect`/`reconnect`, and cleared when a scan task raises. The
-        `ControllerRunner` reads it to decide when to reconnect.
+        A read-through to ``self.connection.connected`` - the connection is the one
+        object that knows, and controllers sharing a connection all report the same
+        value, which is correct because they share one link. A controller with no
+        connection has nothing to read through to and is always ``True``.
         """
-        return self._connected
-
-    async def connect(self) -> None:
-        """Hook to perform initial connection to device
-
-        This should set ``_connected`` to ``True`` if the connection was successful to
-        enable scan tasks.
-
-        """
-        self._connected = True
-
-    async def reconnect(self):
-        """Hook to reconnect to device after an error
-
-        This should set ``_connected`` to ``True`` if the connection was successful to
-        enable scan tasks.
-
-        If the connection cannot be re-established it should log an error with the
-        reason. It should not raise an exception.
-
-        """
-        self._connected = True
-
-    async def disconnect(self) -> None:
-        """Hook to tidy up resources before stopping the application"""
-        pass
+        connection: Connection | None = self.connection
+        return connection is None or connection.connected
 
     def create_api_and_tasks(
         self,
@@ -113,10 +91,15 @@ class Controller(BaseController):
     ) -> ScanCallback:
         """Create a coroutine to run scans at a given period
 
-        This returns a coroutine that runs scans at a given period. If an exception is
-        raised in a callback it is caught and the updates for the controller are
-        paused, waiting for `_connected` to be set back to true via the `reconnect`
-        method.
+        The returned coroutine is gated on this controller's connection: while that
+        connection is down it waits for the connection to come back rather than
+        polling a link that cannot answer. A controller with no connection is never
+        gated.
+
+        The gate is the only thing a scan does about connection health. Failure is
+        detected in exactly one place - the connection's own IO, which knows a dead
+        transport from a device complaint - so a raising scan is logged and retried
+        rather than being read as a disconnection here.
 
         Args:
             period: The period to run the scans at
@@ -128,8 +111,9 @@ class Controller(BaseController):
 
         async def scan_coro() -> None:
             while True:
-                if not self._connected:
-                    await asyncio.sleep(1)
+                connection: Connection | None = self.connection
+                if connection is not None and not connection.connected:
+                    await connection.wait_up()
                     continue
 
                 try:
@@ -138,9 +122,8 @@ class Controller(BaseController):
                     )
                 except Exception:
                     logger.exception("Exception in scan task", period=period)
-                    self._connected = False
-
-                    await asyncio.sleep(1)  # Wait so this message appears last
-                    logger.error("Pausing scan tasks and waiting for reconnect")
+                    # Do not spin: a scan that raises immediately would otherwise
+                    # retry as fast as the event loop allows.
+                    await asyncio.sleep(period)
 
         return scan_coro

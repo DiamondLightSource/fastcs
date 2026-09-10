@@ -47,7 +47,7 @@ attribute from it:
 class OdinDetector(Controller):
     frames: AttrRW[int]
 
-    async def initialise(self) -> None:
+    async def build(self) -> None:
         for name, spec in await self._query_parameter_tree():
             self.filler.fill_attribute(
                 name, getter=spec.getter, setter=spec.setter, **spec.meta
@@ -59,7 +59,7 @@ class OdinDetector(Controller):
 The hint is not a promise to build something later. `self.frames` **exists as
 soon as `__init__` returns** — as an `AttrRW[int]` with no IO yet — so the rest
 of `__init__` can reference it, hand it to a sibling, or subscribe to it. That
-rule is what makes `initialise` safe to run in parallel across controllers:
+rule is what makes `build` safe to run in parallel across controllers:
 only `__init__` is serial, and by the time it ends every attribute anything
 refers to is there.
 
@@ -79,7 +79,7 @@ class EigerDetector(Controller):
     state: AttrR          # enum built from the device's `allowed_values`
 ```
 
-FastCS cannot create that one, so it is a **promise** instead: introspection
+FastCS cannot create that one, so it is a **promise** instead: `build`
 must add it with `add_attribute`, and `check_filled` fails if nothing did. The
 access mode is still checked — adding an `AttrW` where an `AttrR` was promised
 raises.
@@ -104,8 +104,8 @@ own without FastCS knowing anything about it.
 
 `check_filled()` raises if anything the class body declared is missing, listing
 it by name. FastCS calls it across the whole controller tree after
-`initialise`, so a driver that forgets cannot serve a half-built API; call it
-yourself at the end of your own `initialise` to fail before anything else runs.
+`build`, so a driver that forgets cannot serve a half-built API; call it
+yourself at the end of your own `build` to fail before anything else runs.
 An `| None` hint is not required.
 
 ## Summary
@@ -113,9 +113,9 @@ An `| None` hint is not required.
 | You know | Write |
 |---|---|
 | Everything about the attribute | `self.x = AttrRW(...)` in `__init__` |
-| Its type, but not its IO or metadata | `x: AttrRW[int]` and fill it in `initialise` |
-| Its access mode only | `x: AttrR` and `add_attribute` it in `initialise` |
-| Nothing until the device answers | No declaration; `add_attribute` in `initialise` |
+| Its type, but not its IO or metadata | `x: AttrRW[int]` and fill it in `build` |
+| Its access mode only | `x: AttrR` and `add_attribute` it in `build` |
+| Nothing until the device answers | No declaration; `add_attribute` in `build` |
 
 See [ADR 0013](decisions/0013-declarative-procedural-split-and-controller-filler.md)
 for why there is one declarative mechanism rather than two.

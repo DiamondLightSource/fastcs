@@ -63,7 +63,10 @@ Notes:
   the lesson — "small & known → declare; large & self-describing → introspect"
   — and the REST sim also exercises an HTTP client backend the temp examples
   never touch, matching real downstream drivers (`fastcs-eiger`, `fastcs-secop`,
-  PandABlocks).
+  PandABlocks). The walk happens in `EigerDetector.build`, against an open
+  connection; `EigerConnection` is a plain `HTTPConnection` subclass that knows
+  the detector's URL layout and its `{"value": ...}` envelope, and nothing about
+  what the detector turns out to have.
 
 ## Baselines vs framework PRs
 

@@ -7,23 +7,38 @@ FastCS provides three controller classes: `Controller`, `ControllerVector`, and
 
 `Controller` is the primary building block for FastCS drivers. It can serve two roles:
 
-**Root controller:** passed directly to the `FastCS` launcher. In this role, FastCS
-will call its lifecycle hooks and run the scan tasks it creates on the event loop.
+**Root controller:** passed directly to the `FastCS` launcher.
 
 **Sub controller:** attached to a parent controller via `add_sub_controller()` or by
-assigning it as an attribute. In this role, the sub controller's lifecycle hooks
-(`connect`, `reconnect`, `initialise`, `disconnect`) are not called automatically by
-FastCS. The parent controller is responsible for calling them as part of its own
-lifecycle, if required.
+assigning it as an attribute.
+
+The `ControllerRunner` owns the order of the startup sequence and calls the
+lifecycle hooks of **every** controller in the tree, root and sub alike. A parent
+never drives a child's lifecycle to compensate for sequencing.
 
 ### Lifecycle hooks
 
 | Method | Purpose |
 |---|---|
-| `initialise` | Fill declared attributes, and add dynamic ones, before the API is built |
-| `connect` | Open connection to device |
-| `reconnect` | Re-open connection after scan error |
-| `disconnect` | Release device resources before shutdown |
+| `__init__` | Everything knowable without the device: settings, static attributes |
+| `build` | Structure that depends on the device - fill declared attributes, and add dynamic attributes and sub controllers |
+| `setup` | Hardware writes and checks, once the whole tree is built |
+
+The same question, three ways:
+
+| What do I need to answer this? | Where it goes |
+|---|---|
+| Nothing - settings and the class | `__init__` |
+| The device | `build` |
+| My children, connected | `setup` |
+
+There is no `connect`, `reconnect` or `disconnect` hook. Opening the link, reopening
+it after a failure and closing it at shutdown belong to the `Connection` and the
+runner - see [connections](./connections.md).
+
+`build` runs with every connection already open, so a controller that has to ask the
+device what it has - how many channels, which parameters - reads it there and creates
+what it finds.
 
 Attributes are constructed in `__init__`, or declared as class-body type hints
 and created for you - see [](declaring-attributes.md) for which to use when.
@@ -32,12 +47,14 @@ shared by every instance of the controller.
 
 ### Scan task behaviour
 
-When used as the root controller, FastCS collects all `@scan` methods and readable
-attributes whose `getter` is wrapped in `Polled`, across the whole controller
-hierarchy, to be run as background tasks by FastCS. Scan tasks are gated on the
-`_connected` flag: if a scan
-raises an exception, `_connected` is set to `False` and tasks pause until `reconnect`
-sets it back to `True`.
+FastCS collects all `@scan` methods and readable attributes whose `getter` is wrapped
+in `Polled`, across the whole controller hierarchy, to be run as background tasks.
+Scan tasks are gated on the controller's **connection**: while that connection is
+down they wait for it to come back rather than polling a link that cannot answer. A
+controller with no connection is never gated.
+
+A scan that raises is logged and retried. It does not mark the connection down -
+only the connection's own IO can tell a dead transport from a device complaint.
 
 ```python
 from fastcs.controllers import Controller
@@ -46,61 +63,53 @@ from fastcs.methods import scan
 
 
 class TemperatureController(Controller):
-    def __init__(self, host, port):
+    connection: DeviceConnection
+
+    def __init__(self, connections: Connections):
+        self.connection = connections.get("device", DeviceConnection)
         super().__init__()
-        self._host, self._port = host, port
 
         self.temperature = AttrR(float, units="degC")
         self.setpoint = AttrRW(float, units="degC")
 
-    async def connect(self):
-        self._client = await DeviceClient.connect(self._host, self._port)
-        self._connected = True
-
-    async def reconnect(self):
-        try:
-            self._client = await DeviceClient.connect(self._host, self._port)
-            self._connected = True
-        except Exception:
-            logger.error("Failed to reconnect")
-
-    async def disconnect(self):
-        await self._client.close()
-
     @scan(period=1.0)
     async def update_temperature(self):
-        value = await self._client.get_temperature()
+        # Gated on the connection: while it is down this does not run at all.
+        value = await self.connection.get_temperature()
         await self.temperature.update(value)
 ```
 
 ### Using Controller as a sub controller
 
 When a `Controller` is nested inside another, it organises the driver into logical
-sections and its attributes are exposed under a prefixed path. If the sub
-controller also has connection logic, the parent must invoke it explicitly:
+sections and its attributes are exposed under a prefixed path. A sub controller that
+talks to the same device holds the *same* connection object as its parent rather
+than consulting it, so the two share one health state and one reconnect task:
 
 ```python
 class ChannelController(Controller):
-    def __init__(self):
-        super().__init__()
-        self.value = AttrR(float)
+    connection: DeviceConnection
 
-    async def connect(self):
-        ...
-        self._connected = True
+    def __init__(self, connection: DeviceConnection):
+        self.connection = connection
+        super().__init__()
+
+        self.value = AttrR(float)
 
 
 class RootController(Controller):
+    connection: DeviceConnection
+
     channel: ChannelController
 
-    def __init__(self):
+    def __init__(self, connections: Connections):
+        self.connection = connections.get("device", DeviceConnection)
         super().__init__()
-        self.channel = ChannelController()
-
-    async def connect(self):
-        await self.channel.connect()
-        self._connected = True
+        self.channel = ChannelController(self.connection)
 ```
+
+A sub controller that talks to a *different* device claims its own connection by
+name from the registry instead. Nothing is inferred from tree position.
 
 ## ControllerVector
 
@@ -133,12 +142,6 @@ class RootController(Controller):
             {i: ChannelController() for i in range(num_channels)}
         )
 
-    async def connect(self):
-        for channel in self.channels.values():
-            await channel.connect()
-
-        self._connected = True
-
     async def update_all(self):
         for index, channel in self.channels.items():
             value = await self._client.get_channel(index)
@@ -158,7 +161,7 @@ Use `ControllerVector` when:
 
 - The device has a set of identical channels, axes, or modules identified by number
 - You need to iterate over sub controllers and perform the same action on each
-- The number of instances may vary (e.g. determined at runtime during `initialise`)
+- The number of instances may vary (e.g. determined at runtime during `build`)
 
 Use a plain `Controller` with named sub controllers when the sub controllers are
 distinct components with different types or roles.
