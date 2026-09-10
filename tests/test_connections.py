@@ -12,6 +12,7 @@ from fastcs.connections import (
     SerialConnectionSettings,
     SimConnection,
 )
+from fastcs.connections.dra import DRADeviceMixin
 from fastcs.connections.ip_connection import DisconnectedError, StreamConnection
 from fastcs.connections.serial_connection import NotOpenedError
 
@@ -24,6 +25,12 @@ class OneConnection(Connection):
 class AnotherConnection(Connection):
     async def connect(self) -> None: ...
     async def close(self) -> None: ...
+
+
+class DRASerialConnection(DRADeviceMixin, SerialConnection):
+    @property
+    def _node_path(self) -> str:
+        return self._settings.port
 
 
 # Connections registry
@@ -264,3 +271,17 @@ async def test_a_sim_connection_is_a_sibling_of_the_real_transports():
     connection = SimConnection.__new__(SimConnection)
     Connection.__init__(connection, reconnect_period=2.0)
     assert connection.reconnect_period == 2.0
+
+
+# DRA Mixin
+
+
+def test_a_missing_device_node_is_terminal():
+    connection = DRASerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
+    assert connection.is_terminal(FileNotFoundError())
+
+
+def test_other_serial_failures_are_not_terminal():
+    connection = DRASerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
+    assert not connection.is_terminal(TimeoutError())
+    assert not connection.is_terminal(OSError("I/O error"))

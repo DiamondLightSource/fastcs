@@ -139,5 +139,12 @@ class Connection(ABC):
         """Block until this connection is down. Returns immediately if it already is."""
         await self._down.wait()
 
+    def is_terminal(self, exc: BaseException) -> bool:
+        """Whether a failed connect() can never succeed in this process."""
+        return False
+
+    def unrecoverable_reason(self) -> str:
+        return f"{type(self).__name__} cannot recover from this failure."
+
     def __repr__(self) -> str:
         return f"{type(self).__name__}(connected={self._connected})"
