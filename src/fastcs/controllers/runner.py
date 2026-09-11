@@ -109,10 +109,9 @@ class ControllerRunner:
         here instead. `FastCS` awaits it and shuts down; an embedder can do the same,
         and read `fatal_reason` for what happened.
 
-        Nothing in the framework sets this today: its one producer was the
-        introspection mismatch on reconnect, which went with introspection itself.
-        The channel is kept because the problem it solves - a background task that
-        cannot raise - has not gone anywhere.
+        Set by a reconnect that fails terminally under a fatal `Recovery` policy -
+        a DRA device node that has gone away, say - since only a restart can fix
+        that.
         """
 
         self.fatal_reason: BaseException | None = None
@@ -492,9 +491,13 @@ class ControllerRunner:
         try:
             await connection.close()  # tolerate an already-closed link
             await connection.connect()
-        except Exception:
+        except Exception as exc:
             logger.exception("Reconnect failed", connection=self._name_of(connection))
-            if state.attempts >= connection.reconnect_attempts:
+            recovery = connection.recovery
+            # A failure the policy knows cannot recover gives up at once, rather
+            # than spending the rest of the budget on retries that cannot succeed.
+            terminal = recovery.is_terminal(exc)
+            if terminal or state.attempts >= connection.reconnect_attempts:
                 # Terminal until the process restarts. Setting the event releases
                 # anything waiting on this connection, so dependents stall loudly
                 # instead of hanging silently.
@@ -503,11 +506,16 @@ class ControllerRunner:
                     "Giving up",
                     connection=self._name_of(connection),
                     attempts=state.attempts,
+                    reason=recovery.reason(connection) if terminal else None,
                     blocks=[
                         self._name_of(dependent)
                         for dependent in self._dependents_of(connection)
                     ],
                 )
+                if terminal and recovery.is_fatal:
+                    # Only a restart can fix it, so ask for one rather than sit
+                    # there looking healthy while serving stale values.
+                    self.fail(exc)
             return
 
         connection._set_connected()  # noqa: SLF001

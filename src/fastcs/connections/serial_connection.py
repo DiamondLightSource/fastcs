@@ -37,6 +37,10 @@ class SerialConnection(Connection):
         self._lock = asyncio.Lock()
         self.__stream: aioserial.AioSerial | None = None
 
+    @property
+    def label(self) -> str:
+        return self._settings.port
+
     async def connect(self) -> None:
         self.__stream = aioserial.AioSerial(
             port=self._settings.port, baudrate=self._settings.baud

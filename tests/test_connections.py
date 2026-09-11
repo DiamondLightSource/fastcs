@@ -6,13 +6,16 @@ import pytest
 from fastcs.connections import (
     Connection,
     Connections,
+    DRANode,
+    HTTPConnection,
+    HTTPConnectionSettings,
     IPConnection,
     IPConnectionSettings,
+    Recovery,
     SerialConnection,
     SerialConnectionSettings,
     SimConnection,
 )
-from fastcs.connections.dra import DRADeviceMixin
 from fastcs.connections.ip_connection import DisconnectedError, StreamConnection
 from fastcs.connections.serial_connection import NotOpenedError
 
@@ -25,12 +28,6 @@ class OneConnection(Connection):
 class AnotherConnection(Connection):
     async def connect(self) -> None: ...
     async def close(self) -> None: ...
-
-
-class DRASerialConnection(DRADeviceMixin, SerialConnection):
-    @property
-    def _node_path(self) -> str:
-        return self._settings.port
 
 
 # Connections registry
@@ -273,15 +270,94 @@ async def test_a_sim_connection_is_a_sibling_of_the_real_transports():
     assert connection.reconnect_period == 2.0
 
 
-# DRA Mixin
+# Recovery
 
 
-def test_a_missing_device_node_is_terminal():
+def test_a_missing_device_node_is_terminal_for_a_dra_node():
+    assert DRANode().is_terminal(FileNotFoundError())
+
+
+def test_other_failures_are_not_terminal_for_a_dra_node():
+    assert not DRANode().is_terminal(TimeoutError())
+    assert not DRANode().is_terminal(OSError("I/O error"))
+
+
+def test_the_default_policy_never_gives_up_early():
+    assert not Recovery().is_terminal(FileNotFoundError())
+    assert not Recovery.is_fatal
+
+
+def test_a_dra_node_is_fatal():
+    """Only a pod restart can re-establish the claim, so it asks for one."""
+    assert DRANode.is_fatal
+
+
+def test_every_connection_keeps_retrying_by_default():
+    assert isinstance(OneConnection().recovery, Recovery)
+    assert not OneConnection().recovery.is_terminal(FileNotFoundError())
+
+
+def test_one_policy_serves_any_transport():
+    """No class per transport × policy: the same instance is held by both."""
+    policy = DRANode()
+    serial = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
+    ip = IPConnection(IPConnectionSettings(ip="192.0.2.1", port=1234))
+    serial.recovery = policy
+    ip.recovery = policy
+
+    assert serial.recovery.is_terminal(FileNotFoundError())
+    assert ip.recovery.is_terminal(FileNotFoundError())
+    assert "/dev/ttyACM0" in serial.recovery.reason(serial)
+    assert "192.0.2.1:1234" in ip.recovery.reason(ip)
+
+
+def test_assigning_a_policy_to_one_instance_changes_only_that_instance():
+    claimed = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
+    unclaimed = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM1"))
+
+    claimed.recovery = DRANode()
+
+    assert claimed.recovery.is_terminal(FileNotFoundError())
+    assert not unclaimed.recovery.is_terminal(FileNotFoundError())
+
+
+def test_a_policy_can_be_set_on_the_class():
+    class DRASerialConnection(SerialConnection):
+        recovery = DRANode()
+
     connection = DRASerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
-    assert connection.is_terminal(FileNotFoundError())
+
+    assert connection.recovery.is_terminal(FileNotFoundError())
 
 
-def test_other_serial_failures_are_not_terminal():
-    connection = DRASerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
-    assert not connection.is_terminal(TimeoutError())
-    assert not connection.is_terminal(OSError("I/O error"))
+def test_the_default_reason_names_the_device():
+    connection = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
+
+    assert Recovery().reason(connection) == (
+        "/dev/ttyACM0 cannot recover from this failure."
+    )
+
+
+# label
+
+
+def test_a_connection_is_labelled_by_its_class_unless_it_knows_its_device():
+    assert OneConnection().label == "OneConnection"
+
+
+def test_a_serial_connection_is_labelled_by_its_port():
+    connection = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
+
+    assert connection.label == "/dev/ttyACM0"
+
+
+def test_an_ip_connection_is_labelled_by_its_address():
+    connection = IPConnection(IPConnectionSettings(ip="192.0.2.1", port=1234))
+
+    assert connection.label == "192.0.2.1:1234"
+
+
+def test_an_http_connection_is_labelled_by_its_base_url():
+    connection = HTTPConnection(HTTPConnectionSettings(host="192.0.2.1", port=8080))
+
+    assert connection.label == "http://192.0.2.1:8080"

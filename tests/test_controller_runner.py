@@ -9,6 +9,8 @@ from fastcs.connections import (
     DEFAULT_RECONNECT_PERIOD,
     Connection,
     Connections,
+    DRANode,
+    Recovery,
 )
 from fastcs.controllers import Controller, ControllerRunner
 from fastcs.controllers.runner import MAX_BUILD_PASSES
@@ -374,6 +376,162 @@ async def test_a_clean_reconnect_restores_the_retry_budget():
         await asyncio.wait_for(connection.wait_up(), timeout=2)
 
         assert runner._state[connection].attempts == 0
+    finally:
+        await runner.stop()
+
+
+# Recovery policy
+
+
+class NoRestart(Recovery):
+    """Terminal on a missing node, but stalls rather than bringing the app down."""
+
+    def is_terminal(self, exc: BaseException) -> bool:
+        return isinstance(exc, FileNotFoundError)
+
+
+@pytest.mark.asyncio
+async def test_a_terminal_failure_gives_up_without_spending_the_budget(monkeypatch):
+    errors: list[dict] = []
+    monkeypatch.setattr(
+        "fastcs.controllers.runner.logger.error",
+        lambda event, **kwargs: errors.append({"event": event, **kwargs}),
+    )
+
+    connection = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
+    connection.recovery = DRANode()
+    runner = runner_for(LifecycleController(connection), only=connection)
+    await runner.start()
+    try:
+        connection.fail_next = FileNotFoundError("/dev/ttyACM0")
+        connection.set_disconnected()
+
+        state = runner._state[connection]
+        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
+
+        assert state.attempts == 1
+        assert connection.connects == 2  # the initial open, then one reconnect
+        assert not connection.connected
+
+        # Terminal until the process restarts: no further attempts
+        await asyncio.sleep(0.05)
+        assert connection.connects == 2
+
+        gave_up = [e for e in errors if e["event"] == "Giving up"]
+        assert gave_up and gave_up[0]["reason"] == DRANode().reason(connection)
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_the_default_policy_spends_the_whole_budget_on_the_same_failure():
+    connection = FakeConnection(reconnect_period=0.001, reconnect_attempts=3)
+    runner = runner_for(LifecycleController(connection), only=connection)
+    await runner.start()
+    try:
+        connection.fail_next = FileNotFoundError("/dev/ttyACM0")
+        connection.set_disconnected()
+
+        state = runner._state[connection]
+        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
+
+        assert state.attempts == 3
+        assert not runner.fatal_error.is_set()
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_failure_the_policy_does_not_call_terminal_is_retried():
+    connection = FakeConnection(reconnect_period=0.001, reconnect_attempts=3)
+    connection.recovery = DRANode()
+    runner = runner_for(LifecycleController(connection), only=connection)
+    await runner.start()
+    try:
+        connection.fail_next = OSError("I/O error")
+        connection.set_disconnected()
+
+        state = runner._state[connection]
+        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
+
+        assert state.attempts == 3
+        # Running out of budget is not what the policy calls fatal
+        assert not runner.fatal_error.is_set()
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_terminal_failure_under_a_fatal_policy_is_fatal():
+    connection = FakeConnection(reconnect_period=0.001)
+    connection.recovery = DRANode()
+    runner = runner_for(LifecycleController(connection), only=connection)
+    await runner.start()
+    try:
+        exc = FileNotFoundError("/dev/ttyACM0")
+        connection.fail_next = exc
+        connection.set_disconnected()
+
+        await asyncio.wait_for(runner.fatal_error.wait(), timeout=2)
+
+        assert runner.fatal_reason is exc
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_terminal_failure_under_a_non_fatal_policy_only_stalls():
+    connection = FakeConnection(reconnect_period=0.001)
+    connection.recovery = NoRestart()
+    runner = runner_for(LifecycleController(connection), only=connection)
+    await runner.start()
+    try:
+        connection.fail_next = FileNotFoundError("/dev/ttyACM0")
+        connection.set_disconnected()
+
+        state = runner._state[connection]
+        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
+
+        assert state.attempts == 1
+        assert not runner.fatal_error.is_set()
+        assert runner.fatal_reason is None
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_terminal_failure_still_stalls_its_dependents(monkeypatch):
+    errors: list[dict] = []
+    monkeypatch.setattr(
+        "fastcs.controllers.runner.logger.error",
+        lambda event, **kwargs: errors.append({"event": event, **kwargs}),
+    )
+
+    base = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
+    base.recovery = NoRestart()
+    layered = FakeConnection(depends_on=base, reconnect_period=0.001)
+
+    runner = runner_for(
+        [LifecycleController(base), LifecycleController(layered)],
+        base=base,
+        layered=layered,
+    )
+    await runner.start()
+    try:
+        base.fail_next = FileNotFoundError("/dev/ttyACM0")
+        base.set_disconnected()
+        layered.set_disconnected()
+
+        await asyncio.sleep(0.2)
+
+        gave_up = [e for e in errors if e["event"] == "Giving up"]
+        assert gave_up and gave_up[0]["connection"] == "base"
+        assert gave_up[0]["attempts"] == 1
+        assert gave_up[0]["blocks"] == ["layered"]
+
+        stalled = [e for e in errors if e["event"].startswith("Stalled")]
+        assert stalled and stalled[0]["connection"] == "layered"
+        assert runner._state[layered].attempts == 0
     finally:
         await runner.stop()
 

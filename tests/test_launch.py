@@ -88,9 +88,9 @@ class FakeConnection(Connection):
 class OtherConnection(Connection):
     type_name: ClassVar[str] = "other-connection"
 
-    def __init__(self, label: str = "unlabelled", **kwargs) -> None:
+    def __init__(self, tag: str = "untagged", **kwargs) -> None:
         super().__init__(**kwargs)
-        self.label = label
+        self.tag = tag
 
     async def connect(self) -> None: ...
 
@@ -609,7 +609,7 @@ def test_connection_type_discriminates_within_the_entry():
                         "type": "tests.FakeConnection",
                         "settings": {"host": "h"},
                     },
-                    "other": {"type": "other-connection", "label": "labelled"},
+                    "other": {"type": "other-connection", "tag": "tagged"},
                 },
             }
         ],
@@ -617,7 +617,7 @@ def test_connection_type_discriminates_within_the_entry():
     )
 
     assert isinstance(controller, NeedsConnections)
-    assert controller.registry.get("other", OtherConnection).label == "labelled"
+    assert controller.registry.get("other", OtherConnection).tag == "tagged"
 
 
 def test_unknown_connection_type_rejected():

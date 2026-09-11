@@ -7,6 +7,8 @@ from .ip_connection import DisconnectedError as DisconnectedError
 from .ip_connection import IPConnection as IPConnection
 from .ip_connection import IPConnectionSettings as IPConnectionSettings
 from .ip_connection import StreamConnection as StreamConnection
+from .recovery import DRANode as DRANode
+from .recovery import Recovery as Recovery
 from .registry import Connections as Connections
 from .serial_connection import SerialConnection as SerialConnection
 from .serial_connection import SerialConnectionSettings as SerialConnectionSettings

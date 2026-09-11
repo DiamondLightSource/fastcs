@@ -178,6 +178,39 @@ Each attempt closes the link and reopens it. `reconnect_attempts` consecutive
 failures is terminal until the process restarts; a clean connection restores the
 budget.
 
+Some failures are known never to recover, and retrying them is noise. A connection
+holds a `Recovery` policy that says which: a failed reconnect the policy calls
+terminal gives up at once instead of burning the rest of the budget, and the
+"Giving up" log line says why. The default policy calls nothing terminal. A device
+node injected by a Kubernetes DRA claim is the case that motivated it - the claim is
+made when the pod starts, so a node that has gone will not come back without a
+restart:
+
+```python
+from fastcs.connections import DRANode, SerialConnection
+
+
+class StageConnection(SerialConnection):
+    recovery = DRANode()
+```
+
+`DRANode` is also *fatal*: rather than stall with its dependents serving stale
+values, it asks the runner to shut the application down, so the orchestrator
+restarts the pod and the claim is re-established. A policy that is terminal but not
+fatal gives up and stalls, like a spent budget.
+
+The policy is held rather than inherited, so the transport and what to do when it
+fails are chosen separately. The same `DRANode()` serves a serial port, a socket or
+anything else, with no class per transport × policy, and it can be assigned to a
+single instance (`connection.recovery = DRANode()`) as well as set on a class. It
+is not a constructor argument, so it does not appear in the connection's
+configuration. A policy names the device it gave up on by the connection's `label` -
+the port, address or URL where the connection knows one.
+
+`reconnect_period` and `reconnect_attempts` stay on the connection rather than the
+policy: whether a failure is terminal is a fact about the device, while the period
+and the budget are what a site tunes.
+
 ### Dependencies
 
 A connection layered over others declares them, rather than having them derived from
