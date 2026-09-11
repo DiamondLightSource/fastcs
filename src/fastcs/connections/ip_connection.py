@@ -73,6 +73,10 @@ class IPConnection(Connection, Tracer):
         self.__connection: StreamConnection | None = None
 
     @property
+    def label(self) -> str:
+        return f"{self._settings.ip}:{self._settings.port}"
+
+    @property
     def _connection(self) -> StreamConnection:
         if self.__connection is None:
             raise DisconnectedError("Need to call connect() before using IPConnection.")

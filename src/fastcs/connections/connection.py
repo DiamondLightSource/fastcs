@@ -4,6 +4,8 @@ import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
+from fastcs.connections.recovery import Recovery
+
 DEFAULT_RECONNECT_PERIOD = 1.0
 """Seconds a connection waits between reconnect attempts, unless it says otherwise."""
 
@@ -67,6 +69,14 @@ class Connection(ABC):
     # connection, constructor arguments on top - three tiers, each overriding the last.
     reconnect_period: float = DEFAULT_RECONNECT_PERIOD
     reconnect_attempts: int = DEFAULT_RECONNECT_ATTEMPTS
+
+    recovery: Recovery = Recovery()
+    """What to do when this connection fails; assign a policy to change it.
+
+    A class attribute, not a constructor argument: a constructor argument would
+    appear in every connection's config schema. Policies are stateless, so the
+    default instance is shared.
+    """
 
     def __init__(
         self,
@@ -138,6 +148,16 @@ class Connection(ABC):
     async def wait_down(self) -> None:
         """Block until this connection is down. Returns immediately if it already is."""
         await self._down.wait()
+
+    @property
+    def label(self) -> str:
+        """What to call this connection's device in a failure message.
+
+        The device node or address where a connection knows one, and the class
+        name otherwise. Distinct from the role name the runner logs, which comes
+        from config rather than from the device.
+        """
+        return type(self).__name__
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(connected={self._connected})"

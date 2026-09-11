@@ -56,6 +56,10 @@ class HTTPConnection(Connection):
         self.__client: AsyncClient | None = None
 
     @property
+    def label(self) -> str:
+        return self._settings.base_url
+
+    @property
     def _client(self) -> AsyncClient:
         if self.__client is None:
             raise DisconnectedError(
