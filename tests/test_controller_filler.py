@@ -10,6 +10,7 @@ import pytest
 from fastcs.attributes import AttrR, AttrRW, AttrW, NotPolled
 from fastcs.controllers import BaseController, Controller, ControllerVector
 from fastcs.datatypes import Array1D
+from tests.conftest import FakeBackend
 
 
 class Colour(enum.Enum):
@@ -214,7 +215,9 @@ async def test_filling_only_a_getter_leaves_a_read_only_attribute_readable():
     async def get() -> float:
         return 2.5
 
-    controller.filler.fill_attribute("reading", getter=NotPolled(get))
+    controller.filler.fill_attribute(
+        controller.filler.declarations["reading"], getter=NotPolled(get)
+    )
 
     assert controller.reading.poll_period is None
     assert await controller.reading.poll() == 2.5
@@ -230,7 +233,9 @@ def test_filling_a_setter_on_a_read_only_attribute_raises():
         pass
 
     with pytest.raises(TypeError, match="nothing to write"):
-        controller.filler.fill_attribute("reading", setter=put)
+        controller.filler.fill_attribute(
+            controller.filler.declarations["reading"], setter=put
+        )
 
 
 def test_filling_a_getter_on_a_write_only_attribute_raises():
@@ -243,7 +248,9 @@ def test_filling_a_getter_on_a_write_only_attribute_raises():
         return 0.0
 
     with pytest.raises(TypeError, match="nothing to read"):
-        controller.filler.fill_attribute("demand", getter=get)
+        controller.filler.fill_attribute(
+            controller.filler.declarations["demand"], getter=get
+        )
 
 
 def test_filling_twice_raises():
@@ -255,10 +262,11 @@ def test_filling_twice_raises():
     async def get() -> float:
         return 0.0
 
-    controller.filler.fill_attribute("reading", getter=get)
+    declaration = controller.filler.declarations["reading"]
+    controller.filler.fill_attribute(declaration, getter=get)
 
     with pytest.raises(ValueError, match="already has a getter"):
-        controller.filler.fill_attribute("reading", getter=get)
+        controller.filler.fill_attribute(declaration, getter=get)
 
 
 @pytest.mark.asyncio
@@ -275,10 +283,12 @@ async def test_a_rejected_fill_leaves_the_attribute_unfilled():
     async def put(value: float) -> None:
         pass
 
-    with pytest.raises(TypeError, match="nothing to write"):
-        controller.filler.fill_attribute("reading", getter=get, setter=put)
+    declaration = controller.filler.declarations["reading"]
 
-    controller.filler.fill_attribute("reading", getter=get)
+    with pytest.raises(TypeError, match="nothing to write"):
+        controller.filler.fill_attribute(declaration, getter=get, setter=put)
+
+    controller.filler.fill_attribute(declaration, getter=get)
 
     assert await controller.reading.poll() == 3.5
 
@@ -291,7 +301,7 @@ def test_a_rejected_fill_leaves_the_metadata_alone():
 
     with pytest.raises(TypeError, match="not valid metadata"):
         controller.filler.fill_attribute(
-            "reading",
+            controller.filler.declarations["reading"],
             units="mm",
             structured_dtype=[("index", np.int32)],  # pyright: ignore[reportCallIssue]
         )
@@ -304,9 +314,57 @@ def test_fill_meta_takes_a_whole_meta_dict():
         reading: AttrR[float]
 
     controller = Declared()
-    controller.filler.fill_meta("reading", {"units": "mm", "precision": 2})
+    controller.filler.fill_meta(
+        controller.filler.declarations["reading"], {"units": "mm", "precision": 2}
+    )
 
     assert controller.reading.meta == {"units": "mm", "precision": 2}
+
+
+@pytest.mark.asyncio
+async def test_fill_from_backend_binds_getter_and_setter_from_the_backend():
+    class Declared(Controller):
+        reading: AttrRW[float]
+
+    controller = Declared()
+    backend = FakeBackend(value=2.5)
+
+    controller.filler.fill_from_backend(
+        controller.filler.declarations["reading"], backend, "R"
+    )
+
+    assert await controller.reading.poll() == 2.5
+    await controller.reading.set(3.5)
+    assert backend.sets == [(3.5, ("R",))]
+
+
+def test_fill_from_backend_applies_metadata():
+    class Declared(Controller):
+        reading: AttrR[float]
+
+    controller = Declared()
+
+    controller.filler.fill_from_backend(
+        controller.filler.declarations["reading"],
+        FakeBackend(),
+        "R",
+        units="mm",
+        precision=2,
+    )
+
+    assert controller.reading.meta == {"units": "mm", "precision": 2}
+
+
+def test_fill_from_backend_on_a_promise_raises():
+    class Declared(Controller):
+        state: AttrR
+
+    controller = Declared()
+
+    with pytest.raises(KeyError, match="without a datatype"):
+        controller.filler.fill_from_backend(
+            controller.filler.declarations["state"], FakeBackend(), "R"
+        )
 
 
 def test_hinted_attributes_are_not_shared_between_instances():

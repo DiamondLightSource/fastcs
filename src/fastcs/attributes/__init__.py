@@ -13,5 +13,7 @@ from .attr_w import Setter as Setter
 from .attr_w import UnboundSetter as UnboundSetter
 from .attribute import Attribute as Attribute
 from .attribute import AttributeAccessMode as AttributeAccessMode
+from .backend import AttrBackend as AttrBackend
+from .factory import AttrFactory as AttrFactory
 from .severity import Severity as Severity
 from .update import Update as Update

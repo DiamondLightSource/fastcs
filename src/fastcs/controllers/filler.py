@@ -14,7 +14,9 @@ still constructing::
         frames: AttrRW[int]        # exists as soon as __init__ returns
 
         async def initialise(self) -> None:
-            self.filler.fill_attribute("frames", getter=..., setter=...)
+            self.filler.fill_attribute(
+                self.filler.declarations["frames"], getter=..., setter=...
+            )
 
 so ``self.frames`` can be referenced by the rest of ``__init__`` - the rule
 ADR 0013 takes from ophyd-async, and what makes ``initialise`` safe to run in
@@ -47,6 +49,8 @@ from typing import (
 from fastcs.attributes import Attribute, AttrR, AttrW
 from fastcs.attributes.attr_r import Getter, Schedule
 from fastcs.attributes.attr_w import Setter
+from fastcs.attributes.backend import AttrBackend, Ts
+from fastcs.attributes.factory import AttrFactory
 from fastcs.datatypes import DType, DType_T, Meta, validate_meta
 from fastcs.methods import Method
 
@@ -231,7 +235,7 @@ class ControllerFiller:
 
     def fill_attribute(
         self,
-        name: str,
+        declaration: Declaration,
         getter: Getter[DType_T] | Schedule[DType_T] | None = None,
         setter: Setter[DType_T] | None = None,
         datatype: type[DType_T] | None = None,
@@ -240,7 +244,11 @@ class ControllerFiller:
         """Provision a declared attribute with its IO and metadata.
 
         Args:
-            name: The name the class body declared
+            declaration: The class-body declaration to fill, as yielded by
+                `declarations` or iteration over this filler. Look one up by
+                name with ``self.filler.declarations[name]`` if you don't
+                already have it - iterating declarations to find the one you
+                want is the common case this signature is for.
             getter: IO to read the value with, optionally wrapped in a
                 `Polled`/`NotPolled` schedule
             setter: IO to write the value with
@@ -255,31 +263,25 @@ class ControllerFiller:
             The attribute, which is the same object the hint created
 
         Raises:
-            KeyError: If nothing of that name was declared
+            KeyError: If the declaration names a promise rather than a built
+                attribute
             TypeError: If the attribute has no half the given IO would fill,
                 the datatype disagrees with the hint, or the metadata does not
                 suit the datatype
 
         """
-        declaration = self._declarations.get(name)
-        if declaration is None:
-            raise KeyError(
-                f"{type(self._controller).__name__} has no attribute declaration "
-                f"named '{name}' to fill. Declare it as a class-body hint with its "
-                "datatype, or add the attribute with `add_attribute`."
-            )
-
         if declaration.child is None:
             # A hint that does not name its datatype - `state: AttrR` - is a
             # promise rather than something the filler could build, so there is
             # no attribute here to provision.
             raise KeyError(
-                f"{type(self._controller).__name__} declared '{name}' as "
+                f"{type(self._controller).__name__} declared '{declaration.name}' as "
                 f"{declaration.hint.type_} without a datatype, so there is no "
                 "attribute to fill. Subscript the hint with the datatype it holds, "
                 "or add the attribute with `add_attribute`."
             )
 
+        name = declaration.name
         attribute = declaration.child
 
         # The whole request is checked before any of it is applied, so that a
@@ -333,13 +335,49 @@ class ControllerFiller:
 
         return attribute
 
-    def fill_meta(self, name: str, meta: Meta) -> Attribute:
+    def fill_from_backend(
+        self,
+        declaration: Declaration,
+        backend: AttrBackend[*Ts, DType_T],
+        *args: *Ts,
+        schedule: Schedule[DType_T] | None = None,
+        **meta: Unpack[Meta],
+    ) -> Attribute:
+        """Fill a declared attribute's IO from a backend, then apply its metadata.
+
+        Args:
+            declaration: The class-body declaration to fill
+            args: Forwarded to the backend's `get`/`set` to identify the resource
+            schedule: A bare `Polled(period=...)`/`NotPolled()` to read the getter
+                on, or `None` to read once, at connect - see `AttrFactory.fill`
+            meta: Metadata for the attribute, validated against the datatype the
+                hint declared
+
+        Returns:
+            The attribute, which is the same object the hint created
+
+        Raises:
+            KeyError: If the declaration names a promise rather than a built
+                attribute - see `fill_attribute`
+
+        """
+        # Meta first, IO second: `fill_attribute` is what raises for a promise
+        # or bad metadata, and it should do so before any IO is bound, not after
+        # - otherwise a rejected fill would leave the attribute's getter/setter
+        # already set from the backend, refusing a corrected retry.
+        attribute = self.fill_attribute(declaration, **meta)
+
+        AttrFactory(backend).fill(attribute, *args, schedule=schedule)
+
+        return attribute
+
+    def fill_meta(self, declaration: Declaration, meta: Meta) -> Attribute:
         """Fill a declared attribute's metadata from an extras object.
 
         The shape a protocol layer wants: ``SCPIParam(...).meta`` in one go,
         validated against the datatype the hint declared.
         """
-        return self.fill_attribute(name, **meta)
+        return self.fill_attribute(declaration, **meta)
 
     def check_filled(self) -> None:
         """Raise if anything the class body promised does not exist.

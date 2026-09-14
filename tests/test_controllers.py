@@ -187,7 +187,10 @@ async def test_filling_a_hinted_attribute():
         pass
 
     controller.filler.fill_attribute(
-        "read_write_int", getter=Polled(get, period=0.5), setter=put, units="counts"
+        controller.filler.declarations["read_write_int"],
+        getter=Polled(get, period=0.5),
+        setter=put,
+        units="counts",
     )
 
     # Filled in place, so a reference taken during __init__ is still the one
@@ -205,7 +208,9 @@ def test_filling_the_wrong_datatype_raises():
     controller = HintedController()
 
     with pytest.raises(TypeError, match="wrong datatype"):
-        controller.filler.fill_attribute("read_write_int", datatype=float)
+        controller.filler.fill_attribute(
+            controller.filler.declarations["read_write_int"], datatype=float
+        )
 
 
 def test_filling_metadata_the_datatype_has_no_use_for_raises():
@@ -215,7 +220,9 @@ def test_filling_metadata_the_datatype_has_no_use_for_raises():
     controller = HintedController()
 
     with pytest.raises(TypeError, match="'precision' is not valid metadata for str"):
-        controller.filler.fill_attribute("label", precision=3)
+        controller.filler.fill_attribute(
+            controller.filler.declarations["label"], precision=3
+        )
 
 
 def test_filling_something_that_was_never_declared_raises():
@@ -224,8 +231,8 @@ def test_filling_something_that_was_never_declared_raises():
 
     controller = HintedController()
 
-    with pytest.raises(KeyError, match="no attribute declaration"):
-        controller.filler.fill_attribute("not_declared")
+    with pytest.raises(KeyError, match="not_declared"):
+        controller.filler.declarations["not_declared"]
 
 
 class PromisedAttrController(Controller):
@@ -285,13 +292,17 @@ def test_filling_an_enum_attribute_with_another_enum_raises():
     controller = EnumHintedController()
 
     with pytest.raises(TypeError, match="wrong datatype"):
-        controller.filler.fill_attribute("colour", datatype=BadEnum)
+        controller.filler.fill_attribute(
+            controller.filler.declarations["colour"], datatype=BadEnum
+        )
 
 
 def test_filling_an_enum_attribute_with_the_declared_enum_is_accepted():
     controller = EnumHintedController()
 
-    controller.filler.fill_attribute("colour", datatype=GoodEnum)
+    controller.filler.fill_attribute(
+        controller.filler.declarations["colour"], datatype=GoodEnum
+    )
 
     assert controller.colour.dtype is GoodEnum
 

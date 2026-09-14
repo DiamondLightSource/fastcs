@@ -171,7 +171,7 @@ class EigerDetector(Controller):
                     # access mode and datatype the hint promised against what
                     # the device turned out to report.
                     self.filler.fill_attribute(
-                        param, datatype=datatype, getter=getter, setter=setter
+                        declaration, datatype=datatype, getter=getter, setter=setter
                     )
                 elif setter is None:
                     self.add_attribute(param, AttrR(datatype, getter=getter))
