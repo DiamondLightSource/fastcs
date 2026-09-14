@@ -22,9 +22,6 @@ from fastcs.transports.epics.ca import EpicsCATransport
 from fastcs.transports.epics.ca.ioc import (
     EpicsCAIOC,
     _add_alias,
-    _add_attr_pvi_info,
-    _add_pvi_info,
-    _add_sub_controller_pvi_info,
     _create_and_link_command_pv,
     _create_and_link_read_pv,
     _create_and_link_write_pv,
@@ -48,18 +45,14 @@ class OnOffStates(enum.IntEnum):
 @pytest.mark.asyncio
 async def test_create_and_link_read_pv(mocker: MockerFixture):
     make_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")
-    add_attr_pvi_info = mocker.patch(
-        "fastcs.transports.epics.ca.ioc._add_attr_pvi_info"
-    )
     record = make_record.return_value
 
     attribute = AttrR(Int())
     attribute.add_on_update_callback = mocker.MagicMock()
 
-    _create_and_link_read_pv("PREFIX", "PV", "attr", None, attribute)
+    _create_and_link_read_pv("PREFIX", "PV", None, attribute)
 
     make_record.assert_called_once_with("PREFIX:PV", attribute)
-    add_attr_pvi_info.assert_called_once_with(record, "PREFIX", "attr", "r")
 
     # Extract the callback generated and set in the function and call it
     attribute.add_on_update_callback.assert_called_once_with(mocker.ANY)
@@ -76,7 +69,7 @@ async def test_create_and_link_write_pv_adds_alias(mocker: MockerFixture):
     record.add_alias = mocker.MagicMock()
     attribute = mocker.MagicMock()
 
-    _create_and_link_write_pv("PREFIX", "PV", "attr", "alias", attribute)
+    _create_and_link_write_pv("PREFIX", "PV", "alias", attribute)
 
     make_record.assert_called_once_with("PREFIX:PV", attribute, on_update=mocker.ANY)
     record.add_alias.assert_called_once_with("alias")
@@ -89,7 +82,7 @@ async def test_create_and_link_read_pv_adds_alias(mocker: MockerFixture):
     record.add_alias = mocker.MagicMock()
     attribute = mocker.MagicMock()
 
-    _create_and_link_read_pv("PREFIX", "PV_RBV", "attr", "alias", attribute)
+    _create_and_link_read_pv("PREFIX", "PV_RBV", "alias", attribute)
 
     make_record.assert_called_once_with("PREFIX:PV_RBV", attribute)
     record.add_alias.assert_called_once_with("alias")
@@ -102,7 +95,7 @@ async def test_create_and_link_command_pv_adds_alias(mocker: MockerFixture):
     record.add_alias = mocker.MagicMock()
     command = mocker.MagicMock()
 
-    _create_and_link_command_pv("PREFIX", "Command", "command", "alias", command)
+    _create_and_link_command_pv("PREFIX", "Command", "alias", command)
 
     make_action.assert_called_once_with(
         "PREFIX:Command",
@@ -223,19 +216,15 @@ def test_make_record_raises(mocker: MockerFixture):
 @pytest.mark.asyncio
 async def test_create_and_link_write_pv(mocker: MockerFixture):
     make_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
-    add_attr_pvi_info = mocker.patch(
-        "fastcs.transports.epics.ca.ioc._add_attr_pvi_info"
-    )
     record = make_record.return_value
 
     attribute = AttrW(Int())
     attribute.put = mocker.AsyncMock()
     attribute.add_sync_setpoint_callback = mocker.MagicMock()
 
-    _create_and_link_write_pv("PREFIX", "PV", "attr", None, attribute)
+    _create_and_link_write_pv("PREFIX", "PV", None, attribute)
 
     make_record.assert_called_once_with("PREFIX:PV", attribute, on_update=mocker.ANY)
-    add_attr_pvi_info.assert_called_once_with(record, "PREFIX", "attr", "w")
 
     # Extract the write update callback generated and set in the function and call it
     attribute.add_sync_setpoint_callback.assert_called_once_with(mocker.ANY)
@@ -361,10 +350,6 @@ def epics_controller_api(class_mocker: MockerFixture):
 def test_ioc(mocker: MockerFixture, epics_controller_api: ControllerAPI):
     util_builder = mocker.patch("fastcs.transports.epics.ca.util.builder")
     ioc_builder = mocker.patch("fastcs.transports.epics.ca.ioc.builder")
-    add_pvi_info = mocker.patch("fastcs.transports.epics.ca.ioc._add_pvi_info")
-    add_sub_controller_pvi_info = mocker.patch(
-        "fastcs.transports.epics.ca.ioc._add_sub_controller_pvi_info"
-    )
 
     EpicsCAIOC([epics_controller_api], {})
 
@@ -464,108 +449,6 @@ def test_ioc(mocker: MockerFixture, epics_controller_api: ControllerAPI):
         initial_value=0,
         ZNAM="Idle",
         ONAM="Active",
-    )
-
-    # Check info tags are added
-    add_pvi_info.assert_called_once_with(f"{DEVICE}:PVI")
-    add_sub_controller_pvi_info.assert_called_once_with(epics_controller_api)
-
-
-def test_add_pvi_info(mocker: MockerFixture):
-    builder = mocker.patch("fastcs.transports.epics.ca.ioc.builder")
-    controller = mocker.MagicMock()
-    controller.path = []
-    child = mocker.MagicMock()
-    child.path = ["Child"]
-    controller.get_sub_controllers.return_value = {"d": child}
-
-    _add_pvi_info(f"{DEVICE}:PVI")
-
-    builder.longStringIn.assert_called_once_with(
-        f"{DEVICE}:PVI_PV",
-        initial_value=f"{DEVICE}:PVI",
-        DESC="The records in this controller",
-    )
-    record = builder.longStringIn.return_value
-    record.add_info.assert_called_once_with(
-        "Q:group",
-        {
-            f"{DEVICE}:PVI": {
-                "+id": "epics:nt/NTPVI:1.0",
-                "display.description": {"+type": "plain", "+channel": "DESC"},
-                "": {"+type": "meta", "+channel": "VAL"},
-            }
-        },
-    )
-
-
-def test_add_pvi_info_with_parent(mocker: MockerFixture):
-    builder = mocker.patch("fastcs.transports.epics.ca.ioc.builder")
-    controller = mocker.MagicMock()
-    controller.path = []
-    child = mocker.MagicMock()
-    child.path = ["Child"]
-    controller.get_sub_controllers.return_value = {"d": child}
-
-    child = mocker.MagicMock()
-    _add_pvi_info(f"{DEVICE}:Child:PVI", f"{DEVICE}:PVI", "child")
-
-    builder.longStringIn.assert_called_once_with(
-        f"{DEVICE}:Child:PVI_PV",
-        initial_value=f"{DEVICE}:Child:PVI",
-        DESC="The records in this controller",
-    )
-    record = builder.longStringIn.return_value
-    record.add_info.assert_called_once_with(
-        "Q:group",
-        {
-            f"{DEVICE}:Child:PVI": {
-                "+id": "epics:nt/NTPVI:1.0",
-                "display.description": {"+type": "plain", "+channel": "DESC"},
-                "": {"+type": "meta", "+channel": "VAL"},
-            },
-            f"{DEVICE}:PVI": {
-                "value.child.d": {
-                    "+channel": "VAL",
-                    "+type": "plain",
-                    "+trigger": "value.child.d",
-                }
-            },
-        },
-    )
-
-
-def test_add_sub_controller_pvi_info(mocker: MockerFixture):
-    add_pvi_info = mocker.patch("fastcs.transports.epics.ca.ioc._add_pvi_info")
-    parent_api = mocker.MagicMock()
-    parent_api.path = [DEVICE]
-    child_api = mocker.MagicMock()
-    child_api.path = [DEVICE, "Child"]
-    parent_api.sub_apis = {"d": child_api}
-
-    _add_sub_controller_pvi_info(parent_api)
-
-    add_pvi_info.assert_called_once_with(
-        f"{DEVICE}:Child:PVI", f"{DEVICE}:PVI", "child"
-    )
-
-
-def test_add_attr_pvi_info(mocker: MockerFixture):
-    record = mocker.MagicMock()
-
-    _add_attr_pvi_info(record, DEVICE, "attr", "r")
-
-    record.add_info.assert_called_once_with(
-        "Q:group",
-        {
-            f"{DEVICE}:PVI": {
-                "value.attr.r": {
-                    "+channel": "NAME",
-                    "+type": "plain",
-                    "+trigger": "value.attr.r",
-                }
-            }
-        },
     )
 
 
@@ -684,7 +567,7 @@ def test_non_1d_waveforms_discarded(mocker: MockerFixture):
     EpicsCAIOC([api], {})
 
     create_mock.assert_called_once_with(
-        DEVICE, "Waveform1d", "waveform_1d", None, api.attributes["waveform_1d"]
+        DEVICE, "Waveform1d", None, api.attributes["waveform_1d"]
     )
 
 

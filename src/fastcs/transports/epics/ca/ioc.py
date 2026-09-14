@@ -1,7 +1,7 @@
 import asyncio
 from collections import Counter
 from collections.abc import Awaitable
-from typing import Any, Literal
+from typing import Any
 
 from softioc import alarm, builder, softioc
 from softioc.asyncio_dispatcher import AsyncioDispatcher
@@ -41,10 +41,6 @@ class EpicsCAIOC:
 
         self._controller_apis = controller_apis
         for controller_api in controller_apis:
-            root_pv_prefix = pv_prefix_from_path(controller_api.path)
-            _add_pvi_info(f"{root_pv_prefix}:PVI")
-            _add_sub_controller_pvi_info(controller_api)
-
             _create_and_link_attribute_pvs(controller_api, aliases)
             _create_and_link_command_pvs(controller_api, aliases)
 
@@ -54,69 +50,7 @@ class EpicsCAIOC:
     ) -> None:
         dispatcher = AsyncioDispatcher(loop)  # Needs running loop
         builder.LoadDatabase()
-        softioc.iocInit(dispatcher)
-
-
-def _add_pvi_info(
-    pvi: str,
-    parent_pvi: str = "",
-    name: str = "",
-):
-    """Add PVI metadata for a controller.
-
-    Args:
-        pvi: PVI PV of controller
-        parent_pvi: PVI PV of parent controller
-        name: Name to register controller with parent as
-
-    """
-    # Create a record to attach the info tags to
-    record = builder.longStringIn(
-        f"{pvi}_PV",
-        initial_value=pvi,
-        DESC="The records in this controller",
-    )
-
-    # Create PVI PV in preparation for adding attribute info tags to it
-    q_group = {
-        pvi: {
-            "+id": "epics:nt/NTPVI:1.0",
-            "display.description": {"+type": "plain", "+channel": "DESC"},
-            "": {"+type": "meta", "+channel": "VAL"},
-        }
-    }
-    # If this controller has a parent, add a link in the parent to this controller
-    if parent_pvi and name:
-        q_group.update(
-            {
-                parent_pvi: {
-                    f"value.{name}.d": {
-                        "+channel": "VAL",
-                        "+type": "plain",
-                        "+trigger": f"value.{name}.d",
-                    }
-                }
-            }
-        )
-
-    record.add_info("Q:group", q_group)
-
-
-def _add_sub_controller_pvi_info(parent: ControllerAPI):
-    """Add PVI references from controller to its sub controllers, recursively."""
-    parent_pvi = f"{pv_prefix_from_path(parent.path)}:PVI"
-
-    for child in parent.sub_apis.values():
-        child_pvi = f"{pv_prefix_from_path(child.path)}:PVI"
-        child_name = (
-            f"__{child.path[-1]}"  # Sub-Controller of ControllerVector
-            if child.path[-1].isdigit()
-            else child.path[-1]
-        )
-
-        _add_pvi_info(child_pvi, parent_pvi, child_name.lower())
-
-        _add_sub_controller_pvi_info(child)
+        softioc.iocInit(dispatcher, enable_pva=False)
 
 
 def _create_and_link_attribute_pvs(
@@ -164,14 +98,12 @@ def _create_and_link_attribute_pvs(
                         _create_and_link_read_pv(
                             pv_prefix,
                             f"{pv_name}{RBV_SUFFIX}",
-                            attr_name,
                             alias_rbv,
                             attribute,
                         )
                         _create_and_link_write_pv(
                             pv_prefix,
                             pv_name,
-                            attr_name,
                             alias,
                             attribute,
                         )
@@ -179,7 +111,6 @@ def _create_and_link_attribute_pvs(
                     _create_and_link_read_pv(
                         pv_prefix,
                         pv_name,
-                        attr_name,
                         alias,
                         attribute,
                     )
@@ -187,7 +118,6 @@ def _create_and_link_attribute_pvs(
                     _create_and_link_write_pv(
                         pv_prefix,
                         pv_name,
-                        attr_name,
                         alias,
                         attribute,
                     )
@@ -196,7 +126,6 @@ def _create_and_link_attribute_pvs(
 def _create_and_link_read_pv(
     pv_prefix: str,
     pv_name: str,
-    attr_name: str,
     alias: str | None,
     attribute: AttrR[DType_T],
 ) -> None:
@@ -213,15 +142,12 @@ def _create_and_link_read_pv(
 
     _add_alias(record, alias)
 
-    _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
-
     attribute.add_on_update_callback(async_record_set)
 
 
 def _create_and_link_write_pv(
     pv_prefix: str,
     pv_name: str,
-    attr_name: str,
     alias: str | None,
     attribute: AttrW[DType_T],
 ):
@@ -243,8 +169,6 @@ def _create_and_link_write_pv(
     record = _make_out_record(pv, attribute, on_update=on_update)
 
     _add_alias(record, alias)
-
-    _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
 
     attribute.add_sync_setpoint_callback(set_setpoint_without_process)
 
@@ -269,14 +193,13 @@ def _create_and_link_command_pvs(
                 _create_and_link_command_pv(
                     pv_prefix,
                     pv_name,
-                    attr_name,
                     alias,
                     method,
                 )
 
 
 def _create_and_link_command_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, alias: str | None, method: Command
+    pv_prefix: str, pv_name: str, alias: str | None, method: Command
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -294,37 +217,6 @@ def _create_and_link_command_pv(
     )
 
     _add_alias(record, alias)
-
-    _add_attr_pvi_info(record, pv_prefix, attr_name, "x")
-
-
-def _add_attr_pvi_info(
-    record: RecordWrapper,
-    prefix: str,
-    name: str,
-    access_mode: Literal["r", "w", "rw", "x"],
-):
-    """Add an info tag to a record to include it in the PVI for the controller.
-
-    Args:
-        record: Record to add info tag to
-        prefix: PV prefix of controller
-        name: Name of parameter to add to PVI
-        access_mode: Access mode of parameter
-
-    """
-    record.add_info(
-        "Q:group",
-        {
-            f"{prefix}:PVI": {
-                f"value.{name}.{access_mode}": {
-                    "+channel": "NAME",
-                    "+type": "plain",
-                    "+trigger": f"value.{name}.{access_mode}",
-                }
-            }
-        },
-    )
 
 
 def _add_alias(record: RecordWrapper, alias: str | None):
