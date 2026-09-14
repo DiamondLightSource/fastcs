@@ -1,0 +1,21 @@
+``fastcs.controllers.controller_vector``
+========================================
+        
+
+.. automodule:: fastcs.controllers.controller_vector
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        ControllerVector
+    
+    

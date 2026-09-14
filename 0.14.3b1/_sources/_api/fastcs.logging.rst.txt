@@ -1,0 +1,27 @@
+``fastcs.logging``
+==================
+        
+        
+        
+        
+
+.. automodule:: fastcs.logging
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        logger
+        configure_logging
+        intercept_std_logger
+        GraylogEndpoint
+    
+    
