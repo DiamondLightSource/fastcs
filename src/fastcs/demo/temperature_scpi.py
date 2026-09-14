@@ -93,7 +93,9 @@ class TemperatureRampController(SCPIController):
 
         # No `SCPIParam`, so `SCPIController` left it alone: filled here with the
         # metadata it wants and no IO, because the parent updates it.
-        self.filler.fill_attribute("voltage", precision=3, units="V")
+        self.filler.fill_attribute(
+            self.filler.declarations["voltage"], precision=3, units="V"
+        )
 
 
 class TemperatureController(SCPIController):
@@ -128,7 +130,9 @@ class TemperatureController(SCPIController):
     async def initialise(self) -> None:
         await super().initialise()
 
-        self.filler.fill_attribute("voltages", shape=(len(self.ramps),))
+        self.filler.fill_attribute(
+            self.filler.declarations["voltages"], shape=(len(self.ramps),)
+        )
 
     async def connect(self) -> None:
         await self.connection.connect(self._settings.ip_settings)

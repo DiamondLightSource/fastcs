@@ -40,6 +40,26 @@ def clear_softioc_records():
     builder.ClearRecords()
 
 
+class FakeBackend:
+    """Records every `get`/`set` call an `AttrBackend` receives, and returns
+    fixed values - shared by the `AttrFactory`/`ControllerFiller.fill_from_backend`
+    tests."""
+
+    def __init__(self, value: float = 1.5, set_result: float | None = None) -> None:
+        self.value = value
+        self.set_result = set_result
+        self.gets: list[tuple[object, ...]] = []
+        self.sets: list[tuple[float, tuple[object, ...]]] = []
+
+    async def get(self, *args: object) -> float:
+        self.gets.append(args)
+        return self.value
+
+    async def set(self, value: float, *args: object) -> float | None:
+        self.sets.append((value, args))
+        return self.set_result
+
+
 class BackendTestController(MyTestController):
     read_int: AttrR[int]
     read_write_int: AttrRW[int]

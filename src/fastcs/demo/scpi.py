@@ -12,17 +12,18 @@ the class body says what exists and `SCPIController` provisions it, rather than
 ``__init__`` wiring each getter and setter by hand as
 :mod:`fastcs.demo.temperature_attr` does.
 
-**This lives in the demo, not core FastCS** (ADR 0014 decision 3). Core defines no
-extras vocabulary for 1.0 - it defines the *mechanism*, which is the ``extras`` an
-``Annotated`` hint carries through to `ControllerFiller`. What a protocol package
-puts in there is its own business, and this module is the worked example of one
-doing it: `SCPIParam` is a sibling of ophyd-async's ``PvSuffix``, not a FastCS type.
+
+Every declared attribute reads and writes through the same wire protocol, differing
+only in its command token and (for a getter) the datatype that parses the device's
+text answer - the shared `AttrBackend`/`AttrFactory` mechanism this module's
+`SCPIBackend` is a worked example of, rather than a getter/setter closure hand-built
+per attribute.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any, Unpack, cast
 
-from fastcs.attributes import AttrW, Polled
+from fastcs.attributes import Polled
 from fastcs.connections import IPConnection
 from fastcs.controllers import Controller
 from fastcs.controllers.filler import Declaration
@@ -63,6 +64,37 @@ class SCPIParam:
         return f"SCPIParam({self.param!r}, {self.meta})"
 
 
+class SCPIBackend:
+    """Reads and writes one SCPI parameter, given its mnemonic and datatype.
+
+    Shared across every attribute an `SCPIController` declares, rather than a
+    getter/setter closure hand-built per attribute: `SCPIController._fill` supplies
+    the mnemonic and the datatype that parses the device's text answer as call
+    arguments (see `fastcs.attributes.factory.AttrFactory`), not as construction
+    state closed over per attribute.
+    """
+
+    def __init__(self, connection: IPConnection, suffix: str) -> None:
+        self._connection = connection
+        self._suffix = suffix
+
+    async def get(self, param: str, datatype: Callable[[str], DType_T]) -> DType_T:
+        query = f"{param}{self._suffix}?\r\n"
+        response = (await self._connection.send_query(query)).strip("\r\n")
+        # The hint's datatype doubles as the parser for the device's text answer,
+        # which every datatype FastCS serves happens to support - ``float("1.5")``,
+        # ``OnOffEnum("1")`` - but nothing in its type says so, hence the cast at
+        # the call site that built this `datatype` argument.
+        return datatype(response)
+
+    async def set(
+        self, value: DType_T, param: str, _datatype: Callable[[str], DType_T]
+    ) -> None:
+        command = f"{param}{self._suffix}={value}\r\n"
+        await self._connection.send_command(command)
+        logger.trace("Send command for attribute", command=command)
+
+
 class SCPIController(Controller):
     """A controller whose attributes are declared as `SCPIParam` hints.
 
@@ -92,8 +124,7 @@ class SCPIController(Controller):
         suffix: str = "",
         description: str | None = None,
     ) -> None:
-        self._connection = connection
-        self._suffix = suffix
+        self._backend = SCPIBackend(connection, suffix)
 
         super().__init__(description)
 
@@ -142,43 +173,11 @@ class SCPIController(Controller):
                 f"`{declaration.raw_name}: Annotated[AttrRW[float], ...]`."
             )
 
-        setter = None
-        if isinstance(declaration.child, AttrW):
-            setter = self._setter(param.param)
-
-        self.filler.fill_attribute(
-            declaration.name,
-            # The hint's datatype doubles as the parser for the device's text
-            # answer, which every datatype FastCS serves happens to support -
-            # ``float("1.5")``, ``OnOffEnum("1")`` - but nothing in its type says
-            # so, hence the cast.
-            getter=Polled(
-                self._getter(param.param, cast(Callable[[str], Any], datatype)),
-                period=self.poll_period,
-            ),
-            setter=setter,
+        self.filler.fill_from_backend(
+            declaration,
+            self._backend,
+            param.param,
+            cast(Callable[[str], Any], datatype),
+            schedule=Polled(period=self.poll_period),
             **param.meta,
         )
-
-    def _getter(
-        self, param: str, datatype: Callable[[str], DType_T]
-    ) -> Callable[[], Awaitable[DType_T]]:
-        """A zero-argument coroutine reading one parameter, parsed into its type."""
-
-        async def get() -> DType_T:
-            query = f"{param}{self._suffix}?\r\n"
-            response = (await self._connection.send_query(query)).strip("\r\n")
-            logger.trace("Query for attribute", query=query, response=response)
-            return datatype(response)
-
-        return get
-
-    def _setter(self, param: str) -> Callable[[Any], Awaitable[None]]:
-        """A one-argument coroutine writing one parameter."""
-
-        async def put(value: Any) -> None:
-            command = f"{param}{self._suffix}={value}\r\n"
-            await self._connection.send_command(command)
-            logger.trace("Send command for attribute", command=command)
-
-        return put
