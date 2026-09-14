@@ -54,7 +54,7 @@ class EpicsCAIOC:
     ) -> None:
         dispatcher = AsyncioDispatcher(loop)  # Needs running loop
         builder.LoadDatabase()
-        softioc.iocInit(dispatcher)
+        softioc.iocInit(dispatcher, enable_pva=False)
 
 
 def _add_pvi_info(
