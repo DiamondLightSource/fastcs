@@ -27,11 +27,12 @@ async def test_ioc(softioc_subprocess: tuple[str, Queue]):
         f"{pv_prefix}:ChildVector:0:D", d_values.put_nowait, format=FORMAT_TIME
     )
     try:
-        assert (await d_values.get()) == 0  # initial value
+        assert await d_values.get() == 0  # First monitor value
         await caput(f"{pv_prefix}:ChildVector:0:D", True)
-        assert (await d_values.get()) == 1  # command starts running
-        d_value = await d_values.get()  # command finishes and reverts to False
-        assert d_value.severity == alarm.MAJOR_ALARM
-        assert d_value == 0
+        d_value = await d_values.get()
+        assert d_value.severity == alarm.MAJOR_ALARM  # First real call fails
+        await caput(f"{pv_prefix}:ChildVector:0:D", True)
+        d_value = await d_values.get()
+        assert d_value.severity == alarm.NO_ALARM  # Second real call succeeds
     finally:
         subscription.close()
