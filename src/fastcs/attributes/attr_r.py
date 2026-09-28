@@ -379,7 +379,7 @@ class AttrR(Attribute[DType_T]):
 
         self.log_event("Attribute set", value=repr(value), attribute=self)
 
-        _previous_value = self._value
+        _previous_value, _previous_severity = self._value, self._severity
         try:
             self._value = self.validate(value)
         except ValueError:
@@ -397,10 +397,14 @@ class AttrR(Attribute[DType_T]):
         }
 
         if self._readback_callbacks is not None:
+            # A value flagged invalid, or cleared again, is news even if the value
+            # itself has not changed.
+            changed = (
+                not self.equal(self._value, _previous_value)
+                or self._severity is not _previous_severity
+            )
             callbacks_to_call: list[AttrReadbackCallback[DType_T]] = [
-                cb
-                for cb, always in self._readback_callbacks
-                if always or not self.equal(self._value, _previous_value)
+                cb for cb, always in self._readback_callbacks if always or changed
             ]
             try:
                 await asyncio.gather(*[cb(self._value) for cb in callbacks_to_call])

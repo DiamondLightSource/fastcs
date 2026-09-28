@@ -14,30 +14,41 @@ transports, no interactive shell. `FastCS` is a caller of it.
 ```python
 from fastcs.controllers import ControllerRunner
 
-runner = ControllerRunner(controller)
-apis = await runner.setup()   # initialise, and build the ControllerAPIs
-await runner.start()          # connect, run initial tasks, start scanning
+runner = ControllerRunner(controller, supervisors=[supervisor])
+apis = await runner.build()   # open connections, build and seal the tree, build APIs
+await runner.start()          # setup, run initial tasks, start scanning
 ...
-await runner.stop()           # stop the tasks, disconnect
+await runner.stop()           # stop the tasks, close the connections
 ```
 
-- **`setup()`** runs `initialise()` and `post_initialise()` on each controller
-  and builds their `ControllerAPI`s. It exists as a separate step because
-  anything serving the controllers has to register its callbacks *before* the
-  first values are read, or it misses them.
-- **`start()`** connects the controllers, runs the initial (`ONCE`) tasks, and
-  starts the periodic ones. It runs `setup()` first if you have not, so an
-  embedder that does not need the APIs in between can just call `start()`.
-- **`stop()`** cancels the tasks and disconnects.
+- **`build()`** opens every supervised `Connection`, walks the tree calling
+  `build()` on each controller, seals it, and builds their `ControllerAPI`s. It exists as
+  a separate step because anything serving the controllers has to register its
+  callbacks *before* the first values are read, or it misses them.
+- **`start()`** runs `setup()` across the tree and the initial (`ONCE`) tasks,
+  then hands over to the supervisors, which run the periodic ones and a reconnect
+  loop per connection. It runs
+  `build()` first if you have not, so an embedder that does not need the APIs in
+  between can just call `start()`.
+- **`stop()`** cancels the tasks and closes every connection, in reverse of the
+  order they were opened.
 
 **Idempotency is the caller's responsibility.** Starting a running runner, or
 stopping a stopped one, is not defined — an embedder whose own connect may run
 more than once has to keep track itself.
 
-The runner also owns **reconnect**. A scan task whose callback raises marks its
-controller disconnected and pauses rather than dying; the runner notices and
-calls `Controller.reconnect()` until it comes back. This is deliberately not
-left to each controller, so every controller recovers the same way.
+**Reconnecting** belongs to each connection's `Supervisor`, not to the runner or a
+controller: see [connections](./connections.md). Every call through a connection
+handle passes its supervisor, which marks the link down when it fails and brings it
+back at its own pace. This is deliberately not left to each controller, so every
+connection recovers the same way and controllers sharing one recover together.
+
+**A fatal runner condition is observable rather than fatal to the process.**
+`runner.fatal_error` is an `asyncio.Event` set when the runner cannot carry on —
+a DRA device node that has gone away and will not come back, say — with
+`runner.fatal_reason` carrying why. Nothing calls `sys.exit`, so an embedded
+FastCS inside another process decides for itself what to do; `FastCS.serve`
+raises it.
 
 ## Reading the structure: `ControllerAPI`
 

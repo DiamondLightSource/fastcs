@@ -400,7 +400,7 @@ async def test_dynamic_attribute_getter_setter_specification():
         int_parameter: AttrRW
         float_parameter: AttrRW  # hint to satisfy pyright
 
-        async def initialise(self):
+        async def build(self):
             self._connection = DummyConnection()
             await self._connection.connect()
             dtype_mapping = {"int": int, "float": float}
@@ -454,7 +454,7 @@ async def test_dynamic_attribute_getter_setter_specification():
                     )
 
     c = DemoParameterController()
-    await c.initialise()
+    await c.build()
 
     assert await c.ro_int_parameter.poll() == 10
     assert await c.ro_int_parameter.poll() == 11

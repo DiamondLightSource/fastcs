@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 import aioserial
 
+from fastcs.connections.connection import Connection
+
 
 class NotOpenedError(Exception):
     """If the serial stream is not opened."""
@@ -16,15 +18,30 @@ class SerialConnectionSettings:
     baud: int = 115200
 
 
-class SerialConnection:
-    """A serial connection."""
+class SerialConnection(Connection):
+    """A serial connection.
 
-    def __init__(self):
-        self.stream = None
+    The settings are given at construction rather than to ``connect``, because the
+    framework opens and reopens the link without knowing anything about it.
+
+    Args:
+        settings: Which port to open, and at what baud rate
+
+    """
+
+    def __init__(self, settings: SerialConnectionSettings) -> None:
+        self._settings = settings
         self._lock = asyncio.Lock()
+        self.__stream: aioserial.AioSerial | None = None
 
-    async def connect(self, settings: SerialConnectionSettings) -> None:
-        self.__stream = aioserial.AioSerial(port=settings.port, baudrate=settings.baud)
+    @property
+    def label(self) -> str:
+        return self._settings.port
+
+    async def connect(self) -> None:
+        self.__stream = aioserial.AioSerial(
+            port=self._settings.port, baudrate=self._settings.baud
+        )
 
     @property
     def _stream(self) -> aioserial.AioSerial:
@@ -52,5 +69,8 @@ class SerialConnection:
 
     async def close(self) -> None:
         async with self._lock:
-            self._stream.close()
+            if self.__stream is None:
+                return
+
+            self.__stream.close()
             self.__stream = None

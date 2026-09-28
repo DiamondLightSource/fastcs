@@ -18,6 +18,7 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
         "b": {"r": f"{pv_prefix}:B_RBV", "w": f"{pv_prefix}:B"},
         "clamped": {"r": f"{pv_prefix}:Clamped_RBV", "w": f"{pv_prefix}:Clamped"},
         "childvector": {"d": f"{pv_prefix}:ChildVector:PVI"},
+        "connected": {"r": f"{pv_prefix}:Connected"},
     }
 
     child_vector_pvi_pv = parent_pvi["value"]["childvector"]["d"]
@@ -33,6 +34,7 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     assert _child_vector_pvi["value"] == {
         "__0": {"d": f"{pv_prefix}:ChildVector:0:PVI"},
         "__1": {"d": f"{pv_prefix}:ChildVector:1:PVI"},
+        "connected": {"r": f"{pv_prefix}:ChildVector:Connected"},
     }
 
     child_pvi_pv = _child_vector_pvi["value"]["__0"]["d"]
@@ -44,7 +46,11 @@ def test_ioc(softioc_subprocess: tuple[str, Queue]):
     assert child_pvi["value"] == {
         "c": {"w": f"{pv_prefix}:ChildVector:0:C"},
         "d": {"x": f"{pv_prefix}:ChildVector:0:D"},
+        "connected": {"r": f"{pv_prefix}:ChildVector:0:Connected"},
     }
+
+    # A soft controller reports connected as always on
+    assert ctxt.get(f"{pv_prefix}:Connected") == 1
 
     initial_value = ctxt.get(f"{pv_prefix}:Clamped_RBV")
     assert initial_value  # Clamped initial value is truthy

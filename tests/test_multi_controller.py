@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR
+from fastcs.connections import Connection, Supervisor
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions
@@ -38,7 +39,7 @@ def test_controller_api_path_uses_id():
     controller.add_sub_controller("Sub", sub)
     controller.set_path(["X"])
 
-    api, _, _ = controller.create_api_and_tasks()
+    api = controller.create_api()
 
     assert api.path == ["X"]
     assert api.sub_apis["Sub"].path == ["X", "Sub"]
@@ -47,7 +48,7 @@ def test_controller_api_path_uses_id():
 def _api_with_id(controller_class: type[Controller], id: str):
     controller = controller_class()
     controller.set_path([id])
-    api, _, _ = controller.create_api_and_tasks()
+    api = controller.create_api()
     return api
 
 
@@ -299,28 +300,37 @@ def test_tango_transport_rejects_post_sanitisation_class_name_collision():
     assert "'DEV_1'" in message
 
 
+class _LifecycleConnection(Connection):
+    """Records whether the runner opened and closed the link."""
+
+    def __init__(self):
+        self.open = False
+
+    async def connect(self) -> None:
+        self.open = True
+
+    async def close(self) -> None:
+        self.open = False
+
+
 class _LifecycleController(Controller):
     """Records lifecycle hook calls for end-to-end assertions."""
 
+    connection: _LifecycleConnection
+
     foo: AttrR[int]
 
-    def __init__(self):
+    def __init__(self, connection: _LifecycleConnection):
+        self.connection = connection
         super().__init__()
-        self.connect_called = False
-        self.initialised = False
-        self.post_initialised = False
+        self.built = False
+        self.set_up = False
 
-    async def initialise(self):
-        self.initialised = True
+    async def build(self):
+        self.built = True
 
-    def post_initialise(self):
-        self.post_initialised = True
-
-    async def connect(self):
-        self.connect_called = True
-
-    async def disconnect(self):
-        self.connect_called = False
+    async def setup(self):
+        self.set_up = True
 
 
 class _OtherLifecycleController(_LifecycleController):
@@ -331,9 +341,11 @@ class _OtherLifecycleController(_LifecycleController):
 async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     """FastCS.serve drives lifecycle on every controller and routes REST traffic
     per-id; combined OpenAPI describes both prefixes."""
-    a = _LifecycleController()
+    supervisor_a = Supervisor(_LifecycleConnection())
+    a = _LifecycleController(supervisor_a.handle)
     a.set_path(["alpha"])
-    b = _OtherLifecycleController()
+    supervisor_b = Supervisor(_LifecycleConnection())
+    b = _OtherLifecycleController(supervisor_b.handle)
     b.set_path(["beta"])
 
     transport = RestTransport()
@@ -341,15 +353,18 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     # app directly through TestClient.
     mocker.patch.object(RestTransport, "serve", new=lambda self: asyncio.sleep(3600))
 
-    fastcs = FastCS([a, b], [transport], asyncio.get_event_loop())
+    # One group of supervisors per entry, as the launcher builds them.
+    fastcs = FastCS(
+        [a, b], [transport], asyncio.get_event_loop(), [[supervisor_a], [supervisor_b]]
+    )
     task = asyncio.create_task(fastcs.serve(interactive=False))
     try:
         await asyncio.sleep(0.1)
 
         for controller in (a, b):
-            assert controller.initialised
-            assert controller.post_initialised
-            assert controller.connect_called
+            assert controller.built
+            assert controller.set_up
+            assert controller.connection.open
 
         with TestClient(transport._server._app) as client:
             assert client.get("/alpha/foo").status_code == 200
@@ -369,4 +384,4 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
             pass
 
     for controller in (a, b):
-        assert not controller.connect_called
+        assert not controller.connection.open

@@ -31,7 +31,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from fastcs.attributes import AttrR, AttrRW, Polled
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection
 from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Array1D, DType_T
 from fastcs.logging import logger
@@ -46,7 +46,6 @@ class OnOffEnum(enum.StrEnum):
 @dataclass
 class TemperatureControllerSettings:
     num_ramp_controllers: int
-    ip_settings: IPConnectionSettings
 
 
 class TemperatureProtocol:
@@ -126,8 +125,19 @@ class TemperatureRampProtocol(TemperatureProtocol):
 
 
 class TemperatureController(Controller):
-    def __init__(self, settings: TemperatureControllerSettings) -> None:
-        self.connection = IPConnection()
+    # Narrows the base class's `Connection | None`, so this controller's own code
+    # can call the methods of the connection it actually holds.
+    connection: IPConnection
+
+    def __init__(
+        self, temperature: IPConnection, settings: TemperatureControllerSettings
+    ) -> None:
+        # The type hint is the declaration: the launcher configures this argument
+        # under `connections: temperature:` in this entry, opens it, and supervises
+        # it. What arrives here is a handle that behaves like the IPConnection, and
+        # the ramps below are handed the same one, so the whole tree shares one
+        # link. Nothing here connects, reconnects or handles a dead socket.
+        self.connection = temperature
         self._settings = settings
         self._protocol = TemperatureProtocol(self.connection)
 
@@ -156,22 +166,6 @@ class TemperatureController(Controller):
             # TODO: The requests all get concatenated and the sim doesn't handle it
             await asyncio.sleep(0.1)
 
-    async def connect(self) -> None:
-        await self.connection.connect(self._settings.ip_settings)
-
-    async def reconnect(self):
-        try:
-            await self.connection.close()
-            await self.connection.connect(self._settings.ip_settings)
-        except BaseException:
-            logger.exception("Reconnect failed")
-            return
-
-        self._connected = True
-
-    async def close(self) -> None:
-        await self.connection.close()
-
     @scan(0.1)
     async def update_voltages(self):
         voltages = await self._protocol.get_voltages()
@@ -186,12 +180,13 @@ class TemperatureController(Controller):
 
 
 class TemperatureRampController(Controller):
-    def __init__(self, index: int, conn: IPConnection) -> None:
-        self._protocol = TemperatureRampProtocol(conn, index)
+    connection: IPConnection
+
+    def __init__(self, index: int, connection: IPConnection) -> None:
+        self.connection = connection
+        self._protocol = TemperatureRampProtocol(connection, index)
 
         super().__init__(f"Ramp{index:02d}")
-
-        self.connection = conn
 
         # Datatypes inferred from the protocol methods' annotations - including the
         # enum, whose members come from OnOffEnum via get_enabled's return type.

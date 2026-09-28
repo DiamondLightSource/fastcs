@@ -54,14 +54,14 @@ def test_access_mode_comes_from_the_declared_class():
 async def test_attributes_added_without_a_hint():
     # `fastcs-PandABlocks`/`fastcs-secop`: the whole tree comes off the wire.
     class Dynamic(Controller):
-        async def initialise(self) -> None:
+        async def build(self) -> None:
             self.add_attribute("discovered", AttrR(int))
 
     controller = Dynamic()
 
     assert controller.attributes == {}
 
-    await controller.initialise()
+    await controller.build()
 
     assert set(controller.attributes) == {"discovered"}
     controller.check_filled()

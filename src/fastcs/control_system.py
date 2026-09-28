@@ -7,6 +7,7 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
+from fastcs.connections import Supervisor
 from fastcs.controllers import Controller, ControllerAPI, ControllerRunner
 from fastcs.logging import logger
 from fastcs.tracer import Tracer
@@ -38,6 +39,10 @@ class FastCS:
             either a single ``Controller`` or a sequence of them.
         transports: A list of transports to serve the API over
         loop: Optional event loop to run the control system in
+        supervisors: The supervisors of the connections the controllers were
+            given - one sequence per controller, or a single sequence. These are the
+            connections the runner opens and supervises; a tree of purely soft
+            controllers has none.
     """
 
     def __init__(
@@ -45,6 +50,7 @@ class FastCS:
         controllers: Controller | Sequence[Controller],
         transports: Sequence[Transport],
         loop: asyncio.AbstractEventLoop | None = None,
+        supervisors: Sequence[Supervisor] | Sequence[Sequence[Supervisor]] = (),
     ):
         if isinstance(controllers, Controller):
             controllers = [controllers]
@@ -61,7 +67,7 @@ class FastCS:
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
-        self._runner = ControllerRunner(self._controllers, self._loop)
+        self._runner = ControllerRunner(self._controllers, supervisors, self._loop)
         self.controller_apis: list[ControllerAPI] = []
 
     def run(self, interactive: bool = True):
@@ -95,10 +101,34 @@ class FastCS:
             interactive: Whether to create an interactive IPython shell
 
         """
+        try:
+            coros = await self._start(interactive)
+        except BaseException:
+            # A failure during startup aborts: a partly built application is worse
+            # than none, because clients connect successfully and never find what
+            # they are looking for. Close whatever was opened on the way up, then
+            # let the caller - or the orchestrator - see why.
+            await self._runner.stop()
+            raise
+
+        try:
+            await asyncio.gather(*coros)
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("Unhandled exception in serve")
+        finally:
+            logger.info("Shutting down FastCS")
+            await self._runner.stop()
+            if self._runner.fatal_reason is not None:
+                raise self._runner.fatal_reason
+
+    async def _start(self, interactive: bool) -> list[Coroutine]:
+        """Bring the application up, and return what ``serve`` should await."""
         # Build the APIs before wiring transports to them: a transport
         # registers its callbacks when it connects, and would miss the first
         # readback if the controllers had already started.
-        self.controller_apis = await self._runner.setup()
+        self.controller_apis = await self._runner.build()
 
         context = {
             "controllers": {_context_key(c): c for c in self._controllers},
@@ -143,15 +173,20 @@ class FastCS:
 
         await self._runner.start()
 
-        try:
-            await asyncio.gather(*coros)
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception("Unhandled exception in serve")
-        finally:
-            logger.info("Shutting down FastCS")
-            await self._runner.stop()
+        # A fatal condition - a DRA device node that has gone away, say - happens in
+        # a background task, where a raise would be invisible. The runner records it
+        # instead, and this coroutine is where the process notices and comes down
+        # rather than serving stale values it can never refresh. Nothing calls
+        # ``sys.exit``, so an embedder sees an exception out of ``serve`` rather
+        # than losing its process.
+        async def fail_on_fatal() -> None:
+            await self._runner.fatal_error.wait()
+            assert self._runner.fatal_reason is not None
+            raise self._runner.fatal_reason
+
+        coros.append(fail_on_fatal())
+
+        return coros
 
     async def _interactive_shell(self, context: dict[str, Any]):
         """Spawn interactive shell in another thread and wait for it to complete."""

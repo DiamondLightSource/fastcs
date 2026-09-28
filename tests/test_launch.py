@@ -11,11 +11,19 @@ from typer.testing import CliRunner
 
 from fastcs import __version__
 from fastcs.attributes import AttrR
+from fastcs.connections import (
+    DEFAULT_RECONNECT_ATTEMPTS,
+    Connection,
+    HTTPConnection,
+    Supervisor,
+)
+from fastcs.connections.supervisor import connection_of, supervisor_of
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.exceptions import LaunchError
 from fastcs.launch import (
     _build_options_model,
+    _instantiate_controllers,
     _launch,
     get_controller_schema,
     launch,
@@ -65,6 +73,48 @@ class Aliased(Controller):
 
     def __init__(self, arg: SomeConfig) -> None:
         super().__init__()
+
+
+@dataclass
+class LinkSettings:
+    host: str
+    port: int = 22
+
+
+class FakeConnection(Connection):
+    def __init__(self, settings: LinkSettings) -> None:
+        self.settings = settings
+
+    async def connect(self) -> None: ...
+
+    async def close(self) -> None: ...
+
+
+class OtherConnection(Connection):
+    def __init__(self, tag: str = "untagged") -> None:
+        self.tag = tag
+
+    async def connect(self) -> None: ...
+
+    async def close(self) -> None: ...
+
+
+class NeedsConnections(Controller):
+    """The common shape: connections declared by type hints, and nothing else."""
+
+    def __init__(self, link: FakeConnection, other: OtherConnection) -> None:
+        super().__init__()
+        self.link = link
+        self.other = other
+
+
+class NeedsBoth(Controller):
+    """A connection alongside an options object."""
+
+    def __init__(self, link: FakeConnection, arg: SomeConfig) -> None:
+        super().__init__()
+        self.link = link
+        self.arg = arg
 
 
 runner = CliRunner()
@@ -131,8 +181,9 @@ def test_not_hinted_schema():
 def test_over_defined_schema():
     error = (
         ""
-        "Expected no more than 2 arguments for 'ManyArgs.__init__' "
-        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, too_many)`"
+        "Expected no more than one options argument for 'ManyArgs.__init__', "
+        "besides its connections, but received 2 as "
+        "`(self, arg: tests.test_launch.SomeConfig, too_many)`"
     )
 
     with pytest.raises(LaunchError) as exc_info:
@@ -320,3 +371,379 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     controllers_arg = init_spy.call_args.args[1]
     assert [c.path[0] for c in controllers_arg] == ["one", "two"]
     assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]
+
+
+# `connections:` in the config, and injection
+
+LINK = {"settings": {"host": "h"}}
+
+
+def _build(
+    controllers: list[dict], classes=None
+) -> tuple[list[Controller], list[list[Supervisor]]]:
+    """Validate a `controllers:` list and instantiate it, as ``run`` does."""
+    options_model = _build_options_model(classes or [NeedsConnections])
+    instance = options_model.model_validate(
+        {"controllers": controllers, "transport": [{"rest": {}}]}
+    )
+    return _instantiate_controllers(_controllers(instance))
+
+
+def _validate(controllers: list[dict], classes=None) -> None:
+    options_model = _build_options_model(classes or [NeedsConnections])
+    options_model.model_validate(
+        {"controllers": controllers, "transport": [{"rest": {}}]}
+    )
+
+
+def test_a_controller_receives_a_handle_for_each_connection():
+    (controllers, _) = _build(
+        [
+            {
+                "id": "x",
+                "type": "tests.NeedsConnections",
+                "connections": {"link": LINK, "other": {}},
+            }
+        ]
+    )
+    (controller,) = controllers
+    assert isinstance(controller, NeedsConnections)
+
+    assert supervisor_of(controller.link) is not None
+
+
+def test_a_handle_passes_as_the_hinted_type():
+    (controllers, _) = _build(
+        [
+            {
+                "id": "x",
+                "type": "tests.NeedsConnections",
+                "connections": {"link": LINK, "other": {}},
+            }
+        ]
+    )
+    (controller,) = controllers
+    assert isinstance(controller, NeedsConnections)
+
+    assert isinstance(controller.link, FakeConnection)
+
+
+def test_a_connection_is_built_from_its_settings():
+    (controllers, _) = _build(
+        [
+            {
+                "id": "x",
+                "type": "tests.NeedsConnections",
+                "connections": {
+                    "link": {"settings": {"host": "192.168.0.2", "port": 23}},
+                    "other": {"tag": "tagged"},
+                },
+            }
+        ]
+    )
+    (controller,) = controllers
+    assert isinstance(controller, NeedsConnections)
+
+    assert controller.link.settings == LinkSettings(host="192.168.0.2", port=23)
+
+
+def test_the_supervisors_of_each_entry_are_returned_in_argument_order():
+    (controllers, supervisors) = _build(
+        [
+            {
+                "id": "x",
+                "type": "tests.NeedsConnections",
+                "connections": {"other": {}, "link": LINK},
+            }
+        ]
+    )
+    (controller,) = controllers
+    assert isinstance(controller, NeedsConnections)
+
+    assert supervisors == [
+        [supervisor_of(controller.link), supervisor_of(controller.other)]
+    ]
+
+
+def test_a_supervisor_is_named_after_its_entry_and_argument():
+    (_, supervisors) = _build(
+        [
+            {
+                "id": "x",
+                "type": "tests.NeedsConnections",
+                "connections": {"link": LINK, "other": {}},
+            }
+        ]
+    )
+
+    assert [s.name for s in supervisors[0]] == ["x.link", "x.other"]
+
+
+def test_reconnect_settings_are_read_by_the_supervisor():
+    (_, supervisors) = _build(
+        [
+            {
+                "id": "x",
+                "type": "tests.NeedsConnections",
+                "connections": {
+                    "link": {**LINK, "reconnect_attempts": 5, "reconnect_period": 2.0},
+                    "other": {},
+                },
+            }
+        ]
+    )
+    link = supervisors[0][0]
+
+    assert (link.reconnect_attempts, link.reconnect_period) == (5, 2.0)
+
+
+def test_reconnect_settings_default_per_connection():
+    (_, supervisors) = _build(
+        [
+            {
+                "id": "x",
+                "type": "tests.NeedsConnections",
+                "connections": {"link": LINK, "other": {}},
+            }
+        ]
+    )
+
+    assert supervisors[0][0].reconnect_attempts == DEFAULT_RECONNECT_ATTEMPTS
+
+
+def test_connections_are_created_per_entry():
+    """The same class used twice in one config gets two independent links."""
+    (controllers, _) = _build(
+        [
+            {
+                "id": "PITCH",
+                "type": "tests.NeedsConnections",
+                "connections": {"link": LINK, "other": {}},
+            },
+            {
+                "id": "YAW",
+                "type": "tests.NeedsConnections",
+                "connections": {"link": LINK, "other": {}},
+            },
+        ]
+    )
+    first, second = controllers
+    assert isinstance(first, NeedsConnections)
+    assert isinstance(second, NeedsConnections)
+
+    assert connection_of(first.link) is not connection_of(second.link)
+
+
+def test_connections_alongside_an_options_object():
+    (controllers, _) = _build(
+        [
+            {
+                "id": "x",
+                "type": "tests.NeedsBoth",
+                "name": "a-name",
+                "connections": {"link": LINK},
+            }
+        ],
+        classes=[NeedsBoth],
+    )
+    (controller,) = controllers
+    assert isinstance(controller, NeedsBoth)
+
+    assert controller.arg == SomeConfig(name="a-name")
+
+
+def test_every_connection_is_required():
+    with pytest.raises(ValidationError, match="other"):
+        _validate(
+            [
+                {
+                    "id": "x",
+                    "type": "tests.NeedsConnections",
+                    "connections": {"link": LINK},
+                }
+            ]
+        )
+
+
+def test_an_undeclared_connection_name_is_rejected():
+    with pytest.raises(ValidationError, match="typo"):
+        _validate(
+            [
+                {
+                    "id": "x",
+                    "type": "tests.NeedsConnections",
+                    "connections": {"link": LINK, "other": {}, "typo": {}},
+                }
+            ]
+        )
+
+
+def test_an_unknown_connection_setting_is_rejected():
+    with pytest.raises(ValidationError, match="depends_on"):
+        _validate(
+            [
+                {
+                    "id": "x",
+                    "type": "tests.NeedsConnections",
+                    "connections": {
+                        "link": {**LINK, "depends_on": "other"},
+                        "other": {},
+                    },
+                }
+            ]
+        )
+
+
+def test_a_connection_type_is_not_configurable():
+    """The type hint supplies it."""
+    with pytest.raises(ValidationError, match="type"):
+        _validate(
+            [
+                {
+                    "id": "x",
+                    "type": "tests.NeedsConnections",
+                    "connections": {
+                        "link": {**LINK, "type": "tests.FakeConnection"},
+                        "other": {},
+                    },
+                }
+            ]
+        )
+
+
+def test_connections_for_a_controller_that_takes_none():
+    with pytest.raises(ValidationError, match="connections"):
+        _validate(
+            [
+                {
+                    "id": "x",
+                    "type": "tests.IsHinted",
+                    "name": "n",
+                    "connections": {"link": LINK},
+                }
+            ],
+            classes=[IsHinted],
+        )
+
+
+def test_connections_is_a_reserved_options_field():
+    @dataclass
+    class Colliding:
+        connections: str
+
+    class Collides(Controller):
+        def __init__(self, arg: Colliding) -> None:
+            super().__init__()
+
+    with pytest.raises(LaunchError, match="'connections' field"):
+        _build_options_model([Collides])
+
+
+def test_no_connections_block_for_a_controller_that_takes_none():
+    schema = get_controller_schema(IsHinted)
+    entry = schema["$defs"]["IsHintedEntry"]
+    assert "connections" not in entry["properties"]
+
+
+def test_the_connections_block_in_the_schema_names_each_argument():
+    schema = get_controller_schema(NeedsConnections)
+    block = schema["$defs"]["NeedsConnectionsConnections"]
+
+    assert block["required"] == ["link", "other"]
+
+
+def test_the_framework_keys_are_in_a_connections_schema():
+    schema = get_controller_schema(NeedsConnections)
+    connection = schema["$defs"]["FakeConnectionConfig"]
+
+    assert {"reconnect_attempts", "reconnect_period"} <= set(connection["properties"])
+
+
+def test_a_connection_argument_without_a_type_hint():
+    class Unhinted(Connection):
+        def __init__(self, settings) -> None: ...
+
+        async def connect(self) -> None: ...
+
+        async def close(self) -> None: ...
+
+    class NeedsUnhinted(Controller):
+        def __init__(self, link: Unhinted) -> None:
+            super().__init__()
+
+    with pytest.raises(LaunchError, match="Add a typehint for `settings`"):
+        _build_options_model([NeedsUnhinted])
+
+
+def test_a_connection_taking_star_args():
+    class Starred(Connection):
+        def __init__(self, *settings: str) -> None: ...
+
+        async def connect(self) -> None: ...
+
+        async def close(self) -> None: ...
+
+    class NeedsStarred(Controller):
+        def __init__(self, link: Starred) -> None:
+            super().__init__()
+
+    with pytest.raises(LaunchError, match=r"`\*settings: str` cannot be expressed"):
+        _build_options_model([NeedsStarred])
+
+
+def test_a_connection_argument_colliding_with_a_framework_key():
+    class Colliding(Connection):
+        def __init__(self, reconnect_period: float) -> None: ...
+
+        async def connect(self) -> None: ...
+
+        async def close(self) -> None: ...
+
+    class NeedsColliding(Controller):
+        def __init__(self, link: Colliding) -> None:
+            super().__init__()
+
+    with pytest.raises(LaunchError, match="collides with a launch-framework key"):
+        _build_options_model([NeedsColliding])
+
+
+def test_a_connection_with_no_constructor_has_only_framework_settings():
+    class Bare(Connection):
+        async def connect(self) -> None: ...
+
+        async def close(self) -> None: ...
+
+    class NeedsBare(Controller):
+        def __init__(self, link: Bare) -> None:
+            super().__init__()
+
+    schema = get_controller_schema(NeedsBare)
+
+    assert set(schema["$defs"]["BareConfig"]["properties"]) == {
+        "reconnect_attempts",
+        "reconnect_period",
+    }
+
+
+def test_the_framework_http_connection_is_usable_from_config():
+    """A REST driver hints `HTTPConnection` and writes no connection at all."""
+
+    class NeedsHTTP(Controller):
+        def __init__(self, odin: HTTPConnection) -> None:
+            super().__init__()
+            self.connection = odin
+
+    (controllers, _) = _build(
+        [
+            {
+                "id": "OD",
+                "type": "tests.NeedsHTTP",
+                "connections": {"odin": {"settings": {"host": "odin", "port": 8888}}},
+            }
+        ],
+        classes=[NeedsHTTP],
+    )
+
+    connection = connection_of(controllers[0].connection)
+    assert isinstance(connection, HTTPConnection)
+    assert connection._settings.base_url == "http://odin:8888"

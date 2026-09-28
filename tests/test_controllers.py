@@ -1,4 +1,3 @@
-import asyncio
 import enum
 
 import pytest
@@ -371,30 +370,3 @@ def test_controller_api():
     assert list(api.attributes) == ["attr1", "attr2"]
     assert list(api.command_methods) == ["do_nothing"]
     assert list(api.scan_methods) == ["scan_nothing"]
-
-
-@pytest.mark.asyncio
-async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
-    class MyTestController(Controller):
-        @scan(0.01)
-        async def failing_scan(self):
-            raise RuntimeError("scan error")
-
-    controller = MyTestController()
-    controller.post_initialise()
-    _, scan_coros, _ = controller.create_api_and_tasks()
-
-    controller._connected = True
-    task = asyncio.create_task(scan_coros[0]())
-
-    # Wait long enough for the scan to run and raise, setting _connected = False
-    await asyncio.sleep(0.1)
-    assert not controller._connected
-
-    # Trigger reconnect - _connected resumes scan tasks
-    await controller.reconnect()
-    assert controller._connected
-
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task

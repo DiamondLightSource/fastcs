@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from fastcs.attributes import AttrR, AttrRW, Polled
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection, IPConnectionSettings, Supervisor
 from fastcs.controllers import Controller
 from fastcs.launch import FastCS
 from fastcs.transports.epics import EpicsGUIOptions
@@ -27,10 +27,11 @@ class TemperatureProtocol:
 
 
 class TemperatureController(Controller):
-    def __init__(self, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
-        self._protocol = TemperatureProtocol(self._connection)
+    connection: IPConnection
+
+    def __init__(self, connection: IPConnection):
+        self.connection = connection
+        self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
 
@@ -54,16 +55,16 @@ class TemperatureController(Controller):
     async def _set_ramp_rate(self, value: float) -> None:
         await self._protocol.send_command("R", value, float)
 
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
-
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
+supervisor = Supervisor(IPConnection(connection_settings), name="temperature")
+controller = TemperatureController(supervisor.handle)
 controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+# The supervisor opens the connection, reconnects it if it drops, and hands the
+# controller a handle that behaves like the IPConnection itself.
+fastcs = FastCS(controller, [epics_ca], supervisors=[supervisor])
 
 if __name__ == "__main__":
     fastcs.run()

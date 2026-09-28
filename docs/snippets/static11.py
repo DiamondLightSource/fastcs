@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from fastcs.attributes import AttrR, AttrRW, Polled
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection, IPConnectionSettings, Supervisor
 from fastcs.controllers import Controller
 from fastcs.launch import FastCS
 from fastcs.transports.epics import EpicsGUIOptions
@@ -33,8 +33,11 @@ class OnOffEnum(enum.StrEnum):
 
 
 class TemperatureRampController(Controller):
+    connection: IPConnection
+
     def __init__(self, index: int, connection: IPConnection) -> None:
         suffix = f"{index:02d}"
+        self.connection = connection
         self._protocol = TemperatureProtocol(connection, suffix)
         super().__init__(f"Ramp{suffix}")
 
@@ -70,10 +73,11 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
-    def __init__(self, ramp_count: int, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
-        self._protocol = TemperatureProtocol(self._connection)
+    connection: IPConnection
+
+    def __init__(self, ramp_count: int, connection: IPConnection):
+        self.connection = connection
+        self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
 
@@ -87,7 +91,7 @@ class TemperatureController(Controller):
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, ramp_count + 1):
-            controller = TemperatureRampController(index, self._connection)
+            controller = TemperatureRampController(index, self.connection)
             self._ramp_controllers.append(controller)
             self.add_sub_controller(f"R{index}", controller)
 
@@ -103,16 +107,16 @@ class TemperatureController(Controller):
     async def _set_ramp_rate(self, value: float) -> None:
         await self._protocol.send_command("R", value, float)
 
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
-
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(4, connection_settings)
+supervisor = Supervisor(IPConnection(connection_settings), name="temperature")
+controller = TemperatureController(4, supervisor.handle)
 controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+# The supervisor opens the connection, reconnects it if it drops, and hands the
+# controller a handle that behaves like the IPConnection itself.
+fastcs = FastCS(controller, [epics_ca], supervisors=[supervisor])
 
 if __name__ == "__main__":
     fastcs.run()

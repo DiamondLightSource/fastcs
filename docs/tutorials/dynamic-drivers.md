@@ -31,14 +31,14 @@ or a description for the parameter.
 
 ## FastCS Initialisation
 
-Specific `Controller` classes can optionally implement an async `initialise` method to
+Specific `Controller` classes can optionally implement an async `build` method to
 perform any start up logic. The intention here is that the `__init__` method should be
-minimal and the `initialise` method performs any long running calls, such as querying an
+minimal and the `build` method performs any long running calls, such as querying an
 API, allowing FastCS to run these concurrently to reduce start times.
 
 Take the driver implementation from the previous tutorial and remove the
 statically defined `Attributes` and creation of sub controllers in `__init__`. Then
-implement an `initialise` method to create these dynamically instead.
+implement a `build` method to create these dynamically instead.
 
 Create a pydantic model to validate the response from the device
 
@@ -56,12 +56,12 @@ construction time just like statically-declared ones do.
 :lines: 50-79
 :::
 
-Update the controllers to not define attributes statically and implement initialise
+Update the controllers to not define attributes statically and implement build
 methods to create these attributes dynamically, passing the shared `TemperatureProtocol`
 down to `create_attributes` so the dynamically-created getters/setters can use it.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 82-128
+:lines: 82-131
 :::
 
 TODO: Add `enabled` back in to `TemperatureRampController` and recreate `disable_all` to
