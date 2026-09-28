@@ -130,12 +130,20 @@ device name segment).
 
 ### Declaring connections
 
-A controller's connections are declared in its own entry, under `connections:`.
-Hand the `Connection` classes an entry may name to `launch` alongside the
-controller classes; each is selected by the same dotted `type:` discriminator:
+A controller declares its connections as constructor arguments hinted with a
+`Connection` type. Each one is configured under `connections:` in the controller's
+entry, keyed by the argument name:
 
 ```python
-launch(MotorController, connection_classes=[SerialConnection])
+class MotorController(Controller):
+    connection: SerialConnection
+
+    def __init__(self, motor: SerialConnection) -> None:
+        self.connection = motor
+        super().__init__()
+
+
+launch(MotorController)
 ```
 
 ```yaml
@@ -145,63 +153,43 @@ controllers:
     type: my_driver.MotorController
     connections:
       motor:
-        type: fastcs.SerialConnection
         settings:
           port: /dev/ttyS0
   - id: YAW
     type: my_driver.MotorController
     connections:
       motor:
-        type: fastcs.SerialConnection
         settings:
           port: /dev/ttyS1
-        reconnect_period: 5.0
+        reconnect_attempts: 5
+        reconnect_period: 2.0
 
 transport:
   - epicsca: {}
 ```
 
-The key is the **role** the driver code asks for - `connections.get("motor", ...)` -
-and the entry it sits in identifies the instance. Both motors above claim `"motor"`
-and each resolves to a different object, which a single global block could not
-express, because the driver's hardcoded role name and the deployment's instance name
-would have to be the same string.
+The schema is generated from the type hints, so it checks everything: which names are
+required, that nothing else is given, and each connection's own settings - the
+arguments of its constructor. There is no `type:` under a connection, because the type
+hint supplies it. `reconnect_attempts` and `reconnect_period` are framework settings,
+read by the connection's supervisor rather than passed to the connection, and default
+to 10 attempts one second apart.
 
-One `Connections` registry is built per entry, from that entry's block, and passed
-to a controller that takes a `connections` argument:
+Each entry gets its own connections, so the two motors above get different links.
+Before the controller is constructed, the launcher creates each connection from its
+settings, gives it a `Supervisor`, and passes the supervisor's *handle* - a stand-in
+that behaves like the connection - as the argument. Nothing is opened until the
+application starts. See [connections](../explanations/connections.md) for what the
+supervisor does with it.
 
-```python
-class MotorController(Controller):
-    def __init__(self, connections: Connections) -> None:
-        self.connection = connections.get("motor", SerialConnection)
-        super().__init__()
-```
+A connection that depends on another declares it on its class, not here - see
+[connections](../explanations/connections.md). Dependencies resolve
+within one entry, so sibling entries cannot share a connection or depend on each
+other. A gateway device with several instruments behind one link is modelled as one
+tree, with the gateway as the top-level controller.
 
-`connections` is a reserved name, in both the config and the signature: it does not
-count towards the argument limit below, so a controller may take it *and* an options
-object, and an options type may not declare a field called `connections`.
-
-Sibling entries therefore cannot share a connection or depend on each other. A
-gateway device with several instruments behind one link is modelled as one tree, with
-the gateway as the top-level controller.
-
-A connection layered over others names them by role, as one name or a list:
-
-```yaml
-connections:
-  ssh:
-    type: my_driver.PmacSshConnection
-    settings: {ip: 192.168.0.9, port: 22}
-  status:
-    type: my_driver.StatusConnection
-    settings: {ip: 192.168.0.9}
-  motion:
-    type: my_driver.PmacMotionConnection
-    depends_on: [ssh, status]
-```
-
-Names resolve within the same entry. An unknown name is a config error listing that
-entry's declared roles, and a cycle is rejected before anything is opened.
+`connections` is a reserved name: an options type may not declare a field called
+`connections`.
 
 ## Schema Generation
 
@@ -279,8 +267,8 @@ FastCS: 0.12.0
 
 The `launch()` function requires:
 
-1. Controller `__init__` must have at most 2 arguments (including `self`), not
-   counting a `connections` argument, which is reserved and always allowed
+1. Controller `__init__` may take at most one configuration argument, plus any
+   number of arguments hinted with a `Connection` type
 2. If a configuration argument exists, it must have a type hint
 
 Using a dataclass or Pydantic model is recommended for the configuration type, as it enables JSON schema generation. Other type-hinted types will work, but will not produce a useful schema.
@@ -301,9 +289,9 @@ class BadController(Controller):
     def __init__(self, settings):  # Error: no type hint
         super().__init__()
 
-# Valid - `connections` does not count towards the limit
+# Valid - connections do not count towards the limit
 class ConnectedController(Controller):
-    def __init__(self, connections: Connections, settings: MySettings):
+    def __init__(self, motor: SerialConnection, settings: MySettings):
         super().__init__()
 
 # Invalid - too many arguments

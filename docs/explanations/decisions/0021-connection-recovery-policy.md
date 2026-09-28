@@ -4,7 +4,11 @@ Date: 2026-09-11
 
 ## Status
 
-Accepted
+Accepted, and amended by
+[ADR 22](0022-connection-supervisors-and-declared-connections.md): `Recovery` is now
+`ConnectionPolicy` and `DRANode` is `DRAPolicy`; the policy also classifies IO
+failures, and `reconnect_period` and `reconnect_attempts` have moved off the
+connection to its `Supervisor`, set per instance in `fastcs.yaml`.
 
 ## Context
 

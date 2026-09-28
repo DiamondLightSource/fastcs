@@ -150,15 +150,24 @@ and set values. This is implemented with plain `getter`/`setter` callables passe
 its own getter/setter logic and connection, but there are some built in connection
 options.
 
-Update the controller to create an `IPConnection` to communicate with the simulator over
-TCP, giving it the settings it needs. A driver never opens the connection itself: FastCS
-opens it at the appropriate time during start up, before anything uses it, and reopens
-it if it drops. Declaring `connection: IPConnection` on the class narrows the base
-class's connection so this controller's own code can call `IPConnection`'s methods.
+Update the controller to take an `IPConnection`, which communicates with the simulator
+over TCP, and store it. A controller is given its connection rather than creating it: a
+driver never opens, closes or reconnects the connection itself. Declaring
+`connection: IPConnection` on the class narrows the base class's connection so this
+controller's own code can call `IPConnection`'s methods.
 
-Every connection an application runs is declared up front, in a `Connections` registry
-handed to `FastCS`, so the framework can open them all before it walks the controller
-tree - a connection it has not been given is one it could never reopen.
+The connection is created alongside the controller, and handed to a `Supervisor`, which
+opens it at the appropriate time during start up, before anything uses it, and reopens it
+if it drops. The controller is given the supervisor's *handle*: it behaves exactly like
+the `IPConnection`, but every call through it passes the supervisor, which is how FastCS
+knows when the link has gone - so the driver needs no error handling of its own. The
+supervisor is handed to `FastCS` too, so the framework can open every connection before
+it builds the controller tree.
+
+When an application is started from a `fastcs.yaml` with `launch`, all of this is done
+for you: the connection's settings go in the entry's `connections:` block, under the name
+of the controller's constructor argument (see
+[the launch framework](../how-to/launch-framework.md)).
 
 :::{note}
 The simulator control connection is on port 25565.
@@ -168,7 +177,7 @@ The simulator control connection is on port 25565.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static06.py
-:emphasize-lines: 4,12,19,25-26
+:emphasize-lines: 4,12,16,19,25-26,30
 :::
 
 ::::
@@ -302,9 +311,9 @@ Create a `TemperatureRampController` with two `AttrRW`s for the ramp start and e
 to define how many ramps there are, which is used to register the correct number of ramp
 controllers with the parent.
 
-Each ramp holds the *same* `IPConnection` object as its parent rather than one of its
-own, so the whole tree has one health state and one reconnect task between it: when the
-link drops, every ramp's polling pauses with it and they all resume together.
+Each ramp is given the *same* connection as its parent rather than one of its own, so
+the whole tree has one supervisor between it: when the link drops, every ramp's polling
+pauses with it and they all resume together.
 
 ::::{admonition} Code 10
 :class: dropdown, hint

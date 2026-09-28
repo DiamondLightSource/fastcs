@@ -33,8 +33,12 @@ The same question, three ways:
 | My children, connected | `setup` |
 
 There is no `connect`, `reconnect` or `disconnect` hook. Opening the link, reopening
-it after a failure and closing it at shutdown belong to the `Connection` and the
-runner - see [connections](./connections.md).
+it after a failure and closing it at shutdown belong to the connection's `Supervisor`
+and the runner - see [connections](./connections.md). `setup` runs once only, not
+again after a reconnect.
+
+After `build`, the tree is **sealed**: nothing can be added to it from `setup` on,
+because the API a transport serves is a snapshot of the tree at that point.
 
 `build` runs with every connection already open, so a controller that has to ask the
 device what it has - how many channels, which parameters - reads it there and creates
@@ -49,12 +53,13 @@ shared by every instance of the controller.
 
 FastCS collects all `@scan` methods and readable attributes whose `getter` is wrapped
 in `Polled`, across the whole controller hierarchy, to be run as background tasks.
-Scan tasks are gated on the controller's **connection**: while that connection is
-down they wait for it to come back rather than polling a link that cannot answer. A
-controller with no connection is never gated.
+Each controller's work belongs to the supervisor of its **connection**, and is paused
+while that connection is down rather than polling a link that cannot answer. A
+controller with no connection is never paused.
 
-A scan that raises is logged and retried. It does not mark the connection down -
-only the connection's own IO can tell a dead transport from a device complaint.
+A scan that raises is logged and retried. It does not decide whether the connection
+is down - the connection's supervisor has already seen the exception, at the call
+that raised it.
 
 ```python
 from fastcs.controllers import Controller
@@ -65,8 +70,8 @@ from fastcs.methods import scan
 class TemperatureController(Controller):
     connection: DeviceConnection
 
-    def __init__(self, connections: Connections):
-        self.connection = connections.get("device", DeviceConnection)
+    def __init__(self, connection: DeviceConnection):
+        self.connection = connection
         super().__init__()
 
         self.temperature = AttrR(float, units="degC")
@@ -74,7 +79,7 @@ class TemperatureController(Controller):
 
     @scan(period=1.0)
     async def update_temperature(self):
-        # Gated on the connection: while it is down this does not run at all.
+        # Paused with the connection: while it is down this does not run at all.
         value = await self.connection.get_temperature()
         await self.temperature.update(value)
 ```
@@ -83,8 +88,8 @@ class TemperatureController(Controller):
 
 When a `Controller` is nested inside another, it organises the driver into logical
 sections and its attributes are exposed under a prefixed path. A sub controller that
-talks to the same device holds the *same* connection object as its parent rather
-than consulting it, so the two share one health state and one reconnect task:
+talks to the same device is given the *same* connection as its parent rather than
+consulting it, so the two share one supervisor:
 
 ```python
 class ChannelController(Controller):
@@ -102,14 +107,15 @@ class RootController(Controller):
 
     channel: ChannelController
 
-    def __init__(self, connections: Connections):
-        self.connection = connections.get("device", DeviceConnection)
+    def __init__(self, device: DeviceConnection):
+        self.connection = device
         super().__init__()
         self.channel = ChannelController(self.connection)
 ```
 
-A sub controller that talks to a *different* device claims its own connection by
-name from the registry instead. Nothing is inferred from tree position.
+A sub controller that talks to a *different* device is passed that device's
+connection instead, which the top-level controller declares as another constructor
+argument. Nothing is inferred from tree position.
 
 ## ControllerVector
 

@@ -79,6 +79,7 @@ nitpick_ignore = [
     ("py:class", "asyncio.streams.StreamReader"),
     ("py:class", "asyncio.streams.StreamWriter"),
     ("py:class", "asyncio.locks.Event"),
+    ("py:class", "_asyncio.Task"),
     # Annoying error:
     #     docstring of collections.abc.Callable:1: WARNING:
     #     'any' reference target not found: self [ref.any]

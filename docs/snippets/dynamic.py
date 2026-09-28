@@ -4,7 +4,7 @@ from typing import Any, Literal, TypeVar
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from fastcs.attributes import Attribute, AttrR, AttrRW
-from fastcs.connections import Connections, IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection, IPConnectionSettings, Supervisor
 from fastcs.controllers import Controller
 from fastcs.datatypes import DType
 from fastcs.launch import FastCS
@@ -106,9 +106,9 @@ class TemperatureRampController(Controller):
 class TemperatureController(Controller):
     connection: IPConnection
 
-    def __init__(self, settings: IPConnectionSettings):
-        # Opening it, and reopening it after a failure, is the runner's job.
-        self.connection = IPConnection(settings)
+    def __init__(self, connection: IPConnection):
+        # Opening it, and reopening it after a failure, is its supervisor's job.
+        self.connection = connection
         self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
@@ -133,12 +133,12 @@ class TemperatureController(Controller):
 
 epics_ca = EpicsCATransport()
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
+supervisor = Supervisor(IPConnection(connection_settings), name="temperature")
+controller = TemperatureController(supervisor.handle)
 controller.set_path(["DEMO"])
-# Every connection an application runs is declared up front, so the runner can
-# open them all before it walks the tree.
-connections = Connections({"temperature": controller.connection})
-fastcs = FastCS(controller, [epics_ca], connections=connections)
+# The supervisor opens the connection, reconnects it if it drops, and hands the
+# controller a handle that behaves like the IPConnection itself.
+fastcs = FastCS(controller, [epics_ca], supervisors=[supervisor])
 
 
 if __name__ == "__main__":

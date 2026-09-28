@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from fastcs.attributes import AttrR, AttrRW, Polled
-from fastcs.connections import Connections, IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection, IPConnectionSettings, Supervisor
 from fastcs.controllers import Controller
 from fastcs.launch import FastCS
 from fastcs.methods import command, scan
@@ -87,8 +87,8 @@ class TemperatureRampController(Controller):
 class TemperatureController(Controller):
     connection: IPConnection
 
-    def __init__(self, ramp_count: int, settings: IPConnectionSettings):
-        self.connection = IPConnection(settings)
+    def __init__(self, ramp_count: int, connection: IPConnection):
+        self.connection = connection
         self._protocol = TemperatureProtocol(self.connection)
 
         super().__init__()
@@ -138,12 +138,12 @@ class TemperatureController(Controller):
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(4, connection_settings)
+supervisor = Supervisor(IPConnection(connection_settings), name="temperature")
+controller = TemperatureController(4, supervisor.handle)
 controller.set_path(["DEMO"])
-# Every connection an application runs is declared up front, so the runner can
-# open them all before it walks the tree.
-connections = Connections({"temperature": controller.connection})
-fastcs = FastCS(controller, [epics_ca], connections=connections)
+# The supervisor opens the connection, reconnects it if it drops, and hands the
+# controller a handle that behaves like the IPConnection itself.
+fastcs = FastCS(controller, [epics_ca], supervisors=[supervisor])
 
 if __name__ == "__main__":
     fastcs.run()
