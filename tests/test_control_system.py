@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from fastcs.attributes import AttrR, NotPolled, Polled
-from fastcs.connections import Connection, Connections
+from fastcs.connections import Connection, Supervisor
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.methods import Command, command
@@ -96,8 +96,7 @@ async def test_update_periods():
     assert controller.update_never.readback == 0
 
     # One periodic scan task per distinct period
-    assert len(fastcs._runner._scan_coros) == 1
-    assert len(fastcs._runner._initial_coros) == 1
+    assert fastcs._runner._soft.periods == [0.1]
 
 
 @pytest.mark.asyncio
@@ -106,7 +105,6 @@ async def test_serve_opens_and_closes_the_connection():
 
     class MyTestConnection(Connection):
         def __init__(self):
-            super().__init__()
             self.open = False
 
         async def connect(self) -> None:
@@ -121,17 +119,19 @@ async def test_serve_opens_and_closes_the_connection():
             super().__init__()
 
     connection = MyTestConnection()
-    controller = MyTestController(connection)
+    supervisor = Supervisor(connection)
+    controller = MyTestController(supervisor.handle)
 
     loop = asyncio.get_event_loop()
-    fastcs = FastCS(controller, [], loop, Connections({"device": connection}))
+    fastcs = FastCS(controller, [], loop, [supervisor])
 
     task = asyncio.create_task(fastcs.serve(interactive=False))
 
     # The runner opens every connection at the start of serve
     await asyncio.sleep(0.1)
     assert connection.open
-    assert controller.connected
+    connected = controller.attributes["connected"]
+    assert isinstance(connected, AttrR) and connected.readback
 
     task.cancel()
 

@@ -1,10 +1,8 @@
-import asyncio
 import enum
 
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW, AttrW, Polled
-from fastcs.connections import Connection
 from fastcs.controllers import Controller, ControllerVector
 from fastcs.methods import Command, Scan, command, scan
 
@@ -372,73 +370,3 @@ def test_controller_api():
     assert list(api.attributes) == ["attr1", "attr2"]
     assert list(api.command_methods) == ["do_nothing"]
     assert list(api.scan_methods) == ["scan_nothing"]
-
-
-@pytest.mark.asyncio
-async def test_a_raising_scan_is_logged_and_retried():
-    """A scan does not decide the connection is down - the connection's IO does."""
-    calls = 0
-
-    class MyTestController(Controller):
-        @scan(0.01)
-        async def failing_scan(self):
-            nonlocal calls
-            calls += 1
-            raise RuntimeError("scan error")
-
-    controller = MyTestController()
-    _, scan_coros, _ = controller.create_api_and_tasks()
-
-    task = asyncio.create_task(scan_coros[0]())
-    await asyncio.sleep(0.1)
-
-    assert calls > 1
-    assert controller.connected  # no connection to be down
-
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
-
-
-@pytest.mark.asyncio
-async def test_scans_wait_while_the_connection_is_down():
-    class MyTestConnection(Connection):
-        async def connect(self) -> None: ...
-        async def close(self) -> None: ...
-
-    connection = MyTestConnection()
-    calls = 0
-
-    class MyTestController(Controller):
-        def __init__(self):
-            self.connection = connection
-            super().__init__()
-
-        @scan(0.01)
-        async def counting_scan(self):
-            nonlocal calls
-            calls += 1
-
-    controller = MyTestController()
-    _, scan_coros, _ = controller.create_api_and_tasks()
-
-    task = asyncio.create_task(scan_coros[0]())
-
-    # Starts life down, so nothing runs until the framework marks it up
-    await asyncio.sleep(0.05)
-    assert calls == 0
-    assert not controller.connected
-
-    connection._set_connected()
-    await asyncio.sleep(0.05)
-    assert calls > 0
-
-    connection.set_disconnected()
-    await asyncio.sleep(0.02)
-    paused_at = calls
-    await asyncio.sleep(0.05)
-    assert calls == paused_at
-
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task

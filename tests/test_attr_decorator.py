@@ -1,4 +1,3 @@
-import asyncio
 from enum import Enum
 
 import numpy as np
@@ -16,6 +15,7 @@ from fastcs.attributes import (
 )
 from fastcs.controllers import Controller
 from fastcs.datatypes import Array1D, Limits, NumericLimits
+from fastcs.scheduling import ScanSchedule
 from fastcs.util import ONCE
 
 
@@ -423,14 +423,14 @@ def test_schedule_must_not_already_have_a_getter():
 @pytest.mark.asyncio
 async def test_polled_attributes_are_scheduled(power_supply: PowerSupply):
     controller = power_supply
-    _, periodic, initial = controller.create_api_and_tasks()
+    schedule = ScanSchedule()
+    schedule.add_controller(controller)
 
     # ``serial`` is read once at connect; ``voltage`` is polled at 0.5s;
     # ``retries`` is never read on a schedule.
-    assert len(initial) == 1
-    assert len(periodic) == 1
+    assert schedule.periods == [0.5]
 
-    await asyncio.gather(*[coro() for coro in initial])
+    await schedule.read_once()
 
     assert controller.serial.readback == "PSU-1"
     assert controller.retries.readback == 0

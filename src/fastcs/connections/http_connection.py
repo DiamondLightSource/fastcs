@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from httpx import AsyncBaseTransport, AsyncClient, ConnectError, ReadTimeout, Response
+from httpx import AsyncBaseTransport, AsyncClient, Response
 
 from fastcs.connections.connection import Connection
-from fastcs.connections.ip_connection import DisconnectedError
+from fastcs.exceptions import DisconnectedError
 
 
 @dataclass
@@ -24,9 +24,10 @@ class HTTPConnection(Connection):
     """An HTTP connection.
 
     The settings are given at construction rather than to ``connect``, because the
-    framework opens and reopens the link without knowing anything about it. IO marks
-    the connection down when the *transport* fails, so everything holding it stops
-    and its reconnect task wakes.
+    framework opens and reopens the link without knowing anything about it. A
+    transport failure is raised as httpx raises it, and the default
+    `ConnectionPolicy` reads it as the link going down; an error status is the
+    device answering, and is passed back to the caller.
 
     One framework class rather than one per driver: every REST device does the same
     few things, and a driver needing a verb or a response shape this does not cover
@@ -34,15 +35,10 @@ class HTTPConnection(Connection):
 
     Args:
         settings: Where to connect to
-        kwargs: Passed to `Connection` - ``depends_on``, ``reconnect_period``,
-            ``reconnect_attempts``
 
     """
 
-    def __init__(
-        self, settings: HTTPConnectionSettings | None = None, **kwargs
-    ) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, settings: HTTPConnectionSettings | None = None) -> None:
         self._settings = settings or HTTPConnectionSettings()
 
         self._transport: AsyncBaseTransport | None = None
@@ -97,21 +93,10 @@ class HTTPConnection(Connection):
         return response.json() if response.content else None
 
     async def request(self, method: str, path: str, **kwargs) -> Response:
-        """Every request goes through here.
+        """Every request goes through here, so `get` and `put` behave alike."""
+        response = await self._client.request(method, path, **kwargs)
 
-        The only method that touches connection state, so overriding `get` or `put`
-        does not silently change the others, and one failure cannot mark the
-        connection down twice.
-        """
-        try:
-            response = await self._client.request(method, path, **kwargs)
-        except (ConnectError, ReadTimeout, OSError):
-            # The socket is gone, rather than the device complaining. Everything
-            # holding this connection is now down.
-            self.set_disconnected()
-            raise
-
-        # A 4xx or 5xx is a device complaint - it propagates to the caller without
-        # touching connection state.
+        # A 4xx or 5xx is a device complaint - an `httpx.HTTPStatusError`, which the
+        # policy passes back to the caller without touching connection health.
         response.raise_for_status()
         return response

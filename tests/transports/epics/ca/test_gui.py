@@ -203,7 +203,7 @@ class _B(Controller):
 def _api_with_id(cls, name):
     c = cls()
     c.set_path([name])
-    api, _, _ = c.create_api_and_tasks()
+    api = c.create_api()
     return api
 
 

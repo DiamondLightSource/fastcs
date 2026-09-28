@@ -1,15 +1,15 @@
 import asyncio
 from collections import deque
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass, field
 
-from fastcs.connections import Connection, Connections
+from fastcs.attributes import AttrR
+from fastcs.connections import Connection, Supervisor
+from fastcs.connections.supervisor import connection_of, supervisor_of
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.logging import logger
-from fastcs.methods import ScanCallback
-from fastcs.util import ONCE
+from fastcs.scheduling import ScanSchedule
 
 MAX_BUILD_PASSES = 32
 """Passes the build phase makes before deciding the tree is not settling.
@@ -18,63 +18,49 @@ A ``build`` that adds a sub controller whose ``build`` adds another needs one pa
 per tier; a cap catches runaway construction rather than hanging.
 """
 
+CONNECTED_ATTRIBUTE = "connected"
+"""The implicit attribute every controller gets at the seal.
 
-@dataclass
-class _ReconnectState:
-    """What the runner remembers about one connection."""
-
-    attempts: int = 0
-    """Consecutive failed attempts. Reset by a clean connection."""
-
-    exhausted: asyncio.Event = field(default_factory=asyncio.Event)
-    """Set when this connection has given up. Terminal until the process restarts.
-
-    An `asyncio.Event` rather than a flag because dependents await it: setting it
-    releases anything waiting on this connection, so they stall loudly instead of
-    hanging silently.
-    """
+Whether the controller can talk to its device: kept in step with its connection by
+that connection's `Supervisor`, and always on for a controller with no connection.
+An ordinary attribute, so every transport publishes it with no changes.
+"""
 
 
 class ControllerRunner:
     """Runs one or more `Controller` s, without serving them anywhere.
 
-    This owns the whole controller lifecycle - opening connections, building and
-    setting up the tree, running the initial and periodic tasks, reconnecting after a
-    failure, and tidying up - and nothing about how the controllers are presented.
-    `FastCS` uses it and adds transports on top; an embedded caller that only wants
-    the controllers running can use it on its own::
+    The runner owns the startup and shutdown sequence, and nothing ongoing about a
+    connection - that belongs to the connection's `Supervisor`. `FastCS` uses the
+    runner and adds transports on top; an embedded caller that only wants the
+    controllers running can use it on its own::
 
-        runner = ControllerRunner(controller, connections)
+        eiger = Supervisor(EigerConnection(port=8000), name="eiger")
+        runner = ControllerRunner(EigerController(eiger.handle), [eiger])
         await runner.start()
         ...
         await runner.stop()
 
-    **The runner owns the order of the startup sequence.** Every connection is opened
-    first, then the tree is walked calling ``build``, then ``setup`` runs across the
-    whole built tree, then the tasks start. Controllers never call their own hooks to
-    compensate for sequencing.
+    Startup is: open every connection, in dependency order; call ``build`` across
+    the tree until it stops growing; seal the tree; then ``setup`` once, the
+    read-once reads, and hand over to the supervisors. Controllers never call
+    their own hooks to compensate for sequencing.
 
     Starting is in two halves, because anything serving the controllers needs their
-    `ControllerAPI` before the first values are read: ``build`` opens the connections,
-    builds the tree and returns the APIs, and ``start`` does the rest. Calling
-    ``start`` on its own does both.
+    `ControllerAPI` before the first values are read: ``build`` opens the
+    connections, builds and seals the tree and returns the APIs, and ``start`` does
+    the rest. Calling ``start`` on its own does both.
 
     **A failure anywhere in startup aborts.** A partly built tree means an
     application with a silently incomplete set of parameters, which is worse than no
-    application at all, because clients connect successfully and never find what they
-    are looking for. The orchestrator owns the retry.
-
-    **Idempotency is the caller's responsibility.** Starting a running runner, or
-    stopping a stopped one, is not defined.
+    application at all. The orchestrator owns the retry.
 
     Args:
-        controllers: The controller(s) to run. Accepts either a single
-            ``Controller`` or a sequence of them.
-        connections: The declared connections - one `Connections` registry, or one
-            per top-level entry, since role names are local to an entry. Required,
-            and the whole list: every connection is declared up front, so the runner
-            never looks in the tree for one. A tree with no connections at all
-            passes an empty registry.
+        controllers: The top-level controller(s) to run
+        supervisors: The supervisors of the connections the controllers were given.
+            Either one sequence per top-level controller, or - for one controller, or
+            when the controllers should share one scope - a single sequence. A
+            connection's ``depends_on`` is resolved within its own scope.
         loop: Optional event loop to create the tasks in
 
     """
@@ -82,36 +68,34 @@ class ControllerRunner:
     def __init__(
         self,
         controllers: Controller | Sequence[Controller],
-        connections: Connections | Sequence[Connections],
+        supervisors: Sequence[Supervisor] | Sequence[Sequence[Supervisor]] = (),
         loop: asyncio.AbstractEventLoop | None = None,
     ) -> None:
+        self._tasks: set[asyncio.Task] = set()
+        self._supervisors: list[Supervisor] = []
+
         if isinstance(controllers, Controller):
             controllers = [controllers]
         self._controllers: list[Controller] = list(controllers)
+        self._scopes = _scopes(supervisors, len(self._controllers))
+        self._supervisors = [s for scope in self._scopes for s in scope]
         self._loop = loop
-        if isinstance(connections, Connections):
-            connections = [connections]
-        self._registries: list[Connections] = list(connections)
 
-        self._connections: list[Connection] = []
-        self._state: dict[Connection, _ReconnectState] = {}
-
+        self._opened: list[Supervisor] = []
+        self._soft = ScanSchedule()
         self._controller_apis: list[ControllerAPI] = []
-        self._scan_coros: list[ScanCallback] = []
-        self._initial_coros: list[ScanCallback] = []
-        self._tasks: set[asyncio.Task] = set()
 
         self.fatal_error: asyncio.Event = asyncio.Event()
-        """Set when the runner has hit something it cannot carry on from.
+        """Set when something has happened that the application cannot carry on from.
 
         A background task cannot usefully raise - nothing is awaiting it - and an
         embedded FastCS must not call ``sys.exit``, so a fatal condition is reported
         here instead. `FastCS` awaits it and shuts down; an embedder can do the same,
         and read `fatal_reason` for what happened.
 
-        Set by a reconnect that fails terminally under a fatal `Recovery` policy -
-        a DRA device node that has gone away, say - since only a restart can fix
-        that.
+        Set by a supervisor whose reconnect fails terminally under a fatal
+        `ConnectionPolicy` - a DRA device node that has gone away, say - since only
+        a restart can fix that.
         """
 
         self.fatal_reason: BaseException | None = None
@@ -123,12 +107,12 @@ class ControllerRunner:
         return self._controller_apis
 
     @property
-    def connections(self) -> list[Connection]:
-        """The connections this runner supervises, in the order it opens them."""
-        return list(self._connections)
+    def supervisors(self) -> list[Supervisor]:
+        """The supervisors this runner starts and stops, in the order it opens them."""
+        return list(self._opened or self._supervisors)
 
     async def build(self) -> list[ControllerAPI]:
-        """Open every connection, build the controller tree and create the APIs.
+        """Open every connection, build and seal the tree, and create the APIs.
 
         Runs before anything is set up or scanned, so that a transport can be wired
         to the APIs and catch the first readback.
@@ -138,45 +122,40 @@ class ControllerRunner:
 
         """
         try:
-            return await self._open_and_build()
+            return await self._open_build_and_seal()
         except BaseException:
             # Startup aborts, but the connections opened before the failure are
-            # still open, and no task exists yet for a later ``stop`` to be called
-            # to cancel - so nothing else would ever close them.
+            # still open, and nothing else would ever close them.
             await self._close_connections()
             raise
 
-    async def _open_and_build(self) -> list[ControllerAPI]:
-        self._connections = self._collect_connections()
-        self._check_dependencies()
-        # Only safe once the cycle check above has passed.
-        self._connections = self._in_dependency_order(self._connections)
+    async def _open_build_and_seal(self) -> list[ControllerAPI]:
+        dependencies = {
+            supervisor: dependencies
+            for scope in self._scopes
+            for supervisor, dependencies in _resolve_dependencies(scope).items()
+        }
 
-        for connection in self._connections:
-            self._state[connection] = _ReconnectState()
-            await connection.connect()
-            connection._set_connected()  # noqa: SLF001
+        for supervisor in _in_dependency_order(self._supervisors, dependencies):
+            self._opened.append(supervisor)
+            await supervisor.open()
 
         await self._build_phase()
 
-        for controller in self._controllers:
-            # Every class-body declaration must have been provisioned by now: the
-            # build walk is finished, so nothing else is going to fill one in.
-            controller.check_filled()
+        # Every connection exists by now, so the graph is fixed from here on and
+        # reconnect loops use it as it is.
+        for supervisor, resolved in dependencies.items():
+            supervisor.dependencies = resolved
 
-        self._controller_apis = []
-        self._scan_coros = []
-        self._initial_coros = []
-        for controller in self._controllers:
-            api, scan_coros, initial_coros = controller.create_api_and_tasks()
-            self._controller_apis.append(api)
-            self._scan_coros.extend(scan_coros)
-            self._initial_coros.extend(initial_coros)
+        self._seal()
 
+        self._controller_apis = [
+            controller.create_api() for controller in self._controllers
+        ]
         return self._controller_apis
 
     async def start(self) -> None:
-        """Set the tree up and start its tasks.
+        """Set the tree up and hand it over to the supervisors.
 
         Runs ``build`` first if it has not already run.
         """
@@ -195,118 +174,53 @@ class ControllerRunner:
         for controller in self._walk_controllers():
             await controller.setup()
 
-        self._warn_about_unclaimed_connections()
         self._warn_about_unpolled_connections()
 
-        for coro in self._initial_coros:
-            await coro()
+        await self._soft.set_connected(True)
+        for supervisor in self._supervisors:
+            await supervisor.schedule.set_connected(supervisor.up)
+
+        await self._soft.read_once()
+        for supervisor in self._supervisors:
+            await supervisor.schedule.read_once()
 
         loop = self._loop or asyncio.get_event_loop()
-        self._tasks = {loop.create_task(coro()) for coro in self._scan_coros}
-        self._tasks |= {
-            loop.create_task(self._reconnect_loop(connection))
-            for connection in self._connections
-        }
+        self._tasks = self._soft.start(loop, gate=None)
+        for supervisor in self._supervisors:
+            supervisor.start(loop, on_fatal=self.fail)
 
     async def stop(self) -> None:
-        """Stop the tasks and close every connection.
+        """Stop every task and close every connection.
 
-        Shutdown is a runner operation rather than an author hook: connections are
-        closed in reverse declaration order, so anything layered over another is
-        closed before what it rides on. ``setup`` is not undone - devices keep their
-        last configured state.
+        Connections close in reverse of the order they opened, so anything layered
+        over another is closed before what it rides on. ``setup`` is not undone -
+        devices keep their last configured state.
         """
         self._cancel_tasks()
         await self._close_connections()
 
     async def _close_connections(self) -> None:
-        for connection in reversed(self._connections):
+        for supervisor in reversed(self._opened):
             try:
-                await connection.close()
+                await supervisor.close()
             except Exception:
-                logger.exception("Exception while closing connection")
-
-    # Startup
-
-    def _collect_connections(self) -> list[Connection]:
-        """Every connection the runner supervises, in the order it opens them.
-
-        The declared ones, in declaration order, and nothing else. They are known
-        before any controller is constructed, which is what lets a ``build`` add a
-        sub controller holding an already-open connection - and what makes the
-        list exact: a connection created later could not have been opened up front,
-        so there is nothing to find by walking the tree.
-        """
-        return [
-            connection
-            for registry in self._registries
-            for connection in registry.values()
-        ]
-
-    def _check_dependencies(self) -> None:
-        """``depends_on`` is declared, so it can name anything at all.
-
-        A connection can name one the runner does not supervise, or two can name
-        each other. Either leaves a connection waiting forever with nothing said,
-        so both fail at startup instead.
-        """
-        for connection in self._connections:
-            self._check_dependencies_of(connection, [connection])
-
-    def _check_dependencies_of(
-        self, connection: Connection, path: list[Connection]
-    ) -> None:
-        """Depth-first over one connection's dependencies, carrying the path.
-
-        A connection may name several, so the walk branches; ``path`` is the chain
-        that got here, which is both how a cycle is spotted and what names it.
-        """
-        for dependency in connection.depends_on:
-            if not self._supervises(dependency):
-                # It would never be opened, so it would sit at
-                # ``connected is False`` forever and this connection would
-                # never be attempted again.
-                raise ValueError(
-                    f"{type(connection).__name__} depends on a "
-                    f"{type(dependency).__name__} the runner does not "
-                    "supervise, so it would never be opened. Declare it "
-                    "alongside the connection that depends on it."
+                logger.exception(
+                    "Exception while closing connection", connection=supervisor.name
                 )
-            if any(dependency is node for node in path):
-                chain = " -> ".join(type(node).__name__ for node in path)
-                raise ValueError(
-                    f"Cycle in connection dependencies: {chain} -> "
-                    f"{type(dependency).__name__}"
-                )
-            self._check_dependencies_of(dependency, [*path, dependency])
 
-    @staticmethod
-    def _in_dependency_order(connections: list[Connection]) -> list[Connection]:
-        """Declaration order, except that a dependency comes before its dependent.
+    def fail(self, error: BaseException) -> None:
+        """Report a condition the application cannot carry on from.
 
-        The initial open is sequential, so a connection layered over another must
-        not be opened first - and ``depends_on`` need not follow the order they were
-        declared in. Shutdown walks this list backwards, which closes a dependent
-        before what it rides on for the same reason.
-
-        Assumes the dependency graph is acyclic - `_check_dependencies` has run.
+        Raising here would be invisible - this is called from a background task with
+        nothing awaiting it - and an embedded FastCS must not call ``sys.exit``, so
+        the failure is recorded and whatever is running the runner decides what to
+        do.
         """
-        ordered: list[Connection] = []
+        if self.fatal_reason is None:
+            self.fatal_reason = error
+        self.fatal_error.set()
 
-        def visit(connection: Connection) -> None:
-            if any(connection is done for done in ordered):
-                return
-            for dependency in connection.depends_on:
-                visit(dependency)
-            ordered.append(connection)
-
-        for connection in connections:
-            visit(connection)
-        return ordered
-
-    def _supervises(self, connection: Connection) -> bool:
-        """Whether this runner opened, and will reconnect, a connection."""
-        return any(connection is known for known in self._connections)
+    # Build and seal
 
     async def _build_phase(self) -> None:
         """Walk the tree top-down calling ``build``, to a fixpoint.
@@ -319,7 +233,6 @@ class ControllerRunner:
         for _ in range(MAX_BUILD_PASSES):
             pending = [c for c in self._walk_controllers() if id(c) not in built]
             if not pending:
-                self._check_connections_are_known()
                 return
 
             for controller in pending:
@@ -331,37 +244,68 @@ class ControllerRunner:
             "A `build` that adds a sub controller on every pass never finishes."
         )
 
-    def _check_connections_are_known(self) -> None:
-        """A connection the runner never opened would never be reconnected either."""
+    def _seal(self) -> None:
+        """Hand each controller's work to its owner, add ``connected``, and freeze.
+
+        Every class-body declaration must have been provisioned by now: the build
+        phase is over, so nothing else is going to fill one in.
+        """
+        for controller in self._controllers:
+            controller.check_filled()
+
+        held: set[int] = set()
         for controller in self._walk_controllers():
-            connection: Connection | None = controller.connection
-            if connection is None or connection in self._state:
-                continue
+            supervisor = self._supervisor_of(controller)
+            schedule = self._soft if supervisor is None else supervisor.schedule
+            if supervisor is not None:
+                held.add(id(supervisor))
 
-            raise self._unsupervised_connection_error(controller, connection)
+            connected = AttrR(bool, description="Whether the device link is up")
+            try:
+                controller.add_attribute(CONNECTED_ATTRIBUTE, connected)
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"Controller {_describe(controller)} already has a member named "
+                    f"{CONNECTED_ATTRIBUTE!r}, which the framework adds to every "
+                    "controller. Rename it."
+                ) from exc
 
-    @staticmethod
-    def _unsupervised_connection_error(
-        controller: BaseController, connection: Connection
-    ) -> RuntimeError:
-        return RuntimeError(
-            f"Controller {'.'.join(controller.path) or type(controller).__name__} "
-            f"holds a {type(connection).__name__} the runner did not open. A "
-            "connection created during `build` cannot be supervised - declare it "
-            "up front and claim it from the `Connections` registry."
-        )
+            schedule.add_controller(controller)
+            schedule.add_connected_attribute(connected)
 
-    def _warn_about_unclaimed_connections(self) -> None:
-        for registry in self._registries:
-            for name in sorted(registry.unclaimed()):
-                self._warn_unclaimed(name)
+        for supervisor in self._supervisors:
+            if id(supervisor) not in held:
+                logger.warning(
+                    "Connection declared but not held by any controller. It will "
+                    "be opened and reconnected while doing nothing.",
+                    connection=supervisor.name,
+                )
 
-    @staticmethod
-    def _warn_unclaimed(name: str) -> None:
-        logger.warning(
-            "Connection declared but never used. It will be opened and "
-            "reconnected forever while doing nothing.",
-            connection=name,
+        for controller in self._controllers:
+            controller.seal()
+
+    def _supervisor_of(self, controller: BaseController) -> Supervisor | None:
+        """The supervisor that owns a controller's work, or ``None`` if it is soft."""
+        connection: Connection | None = controller.connection
+        if connection is None:
+            return None
+
+        supervisor = supervisor_of(connection)
+        if supervisor is not None and any(supervisor is s for s in self._supervisors):
+            return supervisor
+
+        # A test, or an embedder, may hand a controller the connection itself.
+        # Nothing it calls passes the boundary, but its scans can still be paused.
+        underlying = connection_of(connection)
+        for supervisor in self._supervisors:
+            if supervisor.connection is underlying:
+                return supervisor
+
+        raise RuntimeError(
+            f"Controller {_describe(controller)} holds a "
+            f"{type(underlying).__name__} the runner does not supervise, so it "
+            "would never be opened or reconnected. Give it a handle from a "
+            "`Supervisor` passed to the runner."
         )
 
     def _warn_about_unpolled_connections(self) -> None:
@@ -370,185 +314,16 @@ class ControllerRunner:
         Phrased as fact rather than fault: an all-on-demand device is a legitimate
         design, it just will not notice a failure until the next write.
         """
-        polled: set[int] = set()
-        for controller in self._walk_controllers():
-            connection: Connection | None = controller.connection
-            if connection is None:
-                continue
-            if self._has_polling(controller):
-                polled.add(id(connection))
-
-        for connection in self._connections:
-            if id(connection) in polled:
-                continue
-
-            logger.warning(
-                "Connection has no polled attribute or scan method among its "
-                "controllers, so nothing will detect it failing until the next "
-                "write. It will not reconnect automatically.",
-                connection=self._name_of(connection),
-            )
-
-    @staticmethod
-    def _has_polling(controller: BaseController) -> bool:
-        from fastcs.attributes.attr_r import AttrR
-
-        for method in controller.scan_methods.values():
-            if method.period is not ONCE:
-                return True
-
-        for attribute in controller.attributes.values():
-            if not (isinstance(attribute, AttrR) and attribute.has_getter()):
-                continue
-            if attribute.poll_period is not ONCE and attribute.poll_period is not None:
-                return True
-
-        return False
-
-    # Failure and recovery
-
-    async def _reconnect_loop(self, connection: Connection) -> None:
-        """Keep one connection alive, at its own pace.
-
-        One task per connection, idle until that connection actually goes down - a
-        healthy connection costs nothing, and a detector that wants to retry every
-        five seconds does not have to compromise with a writer that wants one.
-        """
-        state = self._state[connection]
-
-        while True:
-            await connection.wait_down()
-
-            if state.exhausted.is_set():
-                return
-
-            # If anything we ride on is down, wait for it rather than attempting. No
-            # attempt means no increment, so the retry budget freezes while waiting.
-            # All of them must be up: a connection layered over two links is no more
-            # usable with one of them than with neither.
-            down = [
-                dependency
-                for dependency in connection.depends_on
-                if not dependency.connected
-            ]
-            if down:
-                logger.info(
-                    "Waiting on dependencies",
-                    connection=self._name_of(connection),
-                    dependencies=[self._name_of(d) for d in down],
+        for supervisor in self._supervisors:
+            if not supervisor.schedule.has_polling:
+                logger.warning(
+                    "Connection has no polled attribute or scan method among its "
+                    "controllers, so nothing will detect it failing until the next "
+                    "write.",
+                    connection=supervisor.name,
                 )
-                await self._await_dependencies(down)
-
-                stalled = [d for d in down if not d.connected]
-                if stalled:
-                    # A dependency gave up. This connection cannot succeed, but it
-                    # is not itself exhausted - it has spent nothing. Say so, then
-                    # wait; only a restart will change anything.
-                    logger.error(
-                        "Stalled: dependency gave up",
-                        connection=self._name_of(connection),
-                        dependencies=[self._name_of(d) for d in stalled],
-                    )
-                    return
-
-            await self._attempt(connection)
-
-            if not connection.connected and not state.exhausted.is_set():
-                await asyncio.sleep(connection.reconnect_period)
-
-    async def _await_dependencies(self, dependencies: list[Connection]) -> None:
-        """Block until every dependency is back, or any one of them gives up.
-
-        Waiting on recovery alone would hang forever once a dependency exhausts, so
-        both outcomes are awaited and whichever lands first wins. Recovery is *all*
-        of them - a gather - while exhaustion is any single one, because one that has
-        given up is enough to make this connection unusable.
-        """
-
-        async def all_up() -> None:
-            await asyncio.gather(*(dependency.wait_up() for dependency in dependencies))
-
-        recovered = asyncio.create_task(all_up())
-        gave_up = [
-            asyncio.create_task(self._state[dependency].exhausted.wait())
-            for dependency in dependencies
-        ]
-
-        _, pending = await asyncio.wait(
-            {recovered, *gave_up}, return_when=asyncio.FIRST_COMPLETED
-        )
-        for task in pending:
-            task.cancel()
-
-    async def _attempt(self, connection: Connection) -> None:
-        """One reconnect attempt.
-
-        Owns retry accounting, and is the only place a connection is marked back up.
-        """
-        state = self._state[connection]
-        state.attempts += 1
-
-        try:
-            await connection.close()  # tolerate an already-closed link
-            await connection.connect()
-        except Exception as exc:
-            logger.exception("Reconnect failed", connection=self._name_of(connection))
-            recovery = connection.recovery
-            # A failure the policy knows cannot recover gives up at once, rather
-            # than spending the rest of the budget on retries that cannot succeed.
-            terminal = recovery.is_terminal(exc)
-            if terminal or state.attempts >= connection.reconnect_attempts:
-                # Terminal until the process restarts. Setting the event releases
-                # anything waiting on this connection, so dependents stall loudly
-                # instead of hanging silently.
-                state.exhausted.set()
-                logger.error(
-                    "Giving up",
-                    connection=self._name_of(connection),
-                    attempts=state.attempts,
-                    reason=recovery.reason(connection) if terminal else None,
-                    blocks=[
-                        self._name_of(dependent)
-                        for dependent in self._dependents_of(connection)
-                    ],
-                )
-                if terminal and recovery.is_fatal:
-                    # Only a restart can fix it, so ask for one rather than sit
-                    # there looking healthy while serving stale values.
-                    self.fail(exc)
-            return
-
-        connection._set_connected()  # noqa: SLF001
-        state.attempts = 0  # a clean connection restores the budget
-
-    def fail(self, error: BaseException) -> None:
-        """Report a condition the runner cannot carry on from.
-
-        Raising here would be invisible - this runs in a background task with nothing
-        awaiting it - and an embedded FastCS must not call ``sys.exit``, so the
-        failure is recorded and whatever is running the runner decides what to do.
-        """
-        if self.fatal_reason is None:
-            self.fatal_reason = error
-        self.fatal_error.set()
-
-    def _dependents_of(self, connection: Connection) -> list[Connection]:
-        return [
-            other
-            for other in self._connections
-            # identity: declared, not derived
-            if any(dependency is connection for dependency in other.depends_on)
-        ]
 
     # Helpers
-
-    def _name_of(self, connection: Connection) -> str:
-        """What to call a connection in a log line."""
-        for registry in self._registries:
-            name = registry.name_of(connection)
-            if name is not None:
-                return name
-        return type(connection).__name__
 
     def _walk_controllers(self) -> Iterator[BaseController]:
         """Every controller in the tree, level order."""
@@ -559,14 +334,108 @@ class ControllerRunner:
             queue.extend(controller.sub_controllers.values())
 
     def _cancel_tasks(self) -> None:
-        # ``Task.cancel`` does not raise - it returns whether the task was
-        # cancellable - so the guards the old FastCS._stop_scan_tasks wrapped
-        # this in never fired.
         for task in self._tasks:
             if not task.done():
                 task.cancel()
-
         self._tasks.clear()
+
+        for supervisor in self._supervisors:
+            supervisor.stop()
 
     def __del__(self):
         self._cancel_tasks()
+
+
+def _describe(controller: BaseController) -> str:
+    return ".".join(controller.path) or type(controller).__name__
+
+
+def _scopes(
+    supervisors: Sequence[Supervisor] | Sequence[Sequence[Supervisor]],
+    controllers: int,
+) -> list[list[Supervisor]]:
+    """The supervisors grouped by the top-level controller whose scope they are in."""
+    flat = [each for each in supervisors if isinstance(each, Supervisor)]
+    grouped = [list(each) for each in supervisors if not isinstance(each, Supervisor)]
+    if flat and grouped:
+        raise ValueError("Give the runner supervisors, or groups of them, not both.")
+
+    if not grouped:
+        scopes = [flat]
+    elif len(grouped) == controllers:
+        scopes = grouped
+    else:
+        raise ValueError(
+            f"Given {len(grouped)} groups of supervisors for {controllers} "
+            "controllers. Give one group per controller, or one group in all."
+        )
+
+    seen: set[int] = set()
+    for supervisor in (s for scope in scopes for s in scope):
+        if id(supervisor) in seen:
+            raise ValueError(f"{supervisor} was given to the runner twice.")
+        seen.add(id(supervisor))
+
+    return scopes
+
+
+def _resolve_dependencies(
+    scope: list[Supervisor],
+) -> dict[Supervisor, list[Supervisor]]:
+    """Resolve each connection's ``depends_on`` types to the instances in its scope.
+
+    Every connection of a named type is waited for, so where there are several of
+    one type, a dependent waits for all of them.
+
+    Raises:
+        ValueError: If the resolved graph has a cycle, which would leave every
+            connection in it waiting on the others forever
+
+    """
+    resolved = {
+        supervisor: [
+            other
+            for other in scope
+            if other is not supervisor
+            and isinstance(other.connection, tuple(supervisor.connection.depends_on))
+        ]
+        for supervisor in scope
+    }
+
+    settled: set[int] = set()
+
+    def visit(supervisor: Supervisor, path: list[Supervisor]) -> None:
+        if id(supervisor) in settled:
+            return
+        if any(supervisor is node for node in path):
+            cycle = " -> ".join(s.name for s in [*path, supervisor])
+            raise ValueError(f"Cycle in connection dependencies: {cycle}")
+        for dependency in resolved[supervisor]:
+            visit(dependency, [*path, supervisor])
+        settled.add(id(supervisor))
+
+    for supervisor in scope:
+        visit(supervisor, [])
+
+    return resolved
+
+
+def _in_dependency_order(
+    supervisors: list[Supervisor], dependencies: dict[Supervisor, list[Supervisor]]
+) -> list[Supervisor]:
+    """Declaration order, except that a dependency comes before its dependent.
+
+    Assumes the graph is acyclic - `_resolve_dependencies` has checked it.
+    """
+    ordered: list[Supervisor] = []
+
+    def visit(supervisor: Supervisor) -> None:
+        if any(supervisor is done for done in ordered):
+            return
+        for dependency in dependencies[supervisor]:
+            visit(dependency)
+        ordered.append(supervisor)
+
+    for supervisor in supervisors:
+        visit(supervisor)
+    return ordered

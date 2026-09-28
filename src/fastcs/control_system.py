@@ -7,7 +7,7 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
-from fastcs.connections import Connections
+from fastcs.connections import Supervisor
 from fastcs.controllers import Controller, ControllerAPI, ControllerRunner
 from fastcs.logging import logger
 from fastcs.tracer import Tracer
@@ -39,10 +39,10 @@ class FastCS:
             either a single ``Controller`` or a sequence of them.
         transports: A list of transports to serve the API over
         loop: Optional event loop to run the control system in
-        connections: The declared connections - one `Connections` registry, or one
-            per top-level controller entry, since role names are local to an entry.
-            These are the connections the runner opens and reconnects; a tree of
-            purely soft controllers declares none.
+        supervisors: The supervisors of the connections the controllers were
+            given - one sequence per controller, or a single sequence. These are the
+            connections the runner opens and supervises; a tree of purely soft
+            controllers has none.
     """
 
     def __init__(
@@ -50,7 +50,7 @@ class FastCS:
         controllers: Controller | Sequence[Controller],
         transports: Sequence[Transport],
         loop: asyncio.AbstractEventLoop | None = None,
-        connections: Connections | Sequence[Connections] | None = None,
+        supervisors: Sequence[Supervisor] | Sequence[Sequence[Supervisor]] = (),
     ):
         if isinstance(controllers, Controller):
             controllers = [controllers]
@@ -67,9 +67,7 @@ class FastCS:
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
-        if connections is None:
-            connections = []
-        self._runner = ControllerRunner(self._controllers, connections, self._loop)
+        self._runner = ControllerRunner(self._controllers, supervisors, self._loop)
         self.controller_apis: list[ControllerAPI] = []
 
     def run(self, interactive: bool = True):
@@ -175,12 +173,12 @@ class FastCS:
 
         await self._runner.start()
 
-        # A fatal runner condition - a device coming back describing itself
-        # differently, say - happens in a background task, where a raise would be
-        # invisible. The runner records it instead, and this coroutine is where the
-        # process notices and comes down rather than serving a tree that no longer
-        # matches the hardware. Nothing calls ``sys.exit``, so an embedder sees an
-        # exception out of ``serve`` rather than losing its process.
+        # A fatal condition - a DRA device node that has gone away, say - happens in
+        # a background task, where a raise would be invisible. The runner records it
+        # instead, and this coroutine is where the process notices and comes down
+        # rather than serving stale values it can never refresh. Nothing calls
+        # ``sys.exit``, so an embedder sees an exception out of ``serve`` rather
+        # than losing its process.
         async def fail_on_fatal() -> None:
             await self._runner.fatal_error.wait()
             assert self._runner.fatal_reason is not None

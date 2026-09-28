@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR
-from fastcs.connections import Connection, Connections
+from fastcs.connections import Connection, Supervisor
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions
@@ -39,7 +39,7 @@ def test_controller_api_path_uses_id():
     controller.add_sub_controller("Sub", sub)
     controller.set_path(["X"])
 
-    api, _, _ = controller.create_api_and_tasks()
+    api = controller.create_api()
 
     assert api.path == ["X"]
     assert api.sub_apis["Sub"].path == ["X", "Sub"]
@@ -48,7 +48,7 @@ def test_controller_api_path_uses_id():
 def _api_with_id(controller_class: type[Controller], id: str):
     controller = controller_class()
     controller.set_path([id])
-    api, _, _ = controller.create_api_and_tasks()
+    api = controller.create_api()
     return api
 
 
@@ -304,7 +304,6 @@ class _LifecycleConnection(Connection):
     """Records whether the runner opened and closed the link."""
 
     def __init__(self):
-        super().__init__()
         self.open = False
 
     async def connect(self) -> None:
@@ -321,8 +320,8 @@ class _LifecycleController(Controller):
 
     foo: AttrR[int]
 
-    def __init__(self):
-        self.connection = _LifecycleConnection()
+    def __init__(self, connection: _LifecycleConnection):
+        self.connection = connection
         super().__init__()
         self.built = False
         self.set_up = False
@@ -342,9 +341,11 @@ class _OtherLifecycleController(_LifecycleController):
 async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     """FastCS.serve drives lifecycle on every controller and routes REST traffic
     per-id; combined OpenAPI describes both prefixes."""
-    a = _LifecycleController()
+    supervisor_a = Supervisor(_LifecycleConnection())
+    a = _LifecycleController(supervisor_a.handle)
     a.set_path(["alpha"])
-    b = _OtherLifecycleController()
+    supervisor_b = Supervisor(_LifecycleConnection())
+    b = _OtherLifecycleController(supervisor_b.handle)
     b.set_path(["beta"])
 
     transport = RestTransport()
@@ -352,16 +353,9 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     # app directly through TestClient.
     mocker.patch.object(RestTransport, "serve", new=lambda self: asyncio.sleep(3600))
 
-    # One registry per entry, as the launcher builds them: each controller
-    # declares its own link under the same local role name.
+    # One group of supervisors per entry, as the launcher builds them.
     fastcs = FastCS(
-        [a, b],
-        [transport],
-        asyncio.get_event_loop(),
-        [
-            Connections({"device": a.connection}),
-            Connections({"device": b.connection}),
-        ],
+        [a, b], [transport], asyncio.get_event_loop(), [[supervisor_a], [supervisor_b]]
     )
     task = asyncio.create_task(fastcs.serve(interactive=False))
     try:

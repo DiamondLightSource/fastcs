@@ -2,8 +2,12 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from fastcs.connections import HTTPConnection, HTTPConnectionSettings
-from fastcs.connections.ip_connection import DisconnectedError
+from fastcs.connections import (
+    DisconnectedError,
+    HTTPConnection,
+    HTTPConnectionSettings,
+    Supervisor,
+)
 
 
 def _handler(request: httpx.Request) -> httpx.Response:
@@ -22,8 +26,8 @@ def _handler(request: httpx.Request) -> httpx.Response:
 class FakeDevice(HTTPConnection):
     """Points the connection at an in-process handler rather than a socket."""
 
-    def __init__(self, handler=_handler, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, handler=_handler) -> None:
+        super().__init__()
         self._transport = httpx.MockTransport(handler)
 
 
@@ -76,16 +80,15 @@ async def test_put_returns_none_when_the_device_answers_with_nothing(
 
 
 @pytest.mark.asyncio
-async def test_an_error_status_is_a_device_complaint_not_a_dead_link(
-    device: FakeDevice,
-):
+async def test_an_error_status_is_a_device_complaint_not_a_dead_link():
     """A 404 is the device rejecting one parameter, so the link stays up."""
-    device._set_connected()  # noqa: SLF001
+    supervisor = Supervisor(FakeDevice())
+    await supervisor.open()
 
     with pytest.raises(httpx.HTTPStatusError):
-        await device.get("/missing")
+        await supervisor.handle.get("/missing")
 
-    assert device.connected
+    assert supervisor.up
 
 
 @pytest.mark.asyncio
@@ -93,14 +96,13 @@ async def test_a_transport_failure_marks_the_connection_down():
     def refuse(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)
 
-    connection = FakeDevice(refuse)
-    await connection.connect()
-    connection._set_connected()  # noqa: SLF001
+    supervisor = Supervisor(FakeDevice(refuse))
+    await supervisor.open()
 
-    with pytest.raises(httpx.ConnectError):
-        await connection.get("/value")
+    with pytest.raises(DisconnectedError):
+        await supervisor.handle.get("/value")
 
-    assert not connection.connected
+    assert not supervisor.up
 
 
 @pytest.mark.asyncio

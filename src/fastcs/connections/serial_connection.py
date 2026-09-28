@@ -26,13 +26,10 @@ class SerialConnection(Connection):
 
     Args:
         settings: Which port to open, and at what baud rate
-        kwargs: Passed to `Connection` - ``depends_on``, ``reconnect_period``,
-            ``reconnect_attempts``
 
     """
 
-    def __init__(self, settings: SerialConnectionSettings, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, settings: SerialConnectionSettings) -> None:
         self._settings = settings
         self._lock = asyncio.Lock()
         self.__stream: aioserial.AioSerial | None = None
@@ -65,19 +62,10 @@ class SerialConnection(Connection):
             return await self._receive_response(response_size)
 
     async def _send_message(self, message):
-        try:
-            await self._stream.write_async(message)
-        except (OSError, aioserial.SerialException):
-            # The port is gone, rather than the device complaining.
-            self.set_disconnected()
-            raise
+        await self._stream.write_async(message)
 
     async def _receive_response(self, size):
-        try:
-            return await self._stream.read_async(size)
-        except (OSError, aioserial.SerialException):
-            self.set_disconnected()
-            raise
+        return await self._stream.read_async(size)
 
     async def close(self) -> None:
         async with self._lock:

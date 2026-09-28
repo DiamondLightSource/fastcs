@@ -1,90 +1,30 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from fastcs.connections import (
     Connection,
-    Connections,
-    DRANode,
+    ConnectionPolicy,
+    DisconnectedError,
+    DRAPolicy,
     HTTPConnection,
     HTTPConnectionSettings,
     IPConnection,
     IPConnectionSettings,
-    Recovery,
     SerialConnection,
     SerialConnectionSettings,
     SimConnection,
 )
-from fastcs.connections.ip_connection import DisconnectedError, StreamConnection
+from fastcs.connections.ip_connection import StreamConnection
+from fastcs.connections.policy import Failure
 from fastcs.connections.serial_connection import NotOpenedError
 
 
 class OneConnection(Connection):
     async def connect(self) -> None: ...
     async def close(self) -> None: ...
-
-
-class AnotherConnection(Connection):
-    async def connect(self) -> None: ...
-    async def close(self) -> None: ...
-
-
-# Connections registry
-
-
-def test_a_connection_is_claimed_by_name_with_its_type_asserted():
-    connection = OneConnection()
-    registry = Connections({"one": connection})
-
-    assert registry.get("one", OneConnection) is connection
-
-
-def test_claiming_a_name_that_was_not_declared_lists_the_ones_that_were():
-    registry = Connections({"one": OneConnection(), "two": AnotherConnection()})
-
-    with pytest.raises(KeyError, match=r"No connection named 'three'") as exc:
-        registry.get("three", OneConnection)
-
-    assert "'one', 'two'" in str(exc.value)
-
-
-def test_claiming_a_name_with_the_wrong_type_says_both_types():
-    registry = Connections({"one": AnotherConnection()})
-
-    with pytest.raises(TypeError, match="is AnotherConnection, but OneConnection"):
-        registry.get("one", OneConnection)
-
-
-def test_a_registry_reports_what_was_never_claimed():
-    registry = Connections({"used": OneConnection(), "spare": OneConnection()})
-
-    assert registry.unclaimed() == {"used", "spare"}
-
-    registry.get("used", OneConnection)
-
-    assert registry.unclaimed() == {"spare"}
-
-
-def test_a_connection_is_named_by_identity_not_equality():
-    """Two connections with matching settings are two connections."""
-    first, second = OneConnection(), OneConnection()
-    registry = Connections({"first": first, "second": second})
-
-    assert registry.name_of(first) == "first"
-    assert registry.name_of(second) == "second"
-    assert registry.name_of(OneConnection()) is None
-
-
-def test_a_registry_keeps_declaration_order():
-    first, second = OneConnection(), AnotherConnection()
-    registry = Connections({"first": first, "second": second})
-
-    assert registry.values() == [first, second]
-    assert len(registry) == 2
-    assert "first" in registry
-    assert "third" not in registry
-    assert repr(registry) == "Connections(['first', 'second'])"
 
 
 # IPConnection
@@ -111,35 +51,31 @@ async def test_using_an_unopened_ip_connection_says_so():
 
 
 @pytest.mark.asyncio
-async def test_a_command_that_hits_a_dead_socket_marks_the_link_down():
+async def test_a_command_that_hits_a_dead_socket_just_raises():
+    """No error handling in the IO: the supervisor's boundary reads the exception."""
     connection = IPConnection()
     stream = MagicMock()
     stream.__aenter__ = AsyncMock(return_value=stream)
     stream.__aexit__ = AsyncMock(return_value=False)
     stream.send_message = AsyncMock(side_effect=ConnectionResetError)
     connection._IPConnection__connection = stream  # pyright: ignore[reportAttributeAccessIssue]
-    connection._set_connected()  # noqa: SLF001
 
     with pytest.raises(ConnectionResetError):
         await connection.send_command("R=1\r\n")
 
-    assert not connection.connected
-
 
 @pytest.mark.asyncio
-async def test_a_command_the_device_accepts_leaves_the_link_up():
+async def test_a_command_is_sent_on_the_stream():
     connection = IPConnection()
     stream = MagicMock()
     stream.__aenter__ = AsyncMock(return_value=stream)
     stream.__aexit__ = AsyncMock(return_value=False)
     stream.send_message = AsyncMock()
     connection._IPConnection__connection = stream  # pyright: ignore[reportAttributeAccessIssue]
-    connection._set_connected()  # noqa: SLF001
 
     await connection.send_command("R=1\r\n")
 
     stream.send_message.assert_awaited_once_with("R=1\r\n")
-    assert connection.connected
 
 
 @pytest.mark.asyncio
@@ -185,7 +121,7 @@ async def test_using_an_unopened_serial_connection_says_so():
 
 
 @pytest.mark.asyncio
-async def test_serial_round_trip_leaves_the_link_up():
+async def test_serial_round_trip():
     connection = SerialConnection(SerialConnectionSettings(port="/dev/ttyS0"))
     stream = MagicMock()
     stream.write_async = AsyncMock()
@@ -193,39 +129,15 @@ async def test_serial_round_trip_leaves_the_link_up():
 
     with patch("aioserial.AioSerial", return_value=stream):
         await connection.connect()
-    connection._set_connected()  # noqa: SLF001
 
     await connection.send_command(b"R=1\r\n")
     assert await connection.send_query(b"ID?\r\n", 4) == b"ID=1"
-    assert connection.connected
 
     await connection.close()
     stream.close.assert_called_once()
     # Closing an already-closed link is tolerated - the runner does it before
     # every reconnect attempt.
     await connection.close()
-
-
-@pytest.mark.asyncio
-async def test_a_serial_port_that_goes_away_marks_the_link_down():
-    connection = SerialConnection(SerialConnectionSettings(port="/dev/ttyS0"))
-    stream = MagicMock()
-    stream.write_async = AsyncMock(side_effect=OSError)
-    stream.read_async = AsyncMock(side_effect=OSError)
-
-    with patch("aioserial.AioSerial", return_value=stream):
-        await connection.connect()
-    connection._set_connected()  # noqa: SLF001
-
-    with pytest.raises(OSError):
-        await connection.send_command(b"R=1\r\n")
-    assert not connection.connected
-
-    connection._set_connected()  # noqa: SLF001
-    stream.write_async = AsyncMock()
-    with pytest.raises(OSError):
-        await connection.send_query(b"ID?\r\n", 4)
-    assert not connection.connected
 
 
 # SimConnection
@@ -236,8 +148,7 @@ async def test_a_sim_connection_opens_and_closes_without_a_transport():
     """The pretending is all a driver writes: there is nothing here to fail."""
 
     class SimDevice(SimConnection):
-        def __init__(self, **kwargs) -> None:
-            super().__init__(**kwargs)
+        def __init__(self) -> None:
             self.position = 0
 
         async def move(self, steps: int) -> None:
@@ -245,97 +156,120 @@ async def test_a_sim_connection_opens_and_closes_without_a_transport():
 
     connection = SimDevice()
     await connection.connect()
-    connection._set_connected()  # noqa: SLF001
 
     await connection.move(3)
     assert connection.position == 3
-    assert connection.connected
 
     await connection.close()
 
 
-@pytest.mark.asyncio
-async def test_a_sim_connection_is_a_sibling_of_the_real_transports():
-    """Not a subclass of one: it would inherit a handle it never opens.
-
-    It is a `Connection` like any other, so it takes the same reconnect settings
-    and is chosen by ``type:`` in the same place - even though its reconnect task
-    will idle forever.
-    """
+def test_a_sim_connection_is_a_sibling_of_the_real_transports():
+    """Not a subclass of one: it would inherit a handle it never opens."""
     assert issubclass(SimConnection, Connection)
     assert not issubclass(SimConnection, IPConnection | SerialConnection)
 
-    connection = SimConnection.__new__(SimConnection)
-    Connection.__init__(connection, reconnect_period=2.0)
-    assert connection.reconnect_period == 2.0
+
+# ConnectionPolicy
 
 
-# Recovery
+@pytest.mark.parametrize(
+    "error",
+    [
+        ConnectionResetError(),
+        BrokenPipeError(),
+        ConnectionRefusedError(),
+        OSError("Network is unreachable"),
+        EOFError(),
+        asyncio.IncompleteReadError(b"", 4),
+        FileNotFoundError("/dev/ttyACM0"),
+        httpx.ConnectError("refused"),
+        DisconnectedError("the device said it is offline"),
+    ],
+)
+def test_a_link_failure_is_a_disconnection(error: Exception):
+    assert ConnectionPolicy().classify(error) is Failure.DISCONNECTED
 
 
-def test_a_missing_device_node_is_terminal_for_a_dra_node():
-    assert DRANode().is_terminal(FileNotFoundError())
+@pytest.mark.parametrize(
+    "error", [TimeoutError(), TimeoutError(), httpx.ReadTimeout("slow")]
+)
+def test_a_timeout_is_counted_rather_than_a_disconnection(error: Exception):
+    assert ConnectionPolicy().classify(error) is Failure.TIMEOUT
 
 
-def test_other_failures_are_not_terminal_for_a_dra_node():
-    assert not DRANode().is_terminal(TimeoutError())
-    assert not DRANode().is_terminal(OSError("I/O error"))
+@pytest.mark.parametrize(
+    "error",
+    [
+        ValueError("could not convert string to float: 'ERR'"),
+        httpx.HTTPStatusError(
+            "404",
+            request=httpx.Request("GET", "http://device"),
+            response=httpx.Response(404),
+        ),
+        RuntimeError("rejected"),
+    ],
+)
+def test_a_device_error_is_passed_to_the_caller(error: Exception):
+    assert ConnectionPolicy().classify(error) is Failure.DEVICE
+
+
+def test_three_timeouts_in_a_row_mean_disconnected_by_default():
+    assert ConnectionPolicy().timeout_count == 3
+
+
+def test_a_missing_device_node_is_terminal_for_a_dra_device():
+    assert DRAPolicy().is_terminal(FileNotFoundError())
+
+
+@pytest.mark.parametrize("error", [TimeoutError(), OSError("I/O error")])
+def test_other_failures_are_not_terminal_for_a_dra_device(error: Exception):
+    assert not DRAPolicy().is_terminal(error)
 
 
 def test_the_default_policy_never_gives_up_early():
-    assert not Recovery().is_terminal(FileNotFoundError())
-    assert not Recovery.is_fatal
+    assert not ConnectionPolicy().is_terminal(FileNotFoundError())
 
 
-def test_a_dra_node_is_fatal():
+def test_the_default_policy_is_not_fatal():
+    assert not ConnectionPolicy().fatal
+
+
+def test_a_dra_device_is_fatal():
     """Only a pod restart can re-establish the claim, so it asks for one."""
-    assert DRANode.is_fatal
+    assert DRAPolicy().fatal
+
+
+def test_a_policy_is_a_set_of_independent_settings():
+    """A slow DRA device is a DRAPolicy with a different count, not a new class."""
+    policy = DRAPolicy(timeout_count=10)
+
+    assert policy.timeout_count == 10
+    assert policy.is_terminal(FileNotFoundError())
 
 
 def test_every_connection_keeps_retrying_by_default():
-    assert isinstance(OneConnection().recovery, Recovery)
-    assert not OneConnection().recovery.is_terminal(FileNotFoundError())
+    assert not OneConnection.policy.is_terminal(FileNotFoundError())
 
 
-def test_one_policy_serves_any_transport():
-    """No class per transport × policy: the same instance is held by both."""
-    policy = DRANode()
-    serial = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
-    ip = IPConnection(IPConnectionSettings(ip="192.0.2.1", port=1234))
-    serial.recovery = policy
-    ip.recovery = policy
-
-    assert serial.recovery.is_terminal(FileNotFoundError())
-    assert ip.recovery.is_terminal(FileNotFoundError())
-    assert "/dev/ttyACM0" in serial.recovery.reason(serial)
-    assert "192.0.2.1:1234" in ip.recovery.reason(ip)
-
-
-def test_assigning_a_policy_to_one_instance_changes_only_that_instance():
-    claimed = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
-    unclaimed = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM1"))
-
-    claimed.recovery = DRANode()
-
-    assert claimed.recovery.is_terminal(FileNotFoundError())
-    assert not unclaimed.recovery.is_terminal(FileNotFoundError())
-
-
-def test_a_policy_can_be_set_on_the_class():
+def test_a_policy_is_set_on_the_class():
     class DRASerialConnection(SerialConnection):
-        recovery = DRANode()
+        policy = DRAPolicy()
 
-    connection = DRASerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
-
-    assert connection.recovery.is_terminal(FileNotFoundError())
+    assert DRASerialConnection.policy.is_terminal(FileNotFoundError())
 
 
 def test_the_default_reason_names_the_device():
     connection = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
 
-    assert Recovery().reason(connection) == (
+    assert ConnectionPolicy().reason(connection) == (
         "/dev/ttyACM0 cannot recover from this failure."
     )
+
+
+def test_the_dra_reason_names_the_device_node():
+    connection = SerialConnection(SerialConnectionSettings(port="/dev/ttyACM0"))
+
+    assert "/dev/ttyACM0" in DRAPolicy().reason(connection)
 
 
 # label

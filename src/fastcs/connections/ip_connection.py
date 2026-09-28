@@ -2,17 +2,8 @@ import asyncio
 from dataclasses import dataclass
 
 from fastcs.connections.connection import Connection
+from fastcs.exceptions import DisconnectedError
 from fastcs.tracer import Tracer
-
-
-class DisconnectedError(ConnectionError):
-    """Raised if the ip connection is disconnected.
-
-    A `ConnectionError`, and so an `OSError`, because that is what the rest of this
-    module treats as "the transport is gone" rather than "the device complained".
-    """
-
-    pass
 
 
 @dataclass
@@ -55,19 +46,14 @@ class IPConnection(Connection, Tracer):
     """For connecting to an ip using a `StreamConnection`.
 
     The settings are given at construction rather than to ``connect``, because the
-    framework opens and reopens the link without knowing anything about it. IO
-    marks the connection down when the *transport* fails, so everything holding it
-    stops and its reconnect task wakes.
+    framework opens and reopens the link without knowing anything about it.
 
     Args:
         settings: Where to connect to
-        kwargs: Passed to `Connection` - ``depends_on``, ``reconnect_period``,
-            ``reconnect_attempts``
 
     """
 
-    def __init__(self, settings: IPConnectionSettings | None = None, **kwargs) -> None:
-        Connection.__init__(self, **kwargs)
+    def __init__(self, settings: IPConnectionSettings | None = None) -> None:
         Tracer.__init__(self)
         self._settings = settings or IPConnectionSettings()
         self.__connection: StreamConnection | None = None
@@ -91,31 +77,21 @@ class IPConnection(Connection, Tracer):
 
     async def send_command(self, message: str) -> None:
         async with self._connection as connection:
-            try:
-                await connection.send_message(message)
-            except OSError:
-                # The socket is gone, rather than the device complaining. Everything
-                # holding this connection is now down.
-                self.set_disconnected()
-                raise
+            await connection.send_message(message)
 
     async def send_query(self, message: str) -> str:
         async with self._connection as connection:
-            try:
-                await connection.send_message(message)
-                response = await connection.receive_response()
-                if not response:
-                    # ``readline`` returns b"" at EOF, so a peer that closed the
-                    # socket rather than answering looks like an empty reply. It
-                    # is a dead link, and nothing else here would notice: the
-                    # caller would get "" and fail to parse it, over and over,
-                    # while the reconnect task stayed idle.
-                    raise DisconnectedError(
-                        "Connection closed by peer while awaiting a response"
-                    )
-            except OSError:
-                self.set_disconnected()
-                raise
+            await connection.send_message(message)
+            response = await connection.receive_response()
+            if not response:
+                # ``readline`` returns b"" at EOF, so a peer that closed the socket
+                # rather than answering looks like an empty reply. It is a dead
+                # link, and nothing else here would notice: the caller would get ""
+                # and fail to parse it, over and over, while the reconnect loop
+                # stayed idle.
+                raise DisconnectedError(
+                    "Connection closed by peer while awaiting a response"
+                )
 
             self.log_event(
                 "Received query response",

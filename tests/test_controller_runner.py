@@ -1,19 +1,20 @@
 import asyncio
 import sys
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
 
-from fastcs.attributes import AttrR, Polled
+from fastcs.attributes import AttrR, AttrRW, Polled, Severity
 from fastcs.connections import (
-    DEFAULT_RECONNECT_ATTEMPTS,
-    DEFAULT_RECONNECT_PERIOD,
     Connection,
-    Connections,
-    DRANode,
-    Recovery,
+    DisconnectedError,
+    DRAPolicy,
+    Supervisor,
 )
 from fastcs.controllers import Controller, ControllerRunner
-from fastcs.controllers.runner import MAX_BUILD_PASSES
+from fastcs.controllers.runner import CONNECTED_ATTRIBUTE, MAX_BUILD_PASSES
+from fastcs.logging import logger
 from fastcs.methods import scan
 from fastcs.util import ONCE
 
@@ -21,25 +22,44 @@ from fastcs.util import ONCE
 class FakeConnection(Connection):
     """A connection that opens when told to, and records what was asked of it."""
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.fail_next: Exception | None = None
+    def __init__(self) -> None:
+        self.fail_connect: Exception | None = None
+        self.fail_io: Exception | None = None
         self.connects = 0
         self.closes = 0
+        self.value = 1
 
     async def connect(self) -> None:
         self.connects += 1
-        if self.fail_next is not None:
-            raise self.fail_next
+        if self.fail_connect is not None:
+            raise self.fail_connect
 
     async def close(self) -> None:
         self.closes += 1
+
+    async def read(self) -> int:
+        if self.fail_io is not None:
+            raise self.fail_io
+        return self.value
+
+    async def write(self, value: int) -> None:
+        if self.fail_io is not None:
+            raise self.fail_io
+        self.value = value
+
+
+class BaseLink(FakeConnection):
+    pass
+
+
+class LayeredLink(FakeConnection):
+    depends_on = [BaseLink]
 
 
 class LifecycleController(Controller):
     """Records every lifecycle hook the runner is supposed to call."""
 
-    def __init__(self, connection: Connection | None = None):
+    def __init__(self, connection: FakeConnection | None = None):
         self.connection = connection
         super().__init__()
         self.events: list[str] = []
@@ -57,74 +77,132 @@ class LifecycleController(Controller):
         await self.count.update(self.count.readback + 1)
 
 
-def runner_for(controllers, **connections: Connection) -> ControllerRunner:
-    """A runner over an explicit registry.
+class Polling(Controller):
+    """Polls its connection quickly, so it notices and recovers from failures."""
 
-    Every connection a runner supervises is declared, never found: the registry is
-    the whole list, so a test says what it declared the same way ``fastcs.yaml``
-    does.
-    """
-    return ControllerRunner(controllers, Connections(dict(connections)))
+    def __init__(self, connection: FakeConnection | None):
+        self.connection = connection
+        super().__init__()
+        self.value = AttrRW(
+            int, getter=Polled(self._read, period=0.001), setter=self._write
+        )
+        self.polls = 0
+
+    async def _read(self) -> int:
+        self.polls += 1
+        return await self.connection.read()
+
+    async def _write(self, value: int) -> None:
+        await self.connection.write(value)
+
+
+def supervise(
+    connection: FakeConnection, **kwargs: Any
+) -> tuple[Supervisor[FakeConnection], FakeConnection]:
+    """A supervisor, and the handle a controller would be given."""
+    supervisor = Supervisor(connection, name=type(connection).__name__, **kwargs)
+    return supervisor, supervisor.handle
+
+
+def link_down(supervisor: Supervisor) -> None:
+    supervisor.mark_down(ConnectionResetError())
+
+
+async def eventually(predicate, timeout: float = 2) -> None:
+    async def wait() -> None:
+        while not predicate():
+            await asyncio.sleep(0.001)
+
+    await asyncio.wait_for(wait(), timeout=timeout)
+
+
+@pytest.fixture
+def log_records() -> Iterator[list[dict[str, Any]]]:
+    records: list[dict[str, Any]] = []
+    handler = logger.add(
+        lambda message: records.append(
+            {"event": message.record["message"], **message.record["extra"]}
+        ),
+        level="DEBUG",
+    )
+    yield records
+    logger.remove(handler)
+
+
+# The lifecycle
 
 
 @pytest.mark.asyncio
 async def test_the_runner_drives_the_whole_lifecycle():
-    connection = FakeConnection()
-    controller = LifecycleController(connection)
-    runner = runner_for(controller, only=connection)
+    supervisor, handle = supervise(FakeConnection())
+    controller = LifecycleController(handle)
+    runner = ControllerRunner(controller, [supervisor])
+
+    await runner.start()
+    await runner.stop()
+
+    assert controller.events == ["build", "setup", "initial"]
+
+
+@pytest.mark.asyncio
+async def test_start_opens_the_connection():
+    supervisor, handle = supervise(FakeConnection())
+    runner = ControllerRunner(LifecycleController(handle), [supervisor])
 
     await runner.start()
     try:
-        assert controller.events == ["build", "setup", "initial"]
-        assert controller.count.readback == 1
-        assert connection.connects == 1
-        assert connection.connected
+        assert supervisor.up
     finally:
         await runner.stop()
 
-    # Shutdown is a runner operation, not an author hook
-    assert connection.closes == 1
+
+@pytest.mark.asyncio
+async def test_stop_closes_the_connection():
+    """Shutdown is a runner operation, not an author hook."""
+    supervisor, handle = supervise(FakeConnection())
+    runner = ControllerRunner(LifecycleController(handle), [supervisor])
+    await runner.start()
+
+    await runner.stop()
+
+    assert supervisor.connection.closes == 1
 
 
 @pytest.mark.asyncio
 async def test_connections_open_before_anything_is_built():
     """A ``build`` runs against an open link, so it can ask the device questions."""
-    connection = FakeConnection()
-    order: list[str] = []
+    supervisor, handle = supervise(FakeConnection())
+    read_in_build: list[int] = []
 
-    class RecordingController(Controller):
-        def __init__(self):
+    class Asking(Controller):
+        def __init__(self, connection: FakeConnection):
             self.connection = connection
             super().__init__()
 
         async def build(self):
-            order.append(f"build(connected={connection.connected})")
+            read_in_build.append(await self.connection.read())
 
-    runner = runner_for(RecordingController(), only=connection)
+    runner = ControllerRunner(Asking(handle), [supervisor])
     await runner.build()
 
-    assert order == ["build(connected=True)"]
+    assert read_in_build == [1]
 
 
 @pytest.mark.asyncio
 async def test_build_builds_the_apis_before_anything_is_set_up():
     """A transport is wired to the APIs between build and start."""
-    connection = FakeConnection()
-    controller = LifecycleController(connection)
-    runner = runner_for(controller, only=connection)
+    controller = LifecycleController()
+    runner = ControllerRunner(controller)
 
     apis = await runner.build()
 
-    assert [api.path for api in apis] == [[]]
     assert "count" in apis[0].attributes
     assert controller.events == ["build"]
-    assert runner.controller_apis == apis
 
 
 @pytest.mark.asyncio
 async def test_start_builds_when_build_has_not_run():
-    connection = FakeConnection()
-    runner = runner_for(LifecycleController(connection), only=connection)
+    runner = ControllerRunner(LifecycleController())
 
     await runner.start()
     try:
@@ -135,29 +213,12 @@ async def test_start_builds_when_build_has_not_run():
 
 @pytest.mark.asyncio
 async def test_a_runner_takes_several_controllers():
-    first, second = FakeConnection(), FakeConnection()
-    controllers = [LifecycleController(first), LifecycleController(second)]
-    runner = runner_for(controllers, first=first, second=second)
+    controllers = [LifecycleController(), LifecycleController()]
+    runner = ControllerRunner(controllers)
 
     await runner.start()
     try:
-        assert len(runner.controller_apis) == 2
         assert all(controller.count.readback == 1 for controller in controllers)
-    finally:
-        await runner.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_controller_with_no_connection_still_runs():
-    """A soft controller that groups others has nothing to connect."""
-    controller = LifecycleController(None)
-    runner = runner_for(controller)
-
-    await runner.start()
-    try:
-        assert runner.connections == []
-        assert controller.events == ["build", "setup", "initial"]
-        assert controller.connected
     finally:
         await runner.stop()
 
@@ -182,7 +243,7 @@ async def test_setup_runs_once_the_whole_tree_is_built():
         async def setup(self):
             order.append("parent setup")
 
-    runner = runner_for(Parent())
+    runner = ControllerRunner(Parent())
     await runner.start()
     try:
         assert order == ["parent build", "child build", "parent setup", "child setup"]
@@ -201,10 +262,11 @@ async def test_build_repeats_until_the_tree_stops_growing():
             if self._depth:
                 self.add_sub_controller("SUB", Tier(self._depth - 1))
 
-    runner = runner_for(Tier(3))
+    root = Tier(3)
+    runner = ControllerRunner(root)
     await runner.build()
 
-    controller = runner._controllers[0]
+    controller: Controller = root
     for _ in range(3):
         controller = controller.sub_controllers["SUB"]  # type: ignore[assignment]
     assert controller.sub_controllers == {}
@@ -216,570 +278,594 @@ async def test_a_tree_that_never_settles_is_caught():
         async def build(self):
             self.add_sub_controller("SUB", Runaway())
 
-    runner = runner_for(Runaway())
+    runner = ControllerRunner(Runaway())
 
     with pytest.raises(RuntimeError, match=f"{MAX_BUILD_PASSES} build passes"):
         await runner.build()
 
 
 @pytest.mark.asyncio
-async def test_controllers_sharing_a_connection_are_one_connection():
-    """Identity, not equality: the tree is not the unit of failure, the link is."""
-    connection = FakeConnection()
+async def test_controllers_sharing_a_connection_open_it_once():
+    supervisor, handle = supervise(FakeConnection())
 
     class Parent(Controller):
         def __init__(self):
-            self.connection = connection
             super().__init__()
-            self.add_sub_controller("A", LifecycleController(connection))
-            self.add_sub_controller("B", LifecycleController(connection))
+            self.add_sub_controller("A", LifecycleController(handle))
+            self.add_sub_controller("B", LifecycleController(handle))
 
-    runner = runner_for(Parent(), shared=connection)
+    runner = ControllerRunner(Parent(), [supervisor])
     await runner.build()
 
-    assert runner.connections == [connection]
-    assert connection.connects == 1
+    assert supervisor.connection.connects == 1
 
 
 @pytest.mark.asyncio
-async def test_a_connection_created_during_build_is_rejected():
+async def test_a_connection_the_runner_does_not_supervise_is_rejected():
     """It would never be opened, and so never reconnected either."""
 
     class LateConnector(Controller):
         async def build(self):
-            child = LifecycleController(FakeConnection())
-            self.add_sub_controller("LATE", child)
+            self.add_sub_controller("LATE", LifecycleController(FakeConnection()))
 
-    with pytest.raises(RuntimeError, match="did not open"):
-        await runner_for(LateConnector()).build()
+    runner = ControllerRunner(LateConnector())
+
+    with pytest.raises(RuntimeError, match="does not supervise"):
+        await runner.build()
 
 
 @pytest.mark.asyncio
-async def test_a_declared_but_unclaimed_connection_is_warned_about(monkeypatch):
-    warnings: list[dict] = []
-    monkeypatch.setattr(
-        "fastcs.controllers.runner.logger.warning",
-        lambda event, **kwargs: warnings.append({"event": event, **kwargs}),
-    )
-
-    claimed = FakeConnection()
-    connections = Connections({"used": claimed, "spare": FakeConnection()})
-    connections.get("used", FakeConnection)
-
-    runner = ControllerRunner(LifecycleController(claimed), connections)
+async def test_a_controller_may_hold_the_connection_itself():
+    """A test can hand over the raw connection, and it is still supervised."""
+    supervisor, _ = supervise(FakeConnection(), reconnect_attempts=1000)
+    controller = Polling(supervisor.connection)
+    runner = ControllerRunner(controller, [supervisor])
     await runner.start()
     try:
-        assert [w["connection"] for w in warnings if "never used" in w["event"]] == [
-            "spare"
-        ]
+        supervisor.connection.fail_connect = RuntimeError("down")
+        link_down(supervisor)
+        await asyncio.sleep(0.01)
+        polls = controller.polls
+        await asyncio.sleep(0.01)
+
+        assert controller.polls == polls
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_connection_nothing_polls_is_warned_about(monkeypatch):
-    warnings: list[dict] = []
-    monkeypatch.setattr(
-        "fastcs.controllers.runner.logger.warning",
-        lambda event, **kwargs: warnings.append({"event": event, **kwargs}),
-    )
+async def test_a_connection_no_controller_holds_is_warned_about(log_records):
+    supervisor, _ = supervise(FakeConnection())
+    runner = ControllerRunner(LifecycleController(), [supervisor])
 
-    class OnDemandOnly(Controller):
-        def __init__(self, connection):
-            self.connection = connection
+    await runner.build()
+    try:
+        assert any(
+            "not held by any controller" in r["event"]
+            and r["connection"] == "FakeConnection"
+            for r in log_records
+        )
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_connection_nothing_polls_is_warned_about(log_records):
+    supervisor, handle = supervise(FakeConnection())
+    runner = ControllerRunner(LifecycleController(handle), [supervisor])
+
+    await runner.start()
+    try:
+        assert any("no polled attribute" in r["event"] for r in log_records)
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_polled_connection_is_not_warned_about(log_records):
+    supervisor, handle = supervise(FakeConnection())
+    runner = ControllerRunner(Polling(handle), [supervisor])
+
+    await runner.start()
+    try:
+        assert not any("no polled attribute" in r["event"] for r in log_records)
+    finally:
+        await runner.stop()
+
+
+# The seal
+
+
+@pytest.mark.asyncio
+async def test_the_tree_is_sealed_after_build():
+    controller = LifecycleController()
+    runner = ControllerRunner(controller)
+    await runner.build()
+
+    with pytest.raises(RuntimeError, match="sealed"):
+        controller.add_attribute("late", AttrR(int))
+
+
+@pytest.mark.asyncio
+async def test_a_sub_controller_is_sealed_too():
+    child = LifecycleController()
+    parent = Controller()
+    parent.add_sub_controller("CHILD", child)
+    runner = ControllerRunner(parent)
+    await runner.build()
+
+    with pytest.raises(RuntimeError, match="sealed"):
+        child.add_sub_controller("LATE", Controller())
+
+
+@pytest.mark.asyncio
+async def test_adding_in_setup_raises():
+    class Late(Controller):
+        async def setup(self):
+            self.late = AttrR(int)
+
+    runner = ControllerRunner(Late())
+
+    with pytest.raises(RuntimeError, match="sealed"):
+        await runner.start()
+
+
+@pytest.mark.asyncio
+async def test_every_controller_gets_a_connected_attribute():
+    supervisor, handle = supervise(FakeConnection())
+    parent = Controller()
+    parent.add_sub_controller("CHILD", LifecycleController(handle))
+    runner = ControllerRunner(parent, [supervisor])
+
+    apis = await runner.build()
+
+    assert all(CONNECTED_ATTRIBUTE in api.attributes for api in apis[0].walk_api())
+
+
+@pytest.mark.asyncio
+async def test_a_soft_controller_is_always_connected():
+    controller = LifecycleController()
+    runner = ControllerRunner(controller)
+
+    await runner.start()
+    connected = controller.attributes[CONNECTED_ATTRIBUTE]
+    assert isinstance(connected, AttrR)
+    try:
+        assert connected.readback is True
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_connected_goes_off_when_the_link_drops():
+    supervisor, handle = supervise(FakeConnection(), reconnect_period=0.001)
+    controller = LifecycleController(handle)
+    runner = ControllerRunner(controller, [supervisor])
+    await runner.start()
+    connected = controller.attributes[CONNECTED_ATTRIBUTE]
+    assert isinstance(connected, AttrR)
+    try:
+        supervisor.connection.fail_connect = RuntimeError("down")
+        link_down(supervisor)
+
+        await eventually(lambda: connected.readback is False)
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_connected_comes_back_on_with_the_link():
+    supervisor, handle = supervise(FakeConnection(), reconnect_period=0.001)
+    controller = LifecycleController(handle)
+    runner = ControllerRunner(controller, [supervisor])
+    await runner.start()
+    connected = controller.attributes[CONNECTED_ATTRIBUTE]
+    assert isinstance(connected, AttrR)
+    try:
+        link_down(supervisor)
+        await asyncio.wait_for(supervisor.wait_up(), timeout=2)
+
+        await eventually(lambda: connected.readback is True)
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_controller_with_its_own_connected_member_is_rejected():
+    class Clashing(Controller):
+        def __init__(self):
             super().__init__()
+            self.connected = AttrR(bool)
 
-    on_demand = FakeConnection()
-    runner = runner_for(OnDemandOnly(on_demand), only=on_demand)
-    await runner.start()
-    try:
-        assert any("no polled attribute" in w["event"] for w in warnings)
-    finally:
-        await runner.stop()
+    runner = ControllerRunner(Clashing())
 
-    warnings.clear()
+    with pytest.raises(RuntimeError, match="already has a member named"):
+        await runner.build()
 
-    class Polling(Controller):
-        def __init__(self, connection):
-            self.connection = connection
-            super().__init__()
-            self.value = AttrR(int, getter=Polled(self._get, period=0.2))
 
-        async def _get(self) -> int:
-            return 1
-
-    polled = FakeConnection()
-    runner = runner_for(Polling(polled), only=polled)
-    await runner.start()
-    try:
-        assert not any("no polled attribute" in w["event"] for w in warnings)
-    finally:
-        await runner.stop()
+# Scans
 
 
 @pytest.mark.asyncio
-async def test_the_runner_reconnects_a_connection_that_dropped_out():
-    """The connection's own IO marks it down; one task per connection brings it back."""
-    connection = FakeConnection(reconnect_period=0.01)
-    runner = runner_for(LifecycleController(connection), only=connection)
+async def test_scans_pause_while_their_connection_is_down():
+    supervisor, handle = supervise(FakeConnection(), reconnect_attempts=1000)
+    controller = Polling(handle)
+    runner = ControllerRunner(controller, [supervisor])
     await runner.start()
     try:
-        assert connection.connected
-
-        # What a connection's IO does when its transport fails
-        connection.set_disconnected()
-        await connection.wait_up()
-
-        assert connection.connected
-        assert connection.connects == 2
-        # Closed before the reconnect attempt, tolerating an already-closed link
-        assert connection.closes == 1
-    finally:
-        await runner.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_failing_reconnect_keeps_trying_then_gives_up():
-    connection = FakeConnection(reconnect_period=0.001, reconnect_attempts=3)
-    runner = runner_for(LifecycleController(connection), only=connection)
-    await runner.start()
-    try:
-        connection.fail_next = RuntimeError("still down")
-        connection.set_disconnected()
-
-        state = runner._state[connection]
-        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
-
-        assert state.attempts == 3
-        assert not connection.connected
-
-        # Terminal until the process restarts: no further attempts
-        attempts_at_exhaustion = connection.connects
-        await asyncio.sleep(0.05)
-        assert connection.connects == attempts_at_exhaustion
-    finally:
-        await runner.stop()
-
-
-@pytest.mark.asyncio
-async def test_a_clean_reconnect_restores_the_retry_budget():
-    connection = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
-    runner = runner_for(LifecycleController(connection), only=connection)
-    await runner.start()
-    try:
-        connection.fail_next = RuntimeError("down")
-        connection.set_disconnected()
+        supervisor.connection.fail_connect = RuntimeError("down")
+        link_down(supervisor)
+        await asyncio.sleep(0.01)
+        polls = controller.polls
         await asyncio.sleep(0.02)
-        assert runner._state[connection].attempts > 0
 
-        connection.fail_next = None
-        await asyncio.wait_for(connection.wait_up(), timeout=2)
-
-        assert runner._state[connection].attempts == 0
+        assert controller.polls == polls
     finally:
         await runner.stop()
 
 
-# Recovery policy
+@pytest.mark.asyncio
+async def test_scans_resume_after_a_reconnect():
+    supervisor, handle = supervise(FakeConnection(), reconnect_period=0.001)
+    controller = Polling(handle)
+    runner = ControllerRunner(controller, [supervisor])
+    await runner.start()
+    try:
+        link_down(supervisor)
+        await asyncio.wait_for(supervisor.wait_up(), timeout=2)
+        polls = controller.polls
 
-
-class NoRestart(Recovery):
-    """Terminal on a missing node, but stalls rather than bringing the app down."""
-
-    def is_terminal(self, exc: BaseException) -> bool:
-        return isinstance(exc, FileNotFoundError)
+        await eventually(lambda: controller.polls > polls)
+    finally:
+        await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_terminal_failure_gives_up_without_spending_the_budget(monkeypatch):
-    errors: list[dict] = []
-    monkeypatch.setattr(
-        "fastcs.controllers.runner.logger.error",
-        lambda event, **kwargs: errors.append({"event": event, **kwargs}),
+async def test_a_child_keeps_scanning_when_its_parents_link_drops():
+    """Each connection is paused on its own, not the whole tree on the root's."""
+    root_supervisor, root_handle = supervise(BaseLink(), reconnect_attempts=1000)
+    child_supervisor, child_handle = supervise(FakeConnection())
+    root = Polling(root_handle)
+    child = Polling(child_handle)
+    root.add_sub_controller("CHILD", child)
+    runner = ControllerRunner(root, [root_supervisor, child_supervisor])
+    await runner.start()
+    try:
+        root_supervisor.connection.fail_connect = RuntimeError("down")
+        link_down(root_supervisor)
+        await asyncio.sleep(0.01)
+        polls = child.polls
+
+        await eventually(lambda: child.polls > polls)
+    finally:
+        await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_child_pauses_when_its_own_link_drops_under_a_healthy_parent():
+    root_supervisor, root_handle = supervise(BaseLink())
+    child_supervisor, child_handle = supervise(
+        FakeConnection(), reconnect_attempts=1000
     )
-
-    connection = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
-    connection.recovery = DRANode()
-    runner = runner_for(LifecycleController(connection), only=connection)
+    root = Polling(root_handle)
+    child = Polling(child_handle)
+    root.add_sub_controller("CHILD", child)
+    runner = ControllerRunner(root, [root_supervisor, child_supervisor])
     await runner.start()
     try:
-        connection.fail_next = FileNotFoundError("/dev/ttyACM0")
-        connection.set_disconnected()
+        child_supervisor.connection.fail_connect = RuntimeError("down")
+        link_down(child_supervisor)
+        await asyncio.sleep(0.01)
+        polls = child.polls
+        await asyncio.sleep(0.02)
 
-        state = runner._state[connection]
-        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
-
-        assert state.attempts == 1
-        assert connection.connects == 2  # the initial open, then one reconnect
-        assert not connection.connected
-
-        # Terminal until the process restarts: no further attempts
-        await asyncio.sleep(0.05)
-        assert connection.connects == 2
-
-        gave_up = [e for e in errors if e["event"] == "Giving up"]
-        assert gave_up and gave_up[0]["reason"] == DRANode().reason(connection)
+        assert child.polls == polls
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_the_default_policy_spends_the_whole_budget_on_the_same_failure():
-    connection = FakeConnection(reconnect_period=0.001, reconnect_attempts=3)
-    runner = runner_for(LifecycleController(connection), only=connection)
+async def test_a_soft_parent_does_not_gate_its_children():
+    child_supervisor, child_handle = supervise(FakeConnection())
+    root = Controller()
+    child = Polling(child_handle)
+    root.add_sub_controller("CHILD", child)
+    runner = ControllerRunner(root, [child_supervisor])
     await runner.start()
     try:
-        connection.fail_next = FileNotFoundError("/dev/ttyACM0")
-        connection.set_disconnected()
+        polls = child.polls
 
-        state = runner._state[connection]
-        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
-
-        assert state.attempts == 3
-        assert not runner.fatal_error.is_set()
+        await eventually(lambda: child.polls > polls)
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_failure_the_policy_does_not_call_terminal_is_retried():
-    connection = FakeConnection(reconnect_period=0.001, reconnect_attempts=3)
-    connection.recovery = DRANode()
-    runner = runner_for(LifecycleController(connection), only=connection)
+async def test_a_poll_that_hits_a_dead_link_takes_the_link_down():
+    supervisor, handle = supervise(FakeConnection(), reconnect_attempts=1000)
+    runner = ControllerRunner(Polling(handle), [supervisor])
     await runner.start()
     try:
-        connection.fail_next = OSError("I/O error")
-        connection.set_disconnected()
+        supervisor.connection.fail_connect = RuntimeError("down")
+        supervisor.connection.fail_io = ConnectionResetError()
 
-        state = runner._state[connection]
-        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
-
-        assert state.attempts == 3
-        # Running out of budget is not what the policy calls fatal
-        assert not runner.fatal_error.is_set()
+        await eventually(lambda: not supervisor.up)
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_terminal_failure_under_a_fatal_policy_is_fatal():
-    connection = FakeConnection(reconnect_period=0.001)
-    connection.recovery = DRANode()
-    runner = runner_for(LifecycleController(connection), only=connection)
+async def test_polled_values_are_flagged_invalid_when_the_link_drops():
+    supervisor, handle = supervise(FakeConnection(), reconnect_attempts=1000)
+    controller = Polling(handle)
+    runner = ControllerRunner(controller, [supervisor])
     await runner.start()
     try:
-        exc = FileNotFoundError("/dev/ttyACM0")
-        connection.fail_next = exc
-        connection.set_disconnected()
+        supervisor.connection.fail_connect = RuntimeError("down")
+        link_down(supervisor)
 
-        await asyncio.wait_for(runner.fatal_error.wait(), timeout=2)
-
-        assert runner.fatal_reason is exc
+        await eventually(lambda: controller.value.severity is Severity.INVALID)
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_terminal_failure_under_a_non_fatal_policy_only_stalls():
-    connection = FakeConnection(reconnect_period=0.001)
-    connection.recovery = NoRestart()
-    runner = runner_for(LifecycleController(connection), only=connection)
+async def test_a_good_poll_after_a_reconnect_clears_the_flag():
+    supervisor, handle = supervise(FakeConnection(), reconnect_period=0.001)
+    controller = Polling(handle)
+    runner = ControllerRunner(controller, [supervisor])
     await runner.start()
     try:
-        connection.fail_next = FileNotFoundError("/dev/ttyACM0")
-        connection.set_disconnected()
+        link_down(supervisor)
+        await eventually(lambda: controller.value.severity is Severity.INVALID)
 
-        state = runner._state[connection]
-        await asyncio.wait_for(state.exhausted.wait(), timeout=2)
-
-        assert state.attempts == 1
-        assert not runner.fatal_error.is_set()
-        assert runner.fatal_reason is None
+        await eventually(lambda: controller.value.severity is Severity.NO_ALARM)
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_terminal_failure_still_stalls_its_dependents(monkeypatch):
-    errors: list[dict] = []
-    monkeypatch.setattr(
-        "fastcs.controllers.runner.logger.error",
-        lambda event, **kwargs: errors.append({"event": event, **kwargs}),
-    )
-
-    base = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
-    base.recovery = NoRestart()
-    layered = FakeConnection(depends_on=base, reconnect_period=0.001)
-
-    runner = runner_for(
-        [LifecycleController(base), LifecycleController(layered)],
-        base=base,
-        layered=layered,
-    )
+async def test_read_once_reads_run_again_after_a_reconnect():
+    """A rebooted device can come back with different values."""
+    supervisor, handle = supervise(FakeConnection(), reconnect_period=0.001)
+    controller = LifecycleController(handle)
+    runner = ControllerRunner(controller, [supervisor])
     await runner.start()
     try:
-        base.fail_next = FileNotFoundError("/dev/ttyACM0")
-        base.set_disconnected()
-        layered.set_disconnected()
+        link_down(supervisor)
 
-        await asyncio.sleep(0.2)
-
-        gave_up = [e for e in errors if e["event"] == "Giving up"]
-        assert gave_up and gave_up[0]["connection"] == "base"
-        assert gave_up[0]["attempts"] == 1
-        assert gave_up[0]["blocks"] == ["layered"]
-
-        stalled = [e for e in errors if e["event"].startswith("Stalled")]
-        assert stalled and stalled[0]["connection"] == "layered"
-        assert runner._state[layered].attempts == 0
+        await eventually(lambda: controller.count.readback == 2)
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_dependent_waits_rather_than_spending_its_budget():
-    """No attempt means no increment, so the budget freezes while waiting."""
-    base = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
-    layered = FakeConnection(depends_on=base, reconnect_period=0.001)
-
-    runner = runner_for(
-        [LifecycleController(base), LifecycleController(layered)],
-        base=base,
-        layered=layered,
-    )
+async def test_setup_does_not_run_again_after_a_reconnect():
+    supervisor, handle = supervise(FakeConnection(), reconnect_period=0.001)
+    controller = LifecycleController(handle)
+    runner = ControllerRunner(controller, [supervisor])
     await runner.start()
     try:
-        base.fail_next = RuntimeError("down")
-        base.set_disconnected()
-        layered.set_disconnected()
+        link_down(supervisor)
+        await eventually(lambda: controller.count.readback == 2)
 
-        await asyncio.sleep(0.05)
-
-        # The dependent has not attempted at all while its dependency is down
-        assert runner._state[layered].attempts == 0
-        assert layered.connects == 1
-
-        base.fail_next = None
-        await asyncio.wait_for(layered.wait_up(), timeout=2)
+        assert controller.events.count("setup") == 1
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_dependent_is_released_when_its_dependency_gives_up(monkeypatch):
-    """Released rather than left hanging, so it stalls loudly."""
-    errors: list[dict] = []
-    monkeypatch.setattr(
-        "fastcs.controllers.runner.logger.error",
-        lambda event, **kwargs: errors.append({"event": event, **kwargs}),
-    )
+async def test_a_raising_scan_is_retried():
+    calls = 0
 
-    base = FakeConnection(reconnect_period=0.001, reconnect_attempts=1)
-    layered = FakeConnection(depends_on=base, reconnect_period=0.001)
+    class Failing(Controller):
+        @scan(0.001)
+        async def failing(self):
+            nonlocal calls
+            calls += 1
+            raise RuntimeError("scan error")
 
-    runner = runner_for(
-        [LifecycleController(base), LifecycleController(layered)],
-        base=base,
-        layered=layered,
-    )
+    runner = ControllerRunner(Failing())
     await runner.start()
     try:
-        base.fail_next = RuntimeError("down for good")
-        base.set_disconnected()
-        layered.set_disconnected()
-
-        await asyncio.sleep(0.2)
-
-        gave_up = [e for e in errors if e["event"] == "Giving up"]
-        assert gave_up and gave_up[0]["connection"] == "base"
-        # The give-up message names what it takes down with it
-        assert gave_up[0]["blocks"] == ["layered"]
-
-        stalled = [e for e in errors if e["event"].startswith("Stalled")]
-        assert stalled and stalled[0]["connection"] == "layered"
+        await eventually(lambda: calls > 3)
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_a_dependent_waits_for_every_dependency():
-    """All of them must be up: a connection layered over two links is no more
-    usable with one of them than with neither."""
-    first = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
-    second = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
-    layered = FakeConnection(depends_on=[first, second], reconnect_period=0.001)
+async def test_a_scan_failing_the_same_way_is_logged_once(log_records):
+    calls = 0
 
-    runner = runner_for(
-        [
-            LifecycleController(first),
-            LifecycleController(second),
-            LifecycleController(layered),
-        ],
-        first=first,
-        second=second,
-        layered=layered,
-    )
+    class Failing(Controller):
+        @scan(0.001)
+        async def failing(self):
+            nonlocal calls
+            calls += 1
+            raise RuntimeError("scan error")
+
+    runner = ControllerRunner(Failing())
     await runner.start()
     try:
-        for connection in (first, second):
-            connection.fail_next = RuntimeError("down")
-            connection.set_disconnected()
-        layered.set_disconnected()
+        await eventually(lambda: calls > 3)
 
-        # Only one of the two comes back
-        first.fail_next = None
-        await asyncio.wait_for(first.wait_up(), timeout=2)
-        await asyncio.sleep(0.05)
-
-        assert runner._state[layered].attempts == 0
-        assert not layered.connected
-
-        second.fail_next = None
-        await asyncio.wait_for(layered.wait_up(), timeout=2)
+        assert [r["event"] for r in log_records].count("Scan failed") == 1
     finally:
         await runner.stop()
 
 
 @pytest.mark.asyncio
-async def test_any_dependency_giving_up_stalls_the_dependent(monkeypatch):
-    """One that has given up is enough to make the dependent unusable, however
-    healthy the others are."""
-    errors: list[dict] = []
-    monkeypatch.setattr(
-        "fastcs.controllers.runner.logger.error",
-        lambda event, **kwargs: errors.append({"event": event, **kwargs}),
-    )
-
-    healthy = FakeConnection(reconnect_period=0.001, reconnect_attempts=1000)
-    doomed = FakeConnection(reconnect_period=0.001, reconnect_attempts=1)
-    layered = FakeConnection(depends_on=[healthy, doomed], reconnect_period=0.001)
-
-    runner = runner_for(
-        [
-            LifecycleController(healthy),
-            LifecycleController(doomed),
-            LifecycleController(layered),
-        ],
-        healthy=healthy,
-        doomed=doomed,
-        layered=layered,
-    )
+async def test_a_put_on_a_dead_link_fails_back_to_the_caller():
+    supervisor, handle = supervise(FakeConnection(), reconnect_attempts=1000)
+    controller = Polling(handle)
+    runner = ControllerRunner(controller, [supervisor])
     await runner.start()
     try:
-        doomed.fail_next = RuntimeError("down for good")
-        doomed.set_disconnected()
-        layered.set_disconnected()
+        supervisor.connection.fail_connect = RuntimeError("down")
+        link_down(supervisor)
 
-        await asyncio.sleep(0.2)
-
-        stalled = [e for e in errors if e["event"].startswith("Stalled")]
-        assert stalled and stalled[0]["connection"] == "layered"
-        assert stalled[0]["dependencies"] == ["doomed"]
+        with pytest.raises(DisconnectedError):
+            await controller.value.set(5)
     finally:
         await runner.stop()
+
+
+# Dependencies, by type
 
 
 @pytest.mark.asyncio
 async def test_connections_are_opened_in_dependency_order():
-    """A connection layered over another must not be opened before it, however
-    the two were declared."""
+    """However they were declared."""
     opened: list[str] = []
 
-    class Recorded(FakeConnection):
-        def __init__(self, name: str, **kwargs) -> None:
-            super().__init__(**kwargs)
-            self.name = name
-
+    class RecordedBase(BaseLink):
         async def connect(self) -> None:
-            opened.append(self.name)
-            await super().connect()
+            opened.append("base")
 
-    base = Recorded("base")
-    layered = Recorded("layered", depends_on=base)
+    class RecordedLayered(LayeredLink):
+        async def connect(self) -> None:
+            opened.append("layered")
 
-    # Declared the wrong way round on purpose
-    runner = runner_for(
-        [LifecycleController(layered), LifecycleController(base)],
-        layered=layered,
-        base=base,
-    )
+    layered, layered_handle = supervise(RecordedLayered())
+    base, base_handle = supervise(RecordedBase())
+    root = Controller()
+    root.add_sub_controller("LAYERED", LifecycleController(layered_handle))
+    root.add_sub_controller("BASE", LifecycleController(base_handle))
+    runner = ControllerRunner(root, [layered, base])
+
     await runner.build()
-    try:
-        assert opened == ["base", "layered"]
-    finally:
-        await runner.stop()
+
+    assert opened == ["base", "layered"]
+
+
+@pytest.mark.asyncio
+async def test_a_dependency_is_every_connection_of_the_type():
+    first, _ = supervise(BaseLink())
+    second, _ = supervise(BaseLink())
+    layered, _ = supervise(LayeredLink())
+    runner = ControllerRunner(LifecycleController(), [first, second, layered])
+
+    await runner.build()
+
+    assert layered.dependencies == [first, second]
+
+
+@pytest.mark.asyncio
+async def test_a_subclass_satisfies_a_dependency():
+    class SpecialBase(BaseLink):
+        pass
+
+    base, _ = supervise(SpecialBase())
+    layered, _ = supervise(LayeredLink())
+    runner = ControllerRunner(LifecycleController(), [base, layered])
+
+    await runner.build()
+
+    assert layered.dependencies == [base]
+
+
+@pytest.mark.asyncio
+async def test_a_dependency_with_no_instance_is_not_waited_for():
+    layered, _ = supervise(LayeredLink())
+    runner = ControllerRunner(LifecycleController(), [layered])
+
+    await runner.build()
+
+    assert layered.dependencies == []
+
+
+@pytest.mark.asyncio
+async def test_dependencies_are_resolved_within_one_top_level_controller():
+    base_a, _ = supervise(BaseLink())
+    layered_a, _ = supervise(LayeredLink())
+    base_b, _ = supervise(BaseLink())
+    runner = ControllerRunner(
+        [LifecycleController(), LifecycleController()],
+        [[base_a, layered_a], [base_b]],
+    )
+
+    await runner.build()
+
+    assert layered_a.dependencies == [base_a]
 
 
 @pytest.mark.asyncio
 async def test_a_dependency_cycle_is_caught_at_startup():
-    first = FakeConnection()
-    second = FakeConnection(depends_on=first)
-    first.depends_on = [second]
+    class Chicken(FakeConnection):
+        pass
 
-    runner = runner_for(
-        [LifecycleController(first), LifecycleController(second)],
-        first=first,
-        second=second,
-    )
+    class Egg(FakeConnection):
+        depends_on = [Chicken]
+
+    Chicken.depends_on = [Egg]
+
+    chicken, _ = supervise(Chicken())
+    egg, _ = supervise(Egg())
+    runner = ControllerRunner(LifecycleController(), [chicken, egg])
 
     with pytest.raises(ValueError, match="Cycle in connection dependencies"):
         await runner.build()
 
 
 @pytest.mark.asyncio
-async def test_scans_are_gated_on_the_connection():
-    connection = FakeConnection(reconnect_period=0.001)
-
-    class Scanning(Controller):
-        def __init__(self):
-            self.connection = connection
-            super().__init__()
-            self.scans = 0
-
-        @scan(0.001)
-        async def tick(self):
-            self.scans += 1
-
-    controller = Scanning()
-    runner = runner_for(controller, only=connection)
+async def test_a_dependent_waits_for_its_dependency_to_reconnect():
+    base, base_handle = supervise(
+        BaseLink(), reconnect_period=0.001, reconnect_attempts=1000
+    )
+    layered, layered_handle = supervise(LayeredLink(), reconnect_period=0.001)
+    root = Controller()
+    root.add_sub_controller("BASE", Polling(base_handle))
+    root.add_sub_controller("LAYERED", Polling(layered_handle))
+    runner = ControllerRunner(root, [base, layered])
     await runner.start()
     try:
-        await asyncio.sleep(0.02)
-        assert controller.scans > 0
-
-        connection.fail_next = RuntimeError("down")
-        connection.set_disconnected()
+        base.connection.fail_connect = RuntimeError("down")
+        link_down(base)
+        link_down(layered)
         await asyncio.sleep(0.02)
 
-        paused_at = controller.scans
-        await asyncio.sleep(0.02)
-        assert controller.scans == paused_at
+        assert layered.connection.connects == 1
     finally:
         await runner.stop()
 
 
+# Supervisor groups
+
+
+def test_one_group_per_controller_is_required_when_grouping():
+    supervisor, _ = supervise(FakeConnection())
+
+    with pytest.raises(ValueError, match="groups of supervisors"):
+        ControllerRunner([LifecycleController(), LifecycleController()], [[supervisor]])
+
+
+def test_a_supervisor_given_twice_is_rejected():
+    supervisor, _ = supervise(FakeConnection())
+
+    with pytest.raises(ValueError, match="twice"):
+        ControllerRunner(LifecycleController(), [supervisor, supervisor])
+
+
+# Stopping, and failing to start
+
+
 @pytest.mark.asyncio
-async def test_stop_closes_connections_in_reverse_declaration_order():
+async def test_stop_closes_connections_in_reverse_of_opening():
     closed: list[str] = []
 
-    class Recording(FakeConnection):
-        def __init__(self, name: str, **kwargs):
-            super().__init__(**kwargs)
-            self.name = name
-
+    class RecordedBase(BaseLink):
         async def close(self) -> None:
-            await super().close()
-            closed.append(self.name)
+            closed.append("base")
 
-    base = Recording("base")
-    layered = Recording("layered", depends_on=base)
+    class RecordedLayered(LayeredLink):
+        async def close(self) -> None:
+            closed.append("layered")
 
-    runner = runner_for(
-        [LifecycleController(base), LifecycleController(layered)],
-        base=base,
-        layered=layered,
-    )
+    base, _ = supervise(RecordedBase())
+    layered, _ = supervise(RecordedLayered())
+    runner = ControllerRunner(LifecycleController(), [layered, base])
     await runner.start()
+
     await runner.stop()
 
     assert closed == ["layered", "base"]
@@ -800,141 +886,108 @@ async def test_stop_reports_a_failing_close_without_raising(monkeypatch):
 
     monkeypatch.setattr("fastcs.controllers.runner.logger.exception", record_exception)
 
-    uncloseable = UncloseableConnection()
-    runner = runner_for(LifecycleController(uncloseable), only=uncloseable)
+    supervisor, handle = supervise(UncloseableConnection())
+    runner = ControllerRunner(LifecycleController(handle), [supervisor])
     await runner.start()
 
     await runner.stop()
 
-    assert len(logged) == 1
-    event, error = logged[0]
-    assert event == "Exception while closing connection"
-    assert isinstance(error, RuntimeError)
-    assert str(error) == "no"
+    assert [(event, str(error)) for event, error in logged] == [
+        ("Exception while closing connection", "no")
+    ]
 
 
 @pytest.mark.asyncio
 async def test_stop_cancels_the_tasks():
-    connection = FakeConnection()
-    controller = LifecycleController(connection)
-    runner = runner_for(controller, only=connection)
+    supervisor, handle = supervise(FakeConnection())
+    runner = ControllerRunner(Polling(handle), [supervisor])
     await runner.start()
-    tasks = set(runner._tasks)
-    assert tasks
+    tasks = set(supervisor._tasks)  # noqa: SLF001
 
     await runner.stop()
     await asyncio.sleep(0)
 
     assert all(task.cancelled() or task.done() for task in tasks)
-    assert not runner._tasks
 
 
-def test_the_framework_connection_defaults():
-    assert DEFAULT_RECONNECT_PERIOD == 1.0
-    assert DEFAULT_RECONNECT_ATTEMPTS == 10
+@pytest.mark.asyncio
+async def test_a_connection_that_fails_to_open_aborts_startup():
+    supervisor, handle = supervise(FakeConnection())
+    supervisor.connection.fail_connect = ConnectionRefusedError()
+    runner = ControllerRunner(LifecycleController(handle), [supervisor])
 
-    connection = FakeConnection()
-    assert connection.reconnect_period == DEFAULT_RECONNECT_PERIOD
-    assert connection.reconnect_attempts == DEFAULT_RECONNECT_ATTEMPTS
+    with pytest.raises(ConnectionRefusedError):
+        await runner.build()
 
 
-def test_a_class_default_sits_between_the_framework_and_the_constructor():
-    class Patient(FakeConnection):
-        reconnect_period = 5.0
-        reconnect_attempts = 60
+@pytest.mark.asyncio
+async def test_a_connection_that_fails_to_open_closes_those_opened_before_it():
+    first, _ = supervise(FakeConnection())
+    second, _ = supervise(FakeConnection())
+    second.connection.fail_connect = ConnectionRefusedError()
+    runner = ControllerRunner(LifecycleController(), [first, second])
 
-    assert Patient().reconnect_period == 5.0
-    assert Patient().reconnect_attempts == 60
-    assert Patient(reconnect_period=0.5).reconnect_period == 0.5
-    assert Patient(reconnect_attempts=2).reconnect_attempts == 2
+    with pytest.raises(ConnectionRefusedError):
+        await runner.build()
+
+    assert first.connection.closes == 1
 
 
 @pytest.mark.asyncio
 async def test_a_failed_build_closes_what_it_opened():
     """Startup aborts, and no task exists yet for a later `stop` to clean up."""
-    connection = FakeConnection()
+    supervisor, handle = supervise(FakeConnection())
 
     class Unbuildable(Controller):
         def __init__(self):
-            self.connection = connection
+            self.connection = handle
             super().__init__()
 
         async def build(self):
             raise RuntimeError("cannot build")
 
-    runner = runner_for(Unbuildable(), only=connection)
+    runner = ControllerRunner(Unbuildable(), [supervisor])
 
     with pytest.raises(RuntimeError, match="cannot build"):
         await runner.build()
 
-    assert connection.closes == 1
+    assert supervisor.connection.closes == 1
 
 
 @pytest.mark.asyncio
 async def test_a_failed_setup_closes_what_it_opened():
-    connection = FakeConnection()
+    supervisor, handle = supervise(FakeConnection())
 
     class Unsetuppable(Controller):
         def __init__(self):
-            self.connection = connection
+            self.connection = handle
             super().__init__()
 
         async def setup(self):
             raise RuntimeError("cannot set up")
 
-    runner = runner_for(Unsetuppable(), only=connection)
+    runner = ControllerRunner(Unsetuppable(), [supervisor])
 
     with pytest.raises(RuntimeError, match="cannot set up"):
         await runner.start()
 
-    assert connection.closes == 1
+    assert supervisor.connection.closes == 1
 
 
 @pytest.mark.asyncio
-async def test_a_dependency_the_runner_does_not_supervise_is_rejected():
-    """It would never be opened, so the dependent could never be attempted."""
-    unsupervised = FakeConnection()
-    layered = FakeConnection(depends_on=unsupervised)
-
-    runner = runner_for(LifecycleController(layered), layered=layered)
-
-    with pytest.raises(ValueError, match="does not supervise"):
-        await runner.build()
-
-
-@pytest.mark.asyncio
-async def test_a_declared_connection_is_opened_even_with_no_controller_holding_it():
-    """The declared list is the list: the runner never looks in the tree for one."""
-    declared = FakeConnection()
-
-    runner = runner_for(LifecycleController(None), spare=declared)
-    await runner.build()
-    try:
-        assert runner.connections == [declared]
-        assert declared.connects == 1
-    finally:
-        await runner.stop()
-
-
-@pytest.mark.asyncio
-async def test_several_registries_are_supervised_together():
-    """One registry per top-level entry, because role names are local to an entry."""
-    first = FakeConnection()
-    second = FakeConnection()
-
-    runner = ControllerRunner(
-        [LifecycleController(first), LifecycleController(second)],
-        [Connections({"device": first}), Connections({"device": second})],
+async def test_a_fatal_failure_is_reported_by_the_runner():
+    supervisor, handle = supervise(
+        FakeConnection(), reconnect_period=0.001, policy=DRAPolicy()
     )
-    await runner.build()
+    runner = ControllerRunner(LifecycleController(handle), [supervisor])
+    await runner.start()
     try:
-        assert runner.connections == [first, second]
+        error = FileNotFoundError("/dev/ttyACM0")
+        supervisor.connection.fail_connect = error
+        link_down(supervisor)
+
+        await asyncio.wait_for(runner.fatal_error.wait(), timeout=2)
+
+        assert runner.fatal_reason is error
     finally:
         await runner.stop()
-
-
-def test_a_connection_no_registry_names_falls_back_to_its_class():
-    """A log line is never the place to raise, so naming has a fallback."""
-    runner = runner_for(LifecycleController(None))
-
-    assert runner._name_of(FakeConnection()) == "FakeConnection"

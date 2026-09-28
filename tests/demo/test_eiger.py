@@ -6,7 +6,7 @@ import pytest
 import pytest_asyncio
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.connections import Connections
+from fastcs.connections import Supervisor
 from fastcs.controllers import ControllerRunner
 from fastcs.demo.eiger import UPDATE_PERIOD, EigerConnection, EigerDetector
 from fastcs.demo.simulation.eiger import EigerParameter, create_eiger_sim_app
@@ -16,19 +16,19 @@ from fastcs.util import ONCE
 SimState = dict[str, dict[str, EigerParameter]]
 
 
-def _connections(app) -> Connections:
-    """The registry a `fastcs.yaml` would have built, pointed at the sim app."""
-    return Connections(
-        {"eiger": EigerConnection(transport=httpx.ASGITransport(app=app))}
+def _supervisor(app) -> Supervisor[EigerConnection]:
+    """What a `fastcs.yaml` would have built, pointed at the sim app."""
+    return Supervisor(
+        EigerConnection.in_process(httpx.ASGITransport(app=app)), name="eiger"
     )
 
 
 @pytest_asyncio.fixture
 async def _eiger():
     app = create_eiger_sim_app()
-    connections = _connections(app)
-    controller = EigerDetector(connections)
-    runner = ControllerRunner(controller, connections)
+    supervisor = _supervisor(app)
+    controller = EigerDetector(supervisor.handle)
+    runner = ControllerRunner(controller, [supervisor])
     await runner.build()
     yield controller, app.state.sim
     await runner.stop()
@@ -128,9 +128,9 @@ async def test_temperature_oscillation_seen_via_subscribe():
     # the controller's temperature attribute, subscribing for updates.
     app = create_eiger_sim_app()
     async with app.router.lifespan_context(app):
-        connections = _connections(app)
-        controller = EigerDetector(connections)
-        runner = ControllerRunner(controller, connections)
+        supervisor = _supervisor(app)
+        controller = EigerDetector(supervisor.handle)
+        runner = ControllerRunner(controller, [supervisor])
         await runner.build()
 
         temperature = controller.attributes["temperature"]

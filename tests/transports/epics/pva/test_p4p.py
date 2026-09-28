@@ -20,6 +20,7 @@ from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Array1D, Limits, NumericLimits, Table
 from fastcs.launch import FastCS
 from fastcs.methods import command
+from fastcs.scheduling import ScanSchedule
 from fastcs.transports.epics.pva.transport import EpicsPVATransport
 
 
@@ -37,6 +38,7 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         "a": {"rw": f"{pv_prefix}:A"},
         "b": {"w": f"{pv_prefix}:B"},
         "child": {"d": f"{pv_prefix}:Child:PVI"},
+        "connected": {"r": f"{pv_prefix}:Connected"},
         "table": {
             "rw": f"{pv_prefix}:Table",
         },
@@ -54,6 +56,7 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         "vector_attribute": {"r": f"{pv_prefix}:Child:VectorAttribute"},
         "__1": {"d": f"{pv_prefix}:Child:1:PVI"},
         "__2": {"d": f"{pv_prefix}:Child:2:PVI"},
+        "connected": {"r": f"{pv_prefix}:Child:Connected"},
     }
 
     child_pvi_pv = _child_vector_pvi["value"]["__1"]["d"]
@@ -64,6 +67,7 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
     assert child_pvi["display"] == {"description": "some sub controller"}
     assert child_pvi["value"] == {
         "c": {"w": f"{pv_prefix}:Child:1:C"},
+        "connected": {"r": f"{pv_prefix}:Child:1:Connected"},
         "clamped": {"rw": f"{pv_prefix}:Child:1:Clamped"},
         "d": {"x": f"{pv_prefix}:Child:1:D"},
         "e": {"r": f"{pv_prefix}:Child:1:E"},
@@ -388,6 +392,7 @@ def test_pvi_grouping():
                 "child0": {"d": f"{pv_prefix}:Child0:PVI"},
                 "child1": {"d": f"{pv_prefix}:Child1:PVI"},
                 "child2": {"d": f"{pv_prefix}:Child2:PVI"},
+                "connected": {"r": f"{pv_prefix}:Connected"},
             },
         }
         assert len(child_vector_controller_pvi) == 1
@@ -403,6 +408,7 @@ def test_pvi_grouping():
                 "__0": {"d": f"{pv_prefix}:Child:0:PVI"},
                 "__1": {"d": f"{pv_prefix}:Child:1:PVI"},
                 "__2": {"d": f"{pv_prefix}:Child:2:PVI"},
+                "connected": {"r": f"{pv_prefix}:Child:Connected"},
             },
         }
         assert len(child_child_controller_pvi) == 1
@@ -416,6 +422,7 @@ def test_pvi_grouping():
             },
             "value": {
                 "attr_c": {"w": f"{pv_prefix}:Child:0:AttrC"},
+                "connected": {"r": f"{pv_prefix}:Child:0:Connected"},
                 "attr_d": {
                     "w": f"{pv_prefix}:Child:0:AttrD",
                 },
@@ -713,7 +720,9 @@ async def test_setpoint_seeded_by_initial_poll_reaches_transport(
     controller = SeedController()
     controller.set_path([str(uuid4())])
     await controller.build()
-    controller_api, _, initial_coros = controller.create_api_and_tasks()
+    controller_api = controller.create_api()
+    schedule = ScanSchedule()
+    schedule.add_controller(controller)
 
     attribute = controller_api.attributes["a"]
     assert isinstance(attribute, AttrRW)
@@ -733,8 +742,7 @@ async def test_setpoint_seeded_by_initial_poll_reaches_transport(
     transport.connect(controller_apis=[controller_api], loop=asyncio.get_running_loop())
 
     # Nothing has awaited transport.serve() at this point - as in FastCS.serve()
-    for coro in initial_coros:
-        await coro()
+    await schedule.read_once()
 
     assert attribute.setpoint == 10
     assert published == [10]

@@ -33,13 +33,16 @@ class BaseController(Tracer):
     connection: Any = None
     """The link this controller does its IO over, if it has one.
 
-    A `Connection`, or ``None``. Set in ``__init__``, usually by claiming it from a
-    `Connections` registry. A controller holds at most one - two devices means two
-    controllers - and several controllers may hold the same object, in which case
-    they share one health state, one reconnect task and one retry budget.
+    Set in ``__init__`` to the connection the controller was given - a handle from
+    the connection's `Supervisor`, which is what arrives in the constructor. A
+    controller's attributes talk only to this one connection - two devices means
+    two controllers - and several controllers may hold the same one, in which case
+    their scans are paused and resumed together, and the read-once reads of all of
+    them are repeated after it reconnects. A controller that needs another device's
+    behaviour calls a method on the controller that owns it.
 
     A controller with no connection (a soft grouping controller, or a
-    `ControllerVector`) is never gated and never reconnected.
+    `ControllerVector`) is never paused, and reports ``connected`` as always on.
 
     Typed ``Any`` rather than ``Connection | None`` so that a driver can narrow it to
     the connection it actually holds, and call that connection's own methods::
@@ -49,8 +52,7 @@ class BaseController(Tracer):
 
     A mutable attribute is invariant, so a driver cannot narrow a declared
     ``Connection | None`` without a type checker objecting to every driver in
-    existence. The framework reads this attribute in exactly two places - the scan
-    gate and the runner - both of which state the type they expect.
+    existence.
     """
 
     def __init__(
@@ -65,6 +67,7 @@ class BaseController(Tracer):
             self.description = description
 
         self._path: list[str] = path or []
+        self._sealed = False
 
         # Internal state that should not be accessed directly by base classes
         self.__attributes: dict[str, Attribute] = {}
@@ -177,8 +180,8 @@ class BaseController(Tracer):
     async def build(self):
         """Hook for structure that depends on the device.
 
-        Called by the framework once this controller's connection is open, and
-        before anything is set up. Add the attributes and sub controllers that could
+        Called by the framework once every connection is open, and before the tree
+        is sealed. Add the attributes and sub controllers that could
         only be known by asking the device - the ones knowable without it belong in
         ``__init__``, which is where a controller can be constructed and inspected in
         a test with no hardware.
@@ -199,10 +202,36 @@ class BaseController(Tracer):
         Called by the framework after every controller's ``build`` has run and every
         connection is open, so this can read and write across the tree.
 
-        No new attributes or sub controllers here - anything created now would never
-        get its own ``build`` or ``setup`` called.
+        Runs once only - not again after a reconnect. Configuration a device needs
+        every time it comes back belongs in `Connection.connect`.
+
+        No new attributes or sub controllers here: the tree is sealed by now.
         """
         pass
+
+    def seal(self) -> None:
+        """Freeze this controller and its sub controllers, recursively.
+
+        Called by the framework once the build phase is over and the implicit
+        attributes are added. The API a transport serves is a snapshot of the tree
+        at that point, so anything added later would silently never reach one;
+        after the seal, adding it raises instead.
+        """
+        self._sealed = True
+        for sub_controller in self.sub_controllers.values():
+            sub_controller.seal()
+
+    @property
+    def sealed(self) -> bool:
+        return self._sealed
+
+    def _check_not_sealed(self) -> None:
+        if self._sealed:
+            raise RuntimeError(
+                f"Controller {'.'.join(self.path) or type(self).__name__} is sealed. "
+                "Add attributes, methods and sub controllers in `__init__` or "
+                "`build`, never after them."
+            )
 
     def check_filled(self):
         """Check that every class-body declaration was provisioned, recursively.
@@ -244,6 +273,8 @@ class BaseController(Tracer):
                 )
 
     def add_attribute(self, name, attr: Attribute):
+        self._check_not_sealed()
+
         try:
             self._check_for_name_clash(name)
         except ValueError as exc:
@@ -267,6 +298,8 @@ class BaseController(Tracer):
         return self.__attributes
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
+        self._check_not_sealed()
+
         try:
             self._check_for_name_clash(name)
         except ValueError as exc:
@@ -327,6 +360,8 @@ class BaseController(Tracer):
             )
 
     def add_command(self, name: str, command: Command):
+        self._check_not_sealed()
+
         try:
             self._check_for_name_clash(name)
         except ValueError as exc:
@@ -348,6 +383,8 @@ class BaseController(Tracer):
         return self.__command_methods
 
     def add_scan(self, name: str, scan: Scan):
+        self._check_not_sealed()
+
         try:
             self._check_for_name_clash(name)
         except ValueError as exc:
