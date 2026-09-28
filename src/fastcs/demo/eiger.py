@@ -18,7 +18,7 @@ from typing import Any, NamedTuple, cast
 import httpx
 
 from fastcs.attributes import AttrR, AttrRW, Polled
-from fastcs.connections import Connections, HTTPConnection, HTTPConnectionSettings
+from fastcs.connections import HTTPConnection, HTTPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.datatypes import DType
 from fastcs.demo.simulation.eiger import API_PREFIX, Subsystem, ValueType
@@ -71,29 +71,30 @@ def _datatype(info: ParameterInfo) -> type[DType]:
 class EigerConnection(HTTPConnection):
     """HTTP to the Eiger REST sim, and the one thing that knows when it is down.
 
-    Everything about being an HTTP connection - the client, the disconnect on a
-    transport failure, the reconnect budget - comes from `HTTPConnection`. What is
-    here is only what is Eiger's rather than HTTP's: the URL layout, and the
-    ``{"value": ...}`` envelope the detector wraps every parameter in.
-
-    A ``transport`` can be supplied to point directly at an in-process ASGI app
-    (e.g. in tests), bypassing the network entirely.
+    Everything about being an HTTP connection - the client, and raising what httpx
+    raises when the transport fails - comes from `HTTPConnection`, and everything
+    about the link's health from its supervisor. What is here is only what is
+    Eiger's rather than HTTP's: the URL layout, and the ``{"value": ...}`` envelope
+    the detector wraps every parameter in.
 
     Args:
         settings: Where the detector's REST API lives
-        transport: Optional httpx transport, for talking to an in-process app
-        kwargs: Passed to `HTTPConnection`
 
     """
 
-    def __init__(
-        self,
-        settings: HTTPConnectionSettings | None = None,
-        transport: httpx.AsyncBaseTransport | None = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(settings or HTTPConnectionSettings(port=8000), **kwargs)
-        self._transport = transport
+    def __init__(self, settings: HTTPConnectionSettings | None = None) -> None:
+        super().__init__(settings or HTTPConnectionSettings(port=8000))
+
+    @classmethod
+    def in_process(cls, transport: httpx.AsyncBaseTransport) -> "EigerConnection":
+        """Talk directly to an in-process ASGI app, bypassing the network.
+
+        Not a constructor argument: the constructor's signature is the
+        connection's config schema, and a transport object is not config.
+        """
+        connection = cls()
+        connection._transport = transport
+        return connection
 
     async def get(self, path: str) -> Any:
         """The detector wraps every parameter as ``{"value": ...}`` - unwrap it."""
@@ -134,8 +135,8 @@ class EigerDetector(Controller):
     # publish something computed from it - here, whether the detector is idle.
     idle: AttrR[bool]
 
-    def __init__(self, connections: Connections) -> None:
-        self.connection = connections.get("eiger", EigerConnection)
+    def __init__(self, eiger: EigerConnection) -> None:
+        self.connection = eiger
         super().__init__()
 
     def _getter(self, subsystem: Subsystem, param: str):

@@ -177,24 +177,17 @@
     "IPConnectionConfig": {
       "additionalProperties": false,
       "properties": {
-        "type": {
-          "const": "fastcs.IPConnection",
-          "title": "Type",
-          "type": "string"
+        "reconnect_attempts": {
+          "default": 10,
+          "minimum": 1,
+          "title": "Reconnect Attempts",
+          "type": "integer"
         },
-        "depends_on": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          ],
-          "title": "Depends On"
+        "reconnect_period": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "title": "Reconnect Period",
+          "type": "number"
         },
         "settings": {
           "anyOf": [
@@ -206,35 +199,8 @@
             }
           ],
           "default": null
-        },
-        "reconnect_period": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reconnect Period"
-        },
-        "max_attempts": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Max Attempts"
         }
       },
-      "required": [
-        "type"
-      ],
       "title": "IPConnectionConfig",
       "type": "object"
     },
@@ -311,6 +277,19 @@
       "title": "TangoTransport",
       "type": "object"
     },
+    "TemperatureControllerConnections": {
+      "additionalProperties": false,
+      "properties": {
+        "temperature": {
+          "$ref": "#/$defs/IPConnectionConfig"
+        }
+      },
+      "required": [
+        "temperature"
+      ],
+      "title": "TemperatureControllerConnections",
+      "type": "object"
+    },
     "TemperatureControllerEntry": {
       "additionalProperties": false,
       "properties": {
@@ -324,11 +303,7 @@
           "type": "string"
         },
         "connections": {
-          "additionalProperties": {
-            "$ref": "#/$defs/IPConnectionConfig"
-          },
-          "title": "Connections",
-          "type": "object"
+          "$ref": "#/$defs/TemperatureControllerConnections"
         },
         "num_ramp_controllers": {
           "title": "Num Ramp Controllers",
@@ -338,6 +313,7 @@
       "required": [
         "id",
         "type",
+        "connections",
         "num_ramp_controllers"
       ],
       "title": "TemperatureControllerEntry",

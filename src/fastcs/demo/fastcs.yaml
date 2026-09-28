@@ -4,16 +4,16 @@ controllers:
     type: fastcs.TemperatureController
     connections:
       temperature:
-        type: fastcs.IPConnection
         settings:
           ip: "localhost"
           port: 25565
+        reconnect_attempts: 5
+        reconnect_period: 2.0
     num_ramp_controllers: 4
   - id: AUX
     type: fastcs.TemperatureController
     connections:
       temperature:
-        type: fastcs.IPConnection
         settings:
           ip: "localhost"
           port: 25566
