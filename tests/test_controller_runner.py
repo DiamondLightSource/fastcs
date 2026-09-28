@@ -611,14 +611,20 @@ async def test_polled_values_are_flagged_invalid_when_the_link_drops():
 
 @pytest.mark.asyncio
 async def test_a_good_poll_after_a_reconnect_clears_the_flag():
-    supervisor, handle = supervise(FakeConnection(), reconnect_period=0.001)
+    supervisor, handle = supervise(
+        FakeConnection(), reconnect_period=0.001, reconnect_attempts=10_000
+    )
     controller = Polling(handle)
     runner = ControllerRunner(controller, [supervisor])
     await runner.start()
     try:
+        # Hold the reconnect off until the flag has been seen, or it can be set
+        # and cleared again between two checks
+        supervisor.connection.fail_connect = RuntimeError("down")
         link_down(supervisor)
         await eventually(lambda: controller.value.severity is Severity.INVALID)
 
+        supervisor.connection.fail_connect = None
         await eventually(lambda: controller.value.severity is Severity.NO_ALARM)
     finally:
         await runner.stop()
