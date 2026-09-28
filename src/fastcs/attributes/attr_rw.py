@@ -23,6 +23,7 @@ from fastcs.datatypes import (
     Table,
     TableMeta,
 )
+from fastcs.exceptions import DisconnectedError
 from fastcs.logging import logger
 from fastcs.util import Controller_T
 
@@ -242,6 +243,10 @@ class AttrRW(AttrR[DType_T], AttrW[DType_T]):
         else:
             try:
                 result = await self._setter(self._setpoint)
+            except DisconnectedError:
+                # Back to the client: the link is down, and its supervisor has
+                # already said so.
+                raise
             except Exception as e:
                 logger.opt(exception=e).error(
                     "Set failed", attribute=self, setpoint=self._setpoint
