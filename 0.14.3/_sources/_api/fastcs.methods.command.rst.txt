@@ -1,0 +1,13 @@
+``fastcs.methods.command``
+==========================
+
+.. automodule:: fastcs.methods.command
+    :members:
+
+    
+    
+    
+
+    
+    
+    

@@ -1,0 +1,21 @@
+``fastcs.datatypes.int``
+========================
+        
+
+.. automodule:: fastcs.datatypes.int
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        Int
+    
+    

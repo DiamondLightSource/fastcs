@@ -1,0 +1,25 @@
+``fastcs.controllers``
+======================
+
+.. automodule:: fastcs.controllers
+    :members:
+
+    
+    
+    .. rubric:: Submodules
+
+    .. autosummary::
+        :toctree:
+        :template: custom-module-template.rst
+        :recursive:
+    
+        base_controller
+        controller
+        controller_api
+        controller_vector
+    
+    
+
+    
+    
+    

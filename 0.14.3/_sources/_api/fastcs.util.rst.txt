@@ -1,0 +1,25 @@
+``fastcs.util``
+===============
+        
+        
+        
+
+.. automodule:: fastcs.util
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        Controller_T
+        ONCE
+        snake_to_pascal
+    
+    
