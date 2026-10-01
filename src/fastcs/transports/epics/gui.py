@@ -8,6 +8,7 @@ from pvi.device import (
     Grid,
     Group,
     ReadWidgetUnion,
+    ResolvedTree,
     SignalR,
     SignalRW,
     SignalW,
@@ -17,7 +18,6 @@ from pvi.device import (
     TextRead,
     TextWrite,
     ToggleButton,
-    Tree,
     WriteWidgetUnion,
 )
 from pydantic import ValidationError
@@ -147,8 +147,8 @@ class EpicsGUI:
         components = self.extract_api_components(self._controller_api)
         return Device(label=title, children=components)
 
-    def extract_api_components(self, controller_api: ControllerAPI) -> Tree:
-        components: Tree = []
+    def extract_api_components(self, controller_api: ControllerAPI) -> ResolvedTree:
+        components: ResolvedTree = []
 
         for name, api in controller_api.sub_apis.items():
             if name.isdigit():
