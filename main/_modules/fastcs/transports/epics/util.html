@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.util &#8212; fastcs 0.14.3.dev6+g418dda09e documentation</title>
+    <title>fastcs.transports.epics.util &#8212; fastcs 0.14.3.dev3+g9c8199bb1 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=b66a4470"></script>
+    <script src="../../../../_static/documentation_options.js?v=8db012e4"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -492,7 +492,7 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="n">id_re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Controller id </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not a valid </span><span class="si">{</span><span class="n">transport_label</span><span class="si">}</span><span class="s2">; &quot;</span>
-            <span class="s2">&quot;only alphanumerics, &#39;-&#39;, &#39;_&#39;, and &#39;:&#39; are allowed&quot;</span>
+            <span class="s2">&quot;only alphanumerics, &#39;-&#39; and &#39;_&#39; are allowed&quot;</span>
         <span class="p">)</span>
     <span class="n">longest_prefix</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
         <span class="nb">len</span><span class="p">(</span><span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">path</span><span class="p">))</span> <span class="k">for</span> <span class="n">api</span> <span class="ow">in</span> <span class="n">controller_api</span><span class="o">.</span><span class="n">walk_api</span><span class="p">()</span>
