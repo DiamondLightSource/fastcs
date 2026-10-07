@@ -98,10 +98,16 @@ def check_enum_hint(hinted: type[enum.Enum], actual: type[enum.Enum]) -> None:
             f"'{actual.__name__}' has {actual_kind} values"
         )
 
-    actual_values = {member.value for member in actual}
+    # `__members__` rather than iterating the class, which skips aliases and, for
+    # flags, zero and multi-bit values - all of which are still named values
+    actual_values = {member.value for member in actual.__members__.values()}
+    missing = [
+        member.value
+        for member in hinted.__members__.values()
+        if member.value not in actual_values
+    ]
     # A hinted enum_cls can have a subset of the members the actual enum_cls has,
     # but must not contain any extra members.
-    missing = [member.value for member in hinted if member.value not in actual_values]
     if missing:
         raise ValueError(
             f"'{hinted.__name__}' has values that '{actual.__name__}' does not: "

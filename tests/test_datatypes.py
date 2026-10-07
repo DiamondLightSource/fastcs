@@ -188,3 +188,17 @@ def test_check_enum_hint_rejects_hinted_value_missing_from_actual():
         ValueError, match="'State' has values that 'Actual' does not: 'ready'"
     ):
         check_enum_hint(State, actual)
+
+
+def test_check_enum_hint_rejects_named_flag_value_missing_from_actual():
+    class Hinted(enum.IntFlag):
+        A = 1
+        BOTH = 3  # A multi-bit value, which iterating the class skips
+
+    class Actual(enum.IntFlag, boundary=enum.STRICT):
+        A = 1
+
+    with pytest.raises(
+        ValueError, match="'Hinted' has values that 'Actual' does not: 3$"
+    ):
+        check_enum_hint(Hinted, Actual)
