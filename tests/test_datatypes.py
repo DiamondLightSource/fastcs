@@ -1,3 +1,4 @@
+import enum
 from enum import IntEnum
 
 import numpy as np
@@ -5,6 +6,25 @@ import pytest
 
 from fastcs.datatypes import Bool, DataType, Enum, Float, Int, String, Table, Waveform
 from fastcs.datatypes._util import numpy_to_fastcs_datatype
+from fastcs.datatypes.enum import check_enum_hint
+
+
+class State(enum.StrEnum):
+    IDLE = "idle"
+    READY = "ready"
+
+
+class PlainState(enum.Enum):
+    IDLE = "idle"
+
+
+class IntState(enum.IntEnum):
+    IDLE = 0
+
+
+Introspected = enum.StrEnum(
+    "Introspected", {"idle": "idle", "ready": "ready", "error": "error"}
+)
 
 
 def test_base_validate():
@@ -129,3 +149,42 @@ def test_string_length():
 
     with pytest.raises(ValueError):
         String(length=0)
+
+
+@pytest.mark.parametrize(
+    "hinted, actual",
+    [
+        pytest.param(State, State, id="same-class"),
+        pytest.param(enum.StrEnum, Introspected, id="member-less-base"),
+        pytest.param(enum.Enum, IntState, id="enum-base-accepts-any-enum"),
+        pytest.param(State, Introspected, id="values-are-a-subset"),
+    ],
+)
+def test_check_enum_hint_accepts(hinted, actual):
+    check_enum_hint(hinted, actual)  # Does not raise
+
+
+def test_check_enum_hint_rejects_enum_not_derived_from_member_less_hint():
+    with pytest.raises(ValueError, match="'IntState' is not a 'StrEnum'"):
+        check_enum_hint(enum.StrEnum, IntState)
+
+
+def test_check_enum_hint_rejects_hint_with_members_and_no_mixin():
+    with pytest.raises(ValueError, match="'PlainState' has members but no str or int"):
+        check_enum_hint(PlainState, Introspected)
+
+
+def test_check_enum_hint_rejects_mismatched_mixin():
+    with pytest.raises(
+        ValueError, match="'State' has str values but 'IntState' has int values"
+    ):
+        check_enum_hint(State, IntState)
+
+
+def test_check_enum_hint_rejects_hinted_value_missing_from_actual():
+    actual = enum.StrEnum("Actual", {"idle": "idle"})
+
+    with pytest.raises(
+        ValueError, match="'State' has values that 'Actual' does not: 'ready'"
+    ):
+        check_enum_hint(State, actual)
