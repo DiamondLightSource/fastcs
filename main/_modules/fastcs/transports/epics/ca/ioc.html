@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.ca.ioc &#8212; fastcs 0.14.3.dev3+g9c8199bb1 documentation</title>
+    <title>fastcs.transports.epics.ca.ioc &#8212; fastcs 0.14.4.dev1+gf70c58a63 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../../_static/documentation_options.js?v=8db012e4"></script>
+    <script src="../../../../../_static/documentation_options.js?v=f3e96937"></script>
     <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -452,7 +452,7 @@
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">softioc</span><span class="w"> </span><span class="kn">import</span> <span class="n">alarm</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">softioc</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">softioc.asyncio_dispatcher</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncioDispatcher</span>
@@ -494,10 +494,6 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span> <span class="o">=</span> <span class="n">controller_apis</span>
         <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">controller_apis</span><span class="p">:</span>
-            <span class="n">root_pv_prefix</span> <span class="o">=</span> <span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
-            <span class="n">_add_pvi_info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">root_pv_prefix</span><span class="si">}</span><span class="s2">:PVI&quot;</span><span class="p">)</span>
-            <span class="n">_add_sub_controller_pvi_info</span><span class="p">(</span><span class="n">controller_api</span><span class="p">)</span>
-
             <span class="n">_create_and_link_attribute_pvs</span><span class="p">(</span><span class="n">controller_api</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
             <span class="n">_create_and_link_command_pvs</span><span class="p">(</span><span class="n">controller_api</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
 
@@ -507,70 +503,8 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">dispatcher</span> <span class="o">=</span> <span class="n">AsyncioDispatcher</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>  <span class="c1"># Needs running loop</span>
         <span class="n">builder</span><span class="o">.</span><span class="n">LoadDatabase</span><span class="p">()</span>
-        <span class="n">softioc</span><span class="o">.</span><span class="n">iocInit</span><span class="p">(</span><span class="n">dispatcher</span><span class="p">)</span></div>
+        <span class="n">softioc</span><span class="o">.</span><span class="n">iocInit</span><span class="p">(</span><span class="n">dispatcher</span><span class="p">,</span> <span class="n">enable_pva</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
 
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_add_pvi_info</span><span class="p">(</span>
-    <span class="n">pvi</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">parent_pvi</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Add PVI metadata for a controller.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        pvi: PVI PV of controller</span>
-<span class="sd">        parent_pvi: PVI PV of parent controller</span>
-<span class="sd">        name: Name to register controller with parent as</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Create a record to attach the info tags to</span>
-    <span class="n">record</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">longStringIn</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pvi</span><span class="si">}</span><span class="s2">_PV&quot;</span><span class="p">,</span>
-        <span class="n">initial_value</span><span class="o">=</span><span class="n">pvi</span><span class="p">,</span>
-        <span class="n">DESC</span><span class="o">=</span><span class="s2">&quot;The records in this controller&quot;</span><span class="p">,</span>
-    <span class="p">)</span>
-
-    <span class="c1"># Create PVI PV in preparation for adding attribute info tags to it</span>
-    <span class="n">q_group</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">pvi</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;+id&quot;</span><span class="p">:</span> <span class="s2">&quot;epics:nt/NTPVI:1.0&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;display.description&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;+type&quot;</span><span class="p">:</span> <span class="s2">&quot;plain&quot;</span><span class="p">,</span> <span class="s2">&quot;+channel&quot;</span><span class="p">:</span> <span class="s2">&quot;DESC&quot;</span><span class="p">},</span>
-            <span class="s2">&quot;&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;+type&quot;</span><span class="p">:</span> <span class="s2">&quot;meta&quot;</span><span class="p">,</span> <span class="s2">&quot;+channel&quot;</span><span class="p">:</span> <span class="s2">&quot;VAL&quot;</span><span class="p">},</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="c1"># If this controller has a parent, add a link in the parent to this controller</span>
-    <span class="k">if</span> <span class="n">parent_pvi</span> <span class="ow">and</span> <span class="n">name</span><span class="p">:</span>
-        <span class="n">q_group</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="n">parent_pvi</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="sa">f</span><span class="s2">&quot;value.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.d&quot;</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="s2">&quot;+channel&quot;</span><span class="p">:</span> <span class="s2">&quot;VAL&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;+type&quot;</span><span class="p">:</span> <span class="s2">&quot;plain&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;+trigger&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;value.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.d&quot;</span><span class="p">,</span>
-                    <span class="p">}</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
-
-    <span class="n">record</span><span class="o">.</span><span class="n">add_info</span><span class="p">(</span><span class="s2">&quot;Q:group&quot;</span><span class="p">,</span> <span class="n">q_group</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_add_sub_controller_pvi_info</span><span class="p">(</span><span class="n">parent</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Add PVI references from controller to its sub controllers, recursively.&quot;&quot;&quot;</span>
-    <span class="n">parent_pvi</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">parent</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="si">}</span><span class="s2">:PVI&quot;</span>
-
-    <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">parent</span><span class="o">.</span><span class="n">sub_apis</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-        <span class="n">child_pvi</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">child</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="si">}</span><span class="s2">:PVI&quot;</span>
-        <span class="n">child_name</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;__</span><span class="si">{</span><span class="n">child</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>  <span class="c1"># Sub-Controller of ControllerVector</span>
-            <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span>
-            <span class="k">else</span> <span class="n">child</span><span class="o">.</span><span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="p">)</span>
-
-        <span class="n">_add_pvi_info</span><span class="p">(</span><span class="n">child_pvi</span><span class="p">,</span> <span class="n">parent_pvi</span><span class="p">,</span> <span class="n">child_name</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
-
-        <span class="n">_add_sub_controller_pvi_info</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_attribute_pvs</span><span class="p">(</span>
@@ -618,14 +552,12 @@
                         <span class="n">_create_and_link_read_pv</span><span class="p">(</span>
                             <span class="n">pv_prefix</span><span class="p">,</span>
                             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}{</span><span class="n">RBV_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                            <span class="n">attr_name</span><span class="p">,</span>
                             <span class="n">alias_rbv</span><span class="p">,</span>
                             <span class="n">attribute</span><span class="p">,</span>
                         <span class="p">)</span>
                         <span class="n">_create_and_link_write_pv</span><span class="p">(</span>
                             <span class="n">pv_prefix</span><span class="p">,</span>
                             <span class="n">pv_name</span><span class="p">,</span>
-                            <span class="n">attr_name</span><span class="p">,</span>
                             <span class="n">alias</span><span class="p">,</span>
                             <span class="n">attribute</span><span class="p">,</span>
                         <span class="p">)</span>
@@ -633,7 +565,6 @@
                     <span class="n">_create_and_link_read_pv</span><span class="p">(</span>
                         <span class="n">pv_prefix</span><span class="p">,</span>
                         <span class="n">pv_name</span><span class="p">,</span>
-                        <span class="n">attr_name</span><span class="p">,</span>
                         <span class="n">alias</span><span class="p">,</span>
                         <span class="n">attribute</span><span class="p">,</span>
                     <span class="p">)</span>
@@ -641,7 +572,6 @@
                     <span class="n">_create_and_link_write_pv</span><span class="p">(</span>
                         <span class="n">pv_prefix</span><span class="p">,</span>
                         <span class="n">pv_name</span><span class="p">,</span>
-                        <span class="n">attr_name</span><span class="p">,</span>
                         <span class="n">alias</span><span class="p">,</span>
                         <span class="n">attribute</span><span class="p">,</span>
                     <span class="p">)</span>
@@ -650,7 +580,6 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_read_pv</span><span class="p">(</span>
     <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">attr_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrR</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -667,15 +596,12 @@
 
     <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
 
-    <span class="n">_add_attr_pvi_info</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">pv_prefix</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>
-
     <span class="n">attribute</span><span class="o">.</span><span class="n">add_on_update_callback</span><span class="p">(</span><span class="n">async_record_set</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_write_pv</span><span class="p">(</span>
     <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">attr_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrW</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span>
 <span class="p">):</span>
@@ -697,8 +623,6 @@
     <span class="n">record</span> <span class="o">=</span> <span class="n">_make_out_record</span><span class="p">(</span><span class="n">pv</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">on_update</span><span class="o">=</span><span class="n">on_update</span><span class="p">)</span>
 
     <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
-
-    <span class="n">_add_attr_pvi_info</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">pv_prefix</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
 
     <span class="n">attribute</span><span class="o">.</span><span class="n">add_sync_setpoint_callback</span><span class="p">(</span><span class="n">set_setpoint_without_process</span><span class="p">)</span>
 
@@ -723,14 +647,13 @@
                 <span class="n">_create_and_link_command_pv</span><span class="p">(</span>
                     <span class="n">pv_prefix</span><span class="p">,</span>
                     <span class="n">pv_name</span><span class="p">,</span>
-                    <span class="n">attr_name</span><span class="p">,</span>
                     <span class="n">alias</span><span class="p">,</span>
                     <span class="n">method</span><span class="p">,</span>
                 <span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_command_pv</span><span class="p">(</span>
-    <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="n">Command</span>
+    <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="n">Command</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="n">pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span>
 
@@ -748,37 +671,6 @@
     <span class="p">)</span>
 
     <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
-
-    <span class="n">_add_attr_pvi_info</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">pv_prefix</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_add_attr_pvi_info</span><span class="p">(</span>
-    <span class="n">record</span><span class="p">:</span> <span class="n">RecordWrapper</span><span class="p">,</span>
-    <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">access_mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="s2">&quot;rw&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">],</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Add an info tag to a record to include it in the PVI for the controller.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        record: Record to add info tag to</span>
-<span class="sd">        prefix: PV prefix of controller</span>
-<span class="sd">        name: Name of parameter to add to PVI</span>
-<span class="sd">        access_mode: Access mode of parameter</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">record</span><span class="o">.</span><span class="n">add_info</span><span class="p">(</span>
-        <span class="s2">&quot;Q:group&quot;</span><span class="p">,</span>
-        <span class="p">{</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">:PVI&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="sa">f</span><span class="s2">&quot;value.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">access_mode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s2">&quot;+channel&quot;</span><span class="p">:</span> <span class="s2">&quot;NAME&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;+type&quot;</span><span class="p">:</span> <span class="s2">&quot;plain&quot;</span><span class="p">,</span>
-                    <span class="s2">&quot;+trigger&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;value.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">access_mode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">},</span>
-    <span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">:</span> <span class="n">RecordWrapper</span><span class="p">,</span> <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
