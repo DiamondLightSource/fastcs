@@ -1,99 +1,66 @@
+import asyncio
 from multiprocessing import Queue
 
-from p4p import Value
-from p4p.client.thread import Context
+import pytest
+from aioca import FORMAT_TIME, caget, camonitor, caput
 from softioc import alarm
 
 
-def test_ioc(softioc_subprocess: tuple[str, Queue]):
+@pytest.mark.asyncio
+async def test_ioc(softioc_subprocess: tuple[str, Queue]):
     pv_prefix, _ = softioc_subprocess
-    ctxt = Context("pva")
 
-    _parent_pvi = ctxt.get(f"{pv_prefix}:PVI")
-    assert isinstance(_parent_pvi, Value)
-    parent_pvi = _parent_pvi.todict()
-    assert all(f in parent_pvi for f in ("alarm", "display", "timeStamp", "value"))
-    assert parent_pvi["display"] == {"description": "The records in this controller"}
-    assert parent_pvi["value"] == {
-        "a": {"r": f"{pv_prefix}:A"},
-        "b": {"r": f"{pv_prefix}:B_RBV", "w": f"{pv_prefix}:B"},
-        "childvector": {"d": f"{pv_prefix}:ChildVector:PVI"},
-    }
+    # Assert alias
+    assert await caget(f"{pv_prefix}:B") == await caget(f"{pv_prefix}:AliasB") == 0
+    await caput(f"{pv_prefix}:B", 10, wait=True)
+    assert await caget(f"{pv_prefix}:AliasB") == 10
+    await caput(f"{pv_prefix}:AliasB", 20, wait=True)
+    assert await caget(f"{pv_prefix}:B") == 20
+    b_rbv = await caget(f"{pv_prefix}:B_RBV")
+    alias_b_rbv = await caget(f"{pv_prefix}:AliasB_RBV")
+    assert b_rbv == alias_b_rbv == 20
 
-    child_vector_pvi_pv = parent_pvi["value"]["childvector"]["d"]
-    _child_vector_pvi = ctxt.get(child_vector_pvi_pv)
-    assert isinstance(_child_vector_pvi, Value)
-    _child_vector_pvi = _child_vector_pvi.todict()
-    assert all(
-        f in _child_vector_pvi for f in ("alarm", "display", "timeStamp", "value")
+    # Assert command exceptions set record alarm states. The command record
+    # reverts back to False once the (failing) command completes.
+    d_values: asyncio.Queue = asyncio.Queue()
+    subscription = camonitor(
+        f"{pv_prefix}:ChildVector:0:D", d_values.put_nowait, format=FORMAT_TIME
     )
-    assert _child_vector_pvi["display"] == {
-        "description": "The records in this controller"
-    }
-    assert _child_vector_pvi["value"] == {
-        "__0": {"d": f"{pv_prefix}:ChildVector:0:PVI"},
-        "__1": {"d": f"{pv_prefix}:ChildVector:1:PVI"},
-    }
+    try:
+        assert await d_values.get() == 0  # First monitor value
+        await caput(f"{pv_prefix}:ChildVector:0:D", True)
+        d_value = await d_values.get()
+        assert d_value.severity == alarm.MAJOR_ALARM  # First real call fails
+        await caput(f"{pv_prefix}:ChildVector:0:D", True)
+        d_value = await d_values.get()
+        assert d_value.severity == alarm.NO_ALARM  # Second real call succeeds
+    finally:
+        subscription.close()
 
-    child_pvi_pv = _child_vector_pvi["value"]["__0"]["d"]
-    _child_pvi = ctxt.get(child_pvi_pv)
-    assert isinstance(_child_pvi, Value)
-    child_pvi = _child_pvi.todict()
-    assert all(f in child_pvi for f in ("alarm", "display", "timeStamp", "value"))
-    assert child_pvi["display"] == {"description": "The records in this controller"}
-    assert child_pvi["value"] == {
-        "c": {"w": f"{pv_prefix}:ChildVector:0:C"},
-        "d": {"x": f"{pv_prefix}:ChildVector:0:D"},
-        "e": {
-            "r": f"{pv_prefix}:ChildVector:0:E_RBV",
-            "w": f"{pv_prefix}:ChildVector:0:E",
-        },
-    }
+    # Assert enum alias
+    e_pv = f"{pv_prefix}:ChildVector:0:E"
+    assert await caget(e_pv) == 0
+    assert await caget(e_pv, datatype=str) == "Invalid"  # Default for underlying enum
+    assert await caget(f"{pv_prefix}:EnumAliasE") == 0
+    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "Off"
 
-    # Assert alias. Aliases do not show up in PVI structure
-    assert ctxt.get(f"{pv_prefix}:B") == ctxt.get(f"{pv_prefix}:AliasB") == 0
-    ctxt.put(f"{pv_prefix}:B", 10, wait=True)
-    assert ctxt.get(f"{pv_prefix}:AliasB") == 10
-    ctxt.put(f"{pv_prefix}:AliasB", 20, wait=True)
-    assert ctxt.get(f"{pv_prefix}:B") == 20
-    assert ctxt.get(f"{pv_prefix}:B_RBV") == ctxt.get(f"{pv_prefix}:AliasB_RBV") == 20
+    await caput(f"{pv_prefix}:EnumAliasE", 1, wait=True)
+    # 'On' is index 1, but maps to value '2'
+    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "On"
+    assert await caget(e_pv) == 2  # Underlying enum attr gets put with 2
+    assert await caget(e_pv, datatype=str) == "Active"
+    assert await caget(f"{e_pv}_RBV", datatype=str) == "Active"
 
-    # Assert enum alias. Enum aliases do not show up in PVI structure
-    enum_value = ctxt.get(f"{pv_prefix}:ChildVector:0:E")
-    assert enum_value == 0
-    assert str(enum_value) == "Invalid"  # Default for underlying enum attr
-    aliased_enum_value = ctxt.get(f"{pv_prefix}:EnumAliasE")
-    assert aliased_enum_value == 0
-    assert str(aliased_enum_value) == "Off"  # Default for alias enum attr
+    await caput(e_pv, 1, wait=True)
+    assert await caget(f"{e_pv}_RBV", datatype=str) == "Idle"
+    # Aliased enum gets converted update
+    assert await caget(f"{pv_prefix}:EnumAliasE_RBV", datatype=str) == "Off"
+    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "Off"
 
-    ctxt.put(f"{pv_prefix}:EnumAliasE", 1, wait=True)
-    assert (
-        str(ctxt.get(f"{pv_prefix}:EnumAliasE")) == "On"
-    )  # 'On' is index 1, but maps to value '2'
-    converted_enum_value = ctxt.get(f"{pv_prefix}:ChildVector:0:E")
-    assert converted_enum_value == 2  # Underlying enum attr gets put with 2
-    assert str(converted_enum_value) == "Active"
-    assert str(ctxt.get(f"{pv_prefix}:ChildVector:0:E_RBV")) == "Active"
-
-    ctxt.put(f"{pv_prefix}:ChildVector:0:E", 1, wait=True)
-    assert str(ctxt.get(f"{pv_prefix}:ChildVector:0:E_RBV")) == "Idle"
-    assert (
-        str(ctxt.get(f"{pv_prefix}:EnumAliasE_RBV")) == "Off"
-    )  # Aliased enum gets converted update
-    assert str(ctxt.get(f"{pv_prefix}:EnumAliasE")) == "Off"
-
-    # Assert command exceptions set record alarm states
-    ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
-    assert ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR") == alarm.MAJOR_ALARM
-    ctxt.put(f"{pv_prefix}:ChildVector:0:D", True, wait=True)
-    assert (
-        ctxt.get(f"{pv_prefix}:ChildVector:0:D.SEVR") == alarm.NO_ALARM
-    )  # Second put resets alarm
-
-    # Assert command aliased to enum
-    ctxt.put(
-        f"{pv_prefix}:EnumAliasD", "Active", wait=True
-    )  # This aliases to True on command 'D'
-    assert ctxt.get(f"{pv_prefix}:EnumAliasD.SEVR") == alarm.MAJOR_ALARM
-    ctxt.put(f"{pv_prefix}:EnumAliasD", "Active", wait=True)
-    assert ctxt.get(f"{pv_prefix}:EnumAliasD.SEVR") == alarm.NO_ALARM
+    # Assert command aliased to enum. 'Active' aliases to True on command 'D', which
+    # fails on every other call
+    enum_alias_d = f"{pv_prefix}:EnumAliasD"
+    await caput(enum_alias_d, "Active", wait=True)
+    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.MAJOR_ALARM
+    await caput(enum_alias_d, "Active", wait=True)
+    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.NO_ALARM
