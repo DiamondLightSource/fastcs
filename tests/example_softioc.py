@@ -56,7 +56,7 @@ def run(id="SOFTIOC_TEST_DEVICE"):
             EpicsCATransport(
                 epicsca=EpicsCAOptions(
                     aliases={
-                        f"{id}:B": f"{id}:AliasB",
+                        f"{id}:B": [f"{id}:AliasB1", f"{id}:AliasB2"],
                         f"{id}:B_RBV": f"{id}:AliasB_RBV",
                         f"{id}:ChildVector:0:E": EnumMapping(
                             pv=f"{id}:EnumAliasE", mapping={"Off": 1, "On": 2}
