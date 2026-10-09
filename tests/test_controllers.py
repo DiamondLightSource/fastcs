@@ -182,8 +182,8 @@ def test_enum_attribute_hint_validation():
     class GoodEnum(enum.IntEnum):
         VAL = 0
 
-    class BadEnum(enum.IntEnum):
-        VAL = 0
+    class BadEnum(enum.StrEnum):
+        VAL = "val"
 
     class HintedController(Controller):
         enum: AttrRW[GoodEnum]
