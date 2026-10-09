@@ -36,3 +36,31 @@ async def test_ioc(softioc_subprocess: tuple[str, Queue]):
         assert d_value.severity == alarm.NO_ALARM  # Second real call succeeds
     finally:
         subscription.close()
+
+    # Assert enum alias
+    e_pv = f"{pv_prefix}:ChildVector:0:E"
+    assert await caget(e_pv) == 0
+    assert await caget(e_pv, datatype=str) == "Invalid"  # Default for underlying enum
+    assert await caget(f"{pv_prefix}:EnumAliasE") == 0
+    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "Off"
+
+    await caput(f"{pv_prefix}:EnumAliasE", 1, wait=True)
+    # 'On' is index 1, but maps to value '2'
+    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "On"
+    assert await caget(e_pv) == 2  # Underlying enum attr gets put with 2
+    assert await caget(e_pv, datatype=str) == "Active"
+    assert await caget(f"{e_pv}_RBV", datatype=str) == "Active"
+
+    await caput(e_pv, 1, wait=True)
+    assert await caget(f"{e_pv}_RBV", datatype=str) == "Idle"
+    # Aliased enum gets converted update
+    assert await caget(f"{pv_prefix}:EnumAliasE_RBV", datatype=str) == "Off"
+    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "Off"
+
+    # Assert command aliased to enum. 'Active' aliases to True on command 'D', which
+    # fails on every other call
+    enum_alias_d = f"{pv_prefix}:EnumAliasD"
+    await caput(enum_alias_d, "Active", wait=True)
+    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.MAJOR_ALARM
+    await caput(enum_alias_d, "Active", wait=True)
+    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.NO_ALARM
