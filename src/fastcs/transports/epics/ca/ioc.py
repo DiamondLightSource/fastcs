@@ -241,9 +241,10 @@ def _create_and_link_write_pv(
 
     async def on_update(value):
         logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
-        await _run_and_set_alarm(
-            record, attribute.put(cast_from_epics_type(attribute.datatype, value))
-        )
+        cast_value = _cast_put(record, attribute.datatype, pv, value)
+        if cast_value is None:
+            return
+        await _run_and_set_alarm(record, attribute.put(cast_value))
 
     record = _make_out_record(pv, attribute, on_update=on_update)
 
@@ -355,6 +356,24 @@ def _add_alias(record: RecordWrapper, alias: str, attr_name: str):
             record.add_alias(alias)
 
 
+def _cast_put(
+    record: RecordWrapper, datatype: DataType[DType_T], pv: str, value
+) -> DType_T | None:
+    """Cast an EPICS put value, or log and raise a MAJOR_ALARM if it is invalid."""
+    try:
+        return cast_from_epics_type(datatype, value)
+    except (IndexError, ValueError) as e:
+        logger.warning(
+            "Ignoring put {value} to {pv} as it is invalid for {datatype}: {error}",
+            value=value,
+            pv=pv,
+            datatype=datatype,
+            error=e,
+        )
+        _set_alarm(record, alarm.MAJOR_ALARM)
+        return None
+
+
 def _set_alarm(record: RecordWrapper, alarm_state: int):
     record.set(
         record.get(),
@@ -448,7 +467,9 @@ def _add_command_enum_alias(
 
     async def trigger_command(value) -> None:
         logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
-        cast_value = cast_from_epics_type(enum_attr.datatype, value)
+        cast_value = _cast_put(record, enum_attr.datatype, alias.pv, value)
+        if cast_value is None:
+            return
         await enum_attr.put(cast_value)
 
         if resolved[cast_value.name]:
@@ -516,7 +537,9 @@ def _add_write_enum_alias(
 
     async def convert_to_value(value) -> None:
         logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
-        cast_value = cast_from_epics_type(enum_attr.datatype, value)
+        cast_value = _cast_put(record, enum_attr.datatype, alias.pv, value)
+        if cast_value is None:
+            return
         await enum_attr.put(cast_value)
         converted_value = resolved[cast_value.name]
         logger.info(

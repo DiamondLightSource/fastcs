@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pytest
 from pytest_mock import MockerFixture
-from softioc import softioc
+from softioc import alarm, softioc
 from tests.assertable_controller import (
     AssertableControllerAPI,
     MyTestAttributeIORef,
@@ -494,6 +494,56 @@ async def test_create_and_link_write_pv(mocker: MockerFixture):
     await on_update_callback(1)
 
     attribute.put.assert_called_once_with(1)
+
+
+@pytest.mark.asyncio
+async def test_write_pv_invalid_enum_index_put_sets_alarm(
+    mocker: MockerFixture, loguru_caplog
+):
+    make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
+    set_alarm = mocker.patch("fastcs.transports.epics.ca.ioc._set_alarm")
+    attribute = AttrW(Enum(GapEnum))
+    attribute.put = mocker.AsyncMock()
+
+    _create_and_link_write_pv("PREFIX", "PV", "attr", None, attribute)
+    # GapEnum only has 2 members
+    await make_out_record.call_args.kwargs["on_update"](4)
+
+    attribute.put.assert_not_called()
+    set_alarm.assert_called_once_with(make_out_record.return_value, alarm.MAJOR_ALARM)
+    assert "Ignoring put 4" in loguru_caplog.text
+
+
+@pytest.mark.parametrize("alias_type", ("write", "command"))
+@pytest.mark.asyncio
+async def test_enum_alias_invalid_index_put_sets_alarm(
+    mocker: MockerFixture, alias_type: str, loguru_caplog
+):
+    make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
+    set_alarm = mocker.patch("fastcs.transports.epics.ca.ioc._set_alarm")
+    record = make_out_record.return_value
+
+    alias = EnumMapping(pv="A", mapping={"Off": 1, "On": 5})
+    attribute = AttrW(Enum(GapEnum))
+    attribute.put = mocker.AsyncMock()
+    calls = []
+
+    async def fn():
+        calls.append(True)
+
+    enum_attr = _get_write_enum_attr_from_type(alias)
+    if alias_type == "write":
+        _add_write_enum_alias(alias, attribute, enum_attr)
+    else:
+        _add_command_enum_alias(alias, Command(fn), enum_attr)
+
+    # The alias enum only has 2 members
+    await make_out_record.call_args.kwargs["on_update"](4)
+
+    attribute.put.assert_not_called()
+    assert not calls
+    set_alarm.assert_called_once_with(record, alarm.MAJOR_ALARM)
+    assert "Ignoring put 4" in loguru_caplog.text
 
 
 class LongEnum(enum.Enum):
