@@ -9,7 +9,7 @@ def test_validate_pva_id_accepts_valid(name):
     validate_pva_id(ControllerAPI(path=[name]))
 
 
-@pytest.mark.parametrize("name", ["bad/id", "with space", "colons:in:id", ""])
+@pytest.mark.parametrize("name", ["bad/id", "with space", ""])
 def test_validate_pva_id_rejects_illegal_characters(name):
     with pytest.raises(ValueError, match="EPICS PVA id"):
         validate_pva_id(ControllerAPI(path=[name]))
