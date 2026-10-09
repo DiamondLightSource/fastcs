@@ -10,7 +10,7 @@ from softioc.pythonSoftIoc import RecordWrapper
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import DType_T, Enum, Waveform
+from fastcs.datatypes import Bool, DataType, DType_T, Enum, Waveform
 from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.tracer import Tracer
@@ -396,6 +396,45 @@ def _get_write_enum_attr_from_type(alias: EnumMapping):
     return AttrW(datatype=Enum(enum))
 
 
+def _resolve_mapping(
+    alias: EnumMapping, datatype: DataType[DType_T]
+) -> dict[str, DType_T] | None:
+    """Convert the mapping values into values of the attribute's datatype.
+
+    Logs a warning and returns None if the mapping is invalid for the datatype.
+    """
+    # Resolved once at creation, so datatype updates on aliased attributes are
+    # not supported
+    try:
+        # validate casts loosely (e.g. bool("false") is True), this is accepted
+        resolved = {
+            name: datatype.validate(value) for name, value in alias.mapping.items()
+        }
+        names = _reverse_mapping(resolved)
+    except (ValueError, TypeError) as e:
+        logger.warning(
+            "Not creating enum alias PV {pv}, as mapping is invalid for {datatype}: "
+            "{error}",
+            pv=alias.pv,
+            datatype=datatype,
+            error=e,
+        )
+        return None
+    if len(names) != len(resolved):
+        logger.warning(
+            "Not creating enum alias PV {pv}, as mapping maps multiple names to the "
+            "same value",
+            pv=alias.pv,
+            mapping=alias.mapping,
+        )
+        return None
+    return resolved
+
+
+def _reverse_mapping(resolved: dict[str, DType_T]) -> dict[DType_T, str]:
+    return {value: name for name, value in resolved.items()}
+
+
 def _add_command_enum_alias(
     alias: EnumMapping,
     method: Command,
@@ -404,33 +443,16 @@ def _add_command_enum_alias(
     if not _validate_pv_length(str(method), alias.pv):
         return
 
+    # validate casts loosely (e.g. bool("false") is True), this is accepted
+    resolved = {name: Bool().validate(value) for name, value in alias.mapping.items()}
+
     async def trigger_command(value) -> None:
         logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
         cast_value = cast_from_epics_type(enum_attr.datatype, value)
         await enum_attr.put(cast_value)
-        converted_value = alias.mapping.get(cast_value.name)
 
-        if converted_value is None:
-            logger.warning(
-                "Failed to convert enum alias value {value} to command boolean. "
-                "No mapping exists.",
-                value=value,
-                enum_mapping=alias.mapping,
-            )
-            return
-
-        if not isinstance(converted_value, bool):
-            logger.warning(
-                "Aliased commands only accept boolean mappings. "
-                "Got {value} from mapping.",
-                value=converted_value,
-                enum_mapping=alias.mapping,
-            )
-            return
-
-        if converted_value:
+        if resolved[cast_value.name]:
             logger.info("Calling aliased command")
-            await enum_attr.put(value)
             await _run_and_set_alarm(record, method.fn())
 
     record = _make_out_record(alias.pv, enum_attr, on_update=trigger_command)
@@ -444,16 +466,13 @@ def _add_read_enum_alias(
         return
 
     enum = enum_attr.datatype.dtype
+    resolved = _resolve_mapping(alias, attribute.datatype)
+    if resolved is None:
+        return
+    names = _reverse_mapping(resolved)
 
     async def convert_from_value(value) -> None:
-        converted_value = next(
-            (
-                name
-                for name, mapped_value in alias.mapping.items()
-                if mapped_value == value
-            ),
-            None,
-        )
+        converted_value = names.get(value)
 
         if converted_value is not None:
             validated_value = enum[converted_value]
@@ -476,6 +495,9 @@ def _add_read_enum_alias(
             )
 
     record = _make_in_record(alias.pv, enum_attr)
+    initial_name = names.get(attribute.get())
+    if initial_name is not None:
+        record.set(cast_to_epics_type(enum_attr.datatype, enum[initial_name]))
     attribute.add_on_update_callback(convert_from_value)
 
 
@@ -487,50 +509,41 @@ def _add_write_enum_alias(
     if not _validate_pv_length(attribute.name, alias.pv):
         return
 
+    resolved = _resolve_mapping(alias, attribute.datatype)
+    if resolved is None:
+        return
+    names = _reverse_mapping(resolved)
+
     async def convert_to_value(value) -> None:
         logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
         cast_value = cast_from_epics_type(enum_attr.datatype, value)
         await enum_attr.put(cast_value)
-        converted_value = alias.mapping.get(cast_value.name)
-
-        if converted_value is not None:
-            logger.info(
-                "Converting enum value {enum_value} to fastcs value {converted_value}",
-                enum_value=value,
-                converted_value=converted_value,
-            )
-            await _run_and_set_alarm(
-                record,
-                attribute.put(
-                    cast_from_epics_type(attribute.datatype, converted_value)
-                ),
-            )
-        else:
-            logger.warning(
-                "Ignoring enum put value {value} as it has no "
-                "corresponding value in enum mapping",
-                value=value,
-                mapping=alias.mapping,
-            )
+        converted_value = resolved[cast_value.name]
+        logger.info(
+            "Converting enum value {enum_value} to fastcs value {converted_value}",
+            enum_value=value,
+            converted_value=converted_value,
+        )
+        await _run_and_set_alarm(record, attribute.put(converted_value))
 
     record = _make_out_record(alias.pv, enum_attr, on_update=convert_to_value)
     _sync_setpoint(alias.pv, enum_attr, record)
 
     async def update_enum_alias(value: DType_T) -> None:
-        converted_value = next(
-            (
-                name
-                for name, mapped_value in alias.mapping.items()
-                if mapped_value == value
-            ),
-            None,
-        )
+        converted_value = names.get(value)
 
         if converted_value is not None:
             enum_value = enum_attr.datatype.dtype[converted_value]
             record.set(
                 cast_to_epics_type(enum_attr.datatype, enum_value),
                 process=False,
+            )
+        else:
+            logger.warning(
+                "Ignoring enum setpoint sync as fastcs value {value} has no "
+                "corresponding value in enum mapping",
+                value=value,
+                mapping=alias.mapping,
             )
 
     if isinstance(attribute, AttrR):
