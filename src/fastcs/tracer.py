@@ -23,6 +23,7 @@ class Tracer:
     be logged
 
     Example usage in interactive shell:
+
     .. code-block:: python
 
         controller.ramp_rate.enable_tracing()
