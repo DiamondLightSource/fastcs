@@ -31,6 +31,10 @@ from fastcs.transports.epics.ca.ioc import (
     _create_and_link_command_pv,
     _create_and_link_read_pv,
     _create_and_link_write_pv,
+    _get_read_enum_attr_from_type,
+    _get_write_enum_attr_from_type,
+    _resolve_mapping,
+    _reverse_mapping,
 )
 from fastcs.transports.epics.ca.util import (
     _make_in_record,
@@ -47,6 +51,16 @@ SEVENTEEN_VALUES = [str(i) for i in range(1, 18)]
 class OnOffStates(enum.IntEnum):
     DISABLED = 0
     ENABLED = 1
+
+
+class GapEnum(enum.IntEnum):
+    LOW = 1
+    HIGH = 5
+
+
+class PlainEnum(enum.Enum):
+    LOW = "low"
+    HIGH = "high"
 
 
 async def do_nothing(): ...
@@ -165,6 +179,157 @@ async def test_enum_alias_skips_pv_if_too_long(mocker: MockerFixture, alias_type
 
     make_in_record.assert_not_called()
     make_out_record.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "datatype,mapping,expected",
+    [
+        (Enum(GapEnum), {"Off": 1, "On": 5}, {"Off": GapEnum.LOW, "On": GapEnum.HIGH}),
+        (
+            Enum(PlainEnum),
+            {"Off": "low", "On": "high"},
+            {"Off": PlainEnum.LOW, "On": PlainEnum.HIGH},
+        ),
+        (Int(), {"Off": 0, "On": 10}, {"Off": 0, "On": 10}),
+    ],
+)
+def test_resolve_mapping_converts_to_attribute_datatype(datatype, mapping, expected):
+    resolved = _resolve_mapping(EnumMapping(pv="A", mapping=mapping), datatype)
+
+    assert resolved is not None
+    assert resolved == expected
+    assert all(type(value) is type(expected[key]) for key, value in resolved.items())
+
+
+# EnumMapping does not validate at runtime, so untyped config can pass a list
+unhashable_mapping: Any = {"a": [1, 2]}
+
+
+@pytest.mark.parametrize(
+    "datatype,mapping,message",
+    [
+        # 7 has no member in GapEnum
+        (Enum(GapEnum), {"On": 7}, "mapping is invalid"),
+        # many-to-one mapping
+        (Int(), {"a": 1, "b": 1}, "multiple names to the same value"),
+        (Waveform(np.int32, shape=(2,)), unhashable_mapping, "mapping is invalid"),
+    ],
+)
+def test_resolve_mapping_warns_and_returns_none_on_invalid_mapping(
+    datatype, mapping, message, loguru_caplog
+):
+    alias = EnumMapping(pv="A", mapping=mapping)
+
+    assert _resolve_mapping(alias, datatype) is None
+    assert message in loguru_caplog.text
+
+
+@pytest.mark.parametrize("alias_type", ("read", "write"))
+def test_enum_alias_skips_pv_if_mapping_invalid(mocker: MockerFixture, alias_type):
+    make_in_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")
+    make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
+    alias = EnumMapping(pv="A", mapping={"On": 7})
+
+    if alias_type == "read":
+        attribute = AttrR(Enum(GapEnum))
+        _add_read_enum_alias(alias, attribute, _get_read_enum_attr_from_type(alias))
+    else:
+        attribute = AttrRW(Enum(GapEnum))
+        _add_write_enum_alias(alias, attribute, _get_write_enum_attr_from_type(alias))
+
+    make_in_record.assert_not_called()
+    make_out_record.assert_not_called()
+
+
+def test_reverse_mapping():
+    assert _reverse_mapping({"Off": GapEnum.LOW, "On": GapEnum.HIGH}) == {
+        GapEnum.LOW: "Off",
+        GapEnum.HIGH: "On",
+    }
+
+
+@pytest.mark.parametrize("alias_index,expected", [(0, GapEnum.LOW), (1, GapEnum.HIGH)])
+@pytest.mark.asyncio
+async def test_write_enum_alias_puts_mapped_value(
+    mocker: MockerFixture, alias_index: int, expected: GapEnum
+):
+    make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
+    alias = EnumMapping(pv="A", mapping={"Off": 1, "On": 5})
+    attribute = AttrRW(Enum(GapEnum))
+
+    _add_write_enum_alias(alias, attribute, _get_write_enum_attr_from_type(alias))
+    await make_out_record.call_args.kwargs["on_update"](alias_index)
+
+    assert attribute.get() == expected
+
+
+@pytest.mark.asyncio
+async def test_write_enum_alias_syncs_from_attribute(mocker: MockerFixture):
+    record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")()
+    alias = EnumMapping(pv="A", mapping={"Off": 1, "On": 5})
+    attribute = AttrRW(Enum(GapEnum))
+
+    _add_write_enum_alias(alias, attribute, _get_write_enum_attr_from_type(alias))
+    await attribute.update(GapEnum.HIGH)
+
+    record.set.assert_called_with(1, process=False)
+
+
+@pytest.mark.asyncio
+async def test_write_enum_alias_warns_on_unmapped_value(
+    mocker: MockerFixture, loguru_caplog
+):
+    record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")()
+    alias = EnumMapping(pv="A", mapping={"Off": 1, "On": 5})
+    attribute = AttrRW(Int())
+
+    _add_write_enum_alias(alias, attribute, _get_write_enum_attr_from_type(alias))
+    record.set.reset_mock()
+    await attribute.update(3)
+
+    record.set.assert_not_called()
+    assert "Ignoring enum setpoint sync" in loguru_caplog.text
+
+
+@pytest.mark.asyncio
+async def test_read_enum_alias_sets_record_from_plain_enum(mocker: MockerFixture):
+    record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")()
+    alias = EnumMapping(pv="A", mapping={"Off": "low", "On": "high"})
+    attribute = AttrR(Enum(PlainEnum))
+
+    _add_read_enum_alias(alias, attribute, _get_read_enum_attr_from_type(alias))
+    await attribute.update(PlainEnum.HIGH)
+
+    record.set.assert_called_with(1)
+
+
+def test_read_enum_alias_sets_record_from_initial_value(mocker: MockerFixture):
+    record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")()
+    alias = EnumMapping(pv="A", mapping={"Off": 1, "On": 5})
+    attribute = AttrR(Enum(GapEnum), initial_value=GapEnum.HIGH)
+
+    _add_read_enum_alias(alias, attribute, _get_read_enum_attr_from_type(alias))
+
+    record.set.assert_called_once_with(1)
+
+
+@pytest.mark.parametrize("alias_index,called", [(0, False), (1, True)])
+@pytest.mark.asyncio
+async def test_command_enum_alias_converts_mapping_to_bool(
+    mocker: MockerFixture, alias_index: int, called: bool
+):
+    make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
+    calls = []
+
+    async def fn():
+        calls.append(True)
+
+    alias = EnumMapping(pv="A", mapping={"Idle": 0, "Go": 1})
+
+    _add_command_enum_alias(alias, Command(fn), _get_write_enum_attr_from_type(alias))
+    await make_out_record.call_args.kwargs["on_update"](alias_index)
+
+    assert bool(calls) is called
 
 
 @pytest.mark.asyncio
