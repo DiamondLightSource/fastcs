@@ -2,7 +2,7 @@ import re
 from dataclasses import asdict
 from typing import Any
 
-from tango import AttrDataFormat
+from tango import AttrDataFormat, CmdArgType
 
 from fastcs.attributes import Attribute
 from fastcs.datatypes import (
@@ -100,6 +100,10 @@ def get_server_metadata_from_datatype(datatype: DataType[DType]) -> dict[str, st
                     )
         case Float():
             arguments["format"] = f"%.{datatype.prec}"
+        case Enum():
+            # Labels must match the served choices that indices refer to
+            dtype = CmdArgType.DevEnum
+            arguments["enum_labels"] = datatype.names
 
     arguments["dtype"] = dtype
     for argument, value in arguments.items():
