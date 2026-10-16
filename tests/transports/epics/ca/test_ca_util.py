@@ -1,9 +1,10 @@
 import enum
+from typing import cast
 
 import pytest
 
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Bool, Enum, Float, Int, String
+from fastcs.datatypes import Bool, Enum, Float, Int, String, SubsetEnum
 from fastcs.transports.epics.ca.util import (
     cast_from_epics_type,
     cast_to_epics_type,
@@ -133,6 +134,43 @@ def test_cast_from_epics_type(datatype, from_epics, result):
 def test_cast_from_epics_validations(datatype, input):
     with pytest.raises(ValueError):
         cast_from_epics_type(datatype, input)
+
+
+class LongTrigger(str, SubsetEnum):
+    INTERNAL = "Internal"
+    EXTERNAL = "External"
+
+
+# Device has more than 16 choices, so CA serves it as a string record of names
+DeviceLongTrigger = cast(
+    type[enum.Enum],
+    enum.Enum(
+        "DeviceLongTrigger",
+        {
+            "INTERNAL": "Internal",
+            "EXTERNAL": "External",
+            **{f"LINE{i}": f"Line{i}" for i in range(16)},
+        },
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "value, epics_value",
+    [
+        pytest.param(LongTrigger.INTERNAL, "INTERNAL", id="member"),
+        pytest.param("Line3", "LINE3", id="device-extra"),
+    ],
+)
+def test_long_subset_enum_round_trip(value, epics_value):
+    datatype = Enum(LongTrigger, allowed=DeviceLongTrigger)
+
+    assert cast_to_epics_type(datatype, value) == epics_value
+
+    result = cast_from_epics_type(datatype, epics_value)
+    assert result == value
+    # Members stay members and device extras stay raw values
+    assert type(result) is type(value)
 
 
 @pytest.mark.parametrize("id", ["DEVICE", "my-id", "name_1", "ABC-123_xyz"])

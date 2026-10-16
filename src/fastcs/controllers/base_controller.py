@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 from collections import Counter
 from collections.abc import Sequence
 from copy import deepcopy
@@ -13,6 +14,7 @@ from typing import (
 
 from fastcs.attributes import AnyAttributeIO, Attribute, AttrR, AttrW, HintedAttribute
 from fastcs.controllers.controller_api import ControllerAPI
+from fastcs.datatypes import Enum, EnumTypes, StrictEnum, validate_enum_choices
 from fastcs.logging import logger
 from fastcs.methods import Command, Method, Scan, UnboundCommand, UnboundScan
 from fastcs.tracer import Tracer
@@ -323,7 +325,13 @@ class BaseController(Tracer):
                     f"hinted attribute '{name}' does not match defined access mode. "
                     f"Expected '{hint.attr_type.__name__}' got '{type(attr).__name__}'."
                 )
-            if hint.dtype is not None and hint.dtype != attr.datatype.dtype:
+            if (
+                hint.dtype is not None
+                and isinstance(attr.datatype, Enum)
+                and issubclass(hint.dtype, EnumTypes)
+            ):
+                self._validate_hinted_enum(name, hint.dtype, attr)
+            elif hint.dtype is not None and hint.dtype != attr.datatype.dtype:
                 raise RuntimeError(
                     f"Controller '{self.__class__.__name__}' introspection of "
                     f"hinted attribute '{name}' does not match defined datatype. "
@@ -335,6 +343,23 @@ class BaseController(Tracer):
         attr.set_path(self.path)
         self.__attributes[name] = attr
         super().__setattr__(name, attr)
+
+    def _validate_hinted_enum(
+        self, name: str, hinted: type[enum.Enum], attr: Attribute
+    ) -> None:
+        """Validate introspected enum choices and adopt the hinted enum"""
+        introspected = attr.datatype.dtype
+        try:
+            validate_enum_choices(hinted, introspected)
+        except TypeError as exc:
+            raise RuntimeError(
+                f"Controller '{self.__class__.__name__}' introspection of "
+                f"hinted attribute '{name}' does not match defined enum choices. {exc}"
+            ) from None
+
+        # Superset and Subset serve only the choices the device has
+        allowed = None if issubclass(hinted, StrictEnum) else introspected
+        attr.update_datatype(Enum(hinted, allowed=allowed))
 
     @property
     def attributes(self) -> dict[str, Attribute]:

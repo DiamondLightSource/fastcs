@@ -7,6 +7,7 @@ from fastcs.attributes import AttrR, AttrRW
 from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
+from tests.util import DeviceGain, DeviceMode, DeviceTrigger, Gain, Mode, Trigger
 
 
 def test_controller_nesting():
@@ -194,6 +195,53 @@ def test_enum_attribute_hint_validation():
         controller.add_attribute("enum", AttrRW(Enum(BadEnum)))
 
     controller.add_attribute("enum", AttrRW(Enum(GoodEnum)))
+
+
+@pytest.mark.parametrize(
+    "hinted, device_enum, allowed, initial",
+    [
+        pytest.param(Mode, DeviceMode, False, Mode.OFF, id="strict"),
+        pytest.param(Gain, DeviceGain, True, Gain.LOW, id="superset"),
+        pytest.param(Trigger, DeviceTrigger, True, Trigger.INTERNAL, id="subset"),
+    ],
+)
+def test_enum_hint_adopts_hinted_enum(hinted, device_enum, allowed, initial):
+    class HintedController(Controller):
+        enum: AttrRW[hinted]  # type: ignore
+
+    controller = HintedController()
+    # Adds attribute using introspected enum
+    controller.add_attribute("enum", AttrRW(Enum(device_enum)))
+
+    attr = controller.attributes["enum"]
+    assert isinstance(attr, AttrRW)
+    assert isinstance(attr.datatype, Enum)
+    # Hinted enum is used instead of introspected enum
+    assert attr.datatype.dtype is hinted
+    # Strict serves the whole hint, Superset and Subset only the device's choices
+    assert attr.datatype.allowed is (device_enum if allowed else None)
+    # The stored value is converted from the device enum to the hinted one
+    assert attr.get() is initial
+
+
+@pytest.mark.parametrize(
+    "hinted, device_choices",
+    [
+        pytest.param(Mode, {"OFF": "Off"}, id="strict-missing"),
+        pytest.param(Mode, {"OFF": "Off", "ON": "On", "X": "x"}, id="strict-extra"),
+        pytest.param(Gain, {"LOW": "Low", "TURBO": "Turbo"}, id="superset-extra"),
+        pytest.param(Trigger, {"INTERNAL": "Internal"}, id="subset-missing"),
+    ],
+)
+def test_enum_hint_rejects_incompatible_choices(hinted, device_choices):
+    class HintedController(Controller):
+        enum: AttrRW[hinted]  # type: ignore
+
+    controller = HintedController()
+    device_enum = enum.Enum("DeviceEnum", device_choices)
+
+    with pytest.raises(RuntimeError, match="does not match defined enum choices"):
+        controller.add_attribute("enum", AttrRW(Enum(device_enum)))
 
 
 @pytest.mark.asyncio
