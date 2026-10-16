@@ -40,6 +40,9 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
             "r": f"{pv_prefix}:Table_RBV",
             "w": f"{pv_prefix}:Table",
         },
+        "mode": {"w": f"{pv_prefix}:Mode", "r": f"{pv_prefix}:Mode_RBV"},
+        "gain": {"w": f"{pv_prefix}:Gain", "r": f"{pv_prefix}:Gain_RBV"},
+        "trigger": {"w": f"{pv_prefix}:Trigger", "r": f"{pv_prefix}:Trigger_RBV"},
     }
 
     child_vector_pvi_pv = parent_pvi["value"]["child"]["d"]
@@ -74,6 +77,31 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         "i": {"x": f"{pv_prefix}:Child:1:I"},
         "j": {"r": f"{pv_prefix}:Child:1:J"},
     }
+
+
+@pytest.mark.asyncio
+async def test_hinted_enums(p4p_subprocess: tuple[str, Queue]):
+    pv_prefix, _ = p4p_subprocess
+    ctxt = Context("pva", nt=False)
+
+    async def get_enum(pv: str) -> Value:
+        value = await ctxt.get(f"{pv_prefix}:{pv}")
+        assert isinstance(value, Value)
+        return value.value
+
+    # Served choices are the device's: Superset drops AUTO, Subset adds SOFTWARE
+    assert list((await get_enum("Mode_RBV")).choices) == ["OFF", "ON"]
+    assert list((await get_enum("Gain_RBV")).choices) == ["LOW", "HIGH"]
+    assert list((await get_enum("Trigger_RBV")).choices) == [
+        "INTERNAL",
+        "EXTERNAL",
+        "SOFTWARE",
+    ]
+
+    # A choice only the device has can be set and read back
+    await ctxt.put(f"{pv_prefix}:Trigger", {"value.index": 2})
+    trigger = await get_enum("Trigger_RBV")
+    assert trigger.choices[trigger.index] == "SOFTWARE"
 
 
 @pytest.mark.asyncio
