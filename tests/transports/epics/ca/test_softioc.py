@@ -295,17 +295,19 @@ async def test_command_enum_alias_converts_mapping_to_bool(
     mocker: MockerFixture, alias_index: int, called: bool
 ):
     make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
-    calls = []
 
-    async def fn():
-        calls.append(True)
+    command = mocker.AsyncMock()
+    command.fn = mocker.AsyncMock()
 
     alias = CommandAlias(pv="A", triggers={"Idle": False, "Go": True})
 
-    _add_command_enum_alias(alias, Command(fn), {})
+    _add_command_enum_alias(alias, command, {})
     await make_out_record.call_args.kwargs["on_update"](alias_index)
 
-    assert bool(calls) is called
+    if called:
+        command.fn.assert_awaited_once()
+    else:
+        command.fn.assert_not_awaited()
 
 
 @pytest.mark.asyncio
