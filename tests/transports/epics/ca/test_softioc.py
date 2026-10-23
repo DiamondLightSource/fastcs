@@ -31,7 +31,6 @@ from fastcs.transports.epics.ca.ioc import (
     _get_read_enum_attr_from_type,
     _get_write_enum_attr_from_type,
     _resolve_mapping,
-    _reverse_mapping,
 )
 from fastcs.transports.epics.ca.util import (
     _make_in_record,
@@ -195,10 +194,7 @@ def test_resolve_mapping_converts_to_attribute_datatype(datatype, mapping, expec
     assert all(type(value) is type(expected[key]) for key, value in resolved.items())
 
 
-# EnumMapping does not validate at runtime, so untyped config can pass a list
-unhashable_mapping: Any = {"a": [1, 2]}
-
-
+@pytest.mark.parametrize("alias_type", ("read", "write"))
 @pytest.mark.parametrize(
     "datatype,mapping,message",
     [
@@ -206,40 +202,26 @@ unhashable_mapping: Any = {"a": [1, 2]}
         (Enum(GapEnum), {"On": 7}, "mapping is invalid"),
         # many-to-one mapping
         (Int(), {"a": 1, "b": 1}, "multiple names to the same value"),
-        (Waveform(np.int32, shape=(2,)), unhashable_mapping, "mapping is invalid"),
+        (Waveform(np.int32, shape=(2,)), {"a": [1, 2]}, "mapping is invalid"),
     ],
 )
-def test_resolve_mapping_warns_and_returns_none_on_invalid_mapping(
-    datatype, mapping, message, loguru_caplog
+def test_enum_alias_skips_pv_if_mapping_invalid(
+    mocker: MockerFixture, alias_type, datatype, mapping, message, loguru_caplog
 ):
-    alias = EnumMapping(pv="A", mapping=mapping)
-
-    assert _resolve_mapping(alias, datatype) is None
-    assert message in loguru_caplog.text
-
-
-@pytest.mark.parametrize("alias_type", ("read", "write"))
-def test_enum_alias_skips_pv_if_mapping_invalid(mocker: MockerFixture, alias_type):
     make_in_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")
     make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
-    alias = EnumMapping(pv="A", mapping={"On": 7})
+    alias = EnumMapping(pv="A", mapping=mapping)
 
     if alias_type == "read":
-        attribute = AttrR(Enum(GapEnum))
+        attribute = AttrR(datatype)
         _add_read_enum_alias(alias, attribute, _get_read_enum_attr_from_type(alias))
     else:
-        attribute = AttrRW(Enum(GapEnum))
+        attribute = AttrRW(datatype)
         _add_write_enum_alias(alias, attribute, _get_write_enum_attr_from_type(alias))
 
     make_in_record.assert_not_called()
     make_out_record.assert_not_called()
-
-
-def test_reverse_mapping():
-    assert _reverse_mapping({"Off": GapEnum.LOW, "On": GapEnum.HIGH}) == {
-        GapEnum.LOW: "Off",
-        GapEnum.HIGH: "On",
-    }
+    assert message in loguru_caplog.text
 
 
 @pytest.mark.parametrize("alias_index,expected", [(0, GapEnum.LOW), (1, GapEnum.HIGH)])
