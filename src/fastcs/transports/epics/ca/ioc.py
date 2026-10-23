@@ -1,6 +1,6 @@
 import asyncio
-from collections import Counter
-from collections.abc import Awaitable, Mapping
+from collections import defaultdict
+from collections.abc import Awaitable, Callable, Mapping
 from enum import IntEnum
 from typing import Any, TypeVar
 
@@ -10,7 +10,7 @@ from softioc.pythonSoftIoc import RecordWrapper
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Bool, DataType, DType_T, Enum, Waveform
+from fastcs.datatypes import DataType, DType_T, Enum, Waveform
 from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.tracer import Tracer
@@ -20,13 +20,17 @@ from fastcs.transports.epics.ca.util import (
     cast_from_epics_type,
     cast_to_epics_type,
 )
-from fastcs.transports.epics.options import EnumMapping
+from fastcs.transports.epics.options import CommandAlias, EnumMapping
 from fastcs.transports.epics.util import EPICS_MAX_NAME_LENGTH, pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
 tracer = Tracer()
 EnumT = TypeVar("EnumT", bound=IntEnum)
 RBV_SUFFIX = "_RBV"
+Alias = str | EnumMapping | CommandAlias
+# Callbacks to trigger commands from an enum label, keyed by command alias PV name
+CommandTriggers = list[Callable[[str], Awaitable[None]]]
+CommandAliases = dict[str, CommandTriggers]
 
 
 class EpicsCAIOC:
@@ -35,24 +39,32 @@ class EpicsCAIOC:
     def __init__(
         self,
         controller_apis: list[ControllerAPI],
-        aliases: Mapping[str, str | EnumMapping],
+        aliases: Mapping[str, Alias],
     ):
-        alias_pvs = [
-            value if isinstance(value, str) else value.pv for value in aliases.values()
-        ]
+        # This creates a mapping of alias PV -> list of aliases
+        # A str or EnumMapping alias should not share an alias PV,
+        # but a CommandAlias may
+        alias_groups: defaultdict[str, list[Alias]] = defaultdict(list)
+        for value in aliases.values():
+            alias_groups[value if isinstance(value, str) else value.pv].append(value)
 
+        # Only allow duplicates of CommandAlias
         if duplicate_aliases := [
-            alias for alias, count in Counter(alias_pvs).items() if count > 1
+            alias
+            for alias, group in alias_groups.items()
+            if len(group) > 1 and not _is_shared_command_alias(group)
         ]:
             raise RuntimeError(
                 "Failed to create EPICS CA IOC, as duplicate aliases were provided:"
                 f" {duplicate_aliases}"
             )
 
+        # Collect command aliases as we loop
+        command_aliases: CommandAliases = {}
         self._controller_apis = controller_apis
         for controller_api in controller_apis:
             _create_and_link_attribute_pvs(controller_api, aliases)
-            _create_and_link_command_pvs(controller_api, aliases)
+            _create_and_link_command_pvs(controller_api, aliases, command_aliases)
 
     def run(
         self,
@@ -63,8 +75,27 @@ class EpicsCAIOC:
         softioc.iocInit(dispatcher, enable_pva=False)
 
 
+def _is_shared_command_alias(group: list[Alias]) -> bool:
+    """Whether the aliases can share one PV, as command aliases with equal labels.
+
+    Returns:
+        True if every alias in the group is a CommandAlias and they all have the
+        same trigger labels in the same order, as the shared enum PV has one set
+        of labels. False if any alias is a str or EnumMapping, or the labels or
+        their order differ.
+
+    """
+    # Create a set of CommandAlias trigger labels
+    labels = {
+        tuple(alias.triggers) if isinstance(alias, CommandAlias) else None
+        for alias in group
+    }
+    # Only return true if we all shared command aliases agree on label ordering.
+    return None not in labels and len(labels) == 1
+
+
 def _create_and_link_attribute_pvs(
-    root_controller_api: ControllerAPI, aliases: Mapping[str, str | EnumMapping]
+    root_controller_api: ControllerAPI, aliases: Mapping[str, Alias]
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
@@ -124,7 +155,7 @@ def _create_and_link_attribute_pvs(
 def _create_and_link_read_pv(
     pv_prefix: str,
     pv_name: str,
-    alias: str | EnumMapping | None,
+    alias: Alias | None,
     attribute: AttrR[DType_T],
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
@@ -143,6 +174,8 @@ def _create_and_link_read_pv(
     elif isinstance(alias, EnumMapping):
         enum_attr = _get_read_enum_attr_from_type(alias)
         _add_read_enum_alias(alias, attribute, enum_attr)
+    elif isinstance(alias, CommandAlias):
+        _warn_command_alias_on_attribute(alias, attribute)
 
     attribute.add_on_update_callback(async_record_set)
 
@@ -161,7 +194,7 @@ def _sync_setpoint(pv: str, attribute: AttrW[DType_T], record: RecordWrapper) ->
 def _create_and_link_write_pv(
     pv_prefix: str,
     pv_name: str,
-    alias: str | EnumMapping | None,
+    alias: Alias | None,
     attribute: AttrW[DType_T],
 ):
     pv = f"{pv_prefix}:{pv_name}"
@@ -180,12 +213,16 @@ def _create_and_link_write_pv(
     elif isinstance(alias, EnumMapping):
         enum_attr = _get_write_enum_attr_from_type(alias)
         _add_write_enum_alias(alias, attribute, enum_attr)
+    elif isinstance(alias, CommandAlias):
+        _warn_command_alias_on_attribute(alias, attribute)
 
     _sync_setpoint(pv, attribute, record)
 
 
 def _create_and_link_command_pvs(
-    root_controller_api: ControllerAPI, aliases: Mapping[str, str | EnumMapping]
+    root_controller_api: ControllerAPI,
+    aliases: Mapping[str, Alias],
+    command_aliases: CommandAliases,
 ) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
@@ -202,14 +239,16 @@ def _create_and_link_command_pvs(
                     pv_name,
                     alias,
                     method,
+                    command_aliases,
                 )
 
 
 def _create_and_link_command_pv(
     pv_prefix: str,
     pv_name: str,
-    alias: str | EnumMapping | None,
+    alias: Alias | None,
     method: Command,
+    command_aliases: CommandAliases,
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -228,9 +267,24 @@ def _create_and_link_command_pv(
 
     if isinstance(alias, str):
         _add_alias(record, alias)
+    elif isinstance(alias, CommandAlias):
+        _add_command_enum_alias(alias, method, command_aliases)
     elif isinstance(alias, EnumMapping):
-        enum_attr = _get_write_enum_attr_from_type(alias)
-        _add_command_enum_alias(alias, method, enum_attr)
+        logger.warning(
+            "Not creating enum alias PV {pv} for command {command}, use CommandAlias "
+            "for command aliases",
+            pv=alias.pv,
+            command=pv,
+        )
+
+
+def _warn_command_alias_on_attribute(alias: CommandAlias, attribute: AttrR | AttrW):
+    logger.warning(
+        "Not creating command alias PV {pv} for attribute {attribute}, use EnumMapping "
+        "for attribute aliases",
+        pv=alias.pv,
+        attribute=attribute,
+    )
 
 
 def _validate_pv_length(attribute_name: str, pv: str):
@@ -297,9 +351,10 @@ async def _run_and_set_alarm(record: RecordWrapper, coro: Awaitable):
 
 
 def _get_enum_from_alias(
-    alias: EnumMapping,
+    alias: EnumMapping | CommandAlias,
 ):
-    members = {name: i for i, name in enumerate(alias.mapping)}
+    labels = alias.mapping if isinstance(alias, EnumMapping) else alias.triggers
+    members = {name: i for i, name in enumerate(labels)}
     return IntEnum("enum", members)
 
 
@@ -308,7 +363,7 @@ def _get_read_enum_attr_from_type(alias: EnumMapping):
     return AttrR(datatype=Enum(enum))
 
 
-def _get_write_enum_attr_from_type(alias: EnumMapping):
+def _get_write_enum_attr_from_type(alias: EnumMapping | CommandAlias):
     enum = _get_enum_from_alias(alias)
     return AttrW(datatype=Enum(enum))
 
@@ -353,29 +408,47 @@ def _reverse_mapping(resolved: dict[str, DType_T]) -> dict[DType_T, str]:
 
 
 def _add_command_enum_alias(
-    alias: EnumMapping,
+    alias: CommandAlias,
     method: Command,
-    enum_attr: AttrW[EnumT],
+    command_aliases: CommandAliases,
 ):
     if not _validate_pv_length(str(method), alias.pv):
         return
 
-    # validate casts loosely (e.g. bool("false") is True), this is accepted
-    resolved = {name: Bool().validate(value) for name, value in alias.mapping.items()}
+    async def trigger_command(name: str) -> None:
+        # Check if this trigger maps to True
+        if alias.triggers[name]:
+            logger.info("Calling aliased command")
+            await method.fn()
 
-    async def trigger_command(value) -> None:
+    # Commands sharing an alias PV are all triggered from one record
+    if alias.pv not in command_aliases:
+        # First time seeing this command alias, so make an entry
+        # with value being an empty list
+        command_aliases[alias.pv] = _make_command_alias_pv(alias)
+    command_aliases[alias.pv].append(trigger_command)
+
+
+def _make_command_alias_pv(alias: CommandAlias) -> CommandTriggers:
+    """Create the alias PV, returning the list of triggers it calls on a put."""
+    enum_attr = _get_write_enum_attr_from_type(alias)
+    triggers: CommandTriggers = []
+
+    async def trigger_commands(value) -> None:
         logger.info("PV put: {pv} = {value}", pv=alias.pv, value=repr(value))
         cast_value = _cast_put(record, enum_attr.datatype, alias.pv, value)
         if cast_value is None:
             return
         await enum_attr.put(cast_value)
+        # At this point, `triggers` is populated with all shared CommandAlias's
+        await _run_and_set_alarm(
+            record, asyncio.gather(*(trigger(cast_value.name) for trigger in triggers))
+        )
 
-        if resolved[cast_value.name]:
-            logger.info("Calling aliased command")
-            await _run_and_set_alarm(record, method.fn())
-
-    record = _make_out_record(alias.pv, enum_attr, on_update=trigger_command)
+    record = _make_out_record(alias.pv, enum_attr, on_update=trigger_commands)
     _sync_setpoint(alias.pv, enum_attr, record)
+    # Return empty list to be filled later
+    return triggers
 
 
 def _add_read_enum_alias(

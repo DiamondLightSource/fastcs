@@ -1,5 +1,27 @@
 {
   "$defs": {
+    "CommandAlias": {
+      "additionalProperties": false,
+      "properties": {
+        "pv": {
+          "title": "Pv",
+          "type": "string"
+        },
+        "triggers": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "title": "Triggers",
+          "type": "object"
+        }
+      },
+      "required": [
+        "pv",
+        "triggers"
+      ],
+      "title": "CommandAlias",
+      "type": "object"
+    },
     "EnumMapping": {
       "additionalProperties": false,
       "properties": {
@@ -46,6 +68,9 @@
               },
               {
                 "$ref": "#/$defs/EnumMapping"
+              },
+              {
+                "$ref": "#/$defs/CommandAlias"
               }
             ]
           },

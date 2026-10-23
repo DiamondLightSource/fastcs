@@ -64,3 +64,10 @@ async def test_ioc(softioc_subprocess: tuple[str, Queue]):
     assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.MAJOR_ALARM
     await caput(enum_alias_d, "Active", wait=True)
     assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.NO_ALARM
+
+    # 'Idle' triggers the flipped alias on ChildVector:1:D, which also fails on its
+    # first call
+    await caput(enum_alias_d, "Idle", wait=True)
+    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.MAJOR_ALARM
+    await caput(enum_alias_d, "Idle", wait=True)
+    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.NO_ALARM

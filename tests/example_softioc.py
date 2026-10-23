@@ -12,7 +12,7 @@ from fastcs.transports.epics.ca.transport import (
     EpicsCATransport,
     EpicsGUIOptions,
 )
-from fastcs.transports.epics.options import EnumMapping
+from fastcs.transports.epics.options import CommandAlias, EnumMapping
 
 
 class ExampleEnum(IntEnum):
@@ -64,9 +64,14 @@ def run(id="SOFTIOC_TEST_DEVICE"):
                         f"{id}:ChildVector:0:E_RBV": EnumMapping(
                             pv=f"{id}:EnumAliasE_RBV", mapping={"Off": 1, "On": 2}
                         ),
-                        f"{id}:ChildVector:0:D": EnumMapping(
+                        f"{id}:ChildVector:0:D": CommandAlias(
                             pv=f"{id}:EnumAliasD",
-                            mapping={"Idle": False, "Active": True},
+                            triggers={"Idle": False, "Active": True},
+                        ),
+                        # Shares EnumAliasD, triggered by the opposite label
+                        f"{id}:ChildVector:1:D": CommandAlias(
+                            pv=f"{id}:EnumAliasD",
+                            triggers={"Idle": True, "Active": False},
                         ),
                     }
                 ),

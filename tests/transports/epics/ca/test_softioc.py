@@ -37,7 +37,7 @@ from fastcs.transports.epics.ca.util import (
     _make_in_record,
     _make_out_record,
 )
-from fastcs.transports.epics.options import EnumMapping
+from fastcs.transports.epics.options import CommandAlias, EnumMapping
 from fastcs.transports.epics.util import EPICS_MAX_NAME_LENGTH
 
 DEVICE = "DEVICE"
@@ -116,7 +116,7 @@ async def test_create_and_link_command_pv_adds_alias(mocker: MockerFixture):
     record.add_alias = mocker.MagicMock()
     command = mocker.MagicMock()
 
-    _create_and_link_command_pv("PREFIX", "Command", "alias", command)
+    _create_and_link_command_pv("PREFIX", "Command", "alias", command, {})
 
     make_action.assert_called_once_with(
         "PREFIX:Command",
@@ -168,7 +168,8 @@ async def test_enum_alias_skips_pv_if_too_long(mocker: MockerFixture, alias_type
     elif alias_type == "write":
         _add_write_enum_alias(alias, AttrW(Int()), AttrW(Enum(OnOffStates)))
     else:
-        _add_command_enum_alias(alias, Command(do_nothing), AttrW(Enum(OnOffStates)))
+        command_alias = CommandAlias(pv=alias.pv, triggers={"One": True})
+        _add_command_enum_alias(command_alias, Command(do_nothing), {})
 
     make_in_record.assert_not_called()
     make_out_record.assert_not_called()
@@ -317,12 +318,47 @@ async def test_command_enum_alias_converts_mapping_to_bool(
     async def fn():
         calls.append(True)
 
-    alias = EnumMapping(pv="A", mapping={"Idle": 0, "Go": 1})
+    alias = CommandAlias(pv="A", triggers={"Idle": False, "Go": True})
 
-    _add_command_enum_alias(alias, Command(fn), _get_write_enum_attr_from_type(alias))
+    _add_command_enum_alias(alias, Command(fn), {})
     await make_out_record.call_args.kwargs["on_update"](alias_index)
 
     assert bool(calls) is called
+
+
+@pytest.mark.asyncio
+async def test_command_alias_fans_out_to_commands_sharing_pv(mocker: MockerFixture):
+    make_out_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")
+
+    start = mocker.AsyncMock()
+    start.fn = mocker.AsyncMock()
+    stop = mocker.AsyncMock()
+    stop.fn = mocker.AsyncMock()
+
+    command_aliases = {}
+    _add_command_enum_alias(
+        CommandAlias(pv="A", triggers={"Off": False, "On": True}),
+        start,
+        command_aliases,
+    )
+    _add_command_enum_alias(
+        CommandAlias(pv="A", triggers={"Off": True, "On": False}),
+        stop,
+        command_aliases,
+    )
+
+    # Both commands are triggered from one record
+    make_out_record.assert_called_once()
+    on_update = make_out_record.call_args.kwargs["on_update"]
+
+    start.fn.assert_not_awaited()
+    stop.fn.assert_not_awaited()
+    await on_update(1)  # On
+    start.fn.assert_awaited_once()
+    stop.fn.assert_not_awaited()
+    await on_update(0)  # Off
+    start.fn.assert_awaited_once()
+    stop.fn.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -335,6 +371,47 @@ async def test_ioc_raises_if_duplicate_aliases_provided(mocker: MockerFixture):
 
 
 @pytest.mark.parametrize(
+    "aliases",
+    [
+        # Labels in a different order
+        {
+            "A": CommandAlias(pv="X", triggers={"Off": False, "On": True}),
+            "B": CommandAlias(pv="X", triggers={"On": False, "Off": True}),
+        },
+        # CommandAlias mixed with EnumMapping
+        {
+            "A": CommandAlias(pv="X", triggers={"On": True}),
+            "B": EnumMapping(pv="X", mapping={"On": 1}),
+        },
+        # EnumMappings cannot share a PV
+        {
+            "A": EnumMapping(pv="X", mapping={"On": 1}),
+            "B": EnumMapping(pv="X", mapping={"On": 1}),
+        },
+        # str alias cannot share a PV
+        {
+            "A": "Alias",
+            "B": "Alias",
+        },
+    ],
+)
+def test_ioc_duplicate_alias_raises(aliases):
+    with pytest.raises(RuntimeError, match="duplicate aliases were provided"):
+        EpicsCAIOC([], aliases)
+
+
+@pytest.mark.asyncio
+async def test_ioc_duplicate_command_aliases_with_same_labels_allowed():
+    EpicsCAIOC(
+        [],
+        {
+            "A": CommandAlias(pv="X", triggers={"Off": False, "On": True}),
+            "B": CommandAlias(pv="X", triggers={"Off": True, "On": False}),
+        },
+    )
+
+
+@pytest.mark.parametrize(
     ("create_pv", "add_helper", "expected_type", "mock_attribute"),
     [
         (
@@ -342,12 +419,6 @@ async def test_ioc_raises_if_duplicate_aliases_provided(mocker: MockerFixture):
             "_add_write_enum_alias",
             AttrW,
             AttrRW(Int()),
-        ),
-        (
-            _create_and_link_command_pv,
-            "_add_command_enum_alias",
-            AttrW,
-            Command(do_nothing),
         ),
         (
             _create_and_link_read_pv,
@@ -514,11 +585,11 @@ async def test_enum_alias_invalid_index_put_sets_alarm(
     async def fn():
         calls.append(True)
 
-    enum_attr = _get_write_enum_attr_from_type(alias)
     if alias_type == "write":
-        _add_write_enum_alias(alias, attribute, enum_attr)
+        _add_write_enum_alias(alias, attribute, _get_write_enum_attr_from_type(alias))
     else:
-        _add_command_enum_alias(alias, Command(fn), enum_attr)
+        command_alias = CommandAlias(pv="A", triggers={"Off": False, "On": True})
+        _add_command_enum_alias(command_alias, Command(fn), {})
 
     # The alias enum only has 2 members
     await make_out_record.call_args.kwargs["on_update"](4)

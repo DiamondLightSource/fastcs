@@ -42,6 +42,19 @@ class EnumMapping:
 
 
 @dataclass
+class CommandAlias:
+    """Enum alias PV for a command, which is called on labels mapped to True.
+
+    Multiple commands can share an alias PV if their labels match.
+    """
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    pv: str
+    triggers: dict[str, bool]
+
+
+@dataclass
 class EpicsCAOptions:
     """Channel-Access-specific options.
 
@@ -51,7 +64,7 @@ class EpicsCAOptions:
 
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    aliases: dict[str, str | EnumMapping] = field(default_factory=dict)
+    aliases: dict[str, str | EnumMapping | CommandAlias] = field(default_factory=dict)
     """Mapping of fastcs PV names to their aliases.
 
     Setpoint and readback PVs must be aliased separately.
