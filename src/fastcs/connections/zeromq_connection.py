@@ -36,7 +36,7 @@ class ZeroMQConnection:
         settings: ZeroMQConnectionSettings,
     ):
         self._channel_type = settings.type
-        self._context = settings.context or zmq_asyncio.Context().instance()
+        self._context = settings.context or zmq_asyncio.Context.instance()
         self._socket = self._context.socket(self._channel_type)
         self._endpoint = settings.endpoint
 
