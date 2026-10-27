@@ -22,12 +22,6 @@ class ZeroMQConnectionSettings:
 
 class ZeroMQConnection:
     CHANNEL_HWM = 2
-    CHANNEL_TYPE_PAIR = zmq.PAIR
-    CHANNEL_TYPE_REQ = zmq.REQ
-    CHANNEL_TYPE_SUB = zmq.SUB
-    CHANNEL_TYPE_PUB = zmq.PUB
-    CHANNEL_TYPE_DEALER = zmq.DEALER
-    CHANNEL_TYPE_ROUTER = zmq.ROUTER
 
     POLLIN = zmq.POLLIN
 
@@ -43,14 +37,18 @@ class ZeroMQConnection:
         # Set the high water mark
         self._socket.set_hwm(self.CHANNEL_HWM)
 
-        # If the socket type is DEALER, set the identity, chosing a random
-        # UUID4 value if not specified
-        if self._channel_type == self.CHANNEL_TYPE_DEALER:
-            self._identity = settings.identity or (
-                f"{random.randrange(0x10000):04x}-{random.randrange(0x10000):04x}"
-            )
+        match self._channel_type:
+            case zmq.SUB:
+                self._socket.setsockopt(zmq.SUBSCRIBE, b"")
 
-            self._socket.setsockopt(zmq.IDENTITY, cast_bytes(self._identity))  # pylint: disable=no-member
+            # If the socket type is DEALER, set the identity, chosing a random
+            # UUID4 value if not specified
+            case zmq.DEALER:
+                self._identity = settings.identity or (
+                    f"{random.randrange(0x10000):04x}-{random.randrange(0x10000):04x}"
+                )
+
+                self._socket.setsockopt(zmq.IDENTITY, cast_bytes(self._identity))  # pylint: disable=no-member
 
     def full_url(self, uri: str) -> str:
         """Expand endpoint and URI into full URL.
