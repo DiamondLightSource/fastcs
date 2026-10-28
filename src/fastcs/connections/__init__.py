@@ -3,3 +3,5 @@ from .ip_connection import IPConnectionSettings as IPConnectionSettings
 from .ip_connection import StreamConnection as StreamConnection
 from .serial_connection import SerialConnection as SerialConnection
 from .serial_connection import SerialConnectionSettings as SerialConnectionSettings
+from .zeromq_connection import ZeroMQConnection as ZeroMQConnection
+from .zeromq_connection import ZeroMQConnectionSettings as ZeroMQConnectionSettings
