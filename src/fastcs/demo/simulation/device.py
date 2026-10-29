@@ -6,7 +6,7 @@ from random import uniform
 
 import numpy as np
 import numpy.typing as npt
-import pydantic.v1.dataclasses
+import pydantic.dataclasses
 from tickit.adapters.io import TcpIo
 from tickit.adapters.specifications.regex_command import RegexCommand
 from tickit.adapters.tcp import CommandAdapter
@@ -268,7 +268,7 @@ class TempControllerAdapter(CommandAdapter):
 
 
 # https://github.com/DiamondLightSource/tickit/issues/212
-@pydantic.v1.dataclasses.dataclass
+@pydantic.dataclasses.dataclass
 class TempController(ComponentConfig):  # type: ignore
     num_ramp_controllers: int
     default_start: float = 0

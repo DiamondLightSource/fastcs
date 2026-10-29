@@ -7,8 +7,9 @@
 
 # FastCS
 
-Source          | <https://github.com/DiamondLightSource/fastcs>
+What            | Where
 :---:           | :---:
+Source          | <https://github.com/DiamondLightSource/fastcs>
 PyPI            | `pip install fastcs`
 Documentation   | <https://diamondlightsource.github.io/fastcs>
 Releases        | <https://github.com/DiamondLightSource/fastcs/releases>
