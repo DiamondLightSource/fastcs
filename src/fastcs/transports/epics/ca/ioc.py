@@ -541,4 +541,12 @@ def _add_write_enum_alias(
             )
 
     if isinstance(attribute, AttrR):
+        initial_name = names.get(attribute.get())
+        if initial_name is not None:
+            record.set(
+                cast_to_epics_type(
+                    enum_attr.datatype, enum_attr.datatype.dtype[initial_name]
+                ),
+                process=False,
+            )
         attribute.add_on_update_callback(update_enum_alias)

@@ -46,6 +46,7 @@ async def test_enum_mapping_alias(softioc_subprocess: tuple[str, Queue]):
 
     # Initial value of 'Active' (2) is mapped to 'On'
     assert await caget(f"{e}_RBV", datatype=str) == "Active"
+    assert await caget(alias_e, datatype=str) == "On"
     assert await caget(f"{alias_e}_RBV", datatype=str) == "On"
 
     # Put to alias puts the mapped value to the attribute
