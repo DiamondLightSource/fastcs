@@ -1,23 +1,19 @@
+import enum
 import re
-from dataclasses import asdict
-from typing import Any
+from typing import Any, cast
 
+import numpy as np
 from tango import AttrDataFormat
 
 from fastcs.attributes import Attribute
 from fastcs.datatypes import (
-    Bool,
-    DataType,
+    DEFAULT_ARRAY_SHAPE,
+    DEFAULT_PRECISION,
     DType,
     DType_T,
-    Enum,
-    Float,
-    Int,
-    String,
-    Waveform,
+    NumericLimits,
+    array_dtype_of,
 )
-
-TANGO_ALLOWED_DATATYPES = (Bool, DataType, Enum, Float, Int, String, Waveform)
 
 _TANGO_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -55,15 +51,6 @@ def tango_dev_name(id: str, dsr_instance: str) -> str:
     return f"{id}/{tango_dev_class_name(id)}/{dsr_instance}"
 
 
-DATATYPE_FIELD_TO_SERVER_FIELD = {
-    "units": "unit",
-    "min": "min_value",
-    "max": "max_value",
-    "min_alarm": "min_alarm",
-    "max_alarm": "min_alarm",
-}
-
-
 def get_server_metadata_from_attribute(
     attribute: Attribute[DType],
 ) -> dict[str, Any]:
@@ -73,33 +60,45 @@ def get_server_metadata_from_attribute(
     return arguments
 
 
-def get_server_metadata_from_datatype(datatype: DataType[DType]) -> dict[str, str]:
-    """Gets the metadata for a Tango field from a FastCS datatype."""
-    arguments = {
-        DATATYPE_FIELD_TO_SERVER_FIELD[field]: value
-        for field, value in asdict(datatype).items()
-        if field in DATATYPE_FIELD_TO_SERVER_FIELD
+def _limit_arguments(limits: NumericLimits | None) -> dict[str, Any]:
+    if limits is None:
+        return {}
+
+    return {
+        "min_value": limits.control.low,
+        "max_value": limits.control.high,
+        "min_alarm": limits.alarm.low,
+        "max_alarm": limits.alarm.high,
+        "min_warning": limits.warning.low,
+        "max_warning": limits.warning.high,
     }
 
-    dtype = datatype.dtype
 
-    match datatype:
-        case Waveform():
-            dtype = datatype.array_dtype
-            match len(datatype.shape):
-                case 1:
-                    arguments["max_dim_x"] = datatype.shape[0]
-                    arguments["dformat"] = AttrDataFormat.SPECTRUM
-                case 2:
-                    arguments["max_dim_x"], arguments["max_dim_y"] = datatype.shape
-                    arguments["dformat"] = AttrDataFormat.IMAGE
-                case _:
-                    raise TypeError(
-                        f"Unsupported shape {datatype.shape}, Tango supports up "
-                        "to 2D arrays"
-                    )
-        case Float():
-            arguments["format"] = f"%.{datatype.prec}"
+def get_server_metadata_from_datatype(attribute: Attribute[DType]) -> dict[str, Any]:
+    """Gets the metadata for a Tango field from an attribute's datatype."""
+    meta = attribute.meta
+    dtype: Any = attribute.dtype
+
+    arguments: dict[str, Any] = {"unit": meta.get("units")}
+    arguments.update(_limit_arguments(meta.get("limits")))
+
+    if issubclass(attribute.dtype, np.ndarray):
+        dtype = array_dtype_of(meta)
+        shape = meta.get("shape", DEFAULT_ARRAY_SHAPE)
+        match len(shape):
+            case 1:
+                arguments["max_dim_x"] = shape[0]
+                arguments["dformat"] = AttrDataFormat.SPECTRUM
+            case 2:
+                arguments["max_dim_x"] = shape[0]
+                arguments["max_dim_y"] = shape[1]
+                arguments["dformat"] = AttrDataFormat.IMAGE
+            case _:
+                raise TypeError(
+                    f"Unsupported shape {shape}, Tango supports up to 2D arrays"
+                )
+    elif attribute.dtype is float:
+        arguments["format"] = f"%.{meta.get('precision', DEFAULT_PRECISION)}"
 
     arguments["dtype"] = dtype
     for argument, value in arguments.items():
@@ -109,24 +108,19 @@ def get_server_metadata_from_datatype(datatype: DataType[DType]) -> dict[str, st
     return arguments
 
 
-def cast_to_tango_type(datatype: DataType[DType_T], value: DType_T) -> object:
+def cast_to_tango_type(attribute: Attribute[DType_T], value: DType_T) -> object:
     """Casts a value from FastCS to tango datatype."""
-    match datatype:
-        case Enum():
-            return datatype.index_of(datatype.validate(value))
-        case datatype if issubclass(type(datatype), TANGO_ALLOWED_DATATYPES):
-            return datatype.validate(value)
-        case _:
-            raise ValueError(f"Unsupported datatype {datatype}")
+    if issubclass(attribute.dtype, enum.Enum):
+        member = cast(enum.Enum, attribute.validate(value))
+        return list(attribute.dtype).index(member)
+
+    return attribute.validate(value)
 
 
-def cast_from_tango_type(datatype: DataType[DType_T], value: object) -> DType_T:
+def cast_from_tango_type(attribute: Attribute[DType_T], value: object) -> DType_T:
     """Casts a value from tango to FastCS datatype."""
-    match datatype:
-        case Enum():
-            assert isinstance(value, int), "Got non-integer value for Enum"
-            return datatype.validate(datatype.members[value])
-        case datatype if issubclass(type(datatype), TANGO_ALLOWED_DATATYPES):
-            return datatype.validate(value)  # type: ignore
-        case _:
-            raise ValueError(f"Unsupported datatype {datatype}")
+    if issubclass(attribute.dtype, enum.Enum):
+        assert isinstance(value, int), "Got non-integer value for Enum"
+        return attribute.validate(list(attribute.dtype)[value])
+
+    return attribute.validate(value)

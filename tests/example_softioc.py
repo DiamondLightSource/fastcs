@@ -4,7 +4,6 @@ from pathlib import Path
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Int
 from fastcs.methods import command
 from fastcs.transports.epics.ca.transport import (
     EpicsCAOptions,
@@ -14,13 +13,13 @@ from fastcs.transports.epics.ca.transport import (
 
 
 class ParentController(Controller):
-    a: AttrR = AttrR(Int())
-    b: AttrRW = AttrRW(Int())
+    a: AttrR = AttrR(int)
+    b: AttrRW = AttrRW(int)
 
 
 class ChildController(Controller):
     fail_on_next_e: bool = True
-    c: AttrW = AttrW(Int())
+    c: AttrW = AttrW(int)
 
     @command()
     async def d(self):

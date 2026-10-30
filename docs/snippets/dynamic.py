@@ -14,7 +14,7 @@ from fastcs.attributes import (
 )
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import Bool, DataType, Float, Int, String
+from fastcs.datatypes import DType
 from fastcs.launch import FastCS
 from fastcs.transports.epics.ca import EpicsCATransport
 
@@ -27,16 +27,16 @@ class TemperatureControllerParameter(BaseModel):
     access_mode: Literal["r", "rw"]
 
     @property
-    def fastcs_datatype(self) -> DataType:
+    def fastcs_datatype(self) -> type[DType]:
         match self.type:
             case "bool":
-                return Bool()
+                return bool
             case "int":
-                return Int()
+                return int
             case "float":
-                return Float()
+                return float
             case "str":
-                return String()
+                return str
 
 
 def create_attributes(parameters: dict[str, Any]) -> dict[str, Attribute]:

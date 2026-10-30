@@ -9,7 +9,7 @@ from p4p.server import ServerOperation
 from p4p.server.asyncio import SharedPV
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
-from fastcs.datatypes import DataType, Table, Waveform
+from fastcs.datatypes import DType, is_array_datatype
 from fastcs.methods import CommandCallback
 from fastcs.tracer import Tracer
 
@@ -33,11 +33,12 @@ class WritePvHandler:
 
     async def put(self, pv: SharedPV, op: ServerOperation):
         value = op.value()
-        if isinstance(self._attr_w.datatype, Table):
+        structured_dtype = self._attr_w.meta.get("structured_dtype")
+        if structured_dtype is not None:
             assert isinstance(value, list)
             raw_value = np.array(
                 [tuple(labelled_row.values()) for labelled_row in value],
-                dtype=self._attr_w.datatype.structured_dtype,
+                dtype=structured_dtype,
             )
         elif isinstance(value, Value):
             raw_value = value.todict()["value"]
@@ -51,9 +52,9 @@ class WritePvHandler:
 
         tracer.log_event("PV put", topic=self._attr_w, pv=pv, value=cast_value)
 
-        datatype = self._attr_w.datatype
+        dtype = self._attr_w.dtype
 
-        _post_with_alarm_states(pv, datatype, raw_value, p4p_alarm_states())
+        _post_with_alarm_states(pv, dtype, raw_value, p4p_alarm_states())
 
         try:
             await self._attr_w.put(cast_value)
@@ -62,7 +63,7 @@ class WritePvHandler:
             op.done(error=error_msg)
             alarm_states = p4p_alarm_states(Severity.MAJOR, Status.RECORD, error_msg)
             # Raise alarm on failed put
-            _post_with_alarm_states(pv, datatype, raw_value, alarm_states)
+            _post_with_alarm_states(pv, dtype, raw_value, alarm_states)
 
         else:
             op.done()
@@ -159,7 +160,7 @@ def make_shared_read_pv(attribute: AttrR) -> SharedPV:
 def make_shared_write_pv(attribute: AttrW) -> SharedPV:
     shared_pv = SharedPV(
         handler=WritePvHandler(attribute),
-        initial=cast_to_p4p_value(attribute, attribute.datatype.initial_value),
+        initial=cast_to_p4p_value(attribute, attribute.default_value()),
         **_make_shared_pv_arguments(attribute),
     )
 
@@ -190,10 +191,10 @@ def make_command_pv(command: CommandCallback) -> SharedPV:
 
 
 def _post_with_alarm_states(
-    pv: SharedPV, dtype: DataType, value: Any, alarm_states: P4PAlarmState
+    pv: SharedPV, dtype: type[DType], value: Any, alarm_states: P4PAlarmState
 ):
     sub_states = alarm_states.model_dump()["alarm"]
-    if isinstance(dtype, Table | Waveform):
+    if is_array_datatype(dtype):
         # NTTable and NTNDArray don't accept 'status'
         sub_states.pop("status", None)
         pv.post(value=value, **sub_states)

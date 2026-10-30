@@ -3,13 +3,14 @@ from collections import Counter
 from collections.abc import Awaitable
 from typing import Any
 
+import numpy as np
 from softioc import alarm, builder, softioc
 from softioc.asyncio_dispatcher import AsyncioDispatcher
 from softioc.pythonSoftIoc import RecordWrapper
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import DType_T, Waveform
+from fastcs.datatypes import DEFAULT_ARRAY_SHAPE, DType_T
 from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.tracer import Tracer
@@ -61,11 +62,11 @@ def _create_and_link_attribute_pvs(
 
         for attr_name, attribute in controller_api.attributes.items():
             if (
-                isinstance(attribute.datatype, Waveform)
-                and len(attribute.datatype.shape) != 1
+                issubclass(attribute.dtype, np.ndarray)
+                and len(attribute.meta.get("shape", DEFAULT_ARRAY_SHAPE)) != 1
             ):
                 logger.warning(
-                    "Only 1D Waveform attributes are supported in EPICS CA transport",
+                    "Only 1D array attributes are supported in EPICS CA transport",
                     attribute=attribute,
                 )
                 continue
@@ -136,7 +137,7 @@ def _create_and_link_read_pv(
             "PV set from attribute", topic=attribute, pv=pv, value=repr(value)
         )
 
-        record.set(cast_to_epics_type(attribute.datatype, value))
+        record.set(cast_to_epics_type(attribute, value))
 
     record = _make_in_record(pv, attribute)
 
@@ -156,7 +157,7 @@ def _create_and_link_write_pv(
     async def on_update(value):
         logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
         await _run_and_set_alarm(
-            record, attribute.put(cast_from_epics_type(attribute.datatype, value))
+            record, attribute.put(cast_from_epics_type(attribute, value))
         )
 
     async def set_setpoint_without_process(value: DType_T):
@@ -164,7 +165,7 @@ def _create_and_link_write_pv(
             "PV setpoint set from attribute", topic=attribute, pv=pv, value=repr(value)
         )
 
-        record.set(cast_to_epics_type(attribute.datatype, value), process=False)
+        record.set(cast_to_epics_type(attribute, value), process=False)
 
     record = _make_out_record(pv, attribute, on_update=on_update)
 

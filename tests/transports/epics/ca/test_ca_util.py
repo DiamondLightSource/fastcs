@@ -1,14 +1,28 @@
 import enum
+from typing import Any, cast
 
 import pytest
 
+from fastcs.attributes import AttrR
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Bool, Enum, Float, Int, String
+from fastcs.datatypes import Meta
 from fastcs.transports.epics.ca.util import (
     cast_from_epics_type,
     cast_to_epics_type,
     validate_ca_id,
 )
+
+
+def attr(datatype, **meta) -> AttrR:
+    """An attribute to cast values for, standing in for a real controller's."""
+    return AttrR(datatype, **meta)
+
+
+class UnsupportedAttribute:
+    """Stands in for an attribute of a datatype no transport knows about."""
+
+    dtype = object
+    meta: Meta = {}
 
 
 class ShortEnum(enum.Enum):
@@ -65,74 +79,74 @@ class ShortMixedEnum(enum.Enum):
 
 
 @pytest.mark.parametrize(
-    "datatype,input,output",
+    "attribute,input,output",
     [
-        (Enum(ShortEnum), ShortEnum.TOO, 1),
+        (attr(ShortEnum), ShortEnum.TOO, 1),
         # in CA, enums with too many values become epics strings
-        (Enum(LongMixedEnum), LongMixedEnum.BE, "BE"),  # string value
-        (Enum(LongMixedEnum), LongMixedEnum.EPICS, "EPICS"),  # None value
-        (Enum(LongMixedEnum), LongMixedEnum.MBB, "MBB"),  # int value
-        (Int(), 4, 4),
-        (Float(), 1.0, 1.0),
-        (Bool(), True, True),
-        (String(), "a" * 257, "a" * 256),
-        (String(length=3), "1234", "123"),
+        (attr(LongMixedEnum), LongMixedEnum.BE, "BE"),  # string value
+        (attr(LongMixedEnum), LongMixedEnum.EPICS, "EPICS"),  # None value
+        (attr(LongMixedEnum), LongMixedEnum.MBB, "MBB"),  # int value
+        (attr(int), 4, 4),
+        (attr(float), 1.0, 1.0),
+        (attr(bool), True, True),
+        (attr(str), "a" * 257, "a" * 256),
+        (attr(str, length=3), "1234", "123"),
         # shorter enums can be represented by integers from 0-15
-        (Enum(ShortMixedEnum), ShortMixedEnum.STRING_MEMBER, 0),
-        (Enum(ShortMixedEnum), ShortMixedEnum.INT_MEMBER, 1),
-        (Enum(ShortMixedEnum), ShortMixedEnum.NONE_MEMBER, 2),
+        (attr(ShortMixedEnum), ShortMixedEnum.STRING_MEMBER, 0),
+        (attr(ShortMixedEnum), ShortMixedEnum.INT_MEMBER, 1),
+        (attr(ShortMixedEnum), ShortMixedEnum.NONE_MEMBER, 2),
     ],
 )
-def test_casting_to_epics(datatype, input, output):
-    assert cast_to_epics_type(datatype, input) == output
+def test_casting_to_epics(attribute, input, output):
+    assert cast_to_epics_type(attribute, input) == output
 
 
 @pytest.mark.parametrize(
-    "datatype, input",
+    "attribute, input",
     [
-        # TODO cover Waveform and Table cases
-        (Enum(ShortEnum), LongEnum.TOO),  # wrong enum.Enum class
+        # TODO cover Array1D and Table cases
+        (attr(ShortEnum), LongEnum.TOO),  # wrong enum.Enum class
     ],
 )
-def test_cast_to_epics_validations(datatype, input):
+def test_cast_to_epics_validations(attribute, input):
     with pytest.raises(ValueError):
-        cast_to_epics_type(datatype, input)
+        cast_to_epics_type(attribute, input)
 
 
 @pytest.mark.parametrize(
-    "datatype,from_epics,result",
+    "attribute,from_epics,result",
     [
         # long enums backed by strings
-        (Enum(LongMixedEnum), "BE", LongMixedEnum.BE),  # string value
-        (Enum(LongMixedEnum), "EPICS", LongMixedEnum.EPICS),  # None value
-        (Enum(LongMixedEnum), "MBB", LongMixedEnum.MBB),  # int value
-        (Int(), 4, 4),
-        (Float(), 1.0, 1.0),
-        (Bool(), True, True),
-        (String(), "hey", "hey"),
-        (Enum(ShortEnum), 2, ShortEnum.MANY),
+        (attr(LongMixedEnum), "BE", LongMixedEnum.BE),  # string value
+        (attr(LongMixedEnum), "EPICS", LongMixedEnum.EPICS),  # None value
+        (attr(LongMixedEnum), "MBB", LongMixedEnum.MBB),  # int value
+        (attr(int), 4, 4),
+        (attr(float), 1.0, 1.0),
+        (attr(bool), True, True),
+        (attr(str), "hey", "hey"),
+        (attr(ShortEnum), 2, ShortEnum.MANY),
         # short enums backed by mbbi/mbbo
-        (Enum(ShortMixedEnum), 0, ShortMixedEnum.STRING_MEMBER),
-        (Enum(ShortMixedEnum), 1, ShortMixedEnum.INT_MEMBER),
-        (Enum(ShortMixedEnum), 2, ShortMixedEnum.NONE_MEMBER),
-        (Bool(), 1, True),
-        (Bool(), 0, False),
+        (attr(ShortMixedEnum), 0, ShortMixedEnum.STRING_MEMBER),
+        (attr(ShortMixedEnum), 1, ShortMixedEnum.INT_MEMBER),
+        (attr(ShortMixedEnum), 2, ShortMixedEnum.NONE_MEMBER),
+        (attr(bool), 1, True),
+        (attr(bool), 0, False),
     ],
 )
-def test_cast_from_epics_type(datatype, from_epics, result):
-    assert cast_from_epics_type(datatype, from_epics) == result
+def test_cast_from_epics_type(attribute, from_epics, result):
+    assert cast_from_epics_type(attribute, from_epics) == result
 
 
 @pytest.mark.parametrize(
-    "datatype, input",
+    "attribute, input",
     [
-        (object(), 0),
-        (Bool(), 3),
+        (UnsupportedAttribute(), 0),
+        (attr(bool), 3),
     ],
 )
-def test_cast_from_epics_validations(datatype, input):
+def test_cast_from_epics_validations(attribute, input):
     with pytest.raises(ValueError):
-        cast_from_epics_type(datatype, input)
+        cast_from_epics_type(cast(Any, attribute), input)
 
 
 @pytest.mark.parametrize("id", ["DEVICE", "my-id", "name_1", "ABC-123_xyz"])

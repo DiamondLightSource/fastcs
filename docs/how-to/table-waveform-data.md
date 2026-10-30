@@ -1,53 +1,55 @@
-# Work with Table and Waveform Data
+# Work with Table and Array Data
 
-This guide shows how to use `Waveform` and `Table` datatypes for array-based data.
+This guide shows how to use the `Array1D` and `Table` datatypes for array-based data.
 
-## Waveform - Homogeneous Arrays
+## Array1D - Homogeneous Arrays
 
-Use `Waveform` for numpy arrays of a single data type (spectra, time series, images).
-
-### Basic 1D Waveform
+Use `Array1D` for numpy arrays of a single element type (spectra, time series, images).
 
 ```python
 import numpy as np
 
 from fastcs.attributes import AttrR, AttrRW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Waveform
+from fastcs.datatypes import Array1D
 
 class SpectrumController(Controller):
     # 1D array of 1000 float64 values
-    spectrum: AttrR[np.ndarray] = AttrR(Waveform(np.float64, shape=(1000,)))
+    spectrum = AttrR(Array1D[np.float64], shape=(1000,))
 
-    # Writable waveform
-    setpoints: AttrRW[np.ndarray] = AttrRW(Waveform(np.float64, shape=(100,)))
+    # Writable array
+    setpoints = AttrRW(Array1D[np.float64], shape=(100,))
 ```
 
-### 2D Waveform (Images)
+### 2D Arrays (Images)
+
+`Array1D` is, as the name says, one dimensional. An array of higher rank has no
+ophyd-async-compatible spelling, so write it as `np.ndarray` with an explicit
+`array_dtype`:
 
 ```python
 class CameraController(Controller):
     # 2D array for images (max 1024x1024 uint16)
-    image: AttrR[np.ndarray] = AttrR(Waveform(np.uint16, shape=(1024, 1024)))
+    image = AttrR(np.ndarray, array_dtype=np.uint16, shape=(1024, 1024))
 
     # Smaller region of interest
-    roi: AttrRW[np.ndarray] = AttrRW(Waveform(np.uint16, shape=(256, 256)))
+    roi = AttrRW(np.ndarray, array_dtype=np.uint16, shape=(256, 256))
 ```
 
-### Waveform Parameters
+### Array Metadata
 
-| Parameter | Type | Default | Description |
+| Field | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `array_dtype` | `DTypeLike` | (required) | Numpy dtype (`np.float64`, `np.int32`, etc.) |
+| `array_dtype` | `DTypeLike` | from the datatype subscript | Numpy element type (`np.float64`, `np.int32`, etc.) |
 | `shape` | `tuple[int, ...]` | `(2000,)` | Maximum array dimensions |
 
-### Updating Waveforms
+### Updating Arrays
 
 ```python
 from fastcs.methods import scan
 
 class SpectrumController(Controller):
-    spectrum: AttrR[np.ndarray] = AttrR(Waveform(np.float64, shape=(1000,)))
+    spectrum = AttrR(Array1D[np.float64], shape=(1000,))
 
     @scan(period=0.1)
     async def read_spectrum(self):
@@ -60,16 +62,16 @@ class SpectrumController(Controller):
 
 ### Shape Validation
 
-Waveforms validate that data fits within the declared shape:
+Arrays validate that data fits within the declared shape:
 
 ```python
-wave = Waveform(np.float64, shape=(100,))
+spectrum = AttrR(Array1D[np.float64], shape=(100,))
 
 # OK - fits within shape
-wave.validate(np.array([1.0, 2.0, 3.0]))
+spectrum.validate(np.array([1.0, 2.0, 3.0]))
 
 # Error - exceeds maximum shape
-wave.validate(np.arange(200))  # ValueError: shape (200,) exceeds maximum (100,)
+spectrum.validate(np.arange(200))  # ValueError: shape (200,) exceeds maximum (100,)
 ```
 
 ## Table - Structured Arrays
@@ -87,16 +89,19 @@ from fastcs.datatypes import Table
 
 class MeasurementController(Controller):
     # Table with columns: name (string), value (float), valid (bool)
-    results: AttrR[np.ndarray] = AttrR(Table([
-        ("name", "S32"),       # 32-character string
-        ("value", np.float64),
-        ("valid", np.bool_),
-    ]))
+    results = AttrR(
+        Table,
+        structured_dtype=[
+            ("name", "S32"),       # 32-character string
+            ("value", np.float64),
+            ("valid", np.bool_),
+        ],
+    )
 ```
 
-### Table Parameters
+### Table Metadata
 
-| Parameter | Type | Description |
+| Field | Type | Description |
 |-----------|------|-------------|
 | `structured_dtype` | `list[tuple[str, DTypeLike]]` | List of (name, dtype) tuples |
 
@@ -108,11 +113,14 @@ from fastcs.controllers import Controller
 from fastcs.datatypes import Table
 
 class ChannelController(Controller):
-    channel_data: AttrR[np.ndarray] = AttrR(Table([
-        ("channel", np.int32),
-        ("temperature", np.float64),
-        ("status", "S10"),
-    ]))
+    channel_data = AttrR(
+        Table,
+        structured_dtype=[
+            ("channel", np.int32),
+            ("temperature", np.float64),
+            ("status", "S10"),
+        ],
+    )
 
 # Create data using numpy structured array
 data = np.array([
