@@ -267,6 +267,16 @@ def test_read_enum_alias_skips_unmapped_initial_value(mocker: MockerFixture):
     record.set.assert_not_called()
 
 
+def test_write_enum_alias_skips_unmapped_initial_value(mocker: MockerFixture):
+    record = mocker.patch("fastcs.transports.epics.ca.ioc._make_out_record")()
+    alias = EnumMapping(pv="A", mapping={"Off": 1, "On": 5})
+    attribute = AttrRW(Int(), initial_value=3)
+
+    _add_write_enum_alias(alias, attribute, _get_write_enum_attr_from_type(alias))
+
+    record.set.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "create_pv,make_record,attribute",
     [
