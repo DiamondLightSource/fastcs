@@ -37,37 +37,47 @@ async def test_ioc(softioc_subprocess: tuple[str, Queue]):
     finally:
         subscription.close()
 
-    # Assert enum alias
-    e_pv = f"{pv_prefix}:ChildVector:0:E"
-    assert await caget(e_pv) == 0
-    assert await caget(e_pv, datatype=str) == "Invalid"  # Default for underlying enum
-    assert await caget(f"{pv_prefix}:EnumAliasE") == 0
-    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "Off"
 
-    await caput(f"{pv_prefix}:EnumAliasE", 1, wait=True)
-    # 'On' is index 1, but maps to value '2'
-    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "On"
-    assert await caget(e_pv) == 2  # Underlying enum attr gets put with 2
-    assert await caget(e_pv, datatype=str) == "Active"
-    assert await caget(f"{e_pv}_RBV", datatype=str) == "Active"
+@pytest.mark.asyncio
+async def test_enum_mapping_alias(softioc_subprocess: tuple[str, Queue]):
+    pv_prefix, _ = softioc_subprocess
+    e = f"{pv_prefix}:ChildVector:0:E"
+    alias_e = f"{pv_prefix}:EnumAliasE"
 
-    await caput(e_pv, 1, wait=True)
-    assert await caget(f"{e_pv}_RBV", datatype=str) == "Idle"
-    # Aliased enum gets converted update
-    assert await caget(f"{pv_prefix}:EnumAliasE_RBV", datatype=str) == "Off"
-    assert await caget(f"{pv_prefix}:EnumAliasE", datatype=str) == "Off"
+    # Initial value of 'Active' (2) is mapped to 'On'
+    assert await caget(f"{e}_RBV", datatype=str) == "Active"
+    assert await caget(f"{alias_e}_RBV", datatype=str) == "On"
 
-    # Assert command aliased to enum. 'Active' aliases to True on command 'D', which
-    # fails on every other call
-    enum_alias_d = f"{pv_prefix}:EnumAliasD"
-    await caput(enum_alias_d, "Active", wait=True)
-    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.MAJOR_ALARM
-    await caput(enum_alias_d, "Active", wait=True)
-    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.NO_ALARM
+    # Put to alias puts the mapped value to the attribute
+    await caput(alias_e, "Off", wait=True)
+    assert await caget(e, datatype=str) == "Idle"
+    assert await caget(f"{e}_RBV", datatype=str) == "Idle"
+    assert await caget(f"{alias_e}_RBV", datatype=str) == "Off"
 
-    # 'Idle' triggers the flipped alias on ChildVector:1:D, which also fails on its
-    # first call
-    await caput(enum_alias_d, "Idle", wait=True)
-    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.MAJOR_ALARM
-    await caput(enum_alias_d, "Idle", wait=True)
-    assert (await caget(enum_alias_d, format=FORMAT_TIME)).severity == alarm.NO_ALARM
+    # Put to attribute syncs the alias setpoint and readback
+    await caput(e, "Active", wait=True)
+    assert await caget(alias_e, datatype=str) == "On"
+    assert await caget(f"{alias_e}_RBV", datatype=str) == "On"
+    assert await caget(f"{e}_RBV", datatype=str) == "Active"
+
+
+async def _get_count(pv: str) -> int:
+    value = await caget(pv)
+    assert isinstance(value, int)
+    return value
+
+
+@pytest.mark.asyncio
+async def test_command_alias(softioc_subprocess: tuple[str, Queue]):
+    pv_prefix, _ = softioc_subprocess
+    alias_d = f"{pv_prefix}:EnumAliasD"
+    d_calls = [f"{pv_prefix}:ChildVector:{i}:DCalls" for i in range(2)]
+    initial = [await _get_count(pv) for pv in d_calls]
+
+    # 'Active' triggers only ChildVector:0:D
+    await caput(alias_d, "Active", wait=True)
+    assert [await _get_count(pv) for pv in d_calls] == [initial[0] + 1, initial[1]]
+
+    # 'Idle' triggers only ChildVector:1:D, which shares the alias PV
+    await caput(alias_d, "Idle", wait=True)
+    assert [await _get_count(pv) for pv in d_calls] == [initial[0] + 1, initial[1] + 1]

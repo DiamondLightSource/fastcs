@@ -29,10 +29,12 @@ class ParentController(Controller):
 class ChildController(Controller):
     fail_on_next_e: bool = True
     c: AttrW = AttrW(Int())
+    d_calls: AttrR = AttrR(Int())
 
     @command()
     async def d(self):
         print("D: RUNNING")
+        await self.d_calls.update(self.d_calls.get() + 1)
         await asyncio.sleep(0)
         if self.fail_on_next_e:
             self.fail_on_next_e = False
@@ -41,7 +43,7 @@ class ChildController(Controller):
             self.fail_on_next_e = True
             print("D: FINISHED")
 
-    e: AttrRW = AttrRW(Enum(ExampleEnum))
+    e: AttrRW = AttrRW(Enum(ExampleEnum), initial_value=ExampleEnum.Active)
 
 
 def run(id="SOFTIOC_TEST_DEVICE"):
