@@ -1,11 +1,78 @@
 {
   "$defs": {
+    "CommandAlias": {
+      "additionalProperties": false,
+      "properties": {
+        "pv": {
+          "title": "Pv",
+          "type": "string"
+        },
+        "triggers": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "title": "Triggers",
+          "type": "object"
+        }
+      },
+      "required": [
+        "pv",
+        "triggers"
+      ],
+      "title": "CommandAlias",
+      "type": "object"
+    },
+    "EnumMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "pv": {
+          "title": "Pv",
+          "type": "string"
+        },
+        "mapping": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Mapping",
+          "type": "object"
+        }
+      },
+      "required": [
+        "pv",
+        "mapping"
+      ],
+      "title": "EnumMapping",
+      "type": "object"
+    },
     "EpicsCAOptions": {
       "additionalProperties": false,
       "properties": {
         "aliases": {
           "additionalProperties": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/EnumMapping"
+              },
+              {
+                "$ref": "#/$defs/CommandAlias"
+              }
+            ]
           },
           "title": "Aliases",
           "type": "object"

@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, TypeAlias
 
 from pydantic import ConfigDict
+
+EnumMappingValue: TypeAlias = bool | int | float | str
 
 
 @dataclass
@@ -32,6 +34,27 @@ class EpicsGUIOptions:
 
 
 @dataclass
+class EnumMapping:
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    pv: str
+    mapping: dict[str, EnumMappingValue]
+
+
+@dataclass
+class CommandAlias:
+    """Enum alias PV for a command, which is called on labels mapped to True.
+
+    Multiple commands can share an alias PV if their labels match.
+    """
+
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    pv: str
+    triggers: dict[str, bool]
+
+
+@dataclass
 class EpicsCAOptions:
     """Channel-Access-specific options.
 
@@ -41,7 +64,7 @@ class EpicsCAOptions:
 
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    aliases: dict[str, str] = field(default_factory=dict)
+    aliases: dict[str, str | EnumMapping | CommandAlias] = field(default_factory=dict)
     """Mapping of fastcs PV names to their aliases.
 
     Setpoint and readback PVs must be aliased separately.
