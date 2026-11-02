@@ -1,3 +1,4 @@
+import builtins
 import json
 from dataclasses import KW_ONLY, dataclass
 from typing import Any, Literal, TypeVar
@@ -27,7 +28,7 @@ class TemperatureControllerParameter(BaseModel):
     access_mode: Literal["r", "rw"]
 
     @property
-    def fastcs_datatype(self) -> type[DType]:
+    def fastcs_datatype(self) -> builtins.type[DType]:
         match self.type:
             case "bool":
                 return bool

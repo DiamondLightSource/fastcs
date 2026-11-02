@@ -22,7 +22,7 @@ from tests.util import ColourEnum
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import Array1D
+from fastcs.datatypes import Array1D, Table
 from fastcs.transports.epics.emission import INDEX_STEM, emit_gui_files
 from fastcs.transports.epics.gui import EpicsGUI
 from fastcs.transports.epics.options import EpicsGUIOptions
@@ -65,6 +65,13 @@ def test_get_attribute_component_r_signal_none(attribute):
     gui = EpicsGUI(ControllerAPI())
 
     assert gui._get_attribute_component(["DEVICE"], "Attr", attribute) is None
+
+
+def test_table_attribute_has_no_ca_widget():
+    gui = EpicsGUI(ControllerAPI())
+    table = AttrR(Table, structured_dtype=[("a", np.int32)])
+
+    assert gui._get_attribute_component(["DEVICE"], "Attr", table) is None
 
 
 @pytest.mark.parametrize(

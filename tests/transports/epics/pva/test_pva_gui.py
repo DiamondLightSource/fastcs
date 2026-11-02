@@ -4,7 +4,6 @@ from pvi.device import (
     LED,
     ButtonPanel,
     CheckBox,
-    ImageColorMap,
     ImageRead,
     SignalR,
     SignalW,
@@ -26,8 +25,8 @@ from fastcs.transports.epics.pva.gui import PvaEpicsGUI
     "attribute, widget",
     [
         (
-            AttrR(np.ndarray, array_dtype=np.int32, shape=(10, 20)),
-            ImageRead(height=10, width=20, color_map=ImageColorMap.GRAY),
+            AttrR(np.ndarray, array_dtype=np.int32),
+            ImageRead(),
         ),
     ],
 )

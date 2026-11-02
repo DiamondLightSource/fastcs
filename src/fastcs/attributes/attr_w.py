@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Unpack, overload
 
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
-from fastcs.attributes.attribute_io_ref import AttributeIORefT
+from fastcs.attributes.attribute_io_ref import AttributeIORefT, IORef_T
 from fastcs.datatypes import (
     Array1DMeta,
     Array_T,
@@ -41,57 +41,57 @@ class AttrW(Attribute[DType_T, AttributeIORefT]):
     # is valid always picks its own datatype's overload.
     @overload
     def __init__(
-        self: AttrW[bool, AttributeIORefT],
+        self: AttrW[bool, IORef_T],
         datatype: type[bool],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         **meta: Unpack[BoolMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[int, AttributeIORefT],
+        self: AttrW[int, IORef_T],
         datatype: type[int],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         **meta: Unpack[IntMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[float, AttributeIORefT],
+        self: AttrW[float, IORef_T],
         datatype: type[float],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         **meta: Unpack[FloatMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[str, AttributeIORefT],
+        self: AttrW[str, IORef_T],
         datatype: type[str],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         **meta: Unpack[StrMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[Enum_T, AttributeIORefT],
+        self: AttrW[Enum_T, IORef_T],
         datatype: type[Enum_T],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         **meta: Unpack[EnumMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[Table, AttributeIORefT],
+        self: AttrW[Table, IORef_T],
         datatype: type[Table],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         **meta: Unpack[TableMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[Array_T, AttributeIORefT],
+        self: AttrW[Array_T, IORef_T],
         datatype: type[Array_T],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         **meta: Unpack[Array1DMeta],
     ) -> None: ...
 

@@ -5,7 +5,7 @@ from typing import Any, Unpack, overload
 from fastcs.attributes.attr_r import AttrR
 from fastcs.attributes.attr_w import AttrW
 from fastcs.attributes.attribute import AttributeAccessMode
-from fastcs.attributes.attribute_io_ref import AttributeIORefT
+from fastcs.attributes.attribute_io_ref import AttributeIORefT, IORef_T
 from fastcs.datatypes import (
     Array1DMeta,
     Array_T,
@@ -35,63 +35,63 @@ class AttrRW(AttrR[DType_T, AttributeIORefT], AttrW[DType_T, AttributeIORefT]):
     # is valid always picks its own datatype's overload.
     @overload
     def __init__(
-        self: AttrRW[bool, AttributeIORefT],
+        self: AttrRW[bool, IORef_T],
         datatype: type[bool],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: bool | None = None,
         **meta: Unpack[BoolMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrRW[int, AttributeIORefT],
+        self: AttrRW[int, IORef_T],
         datatype: type[int],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: int | None = None,
         **meta: Unpack[IntMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrRW[float, AttributeIORefT],
+        self: AttrRW[float, IORef_T],
         datatype: type[float],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: float | None = None,
         **meta: Unpack[FloatMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrRW[str, AttributeIORefT],
+        self: AttrRW[str, IORef_T],
         datatype: type[str],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: str | None = None,
         **meta: Unpack[StrMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrRW[Enum_T, AttributeIORefT],
+        self: AttrRW[Enum_T, IORef_T],
         datatype: type[Enum_T],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: Enum_T | None = None,
         **meta: Unpack[EnumMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrRW[Table, AttributeIORefT],
+        self: AttrRW[Table, IORef_T],
         datatype: type[Table],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: Table | None = None,
         **meta: Unpack[TableMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrRW[Array_T, AttributeIORefT],
+        self: AttrRW[Array_T, IORef_T],
         datatype: type[Array_T],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: Array_T | None = None,
         **meta: Unpack[Array1DMeta],
     ) -> None: ...
@@ -103,7 +103,10 @@ class AttrRW(AttrR[DType_T, AttributeIORefT], AttrW[DType_T, AttributeIORefT]):
         initial_value: Any = None,
         **meta: Any,
     ):
-        super().__init__(datatype, io_ref, initial_value, **meta)
+        # AttrR's overloads each bind ``self`` to a concrete datatype, so none
+        # accepts the still-generic ``self`` here; the call is checked by
+        # AttrRW's own overloads and by ``validate_meta`` at runtime.
+        super().__init__(datatype, io_ref, initial_value, **meta)  # pyright: ignore[reportAttributeAccessIssue]
 
         self._setpoint_initialised = False
 

@@ -17,6 +17,7 @@ from fastcs.datatypes import (
     validate_value,
     values_equal,
 )
+from fastcs.datatypes.types import _BUILTIN_DTYPES
 
 
 class Colour(Enum):
@@ -59,16 +60,16 @@ def test_rejects_values_outside_the_metadata(dtype, meta, value):
         validate_value(dtype, meta, value)
 
 
-def test_control_limits_default_to_the_display_range():
+def test_numeric_limits_defaults():
+    assert NumericLimits(display=Limits(0.0, 10.0)).control == Limits(0.0, 10.0)
+    assert NumericLimits(alarm=Limits(0, 10)).warning == Limits(0, 10)
+
+
+def test_value_outside_defaulted_control_range_is_rejected():
     limits = NumericLimits(display=Limits(0.0, 10.0))
 
-    assert limits.control == Limits(0.0, 10.0)
     with pytest.raises(ValueError, match="less than minimum"):
         validate_value(float, Meta(limits=limits), -1.0)
-
-
-def test_warning_limits_default_to_the_alarm_range():
-    assert NumericLimits(alarm=Limits(0, 10)).warning == Limits(0, 10)
 
 
 def test_warning_limits_must_lie_within_the_alarm_range():
@@ -138,43 +139,39 @@ def test_float_is_rounded_to_its_precision():
     assert validate_value(float, Meta(), 1.23456) == 1.23
 
 
-@pytest.mark.parametrize(
-    "spelling, dtype, element_type",
-    [
-        (int, int, None),
-        (float, float, None),
-        (bool, bool, None),
-        (str, str, None),
-        (Array1D[np.int32], np.ndarray, np.int32),
-        # numpy's own alias for a subscripted array is the same spelling with an
-        # unbounded shape, so it resolves the same way.
-        (npt.NDArray[np.int32], np.ndarray, np.int32),
-        (np.ndarray, np.ndarray, None),
-        (Table, np.ndarray, None),
-        (Colour, Colour, None),
-    ],
-)
-def test_resolve_datatype(spelling, dtype, element_type):
-    assert resolve_datatype(spelling) == (dtype, element_type)
+def test_resolve_datatype():
+    for builtin in _BUILTIN_DTYPES:
+        assert resolve_datatype(builtin) == (builtin, None)
+    assert resolve_datatype(Colour) == (Colour, None)  # Enum case
+
+    assert resolve_datatype(Array1D[np.int32]) == (np.ndarray, np.int32)
+    # numpy's own alias for a subscripted array is the same spelling with an
+    # unbounded shape, so it resolves the same way.
+    assert resolve_datatype(npt.NDArray[np.int32]) == (np.ndarray, np.int32)
+    assert resolve_datatype(np.ndarray) == (np.ndarray, None)
+    assert resolve_datatype(Table) == (np.ndarray, None)
 
 
-@pytest.mark.parametrize("spelling", ["float", 3, list[int]])
-def test_resolve_datatype_rejects_unsupported_spellings(spelling):
-    with pytest.raises(TypeError):
-        resolve_datatype(spelling)
+def test_resolve_datatype_rejects_a_non_type():
+    with pytest.raises(TypeError, match="Datatype must be a type"):
+        resolve_datatype("float")
 
 
-@pytest.mark.parametrize(
-    "dtype, meta, expected",
-    [
-        (int, Meta(), 0),
-        (float, Meta(), 0.0),
-        (bool, Meta(), False),
-        (str, Meta(), ""),
-    ],
-)
-def test_default_value(dtype, meta, expected):
-    assert default_value(dtype, meta) == expected
+def test_resolve_datatype_rejects_an_unsupported_generic():
+    with pytest.raises(TypeError, match="Unsupported datatype"):
+        resolve_datatype(list[int])
+
+
+def test_default_value():
+    assert default_value(int, Meta()) == 0
+    assert default_value(float, Meta()) == 0.0
+    assert default_value(bool, Meta()) is False
+    assert default_value(str, Meta()) == ""
+    assert np.array_equal(
+        default_value(np.ndarray, Meta(array_dtype=np.int32, shape=(3,))),
+        np.zeros(3, dtype=np.int32),
+    )
+    assert default_value(np.ndarray, _TABLE_META).size == 0
 
 
 @pytest.mark.parametrize(
@@ -192,17 +189,6 @@ def test_default_value(dtype, meta, expected):
 def test_numeric_default_value_uses_zero_or_available_bound(dtype, control, expected):
     meta = Meta(limits=NumericLimits(control=control))
     assert default_value(dtype, meta) == expected
-
-
-def test_default_value_of_an_array():
-    assert np.array_equal(
-        default_value(np.ndarray, Meta(array_dtype=np.int32, shape=(3,))),
-        np.zeros(3, dtype=np.int32),
-    )
-
-
-def test_default_value_of_a_table():
-    assert default_value(np.ndarray, _TABLE_META).size == 0
 
 
 def test_validate_meta_rejects_fields_the_datatype_has_no_use_for():

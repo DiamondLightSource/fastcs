@@ -476,8 +476,11 @@ async def test_put():
         attr.set_on_put_callback(do_put)
 
 
-def test_metadata_is_held_on_the_attribute():
+@pytest.mark.asyncio
+async def test_attribute_metadata():
     attr = AttrRW(float, precision=3, units="degC", description="the temperature")
+    seen: list[Meta] = []
+    attr.add_update_meta_callback(seen.append)
 
     assert attr.dtype is float
     assert attr.meta == {
@@ -486,6 +489,32 @@ def test_metadata_is_held_on_the_attribute():
         "description": "the temperature",
     }
     assert attr.description == "the temperature"
+
+    attr.update_meta(Meta(units="mm"))
+
+    assert attr.meta == {"units": "mm"}
+    assert seen == [{"units": "mm"}]  # Updating metadata runs callbacks
+
+    controlled = AttrRW(int, limits=NumericLimits(control=Limits(0, 10)))
+    await controlled.put(5)
+    assert controlled.get() == 5
+
+    # Only the control range constrains a value; the rest are served, not enforced
+    alarmed = AttrR(float, limits=NumericLimits(alarm=Limits(0.0, 10.0)))
+    await alarmed.update(15.0)
+    assert alarmed.get() == 15.0
+
+
+def test_array_attribute():
+    subscripted = AttrR(Array1D[np.int32], shape=(4,))
+    assert subscripted.dtype is np.ndarray
+    assert subscripted.meta.get("array_dtype") is np.int32
+    assert np.array_equal(subscripted.get(), np.zeros(4, dtype=np.int32))  # Default
+
+    unshaped = AttrR(npt.NDArray[np.int32])
+    assert unshaped.meta.get("array_dtype") is np.int32
+    assert unshaped.get().dtype == np.int32
+    assert unshaped.get().shape == DEFAULT_ARRAY_SHAPE
 
 
 def test_metadata_the_datatype_has_no_use_for_is_rejected():
@@ -496,41 +525,11 @@ def test_metadata_the_datatype_has_no_use_for_is_rejected():
         AttrR(str, precision=3)  # pyright: ignore[reportCallIssue, reportArgumentType]
 
 
-def test_metadata_is_validated_when_replaced():
-    attr = AttrR(int, units="counts")
-
-    attr.update_meta(Meta(units="mm"))
-    assert attr.meta == {"units": "mm"}
+def test_update_meta_rejects_metadata_the_datatype_has_no_use_for():
+    attr = AttrR(int)
 
     with pytest.raises(TypeError, match="'length' is not valid metadata for int"):
         attr.update_meta(Meta(length=4))
-
-
-def test_update_meta_notifies_callbacks():
-    attr = AttrR(int)
-    seen: list[Meta] = []
-    attr.add_update_meta_callback(seen.append)
-
-    attr.update_meta(Meta(units="mm"))
-
-    assert seen == [{"units": "mm"}]
-
-
-def test_array_element_type_comes_from_the_datatype():
-    attr = AttrR(Array1D[np.int32], shape=(4,))
-
-    assert attr.dtype is np.ndarray
-    assert attr.meta.get("array_dtype") is np.int32
-    assert np.array_equal(attr.get(), np.zeros(4, dtype=np.int32))
-
-
-def test_an_array_needs_neither_shape_nor_array_dtype():
-    attr = AttrR(npt.NDArray[np.int32])
-
-    assert attr.dtype is np.ndarray
-    assert attr.meta.get("array_dtype") is np.int32
-    assert attr.get().dtype == np.int32
-    assert attr.get().shape == DEFAULT_ARRAY_SHAPE
 
 
 def test_array_element_type_is_not_given_twice():
@@ -545,7 +544,8 @@ def test_a_table_needs_its_columns():
 
 def test_structured_dtype_needs_a_table_datatype():
     with pytest.raises(TypeError, match="only valid for a Table attribute"):
-        # Statically an error too: structured_dtype belongs to TableMeta.
+        # Statically an error, as structured_dtype belongs to TableMeta.
+        # Checked at runtime as well.
         AttrR(  # pyright: ignore[reportCallIssue]
             Array1D[np.int32],  # pyright: ignore[reportArgumentType]
             structured_dtype=[("a", np.int32)],
@@ -553,21 +553,8 @@ def test_structured_dtype_needs_a_table_datatype():
 
 
 @pytest.mark.asyncio
-async def test_control_limits_reject_out_of_range_values():
+async def test_value_outside_control_limits_is_rejected():
     attr = AttrRW(int, limits=NumericLimits(control=Limits(0, 10)))
-
-    await attr.put(5)
-    assert attr.get() == 5
 
     with pytest.raises(ValueError, match="greater than maximum 10"):
         await attr.update(15)
-
-
-@pytest.mark.asyncio
-async def test_display_limits_do_not_reject_values():
-    """Only the control range constrains a write; the rest are served, not enforced."""
-    attr = AttrR(float, limits=NumericLimits(alarm=Limits(0.0, 10.0)))
-
-    await attr.update(15.0)
-
-    assert attr.get() == 15.0

@@ -38,7 +38,7 @@ def run(id="SOFTIOC_TEST_DEVICE"):
     controller.set_path([id])
     vector = ControllerVector({i: ChildController() for i in range(2)})
     controller.add_sub_controller("ChildVector", vector)
-    gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Vector")
+    gui_options = EpicsGUIOptions(output_dir=Path("/opis/"), title="Demo Vector")
     fastcs = FastCS(
         controller,
         [

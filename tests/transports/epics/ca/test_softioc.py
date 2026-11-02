@@ -15,7 +15,7 @@ from tests.util import ColourEnum
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import Array1D, Limits, Meta, NumericLimits
+from fastcs.datatypes import Array1D, Limits, Meta, NumericLimits, Table
 from fastcs.exceptions import FastCSError
 from fastcs.methods import Command
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -577,6 +577,20 @@ def test_non_1d_waveforms_discarded(mocker: MockerFixture):
     create_mock.assert_called_once_with(
         DEVICE, "Waveform1d", None, api.attributes["waveform_1d"]
     )
+
+
+def test_table_attribute_is_not_given_a_pv(mocker: MockerFixture):
+    api = ControllerAPI(
+        path=[DEVICE],
+        attributes={"table": AttrR(Table, structured_dtype=[("a", np.int32)])},
+    )
+
+    create_mock = mocker.patch(
+        "fastcs.transports.epics.ca.ioc._create_and_link_read_pv"
+    )
+    EpicsCAIOC([api], {})
+
+    create_mock.assert_not_called()
 
 
 def test_update_meta(mocker: MockerFixture):

@@ -1,11 +1,9 @@
 import enum
-from typing import Any, cast
 
 import pytest
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Meta
 from fastcs.transports.epics.ca.util import (
     cast_from_epics_type,
     cast_to_epics_type,
@@ -16,13 +14,6 @@ from fastcs.transports.epics.ca.util import (
 def attr(datatype, **meta) -> AttrR:
     """An attribute to cast values for, standing in for a real controller's."""
     return AttrR(datatype, **meta)
-
-
-class UnsupportedAttribute:
-    """Stands in for an attribute of a datatype no transport knows about."""
-
-    dtype = object
-    meta: Meta = {}
 
 
 class ShortEnum(enum.Enum):
@@ -140,13 +131,12 @@ def test_cast_from_epics_type(attribute, from_epics, result):
 @pytest.mark.parametrize(
     "attribute, input",
     [
-        (UnsupportedAttribute(), 0),
         (attr(bool), 3),
     ],
 )
 def test_cast_from_epics_validations(attribute, input):
     with pytest.raises(ValueError):
-        cast_from_epics_type(cast(Any, attribute), input)
+        cast_from_epics_type(attribute, input)
 
 
 @pytest.mark.parametrize("id", ["DEVICE", "my-id", "name_1", "ABC-123_xyz"])

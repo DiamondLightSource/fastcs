@@ -61,6 +61,10 @@ class EpicsGUI:
         if issubclass(dtype, enum.Enum):
             return TextRead(format=TextFormat.string)
         if issubclass(dtype, np.ndarray):
+            # A table has no CA record to display; PvaEpicsGUI handles it first
+            if "structured_dtype" in attribute.meta:
+                return None
+
             shape = attribute.meta.get("shape", DEFAULT_ARRAY_SHAPE)
             if len(shape) > 1:
                 logger.warning(

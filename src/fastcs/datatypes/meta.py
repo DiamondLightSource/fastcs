@@ -6,10 +6,10 @@ metadata is meaningful for it - ``precision`` for a ``float``, ``length`` for a
 for the datatype they were given, so ``AttrRW(str, precision=3)`` is a static
 type error rather than a field silently ignored at runtime.
 
-`Meta` is the superset of every field, all optional. It is what a declarative
-extras object (such as the demo's ``SCPIParam``) takes, since an
-``Annotated[...]`` extra cannot tie its metadata to the attribute's datatype
-statically - the ``ControllerFiller`` validates those at fill time instead.
+`Meta` is the superset of every field, all optional. It is the type of an
+attribute's stored metadata and what the validation helpers take, since code
+that handles attributes generically cannot know which ``*Meta`` applies -
+`validate_meta` checks the fields against the datatype at runtime instead.
 """
 
 from __future__ import annotations
@@ -93,12 +93,8 @@ class TableMeta(CommonMeta, total=False):
 class Meta(CommonMeta, total=False):
     """Every metadata field, all optional.
 
-    The spelling for metadata that cannot be tied to a datatype statically -
-    a declarative extras object collecting whatever the protocol layer was
-    told, validated against the datatype when the attribute is built.
-
-    Spelled out rather than inheriting every ``*Meta``, because ``IntMeta`` and
-    ``FloatMeta`` disagree on the type of ``limits``.
+    The spelling for metadata that cannot be tied to a datatype statically,
+    validated against the datatype when the attribute is built.
     """
 
     units: str

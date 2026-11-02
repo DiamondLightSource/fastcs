@@ -50,15 +50,6 @@ def _table_with_numpy_dtypes_to_p4p_dtypes(numpy_dtypes: list[tuple[str, DTypeLi
     return p4p_dtypes
 
 
-def is_p4p_supported(dtype: type[DType]) -> bool:
-    """Whether the PVA transport can serve an attribute of this datatype."""
-    return (
-        dtype in (bool, int, float, str)
-        or issubclass(dtype, enum.Enum)
-        or issubclass(dtype, np.ndarray)
-    )
-
-
 def make_p4p_type(
     attribute: Attribute,
 ) -> NTScalar | NTEnum | NTNDArray | NTTable:
@@ -118,10 +109,7 @@ def cast_from_p4p_value(attribute: Attribute[DType_T], value: object) -> DType_T
         assert value.shape == (math.prod(shape),)  # pyright: ignore[reportAttributeAccessIssue]
         return attribute.validate(value.reshape(shape))  # pyright: ignore[reportAttributeAccessIssue]
 
-    if is_p4p_supported(dtype):
-        return attribute.validate(value)
-
-    raise ValueError(f"Unsupported datatype {dtype}")
+    return attribute.validate(value)
 
 
 class Severity(IntEnum):
@@ -210,16 +198,31 @@ def p4p_display(attribute: Attribute) -> dict:
     if attribute.dtype in (int, float):
         limits: NumericLimits | None = meta.get("limits")
         if limits is not None:
-            if limits.control.high is not None:
-                display["limitHigh"] = limits.control.high
-            if limits.control.low is not None:
-                display["limitLow"] = limits.control.low
+            if limits.display.high is not None:
+                display["limitHigh"] = limits.display.high
+            if limits.display.low is not None:
+                display["limitLow"] = limits.display.low
         if (units := meta.get("units")) is not None:
             display["units"] = units
     if attribute.dtype is float:
         display["precision"] = meta.get("precision", DEFAULT_PRECISION)
     if display:
         return {"display": display}
+    return {}
+
+
+def p4p_control(attribute: Attribute) -> dict:
+    """Gets the p4p control structure for a given attribute."""
+    control = {}
+    if attribute.dtype in (int, float):
+        limits: NumericLimits | None = attribute.meta.get("limits")
+        if limits is not None:
+            if limits.control.high is not None:
+                control["limitHigh"] = limits.control.high
+            if limits.control.low is not None:
+                control["limitLow"] = limits.control.low
+    if control:
+        return {"control": control}
     return {}
 
 
@@ -265,20 +268,17 @@ def cast_to_p4p_value(attribute: Attribute[DType_T], value: DType_T) -> object:
     if issubclass(dtype, np.ndarray):
         return attribute.validate(value)
 
-    if is_p4p_supported(dtype):
-        record_fields: dict = {"value": attribute.validate(value)}
-        if isinstance(attribute, AttrR):
-            record_fields.update(p4p_display(attribute))
+    record_fields: dict = {"value": attribute.validate(value)}
+    if isinstance(attribute, AttrR):
+        record_fields.update(p4p_display(attribute))
+    if isinstance(attribute, AttrW):
+        record_fields.update(p4p_control(attribute))
 
-        if dtype in (int, float):
-            record_fields.update(
-                _p4p_check_numeric_for_alarm_states(attribute.meta, value)
-            )
-        else:
-            record_fields.update(p4p_alarm_states())
+    if dtype in (int, float):
+        record_fields.update(_p4p_check_numeric_for_alarm_states(attribute.meta, value))
+    else:
+        record_fields.update(p4p_alarm_states())
 
-        record_fields.update(p4p_timestamp_now())
+    record_fields.update(p4p_timestamp_now())
 
-        return Value(make_p4p_type(attribute), record_fields)
-
-    raise ValueError(f"Unsupported datatype {dtype}")
+    return Value(make_p4p_type(attribute), record_fields)

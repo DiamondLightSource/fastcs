@@ -5,7 +5,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any, Unpack, overload
 
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
-from fastcs.attributes.attribute_io_ref import AttributeIORefT
+from fastcs.attributes.attribute_io_ref import AttributeIORefT, IORef_T
 from fastcs.attributes.util import AttrValuePredicate, PredicateEvent
 from fastcs.datatypes import (
     Array1DMeta,
@@ -44,63 +44,63 @@ class AttrR(Attribute[DType_T, AttributeIORefT]):
     # is valid always picks its own datatype's overload.
     @overload
     def __init__(
-        self: AttrR[bool, AttributeIORefT],
+        self: AttrR[bool, IORef_T],
         datatype: type[bool],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: bool | None = None,
         **meta: Unpack[BoolMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrR[int, AttributeIORefT],
+        self: AttrR[int, IORef_T],
         datatype: type[int],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: int | None = None,
         **meta: Unpack[IntMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrR[float, AttributeIORefT],
+        self: AttrR[float, IORef_T],
         datatype: type[float],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: float | None = None,
         **meta: Unpack[FloatMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrR[str, AttributeIORefT],
+        self: AttrR[str, IORef_T],
         datatype: type[str],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: str | None = None,
         **meta: Unpack[StrMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrR[Enum_T, AttributeIORefT],
+        self: AttrR[Enum_T, IORef_T],
         datatype: type[Enum_T],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: Enum_T | None = None,
         **meta: Unpack[EnumMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrR[Table, AttributeIORefT],
+        self: AttrR[Table, IORef_T],
         datatype: type[Table],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: Table | None = None,
         **meta: Unpack[TableMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrR[Array_T, AttributeIORefT],
+        self: AttrR[Array_T, IORef_T],
         datatype: type[Array_T],
-        io_ref: AttributeIORefT | None = None,
+        io_ref: IORef_T | None = None,
         initial_value: Array_T | None = None,
         **meta: Unpack[Array1DMeta],
     ) -> None: ...

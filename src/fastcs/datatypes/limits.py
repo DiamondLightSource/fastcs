@@ -1,5 +1,3 @@
-"""Numeric limits, aligned with the bluesky event-model (ADR 0017)."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -44,15 +42,14 @@ class NumericLimits(Generic[Numeric_T]):
     """The four categories of limit on a numeric attribute.
 
     All four are optional and are resolved on construction, so that after
-    construction every category holds a `Limits` - unbounded if nothing
-    determined it. The rules (ADR 0017) are:
+    construction every category holds a `Limits`:
 
-    - supply none and all four are unbounded;
+    - supply no ranges and all four are unbounded;
     - a ``display`` range with no ``control`` range gives ``control`` the
       display range - what a device may be driven to defaults to what it is
       shown as spanning;
     - an ``alarm`` range with no ``warning`` range gives ``warning`` the alarm
-      range;
+      range - a device will alarm without warning
     - supplying both asserts that ``warning`` lies within ``alarm``, since a
       warning outside the alarm range could never be the milder condition.
 
@@ -65,10 +62,10 @@ class NumericLimits(Generic[Numeric_T]):
     """The range the attribute may be driven to"""
     display: Limits[Numeric_T] = UNBOUNDED
     """The range the attribute is displayed over"""
-    alarm: Limits[Numeric_T] = UNBOUNDED
-    """The range outside which the attribute is in alarm"""
     warning: Limits[Numeric_T] = UNBOUNDED
     """The range outside which the attribute is in a warning state"""
+    alarm: Limits[Numeric_T] = UNBOUNDED
+    """The range outside which the attribute is in alarm"""
 
     def __post_init__(self) -> None:
         if self.control == UNBOUNDED and self.display != UNBOUNDED:

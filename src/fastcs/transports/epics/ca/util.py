@@ -12,7 +12,6 @@ from fastcs.controllers import ControllerAPI
 from fastcs.datatypes import (
     DEFAULT_ARRAY_SHAPE,
     DEFAULT_PRECISION,
-    DType,
     DType_T,
     Meta,
     NumericLimits,
@@ -60,13 +59,9 @@ MBB_MAX_CHOICES = len(_MBB_FIELD_PREFIXES)
 DEFAULT_STRING_WAVEFORM_LENGTH = 256
 
 
-def is_epics_supported(dtype: type[DType]) -> bool:
-    """Whether EPICS CA can serve an attribute of this datatype."""
-    return (
-        dtype in (bool, int, float, str)
-        or issubclass(dtype, enum.Enum)
-        or issubclass(dtype, np.ndarray)
-    )
+def is_epics_supported(attribute: Attribute) -> bool:
+    """Whether EPICS CA can serve this attribute - every datatype but a table."""
+    return "structured_dtype" not in attribute.meta
 
 
 def enum_names(dtype: type[enum.Enum]) -> list[str]:
@@ -222,7 +217,7 @@ def _mirror_meta_onto_record(
     record: RecordWrapper,
     fields_from_meta: Callable[[Meta], dict[str, Any]],
 ) -> None:
-    """Push later metadata changes - new units, say - onto the record."""
+    """Push later metadata changes (e.g., new units) onto the record."""
 
     def meta_updater(meta: Meta) -> None:
         for field, value in fields_from_meta(meta).items():
@@ -249,9 +244,9 @@ def cast_from_epics_type(attribute: Attribute[DType_T], value: object) -> DType_
 
     if dtype is bool:
         if value == 0:
-            return False  # pyright: ignore[reportReturnType]
+            return dtype(False)
         elif value == 1:
-            return True  # pyright: ignore[reportReturnType]
+            return dtype(True)
         else:
             raise ValueError(f"Invalid bool value from EPICS record {value}")
 
@@ -263,10 +258,7 @@ def cast_from_epics_type(attribute: Attribute[DType_T], value: object) -> DType_
         assert isinstance(value, str), "Got non-string value for long Enum"
         return attribute.validate(dtype[value])
 
-    if is_epics_supported(dtype):
-        return attribute.validate(value)
-
-    raise ValueError(f"Unsupported datatype {dtype}")
+    return attribute.validate(value)
 
 
 def cast_to_epics_type(attribute: Attribute[DType_T], value: DType_T) -> Any:
@@ -284,7 +276,4 @@ def cast_to_epics_type(attribute: Attribute[DType_T], value: DType_T) -> Any:
         length = attribute.meta.get("length") or DEFAULT_STRING_WAVEFORM_LENGTH
         return str(value)[:length]
 
-    if is_epics_supported(dtype):
-        return value
-
-    raise ValueError(f"Unsupported datatype {dtype}")
+    return value

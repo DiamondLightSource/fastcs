@@ -19,6 +19,7 @@ from fastcs.transports.epics.ca.util import (
     _make_out_record,
     cast_from_epics_type,
     cast_to_epics_type,
+    is_epics_supported,
 )
 from fastcs.transports.epics.util import EPICS_MAX_NAME_LENGTH, pv_prefix_from_path
 from fastcs.util import snake_to_pascal
@@ -61,6 +62,13 @@ def _create_and_link_attribute_pvs(
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, attribute in controller_api.attributes.items():
+            if not is_epics_supported(attribute):
+                logger.warning(
+                    "Table attributes are not supported in EPICS CA transport",
+                    attribute=attribute,
+                )
+                continue
+
             if (
                 issubclass(attribute.dtype, np.ndarray)
                 and len(attribute.meta.get("shape", DEFAULT_ARRAY_SHAPE)) != 1

@@ -1,9 +1,4 @@
-"""Validating and comparing attribute values against a datatype and its metadata.
-
-This is what the ``DataType`` classes used to do in ``validate``/``equal``/
-``initial_value``; with the datatype reduced to a python type, the behaviour
-that depended on the metadata is dispatched here instead.
-"""
+"""Validating and comparing attribute values against a datatype and its metadata."""
 
 from __future__ import annotations
 
@@ -36,7 +31,7 @@ _META_FOR_DTYPE: dict[type, Any] = {
 }
 
 
-def meta_class_for(dtype: type[DType], meta: Meta) -> Any:
+def meta_class_for_dtype(dtype: type[DType], meta: Meta) -> Any:
     """The ``*Meta`` typed dict that applies to ``dtype``."""
     if dtype in _META_FOR_DTYPE:
         return _META_FOR_DTYPE[dtype]
@@ -51,9 +46,9 @@ def meta_class_for(dtype: type[DType], meta: Meta) -> Any:
 def validate_meta(dtype: type[DType], meta: Meta, name: str = "attribute") -> None:
     """Check that every field of ``meta`` is meaningful for ``dtype``.
 
-    The runtime counterpart of the ``Unpack[*Meta]`` overloads on the
-    constructors, for metadata that arrived without a static check - from a
-    ``ControllerFiller`` extras object, say.
+    Performs at runtime the check the ``Attr*`` constructor overloads make
+    statically, for metadata the type checker never saw - built at runtime, or
+    passed for a datatype only known at runtime.
 
     Args:
         dtype: The python type the attribute holds
@@ -64,7 +59,7 @@ def validate_meta(dtype: type[DType], meta: Meta, name: str = "attribute") -> No
         TypeError: If a field is not meaningful for the datatype
 
     """
-    allowed = meta_fields(meta_class_for(dtype, meta))
+    allowed = meta_fields(meta_class_for_dtype(dtype, meta))
     for field in meta:
         if field not in allowed:
             raise TypeError(
@@ -190,7 +185,7 @@ def _coerce(dtype: type[DType_T], value: Any) -> DType_T:
         return value
 
     try:
-        return dtype(value)  # pyright: ignore[reportCallIssue]
+        return dtype(value)
     except (ValueError, TypeError) as e:
         raise ValueError(f"Failed to cast {value} to type {dtype}") from e
 

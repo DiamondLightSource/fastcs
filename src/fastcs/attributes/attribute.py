@@ -39,7 +39,9 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
 
         dtype, element_type = resolve_datatype(datatype)
         self._meta: Meta = _resolve_meta(datatype, element_type, meta)
-        self._dtype: type[DType_T] = dtype  # pyright: ignore[reportAttributeAccessIssue]
+        # The constructor overloads tie ``datatype`` to ``DType_T``, which
+        # ``resolve_datatype``'s ``type[DType]`` return can't express.
+        self._dtype = cast(type[DType_T], dtype)
 
         validate_meta(dtype, self._meta)
 

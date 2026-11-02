@@ -17,7 +17,6 @@ from .types import Array_T as Array_T
 from .types import DType as DType
 from .types import DType_T as DType_T
 from .types import Enum_T as Enum_T
-from .types import Inferred_T as Inferred_T
 from .types import Table as Table
 from .types import is_array_datatype as is_array_datatype
 from .types import resolve_datatype as resolve_datatype

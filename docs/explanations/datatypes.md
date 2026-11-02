@@ -9,9 +9,11 @@ from fastcs.attributes import AttrRW
 
 temperature = AttrRW(float, precision=3, units="degC")
 ```
+Where `attr.dtype` is `float`, and `attr.meta` is a plain typed dict.
 
-There is no `DataType` object to construct and no wrapper to unwrap: `attr.dtype`
-is `float`, and `attr.meta` is a plain typed dict.
+```python
+temperature.meta # {'precision': 2, 'units': 'degC'}
+```
 
 ## Supported Types
 
@@ -225,11 +227,11 @@ checks for `structured_dtype` in `attr.meta`.
 ## Adding a Datatype
 
 A datatype is a python type in `DType`, so adding one means widening that union
-and teaching the pieces that dispatch on it:
+and amending the logic that dispatch on it:
 
 1. Add the type to `DType` in `fastcs.datatypes.types`, and to `resolve_datatype`
 2. Add a `*Meta` typed dict for the metadata it accepts, and map the datatype to
-   it in `meta_class_for`
+   it in `meta_class_for_dtype`
 3. Handle it in `validate_value`, `default_value` and `values_equal`
 4. Add an overload to each of `AttrR`, `AttrW` and `AttrRW` so its metadata is
    statically checked

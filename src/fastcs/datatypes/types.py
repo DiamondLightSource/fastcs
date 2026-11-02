@@ -1,8 +1,7 @@
 """The python types a FastCS `Attribute` can hold, and how they are spelled.
 
-There is no ``DataType`` object: an attribute's datatype *is* a python type,
-and everything that used to hang off a ``DataType`` instance - precision,
-units, limits, array shape - now travels separately as a ``*Meta`` typed dict
+An attribute's datatype is a python type, and extras - precision, units, limits,
+array shape - are a ``*Meta`` typed dict
 (see :py:mod:`fastcs.datatypes.meta`).
 """
 
@@ -15,10 +14,10 @@ import numpy as np
 from numpy.typing import DTypeLike
 
 DType = (
-    int  # int
-    | float  # float
-    | bool  # bool
-    | str  # str
+    int
+    | float
+    | bool
+    | str
     | enum.Enum  # any Enum subclass
     | np.ndarray  # Array1D / Table
 )
@@ -36,14 +35,6 @@ Enum_T = TypeVar("Enum_T", bound=enum.Enum)
 Array_T = TypeVar("Array_T", bound=np.ndarray)
 """A TypeVar of any numpy array an attribute can hold"""
 
-Inferred_T = TypeVar("Inferred_T", bound=DType)
-"""A TypeVar of `DType` for the constructor overload that infers the datatype
-
-Distinct from `DType_T` because the overload binds it from the getter or setter
-in the same signature that annotates ``self``, and a class-scoped TypeVar cannot
-be used there.
-"""
-
 Array1D: TypeAlias = np.ndarray[tuple[int], np.dtype[NumpyScalar_T]]
 """A one dimensional numpy array, subscripted with its element type.
 
@@ -53,8 +44,7 @@ subscript, so it does not have to be repeated in the metadata::
 
     AttrR(Array1D[np.int32], shape=(10,))
 
-Neither the subscript nor the ``shape`` has to be repeated in the metadata, and
-``shape`` may be left off entirely to take the default. numpy's own
+`shape`` may be left off entirely to take the default; numpy's own
 ``npt.NDArray[np.int32]`` is the same spelling with an unbounded shape and is
 accepted wherever `Array1D` is::
 
@@ -80,9 +70,7 @@ class Table(np.ndarray):
 
 
 _BUILTIN_DTYPES: tuple[type, ...] = (bool, int, float, str)
-"""The builtin types an attribute may hold, matched exactly rather than by
-subclass - ``bool`` is a subclass of ``int``, and the two are not
-interchangeable to a transport."""
+"""The builtin types an attribute may hold."""
 
 
 def is_array_datatype(dtype: type[DType]) -> bool:
