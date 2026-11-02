@@ -44,7 +44,7 @@ subscript, so it does not have to be repeated in the metadata::
 
     AttrR(Array1D[np.int32], shape=(10,))
 
-`shape`` may be left off entirely to take the default; numpy's own
+``shape`` may be left off entirely to take the default; numpy's own
 ``npt.NDArray[np.int32]`` is the same spelling with an unbounded shape and is
 accepted wherever `Array1D` is::
 
@@ -54,6 +54,13 @@ Arrays of higher rank have no ophyd-async-compatible spelling; write them as
 ``np.ndarray`` with an explicit ``array_dtype``::
 
     AttrR(np.ndarray, array_dtype=np.int32, shape=(10, 10))
+
+.. note::
+    Using an array spelling in a controller's type hint for the attribute -
+    ``spectrum: AttrR[Array1D[np.int32]]`` - currently fails introspection, a
+    known bug. Until it is fixed, hint it with the bare attribute class::
+
+        spectrum: AttrR = AttrR(Array1D[np.int32], shape=(10,))
 """
 
 
@@ -64,6 +71,12 @@ class Table(np.ndarray):
     given as the ``structured_dtype`` metadata::
 
         AttrR(Table, structured_dtype=[("index", np.int32), ("value", np.float64)])
+
+    .. note::
+        Using ``Table`` in a controller's type hint for the attribute -
+        ``results: AttrR[Table]`` - currently fails introspection, a known bug.
+        Until it is fixed, hint it with the bare attribute class:
+        ``results: AttrR = AttrR(Table, ...)``.
 
     See https://numpy.org/devdocs/user/basics.rec.html for structured dtypes.
     """

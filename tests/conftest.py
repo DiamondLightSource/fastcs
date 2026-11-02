@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Generator
+from functools import partial
 from multiprocessing.context import DefaultContext
 from pathlib import Path
 from typing import Any
@@ -170,15 +171,17 @@ def run_ioc_as_subprocess(
 
 
 @pytest.fixture(scope="module")
-def p4p_subprocess():
+def p4p_subprocess(tmp_path_factory: pytest.TempPathFactory):
     multiprocessing.set_start_method("forkserver", force=True)
-    yield from run_ioc_as_subprocess(_run_p4p_ioc, multiprocessing.get_context())
+    run = partial(_run_p4p_ioc, gui_dir=tmp_path_factory.mktemp("p4p_opis"))
+    yield from run_ioc_as_subprocess(run, multiprocessing.get_context())
 
 
 @pytest.fixture(scope="module")
-def softioc_subprocess():
+def softioc_subprocess(tmp_path_factory: pytest.TempPathFactory):
     multiprocessing.set_start_method("spawn", force=True)
-    yield from run_ioc_as_subprocess(_run_softioc, multiprocessing.get_context())
+    run = partial(_run_softioc, gui_dir=tmp_path_factory.mktemp("softioc_opis"))
+    yield from run_ioc_as_subprocess(run, multiprocessing.get_context())
 
 
 @pytest.fixture(scope="session")
