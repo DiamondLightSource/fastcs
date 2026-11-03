@@ -458,7 +458,8 @@ async def test_put():
     attr.set_on_put_callback(do_put)
     attr.add_sync_setpoint_callback(do_sync_setpoint)
 
-    await attr.put(5)
+    with pytest.raises(ValueError, match="do_put failed"):
+        await attr.put(5)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="Attribute already has an on put callback"):
         attr.set_on_put_callback(do_put)

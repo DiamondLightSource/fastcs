@@ -140,7 +140,7 @@ def test_validate_ca_id_accepts_valid(id):
     validate_ca_id(ControllerAPI(path=[id]))
 
 
-@pytest.mark.parametrize("id", ["bad/id", "with space", "colons:in:id", ""])
+@pytest.mark.parametrize("id", ["bad/id", "with space", ""])
 def test_validate_ca_id_rejects_illegal_characters(id):
     with pytest.raises(ValueError, match="EPICS CA id"):
         validate_ca_id(ControllerAPI(path=[id]))

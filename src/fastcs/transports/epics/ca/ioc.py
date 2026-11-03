@@ -1,8 +1,9 @@
 import asyncio
-import re
-from typing import Any, Literal
+from collections import Counter
+from collections.abc import Awaitable
+from typing import Any
 
-from softioc import builder, softioc
+from softioc import alarm, builder, softioc
 from softioc.asyncio_dispatcher import AsyncioDispatcher
 from softioc.pythonSoftIoc import RecordWrapper
 
@@ -23,19 +24,25 @@ from fastcs.util import snake_to_pascal
 
 tracer = Tracer()
 
+RBV_SUFFIX = "_RBV"
+
 
 class EpicsCAIOC:
     """A softioc which handles one or more controllers."""
 
-    def __init__(self, controller_apis: list[ControllerAPI]):
+    def __init__(self, controller_apis: list[ControllerAPI], aliases: dict[str, str]):
+        if duplicate_aliases := [
+            alias for alias, count in Counter(aliases.values()).items() if count > 1
+        ]:
+            raise RuntimeError(
+                "Failed to create EPICS CA IOC, as duplicate aliases were provided:"
+                f" {duplicate_aliases}"
+            )
+
         self._controller_apis = controller_apis
         for controller_api in controller_apis:
-            root_pv_prefix = pv_prefix_from_path(controller_api.path)
-            _add_pvi_info(f"{root_pv_prefix}:PVI")
-            _add_sub_controller_pvi_info(controller_api)
-
-            _create_and_link_attribute_pvs(controller_api)
-            _create_and_link_command_pvs(controller_api)
+            _create_and_link_attribute_pvs(controller_api, aliases)
+            _create_and_link_command_pvs(controller_api, aliases)
 
     def run(
         self,
@@ -43,75 +50,12 @@ class EpicsCAIOC:
     ) -> None:
         dispatcher = AsyncioDispatcher(loop)  # Needs running loop
         builder.LoadDatabase()
-        softioc.iocInit(dispatcher)
+        softioc.iocInit(dispatcher, enable_pva=False)
 
 
-def _add_pvi_info(
-    pvi: str,
-    parent_pvi: str = "",
-    name: str = "",
-):
-    """Add PVI metadata for a controller.
-
-    Args:
-        pvi: PVI PV of controller
-        parent_pvi: PVI PV of parent controller
-        name: Name to register controller with parent as
-
-    """
-    # Create a record to attach the info tags to
-    record = builder.longStringIn(
-        f"{pvi}_PV",
-        initial_value=pvi,
-        DESC="The records in this controller",
-    )
-
-    # Create PVI PV in preparation for adding attribute info tags to it
-    q_group = {
-        pvi: {
-            "+id": "epics:nt/NTPVI:1.0",
-            "display.description": {"+type": "plain", "+channel": "DESC"},
-            "": {"+type": "meta", "+channel": "VAL"},
-        }
-    }
-    # If this controller has a parent, add a link in the parent to this controller
-    if parent_pvi and name:
-        q_group.update(
-            {
-                parent_pvi: {
-                    f"value.{name}.d": {
-                        "+channel": "VAL",
-                        "+type": "plain",
-                        "+trigger": f"value.{name}.d",
-                    }
-                }
-            }
-        )
-
-    record.add_info("Q:group", q_group)
-
-
-def _add_sub_controller_pvi_info(parent: ControllerAPI):
-    """Add PVI references from controller to its sub controllers, recursively."""
-    parent_pvi = f"{pv_prefix_from_path(parent.path)}:PVI"
-
-    for child in parent.sub_apis.values():
-        child_pvi = f"{pv_prefix_from_path(child.path)}:PVI"
-        child_name = (
-            f"__{child.path[-1]}"  # Sub-Controller of ControllerVector
-            if child.path[-1].isdigit()
-            else child.path[-1]
-        )
-        # Sanitize for PVA field names: replace any non-alphanumeric, non-underscore
-        # character (e.g. hyphens from beamline PV prefixes) with underscores.
-        child_pvi_field = re.sub(r"[^a-zA-Z0-9_]", "_", child_name).lower()
-
-        _add_pvi_info(child_pvi, parent_pvi, child_pvi_field)
-
-        _add_sub_controller_pvi_info(child)
-
-
-def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
+def _create_and_link_attribute_pvs(
+    root_controller_api: ControllerAPI, aliases: dict[str, str]
+) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
@@ -137,6 +81,7 @@ def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
                 )
                 continue
 
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
             match attribute:
                 case AttrRW():
                     if full_pv_name_length > (EPICS_MAX_NAME_LENGTH - 4):
@@ -147,20 +92,42 @@ def _create_and_link_attribute_pvs(root_controller_api: ControllerAPI) -> None:
                         )
                         attribute.enabled = False
                     else:
+                        alias_rbv = aliases.get(
+                            f"{pv_prefix}:{pv_name}{RBV_SUFFIX}", None
+                        )
                         _create_and_link_read_pv(
-                            pv_prefix, f"{pv_name}_RBV", attr_name, attribute
+                            pv_prefix,
+                            f"{pv_name}{RBV_SUFFIX}",
+                            alias_rbv,
+                            attribute,
                         )
                         _create_and_link_write_pv(
-                            pv_prefix, pv_name, attr_name, attribute
+                            pv_prefix,
+                            pv_name,
+                            alias,
+                            attribute,
                         )
                 case AttrR():
-                    _create_and_link_read_pv(pv_prefix, pv_name, attr_name, attribute)
+                    _create_and_link_read_pv(
+                        pv_prefix,
+                        pv_name,
+                        alias,
+                        attribute,
+                    )
                 case AttrW():
-                    _create_and_link_write_pv(pv_prefix, pv_name, attr_name, attribute)
+                    _create_and_link_write_pv(
+                        pv_prefix,
+                        pv_name,
+                        alias,
+                        attribute,
+                    )
 
 
 def _create_and_link_read_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, attribute: AttrR[DType_T]
+    pv_prefix: str,
+    pv_name: str,
+    alias: str | None,
+    attribute: AttrR[DType_T],
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
@@ -172,20 +139,25 @@ def _create_and_link_read_pv(
         record.set(cast_to_epics_type(attribute.datatype, value))
 
     record = _make_in_record(pv, attribute)
-    _add_attr_pvi_info(record, pv_prefix, attr_name, "r")
+
+    _add_alias(record, alias)
 
     attribute.add_on_update_callback(async_record_set)
 
 
 def _create_and_link_write_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, attribute: AttrW[DType_T]
-) -> None:
+    pv_prefix: str,
+    pv_name: str,
+    alias: str | None,
+    attribute: AttrW[DType_T],
+):
     pv = f"{pv_prefix}:{pv_name}"
 
     async def on_update(value):
         logger.info("PV put: {pv} = {value}", pv=pv, value=repr(value))
-
-        await attribute.put(cast_from_epics_type(attribute.datatype, value))
+        await _run_and_set_alarm(
+            record, attribute.put(cast_from_epics_type(attribute.datatype, value))
+        )
 
     async def set_setpoint_without_process(value: DType_T):
         tracer.log_event(
@@ -196,17 +168,20 @@ def _create_and_link_write_pv(
 
     record = _make_out_record(pv, attribute, on_update=on_update)
 
-    _add_attr_pvi_info(record, pv_prefix, attr_name, "w")
+    _add_alias(record, alias)
 
     attribute.add_sync_setpoint_callback(set_setpoint_without_process)
 
 
-def _create_and_link_command_pvs(root_controller_api: ControllerAPI) -> None:
+def _create_and_link_command_pvs(
+    root_controller_api: ControllerAPI, aliases: dict[str, str]
+) -> None:
     for controller_api in root_controller_api.walk_api():
         pv_prefix = pv_prefix_from_path(controller_api.path)
 
         for attr_name, method in controller_api.command_methods.items():
             pv_name = snake_to_pascal(attr_name)
+            alias = aliases.get(f"{pv_prefix}:{pv_name}", None)
 
             if len(f"{pv_prefix}:{pv_name}") > EPICS_MAX_NAME_LENGTH:
                 print(
@@ -218,20 +193,19 @@ def _create_and_link_command_pvs(root_controller_api: ControllerAPI) -> None:
                 _create_and_link_command_pv(
                     pv_prefix,
                     pv_name,
-                    attr_name,
+                    alias,
                     method,
                 )
 
 
 def _create_and_link_command_pv(
-    pv_prefix: str, pv_name: str, attr_name: str, method: Command
+    pv_prefix: str, pv_name: str, alias: str | None, method: Command
 ) -> None:
     pv = f"{pv_prefix}:{pv_name}"
 
     async def wrapped_method(_: Any):
         tracer.log_event("Command PV put", topic=method, pv=pv)
-
-        await method.fn()
+        await _run_and_set_alarm(record, method.fn())
 
     record = builder.Action(
         f"{pv_prefix}:{pv_name}",
@@ -242,33 +216,39 @@ def _create_and_link_command_pv(
         ONAM="Active",
     )
 
-    _add_attr_pvi_info(record, pv_prefix, attr_name, "x")
+    _add_alias(record, alias)
 
 
-def _add_attr_pvi_info(
-    record: RecordWrapper,
-    prefix: str,
-    name: str,
-    access_mode: Literal["r", "w", "rw", "x"],
-):
-    """Add an info tag to a record to include it in the PVI for the controller.
+def _add_alias(record: RecordWrapper, alias: str | None):
+    if alias is not None:
+        if len(alias) > EPICS_MAX_NAME_LENGTH:
+            logger.warning(
+                f"Not creating alias {alias}, as full name would exceed"
+                f" {EPICS_MAX_NAME_LENGTH} characters"
+            )
+        else:
+            record.add_alias(alias)
 
-    Args:
-        record: Record to add info tag to
-        prefix: PV prefix of controller
-        name: Name of parameter to add to PVI
-        access_mode: Access mode of parameter
 
-    """
-    record.add_info(
-        "Q:group",
-        {
-            f"{prefix}:PVI": {
-                f"value.{name}.{access_mode}": {
-                    "+channel": "NAME",
-                    "+type": "plain",
-                    "+trigger": f"value.{name}.{access_mode}",
-                }
-            }
-        },
+def _set_alarm(record: RecordWrapper, alarm_state: int):
+    record.set(
+        record.get(),
+        process=False,
+        severity=alarm_state,
+        alarm=alarm_state,
     )
+
+
+async def _run_and_set_alarm(record, coro: Awaitable):
+    """Await `coro` and update `record`'s alarm state based on the outcome.
+
+    On success, clears the alarm (NO_ALARM). On any exception, raises the
+    record into MAJOR_ALARM. The exception itself is not re-raised or
+    logged here, since `AttrW.put` already logs it; this function's only
+    job is to reflect the outcome in the record's alarm status.
+    """
+    try:
+        await coro
+        _set_alarm(record, alarm.NO_ALARM)
+    except Exception:
+        _set_alarm(record, alarm.MAJOR_ALARM)

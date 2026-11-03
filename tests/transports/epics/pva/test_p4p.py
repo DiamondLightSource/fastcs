@@ -1,5 +1,6 @@
 import asyncio
 import enum
+from dataclasses import dataclass
 from datetime import datetime
 from multiprocessing import Queue
 from unittest.mock import ANY
@@ -13,9 +14,9 @@ from p4p.client.asyncio import Context
 from p4p.client.thread import Context as ThreadContext
 from p4p.nt import NTTable
 
-from fastcs.attributes import AttrR, AttrRW, AttrW
+from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Bool, Enum, Float, Int, String, Table, Waveform
+from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, String, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command
 from fastcs.transports.epics.pva.transport import EpicsPVATransport
@@ -32,11 +33,12 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
     assert all(f in parent_pvi for f in ("alarm", "display", "timeStamp", "value"))
     assert parent_pvi["display"] == {"description": "some controller"}
     assert parent_pvi["value"] == {
-        "a": {"rw": f"{pv_prefix}:A"},
+        "a": {"w": f"{pv_prefix}:A", "r": f"{pv_prefix}:A_RBV"},
         "b": {"w": f"{pv_prefix}:B"},
         "child": {"d": f"{pv_prefix}:Child:PVI"},
         "table": {
-            "rw": f"{pv_prefix}:Table",
+            "r": f"{pv_prefix}:Table_RBV",
+            "w": f"{pv_prefix}:Table",
         },
     }
 
@@ -49,7 +51,9 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
     )
     assert _child_vector_pvi["display"] == {"description": "some child vector"}
     assert _child_vector_pvi["value"] == {
-        "vector_attribute": {"r": f"{pv_prefix}:Child:VectorAttribute"},
+        "vector_attribute": {
+            "r": f"{pv_prefix}:Child:VectorAttribute",
+        },
         "__1": {"d": f"{pv_prefix}:Child:1:PVI"},
         "__2": {"d": f"{pv_prefix}:Child:2:PVI"},
     }
@@ -64,9 +68,9 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         "c": {"w": f"{pv_prefix}:Child:1:C"},
         "d": {"x": f"{pv_prefix}:Child:1:D"},
         "e": {"r": f"{pv_prefix}:Child:1:E"},
-        "f": {"rw": f"{pv_prefix}:Child:1:F"},
-        "g": {"rw": f"{pv_prefix}:Child:1:G"},
-        "h": {"rw": f"{pv_prefix}:Child:1:H"},
+        "f": {"w": f"{pv_prefix}:Child:1:F", "r": f"{pv_prefix}:Child:1:F_RBV"},
+        "g": {"w": f"{pv_prefix}:Child:1:G", "r": f"{pv_prefix}:Child:1:G_RBV"},
+        "h": {"w": f"{pv_prefix}:Child:1:H", "r": f"{pv_prefix}:Child:1:H_RBV"},
         "i": {"x": f"{pv_prefix}:Child:1:I"},
         "j": {"r": f"{pv_prefix}:Child:1:J"},
     }
@@ -148,7 +152,9 @@ async def test_command_method(p4p_subprocess: tuple[str, Queue]):
         assert after_command_value["value"] is False
         assert after_command_value["alarm"]["severity"] == 2
         assert (
-            after_command_value["alarm"]["message"] == "I: FAILED WITH THIS WEIRD ERROR"
+            after_command_value["alarm"]["message"]
+            == "Exception raised during command put: "
+            "RuntimeError('I: FAILED WITH THIS WEIRD ERROR')"
         )
         # Failed I process does not increment J
         assert j_values.empty()
@@ -207,6 +213,38 @@ async def test_numeric_alarms(p4p_subprocess: tuple[str, Queue]):
 
     finally:
         a_monitor.close()
+
+
+def test_alarms_set_if_put_fails():
+    @dataclass
+    class SimpleAttributeIORef(AttributeIORef):
+        pass
+
+    class SimpleAttributeIO(AttributeIO[DType_T, SimpleAttributeIORef]):
+        async def send(self, attr: AttrW[DType_T, SimpleAttributeIORef], value):
+            raise ValueError("Failed")
+
+    class SomeController(Controller):
+        a = AttrW(Int(), io_ref=SimpleAttributeIORef())
+
+    pv_prefix = str(uuid4())
+    controller = SomeController(ios=[SimpleAttributeIO()], path=[pv_prefix])
+    fastcs = make_fastcs(controller)
+
+    async def put_pvs():
+        await asyncio.sleep(0)
+        ctxt = Context("pva")
+        await ctxt.put(f"{pv_prefix}:A", 1)
+
+    serve = asyncio.ensure_future(fastcs.serve(interactive=False))
+
+    try:
+        with pytest.raises(RuntimeError, match="Exception raised during put operation"):
+            asyncio.get_event_loop().run_until_complete(
+                asyncio.wait_for(asyncio.gather(serve, put_pvs()), timeout=1)
+            )
+    finally:
+        serve.cancel()
 
 
 def make_fastcs(controller: Controller) -> FastCS:
@@ -338,10 +376,16 @@ def test_pvi_grouping():
             "value": {
                 "additional_child": {"d": f"{pv_prefix}:AdditionalChild:PVI"},
                 "another_child": {"d": f"{pv_prefix}:AnotherChild:PVI"},
-                "another_attr_0": {"rw": f"{pv_prefix}:AnotherAttr0"},
-                "another_attr_1000": {"rw": f"{pv_prefix}:AnotherAttr1000"},
+                "another_attr_0": {
+                    "r": f"{pv_prefix}:AnotherAttr0_RBV",
+                    "w": f"{pv_prefix}:AnotherAttr0",
+                },
+                "another_attr_1000": {
+                    "w": f"{pv_prefix}:AnotherAttr1000",
+                    "r": f"{pv_prefix}:AnotherAttr1000_RBV",
+                },
                 "a_third_attr": {"w": f"{pv_prefix}:AThirdAttr"},
-                "attr_1": {"rw": f"{pv_prefix}:Attr1"},
+                "attr_1": {"w": f"{pv_prefix}:Attr1", "r": f"{pv_prefix}:Attr1_RBV"},
                 "child": {"d": f"{pv_prefix}:Child:PVI"},
                 "child0": {"d": f"{pv_prefix}:Child0:PVI"},
                 "child1": {"d": f"{pv_prefix}:Child1:PVI"},

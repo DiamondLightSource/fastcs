@@ -20,7 +20,6 @@ from pvi.device import (
     TextRead,
     TextWrite,
     ToggleButton,
-    Tree,
     WriteWidgetUnion,
 )
 from pydantic import ValidationError
@@ -152,7 +151,7 @@ class EpicsGUI:
         return Device(label=title, children=components)
 
     def extract_api_components(self, controller_api: ControllerAPI) -> ResolvedTree:
-        components: Tree = []
+        components: ResolvedTree = []
 
         for name, api in controller_api.sub_apis.items():
             # Sub-controllers with a single-segment path have their own top-level

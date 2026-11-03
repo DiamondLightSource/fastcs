@@ -2,7 +2,15 @@
   "$defs": {
     "EpicsCAOptions": {
       "additionalProperties": false,
-      "properties": {},
+      "properties": {
+        "aliases": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "object"
+        }
+      },
       "title": "EpicsCAOptions",
       "type": "object"
     },

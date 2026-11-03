@@ -42,7 +42,7 @@ def _make_p4p_value(
         return Value(
             p4p_type,
             {
-                **p4p_alarm_states(),
+                **p4p_alarm_states().model_dump(),
                 **p4p_timestamp_now(),
                 **display,
                 "value": raw_value,
@@ -63,11 +63,16 @@ def _make_p4p_raw_value(pv_prefix: str, controller_api: ControllerAPI) -> dict:
             # Sub-device of a ControllerVector
             p4p_raw_value[f"__{int(pv_leaf)}"]["d"] = pv
         else:
-            p4p_raw_value[pv_leaf]["d"] = pv
+            p4p_raw_value[pv_leaf.lower()]["d"] = pv
     for pv_leaf, attribute in controller_api.attributes.items():
         # Add attribute entry
         pv = f"{pv_prefix}:{snake_to_pascal(pv_leaf)}"
-        p4p_raw_value[pv_leaf][attribute.access_mode] = pv
+        match attribute.access_mode:
+            case "rw":
+                entry = {"r": f"{pv}_RBV", "w": pv}
+            case access:
+                entry = {access: pv}
+        p4p_raw_value[pv_leaf].update(entry)
     for pv_leaf, _ in controller_api.command_methods.items():
         pv = f"{pv_prefix}:{snake_to_pascal(pv_leaf)}"
         p4p_raw_value[pv_leaf]["x"] = pv

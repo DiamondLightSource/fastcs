@@ -36,7 +36,7 @@ def validate_epics_pv_id(
     if not id_re.fullmatch(name):
         raise ValueError(
             f"Controller id {name!r} is not a valid {transport_label}; "
-            "only alphanumerics, '-' and '_' are allowed"
+            "only alphanumerics, '-', '_', and ':' are allowed"
         )
     longest_prefix = max(
         len(pv_prefix_from_path(api.path)) for api in controller_api.walk_api()
