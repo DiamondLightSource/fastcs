@@ -71,20 +71,29 @@ class TemperatureController(Controller):
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef(name="P"))
     voltages = AttrR(Waveform(np.int32, shape=(4,)))
 
-    def __init__(self, settings: TemperatureControllerSettings) -> None:
+    def __init__(
+        self,
+        settings: TemperatureControllerSettings,
+        *,
+        path: list[str] | None = None,
+    ) -> None:
         self.connection = IPConnection()
         self.suffix = ""
         super().__init__(
-            ios=[TemperatureControllerAttributeIO(self.connection, self.suffix)]
+            ios=[TemperatureControllerAttributeIO(self.connection, self.suffix)],
+            path=path,
         )
 
         self._settings = settings
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, settings.num_ramp_controllers + 1):
-            controller = TemperatureRampController(index, self.connection)
+            name = f"R{index}"
+            controller = TemperatureRampController(
+                index, self.connection, path=self.path + [name]
+            )
             self._ramp_controllers.append(controller)
-            self.add_sub_controller(f"R{index}", controller)
+            self.add_sub_controller(name, controller)
 
     @command()
     async def cancel_all(self) -> None:
@@ -138,9 +147,17 @@ class TemperatureRampController(Controller):
     actual = AttrR(Float(prec=3), io_ref=TemperatureControllerAttributeIORef(name="A"))
     voltage = AttrR(Float(prec=3))
 
-    def __init__(self, index: int, conn: IPConnection) -> None:
+    def __init__(
+        self,
+        index: int,
+        conn: IPConnection,
+        *,
+        path: list[str] | None = None,
+    ) -> None:
         suffix = f"{index:02d}"
         super().__init__(
-            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(conn, suffix)]
+            f"Ramp{suffix}",
+            ios=[TemperatureControllerAttributeIO(conn, suffix)],
+            path=path,
         )
         self.connection = conn

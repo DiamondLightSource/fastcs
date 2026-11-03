@@ -32,19 +32,20 @@ test_attribute_io = MyTestAttributeIO()  # instance
 class TestSubController(Controller):
     read_int: AttrR = AttrR(Int(), io_ref=MyTestAttributeIORef())
 
-    def __init__(self) -> None:
-        super().__init__(ios=[test_attribute_io])
+    def __init__(self, *, path: list[str] | None = None) -> None:
+        super().__init__(ios=[test_attribute_io], path=path)
 
 
 class MyTestController(Controller):
-    def __init__(self) -> None:
-        super().__init__(ios=[test_attribute_io])
+    def __init__(self, *, path: list[str] | None = None) -> None:
+        super().__init__(ios=[test_attribute_io], path=path)
 
         self._sub_controllers: list[TestSubController] = []
         for index in range(1, 3):
-            controller = TestSubController()
+            name = f"SubController{index:02d}"
+            controller = TestSubController(path=self.path + [name])
             self._sub_controllers.append(controller)
-            self.add_sub_controller(f"SubController{index:02d}", controller)
+            self.add_sub_controller(name, controller)
 
     initialised = False
     count = 0
@@ -73,7 +74,6 @@ class AssertableControllerAPI(ControllerAPI):
         self,
         controller: Controller,
         mocker: MockerFixture,
-        path: list[str] | None = None,
     ) -> None:
         super().__init__()
 
@@ -81,7 +81,7 @@ class AssertableControllerAPI(ControllerAPI):
         self.command_method_spys: dict[str, MockType] = {}
 
         # Build a ControllerAPI from the given Controller
-        controller_api = controller._build_api(path or [])
+        controller_api = controller._build_api()
         # Copy its fields
         self.path = controller_api.path
         self.attributes = controller_api.attributes

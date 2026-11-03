@@ -1,8 +1,23 @@
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from enum import StrEnum, auto
 
 from fastcs.attributes import Attribute
 from fastcs.methods import Command, Scan
+
+
+class GroupLayout(StrEnum):
+    """How a sub-controller's children are displayed in the generated GUI.
+
+    ``SUBSCREEN`` (default) — children appear on a separate screen opened by a
+    navigate button on the parent screen.
+
+    ``INLINE`` — children are rendered as an inline grid block directly on the
+    parent screen, without an extra navigation level.
+    """
+
+    SUBSCREEN = auto()
+    INLINE = auto()
 
 
 @dataclass
@@ -26,6 +41,9 @@ class ControllerAPI:
     """The `ControllerAPI` s of the sub controllers of the `Controller`"""
     description: str | None = None
     """A description to display in the `Transport` layer"""
+    group_layout: GroupLayout = GroupLayout.SUBSCREEN
+    """How this controller's children are laid out when rendered \
+        inside a parent screen."""
 
     def walk_api(self) -> Iterator["ControllerAPI"]:
         """Walk through all the nested `ControllerAPI` s of this `ControllerAPI`.

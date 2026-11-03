@@ -1,3 +1,5 @@
+from typing import cast
+
 from pvi.device import (
     LED,
     ArrayTrace,
@@ -24,6 +26,7 @@ from pydantic import ValidationError
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
+from fastcs.controllers.controller_api import GroupLayout
 from fastcs.datatypes import (
     Bool,
     Enum,
@@ -151,12 +154,18 @@ class EpicsGUI:
         components: ResolvedTree = []
 
         for name, api in controller_api.sub_apis.items():
+            # Sub-controllers with a single-segment path have their own top-level
+            # screen file, so they are omitted from the parent screen entirely.
+            if len(api.path) == 1:
+                continue
             if name.isdigit():
                 name = f"{controller_api.path[-1]}{name}"
+            layout = Grid() if api.group_layout is GroupLayout.INLINE else SubScreen()
             components.append(
                 Group(
                     name=snake_to_pascal(name),
-                    layout=SubScreen(),
+                    label=api.path[-1] if api.path else None,
+                    layout=layout,
                     children=self.extract_api_components(api),
                 )
             )
@@ -203,4 +212,4 @@ class EpicsGUI:
         for name, children in groups.items():
             components.append(Group(name=name, layout=Grid(), children=children))
 
-        return components
+        return cast(ResolvedTree, components)

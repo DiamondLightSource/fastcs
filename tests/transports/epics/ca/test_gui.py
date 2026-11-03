@@ -102,8 +102,11 @@ def test_get_write_widget_none():
     )
 
 
-def test_get_components(controller):
-    controller_api = controller._build_api(["DEVICE"])
+def test_get_components():
+    from tests.conftest import BackendTestController
+
+    controller = BackendTestController(path=["DEVICE"])
+    controller_api = controller._build_api()
     gui = EpicsGUI(controller_api)
 
     components = gui.extract_api_components(controller_api)
@@ -203,8 +206,7 @@ class _B(Controller):
 
 
 def _api_with_id(cls, name):
-    c = cls()
-    c.set_path([name])
+    c = cls(path=[name])
     api, _, _ = c.create_api_and_tasks()
     return api
 

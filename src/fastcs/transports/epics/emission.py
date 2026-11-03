@@ -63,6 +63,33 @@ def _coerce_pascal_name(name: str) -> str:
     return candidate
 
 
+def _collect_top_level_apis(
+    controller_apis: list[ControllerAPI],
+) -> list[ControllerAPI]:
+    """Return every API that should get its own top-level screen file.
+
+    Includes every root controller and any sub-controller whose path has
+    exactly one segment (i.e. it carries a root-level PV prefix).
+    Traversal order is depth-first; a ``seen`` set prevents duplicates.
+    """
+    result: list[ControllerAPI] = []
+    seen: set[tuple[str, ...]] = set()
+
+    def _walk(api: ControllerAPI, is_root: bool) -> None:
+        key = tuple(api.path)
+        if key in seen:
+            return
+        if is_root or len(api.path) == 1:
+            seen.add(key)
+            result.append(api)
+        for sub_api in api.sub_apis.values():
+            _walk(sub_api, False)
+
+    for api in controller_apis:
+        _walk(api, True)
+    return result
+
+
 def emit_gui_files(
     controller_apis: list[ControllerAPI],
     options: EpicsGUIOptions,
@@ -74,9 +101,9 @@ def emit_gui_files(
     builder (CA's ``EpicsGUI`` writes bare PVs; PVA's ``PvaEpicsGUI``
     prefixes them with ``pva://``).  An index file with one ``DeviceRef``
     button per controller sits at the root of ``output_dir`` regardless
-    of how many controllers there are; controllers appear in the order
-    they were declared in ``fastcs.yaml`` (i.e. the order of
-    ``controller_apis``).
+    of how many controllers there are.  In addition to the root controllers,
+    any sub-controller whose path has exactly one segment (i.e. a root-level
+    PV prefix) is also emitted as a top-level screen with its own index entry.
     """
     if options.file_format is EpicsGUIFormat.edl:
         logger.warning("FastCS may not support all widgets in .edl screens")
@@ -88,12 +115,14 @@ def emit_gui_files(
     formatter = DLSFormatter()
 
     refs: list[DeviceRef] = []
-    for api in controller_apis:
+    for api in _collect_top_level_apis(controller_apis):
         name = api.path[0]
         ui_filename = f"{name}{ext}"
         controller_path = (output_dir / ui_filename).resolve()
 
-        device = gui_builder(api).build_device(options.title)
+        device = gui_builder(api).build_device(
+            api.path[0] if api.path else "FastCS Devices"
+        )
         formatter.format(device, controller_path)
 
         refs.append(
@@ -107,7 +136,14 @@ def emit_gui_files(
         )
 
     index_path = (output_dir / f"{INDEX_STEM}{ext}").resolve()
-    formatter.format(Device(label=options.title, children=refs), index_path)
+    if options.title is not None:
+        # Explicit title: use as-is (empty string suppresses the title widget)
+        index_title = options.title
+    elif controller_apis and controller_apis[0].path:
+        index_title = controller_apis[0].path[0]
+    else:
+        index_title = "FastCS Devices"
+    formatter.format(Device(label=index_title, children=refs), index_path)
 
 
 DOCS_EXT = ".md"
@@ -132,7 +168,18 @@ def emit_docs_files(
         path.write_text(_render_controller_md(api, options.depth))
 
     index_path = output_dir / f"{INDEX_STEM}{DOCS_EXT}"
-    index_path.write_text(_render_index_md(controller_apis, options.title))
+    index_path.write_text(
+        _render_index_md(
+            controller_apis,
+            options.title
+            if options.title is not None
+            else (
+                controller_apis[0].path[0]
+                if controller_apis and controller_apis[0].path
+                else "FastCS Devices"
+            ),
+        )
+    )
 
 
 def _render_index_md(controller_apis: list[ControllerAPI], title: str) -> str:
