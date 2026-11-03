@@ -1,0 +1,21 @@
+``fastcs.transports.graphql.util``
+==================================
+        
+
+.. automodule:: fastcs.transports.graphql.util
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        validate_graphql_id
+    
+    

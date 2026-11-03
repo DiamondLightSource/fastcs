@@ -1,0 +1,29 @@
+``fastcs.attributes``
+=====================
+
+.. automodule:: fastcs.attributes
+    :members:
+
+    
+    
+    .. rubric:: Submodules
+
+    .. autosummary::
+        :toctree:
+        :template: custom-module-template.rst
+        :recursive:
+    
+        attr_r
+        attr_rw
+        attr_w
+        attribute
+        attribute_io
+        attribute_io_ref
+        hinted_attribute
+        util
+    
+    
+
+    
+    
+    

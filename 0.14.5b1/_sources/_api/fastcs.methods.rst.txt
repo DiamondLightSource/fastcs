@@ -1,0 +1,24 @@
+``fastcs.methods``
+==================
+
+.. automodule:: fastcs.methods
+    :members:
+
+    
+    
+    .. rubric:: Submodules
+
+    .. autosummary::
+        :toctree:
+        :template: custom-module-template.rst
+        :recursive:
+    
+        command
+        method
+        scan
+    
+    
+
+    
+    
+    

@@ -1,0 +1,21 @@
+``fastcs.attributes.hinted_attribute``
+======================================
+        
+
+.. automodule:: fastcs.attributes.hinted_attribute
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        HintedAttribute
+    
+    

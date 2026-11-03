@@ -1,0 +1,25 @@
+``fastcs.connections.serial_connection``
+========================================
+        
+        
+        
+
+.. automodule:: fastcs.connections.serial_connection
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        NotOpenedError
+        SerialConnection
+        SerialConnectionSettings
+    
+    

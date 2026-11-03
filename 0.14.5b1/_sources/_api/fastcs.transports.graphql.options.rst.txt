@@ -1,0 +1,21 @@
+``fastcs.transports.graphql.options``
+=====================================
+        
+
+.. automodule:: fastcs.transports.graphql.options
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        GraphQLServerOptions
+    
+    

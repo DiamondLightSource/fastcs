@@ -1,0 +1,21 @@
+``fastcs.attributes.util``
+==========================
+        
+
+.. automodule:: fastcs.attributes.util
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        PredicateEvent
+    
+    

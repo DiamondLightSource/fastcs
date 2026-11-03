@@ -1,0 +1,25 @@
+``fastcs.datatypes.datatype``
+=============================
+        
+        
+        
+
+.. automodule:: fastcs.datatypes.datatype
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        DType
+        DType_T
+        DataType
+    
+    

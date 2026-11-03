@@ -1,0 +1,21 @@
+``fastcs.attributes.attribute_io``
+==================================
+        
+
+.. automodule:: fastcs.attributes.attribute_io
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        AttributeIO
+    
+    

@@ -1,0 +1,21 @@
+``fastcs.transports.epics.pva.pvi``
+===================================
+        
+
+.. automodule:: fastcs.transports.epics.pva.pvi
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        add_pvi_info
+    
+    
