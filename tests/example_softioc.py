@@ -22,7 +22,7 @@ class ExampleEnum(IntEnum):
 
 
 class ParentController(Controller):
-    a: AttrR = AttrR(Int())
+    a: AttrR = AttrR(Int(), initial_value=10)
     b: AttrRW = AttrRW(Int())
 
 
@@ -58,6 +58,7 @@ def run(id="SOFTIOC_TEST_DEVICE"):
             EpicsCATransport(
                 epicsca=EpicsCAOptions(
                     aliases={
+                        f"{id}:A": [f"{id}:AliasA1", f"{id}:AliasA2"],
                         f"{id}:B": f"{id}:AliasB",
                         f"{id}:B_RBV": f"{id}:AliasB_RBV",
                         f"{id}:ChildVector:0:E": EnumMapping(

@@ -27,7 +27,7 @@ from fastcs.util import snake_to_pascal
 tracer = Tracer()
 EnumT = TypeVar("EnumT", bound=IntEnum)
 RBV_SUFFIX = "_RBV"
-Alias = str | EnumMapping | CommandAlias
+Alias = str | list[str] | EnumMapping | CommandAlias
 # Callbacks to trigger commands from an enum label, keyed by command alias PV name
 CommandTriggers = list[Callable[[str], Awaitable[None]]]
 CommandAliases = dict[str, CommandTriggers]
@@ -42,11 +42,17 @@ class EpicsCAIOC:
         aliases: Mapping[str, Alias],
     ):
         # This creates a mapping of alias PV -> list of aliases
-        # A str or EnumMapping alias should not share an alias PV,
+        # A str, list[str], or EnumMapping alias should not share an alias PV,
         # but a CommandAlias may
         alias_groups: defaultdict[str, list[Alias]] = defaultdict(list)
         for value in aliases.values():
-            alias_groups[value if isinstance(value, str) else value.pv].append(value)
+            if isinstance(value, list):
+                for listed_alias in value:
+                    alias_groups[listed_alias].append(listed_alias)
+            else:
+                alias_groups[value if isinstance(value, str) else value.pv].append(
+                    value
+                )
 
         # Only allow duplicates of CommandAlias
         if duplicate_aliases := [
@@ -171,6 +177,9 @@ def _create_and_link_read_pv(
 
     if isinstance(alias, str):
         _add_alias(record, alias)
+    elif isinstance(alias, list):
+        for listed_alias in alias:
+            _add_alias(record, listed_alias)
     elif isinstance(alias, EnumMapping):
         enum_attr = _get_read_enum_attr_from_type(alias)
         _add_read_enum_alias(alias, attribute, enum_attr)
@@ -210,6 +219,9 @@ def _create_and_link_write_pv(
 
     if isinstance(alias, str):
         _add_alias(record, alias)
+    elif isinstance(alias, list):
+        for listed_alias in alias:
+            _add_alias(record, listed_alias)
     elif isinstance(alias, EnumMapping):
         enum_attr = _get_write_enum_attr_from_type(alias)
         _add_write_enum_alias(alias, attribute, enum_attr)
@@ -267,6 +279,9 @@ def _create_and_link_command_pv(
 
     if isinstance(alias, str):
         _add_alias(record, alias)
+    elif isinstance(alias, list):
+        for listed_alias in alias:
+            _add_alias(record, listed_alias)
     elif isinstance(alias, CommandAlias):
         _add_command_enum_alias(alias, method, command_aliases)
     elif isinstance(alias, EnumMapping):

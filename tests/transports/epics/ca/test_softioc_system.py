@@ -11,7 +11,8 @@ async def test_ioc(softioc_subprocess: tuple[str, Queue]):
     pv_prefix, _ = softioc_subprocess
 
     # Assert alias
-    assert await caget(f"{pv_prefix}:B") == await caget(f"{pv_prefix}:AliasB") == 0
+    initial_value_b = await caget(f"{pv_prefix}:B")
+    assert await caget(f"{pv_prefix}:AliasB") == initial_value_b
     await caput(f"{pv_prefix}:B", 10, wait=True)
     assert await caget(f"{pv_prefix}:AliasB") == 10
     await caput(f"{pv_prefix}:AliasB", 20, wait=True)
@@ -19,6 +20,14 @@ async def test_ioc(softioc_subprocess: tuple[str, Queue]):
     b_rbv = await caget(f"{pv_prefix}:B_RBV")
     alias_b_rbv = await caget(f"{pv_prefix}:AliasB_RBV")
     assert b_rbv == alias_b_rbv == 20
+
+    # Assert list of aliases
+    initial_value_a = await caget(f"{pv_prefix}:A")
+    assert (
+        await caget(f"{pv_prefix}:AliasA1")
+        == await caget(f"{pv_prefix}:AliasA2")
+        == initial_value_a
+    )
 
     # Assert command exceptions set record alarm states. The command record
     # reverts back to False once the (failing) command completes.
