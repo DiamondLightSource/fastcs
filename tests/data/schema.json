@@ -67,6 +67,12 @@
                 "type": "string"
               },
               {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
                 "$ref": "#/$defs/EnumMapping"
               },
               {
