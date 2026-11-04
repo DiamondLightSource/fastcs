@@ -37,7 +37,11 @@ class ParentController(Controller):
     description = "some controller"
     a: AttrRW = AttrRW(
         int,
-        limits=NumericLimits(control=Limits(high=400_000), alarm=Limits(high=40_000)),
+        limits=NumericLimits(
+            control=Limits(high=400_000),
+            alarm=Limits(high=40_000),
+            warning=Limits(high=4_000),
+        ),
         io_ref=SimpleAttributeIORef(),
     )
     b: AttrW = AttrW(

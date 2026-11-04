@@ -62,9 +62,13 @@ def make_p4p_type(
     if dtype is bool:
         return NTScalar.buildType("?", display=display, control=control)
     if dtype is int:
-        return NTScalar.buildType("i", display=display, control=control)
+        return NTScalar.buildType(
+            "i", display=display, control=control, valueAlarm=True
+        )
     if dtype is float:
-        return NTScalar.buildType("d", display=display, control=control, form=True)
+        return NTScalar.buildType(
+            "d", display=display, control=control, valueAlarm=True, form=True
+        )
     if dtype is str:
         return NTScalar.buildType("s", display=display, control=control)
     if issubclass(dtype, enum.Enum):
@@ -226,32 +230,49 @@ def p4p_control(attribute: Attribute) -> dict:
     return {}
 
 
+def p4p_value_alarm(attribute: Attribute) -> dict:
+    """Gets the p4p valueAlarm structure - the alarm and warning thresholds."""
+    limits: NumericLimits | None = attribute.meta.get("limits")
+    if attribute.dtype not in (int, float) or limits is None:
+        return {}
+
+    value_alarm = {}
+    for limit, severity_field, value, severity in (
+        ("lowAlarmLimit", "lowAlarmSeverity", limits.alarm.low, Severity.MAJOR),
+        ("highAlarmLimit", "highAlarmSeverity", limits.alarm.high, Severity.MAJOR),
+        ("lowWarningLimit", "lowWarningSeverity", limits.warning.low, Severity.MINOR),
+        (
+            "highWarningLimit",
+            "highWarningSeverity",
+            limits.warning.high,
+            Severity.MINOR,
+        ),
+    ):
+        if value is not None:
+            value_alarm[limit] = value
+            value_alarm[severity_field] = severity
+
+    if value_alarm:
+        return {"valueAlarm": {"active": True, **value_alarm}}
+    return {}
+
+
 def _p4p_check_numeric_for_alarm_states(meta: Meta, value: DType) -> dict:
     limits: NumericLimits | None = meta.get("limits")
-    alarm = limits.alarm if limits is not None else None
-    alarm_low = alarm.low if alarm is not None else None
-    alarm_high = alarm.high if alarm is not None else None
+    if limits is not None:
+        # The alarm range is checked first, so a value outside both is MAJOR
+        for severity, kind, bounds in (
+            (Severity.MAJOR, "alarm", limits.alarm),
+            (Severity.MINOR, "warning", limits.warning),
+        ):
+            if bounds.low is not None and value < bounds.low:
+                message = f"Below minimum {kind} limit: {bounds.low}"
+                return p4p_alarm_states(severity, Status.RECORD, message).model_dump()
+            if bounds.high is not None and value > bounds.high:  # type: ignore
+                message = f"Above maximum {kind} limit: {bounds.high}"
+                return p4p_alarm_states(severity, Status.RECORD, message).model_dump()
 
-    low = None if alarm_low is None else value < alarm_low  # type: ignore
-    high = None if alarm_high is None else value > alarm_high  # type: ignore
-    severity = (
-        Severity.MAJOR
-        if high not in (None, False) or low not in (None, False)
-        else Severity.NO_ALARM
-    )
-    status, message = Status.NO_ALARM, "No alarm"
-    if low:
-        status, message = (
-            Status.RECORD,
-            f"Below minimum alarm limit: {alarm_low}",
-        )
-    if high:
-        status, message = (
-            Status.RECORD,
-            f"Above maximum alarm limit: {alarm_high}",
-        )
-
-    return p4p_alarm_states(severity, status, message).model_dump()
+    return p4p_alarm_states(Severity.NO_ALARM, Status.NO_ALARM, "No alarm").model_dump()
 
 
 def cast_to_p4p_value(attribute: Attribute[DType_T], value: DType_T) -> object:
@@ -275,6 +296,7 @@ def cast_to_p4p_value(attribute: Attribute[DType_T], value: DType_T) -> object:
         record_fields.update(p4p_control(attribute))
 
     if dtype in (int, float):
+        record_fields.update(p4p_value_alarm(attribute))
         record_fields.update(_p4p_check_numeric_for_alarm_states(attribute.meta, value))
     else:
         record_fields.update(p4p_alarm_states())

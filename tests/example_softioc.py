@@ -4,6 +4,7 @@ from pathlib import Path
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerVector
+from fastcs.datatypes import Limits, NumericLimits
 from fastcs.methods import command
 from fastcs.transports.epics.ca.transport import (
     EpicsCAOptions,
@@ -19,7 +20,14 @@ class ParentController(Controller):
 
 class ChildController(Controller):
     fail_on_next_e: bool = True
-    c: AttrW = AttrW(int)
+    c: AttrW = AttrW(
+        int,
+        limits=NumericLimits(
+            control=Limits(high=400_000),
+            alarm=Limits(high=40_000),
+            warning=Limits(high=4_000),
+        ),
+    )
 
     @command()
     async def d(self):

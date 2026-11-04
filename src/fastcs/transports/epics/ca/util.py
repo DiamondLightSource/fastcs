@@ -91,6 +91,30 @@ def _control_limit_fields(meta: Meta) -> dict[str, Any]:
     }
 
 
+def _alarm_limit_fields(meta: Meta) -> dict[str, Any]:
+    """The record fields that raise an alarm when the value leaves a range.
+
+    Only the limits that are set are returned, each with its severity - an EPICS
+    limit with no severity never alarms.
+    """
+    limits: NumericLimits | None = meta.get("limits")
+    if limits is None:
+        return {}
+
+    fields: dict[str, Any] = {}
+    for limit, severity_field, value, severity in (
+        ("HIHI", "HHSV", limits.alarm.high, "MAJOR"),
+        ("LOLO", "LLSV", limits.alarm.low, "MAJOR"),
+        ("HIGH", "HSV", limits.warning.high, "MINOR"),
+        ("LOW", "LSV", limits.warning.low, "MINOR"),
+    ):
+        if value is not None:
+            fields[limit] = value
+            fields[severity_field] = severity
+
+    return fields
+
+
 def _string_length(meta: Meta) -> int:
     return (meta.get("length") or DEFAULT_STRING_WAVEFORM_LENGTH) + 1
 
@@ -114,6 +138,7 @@ def _make_in_record(pv: str, attribute: AttrR) -> RecordWrapper:
             pv,
             EGU=meta.get("units"),
             **_display_limit_fields(meta),
+            **_alarm_limit_fields(meta),
             **common_fields,
         )
     elif dtype is float:
@@ -122,6 +147,7 @@ def _make_in_record(pv: str, attribute: AttrR) -> RecordWrapper:
             EGU=meta.get("units"),
             PREC=meta.get("precision", DEFAULT_PRECISION),
             **_display_limit_fields(meta),
+            **_alarm_limit_fields(meta),
             **common_fields,
         )
     elif dtype is str:
@@ -165,6 +191,7 @@ def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWr
             EGU=meta.get("units"),
             **_display_limit_fields(meta),
             **_control_limit_fields(meta),
+            **_alarm_limit_fields(meta),
             **common_fields,
         )
     elif dtype is float:
@@ -174,6 +201,7 @@ def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWr
             PREC=meta.get("precision", DEFAULT_PRECISION),
             **_display_limit_fields(meta),
             **_control_limit_fields(meta),
+            **_alarm_limit_fields(meta),
             **common_fields,
         )
     elif dtype is str:
@@ -205,6 +233,7 @@ def _in_record_fields(meta: Meta) -> dict[str, Any]:
         "PREC": meta.get("precision"),
         "EGU": meta.get("units"),
         **_display_limit_fields(meta),
+        **_alarm_limit_fields(meta),
     }
 
 
