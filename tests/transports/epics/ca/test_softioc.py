@@ -15,7 +15,14 @@ from tests.util import ColourEnum
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import Array1D, Limits, Meta, NumericLimits, Table
+from fastcs.datatypes import (
+    DEFAULT_PRECISION,
+    Array1D,
+    Limits,
+    Meta,
+    NumericLimits,
+    Table,
+)
 from fastcs.exceptions import FastCSError
 from fastcs.methods import Command
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -678,6 +685,60 @@ def test_alarm_limits_follow_update_meta(mocker: MockerFixture):
 
     record.set_field.assert_any_call("HIHI", 40)
     record.set_field.assert_any_call("HHSV", "MAJOR")
+
+
+@pytest.mark.parametrize(
+    "make_record, attribute, meta, expected",
+    [
+        pytest.param(
+            _make_out_record,
+            AttrW(float, units="mm", precision=3, limits=FLOAT_ALARMS),
+            Meta(),
+            {
+                "EGU": "",
+                "PREC": DEFAULT_PRECISION,
+                "LOPR": 0,
+                "HOPR": 0,
+                "DRVL": 0,
+                "DRVH": 0,
+                "HHSV": "NO_ALARM",
+                "LLSV": "NO_ALARM",
+                "HSV": "NO_ALARM",
+                "LSV": "NO_ALARM",
+            },
+            id="float-out-all-removed",
+        ),
+        pytest.param(
+            _make_in_record,
+            AttrR(int, units="mm", limits=INT_ALARMS),
+            Meta(limits=NumericLimits(alarm=Limits(high=40))),
+            {
+                "EGU": "",
+                "LOPR": 0,
+                "HOPR": 0,
+                "HIHI": 40,
+                "HHSV": "MAJOR",
+                "HIGH": 40,
+                "HSV": "MINOR",
+                "LLSV": "NO_ALARM",
+                "LSV": "NO_ALARM",
+            },
+            id="int-in-low-limits-removed",
+        ),
+        pytest.param(_make_in_record, AttrR(bool), Meta(), {}, id="bool-in"),
+    ],
+)
+def test_update_meta_unsets_removed_fields(
+    mocker: MockerFixture, make_record, attribute, meta, expected
+):
+    mocker.patch("fastcs.transports.epics.ca.util.builder")
+    kwargs = {"on_update": mocker.MagicMock()} if isinstance(attribute, AttrW) else {}
+    record = make_record(f"{DEVICE}:Attr", attribute, **kwargs)
+
+    attribute.update_meta(meta)
+
+    writes = {call.args[0]: call.args[1] for call in record.set_field.call_args_list}
+    assert writes == expected
 
 
 def test_update_meta(mocker: MockerFixture):

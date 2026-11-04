@@ -21,6 +21,22 @@ from fastcs.transports.epics.util import validate_epics_pv_id
 
 _CA_ID_RE = re.compile(r"^[A-Za-z0-9_:-]+$")
 
+# The value that unsets each metadata-driven field on a record
+_UNSET_FIELD_VALUES: dict[str, Any] = {
+    "EGU": "",
+    "PREC": DEFAULT_PRECISION,
+    "LOPR": 0,
+    "HOPR": 0,
+    # Equal drive limits turn clamping off
+    "DRVL": 0,
+    "DRVH": 0,
+    # A limit with no severity never alarms
+    "HHSV": "NO_ALARM",
+    "LLSV": "NO_ALARM",
+    "HSV": "NO_ALARM",
+    "LSV": "NO_ALARM",
+}
+
 
 def validate_ca_id(controller_api: ControllerAPI) -> None:
     """Reject controller ids that wouldn't be safe in an EPICS CA PV name.
@@ -228,30 +244,54 @@ def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWr
     return record
 
 
-def _in_record_fields(meta: Meta) -> dict[str, Any]:
-    return {
-        "PREC": meta.get("precision"),
+def _in_record_fields(dtype: type, meta: Meta) -> dict[str, Any]:
+    """The metadata-driven fields of an in record, None for each one left unset."""
+    if dtype not in (int, float):
+        return {}
+
+    fields = {
         "EGU": meta.get("units"),
         **_display_limit_fields(meta),
+        **dict.fromkeys(("HHSV", "LLSV", "HSV", "LSV")),
         **_alarm_limit_fields(meta),
     }
+    if dtype is float:  # long records have no PREC field
+        fields["PREC"] = meta.get("precision")
+
+    return fields
 
 
-def _out_record_fields(meta: Meta) -> dict[str, Any]:
-    return {**_in_record_fields(meta), **_control_limit_fields(meta)}
+def _out_record_fields(dtype: type, meta: Meta) -> dict[str, Any]:
+    """The metadata-driven fields of an out record, None for each one left unset."""
+    if dtype not in (int, float):
+        return {}
+
+    return {**_in_record_fields(dtype, meta), **_control_limit_fields(meta)}
+
+
+def _with_unset_values(fields: dict[str, Any]) -> dict[str, Any]:
+    """fields with each one left unset (None) given the value that unsets it."""
+    return {
+        field: _UNSET_FIELD_VALUES[field] if value is None else value
+        for field, value in fields.items()
+    }
 
 
 def _mirror_meta_onto_record(
     attribute: Attribute,
     record: RecordWrapper,
-    fields_from_meta: Callable[[Meta], dict[str, Any]],
+    fields_from_meta: Callable[[type, Meta], dict[str, Any]],
 ) -> None:
-    """Push later metadata changes (e.g., new units) onto the record."""
+    """Push later metadata changes (e.g., new units) onto the record.
+
+    `Attribute.update_meta` replaces the whole metadata, so a field the new
+    metadata leaves out is unset on the record rather than left at its old value.
+    """
 
     def meta_updater(meta: Meta) -> None:
-        for field, value in fields_from_meta(meta).items():
-            if value is not None:
-                record.set_field(field, value)
+        fields = _with_unset_values(fields_from_meta(attribute.dtype, meta))
+        for field, value in fields.items():
+            record.set_field(field, value)
 
     attribute.add_update_meta_callback(meta_updater)
 
