@@ -201,10 +201,19 @@ async def test_numeric_alarms(p4p_subprocess: tuple[str, Queue]):
         assert value["alarm"]["severity"] == 2
         assert value["alarm"]["message"] == "Above maximum alarm limit: 40000"
 
+        # Inside alarm limit, but still above the warning limit
         await ctxt.put(f"{pv_prefix}:A", 40_000)
 
         value = (await a_values.get()).raw
         assert value["value"] == 40_000
+        assert isinstance(value["value"], int)
+        assert value["alarm"]["severity"] == 1
+        assert value["alarm"]["message"] == "Above maximum warning limit: 4000"
+
+        await ctxt.put(f"{pv_prefix}:A", 4_000)
+
+        value = (await a_values.get()).raw
+        assert value["value"] == 4_000
         assert isinstance(value["value"], int)
         assert value["alarm"]["severity"] == 0
         assert value["alarm"]["message"] == "No alarm"
