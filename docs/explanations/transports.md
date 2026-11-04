@@ -138,6 +138,8 @@ def create_read(name, attribute):
         limits = meta.get("limits")
         if limits is not None:
             protocol_read.set_limits(limits.control.low, limits.control.high)
+        else:
+            protocol_read.clear_limits()
 
     attribute.add_update_meta_callback(update_protocol_metadata)
 ```

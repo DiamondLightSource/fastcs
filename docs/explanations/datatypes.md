@@ -12,7 +12,7 @@ temperature = AttrRW(float, precision=3, units="degC")
 Where `attr.dtype` is `float`, and `attr.meta` is a plain typed dict.
 
 ```python
-temperature.meta # {'precision': 2, 'units': 'degC'}
+temperature.meta # {'precision': 3, 'units': 'degC'}
 ```
 
 ## Supported Types
@@ -146,7 +146,7 @@ temperature = AttrRW(
 )
 ```
 
-Only the **control** range rejects values. Display, alarm and warning are served
+Only the **control** range rejects values; however, **display** limits are used as **control** limits if **control** limits are not provided. Display, alarm and warning are served
 to clients - EPICS `LOPR`/`HOPR` and `DRVL`/`DRVH`, Tango's attribute
 properties, the PVA display and alarm structures - but do not constrain a write.
 
