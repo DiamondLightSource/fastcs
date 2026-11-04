@@ -103,7 +103,7 @@ def _display_limit_fields(meta: Meta) -> dict[str, Any]:
 # not have. ao drive limits are doubles, longout ones 32-bit integers.
 _OPEN_DRIVE_LIMITS: dict[type, tuple[int | float, int | float]] = {
     float: (-math.inf, math.inf),
-    int: (-(2**31), 2**31 - 1),
+    int: (int(np.iinfo(np.int32).min), int(np.iinfo(np.int32).max)),
 }
 
 
