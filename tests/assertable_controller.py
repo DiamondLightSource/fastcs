@@ -7,7 +7,7 @@ from pytest_mock import MockerFixture, MockType
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerAPI
-from fastcs.datatypes import DType_T, Int
+from fastcs.datatypes import DType_T
 from fastcs.methods import command, scan
 
 
@@ -30,7 +30,7 @@ test_attribute_io = MyTestAttributeIO()  # instance
 
 
 class TestSubController(Controller):
-    read_int: AttrR = AttrR(Int(), io_ref=MyTestAttributeIORef())
+    read_int: AttrR = AttrR(int, io_ref=MyTestAttributeIORef())
 
     def __init__(self) -> None:
         super().__init__(ios=[test_attribute_io])

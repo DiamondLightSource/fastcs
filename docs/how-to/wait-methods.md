@@ -10,12 +10,11 @@ Use `wait_for_value()` to pause execution until an attribute reaches an exact va
 ```python
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Int
 from fastcs.methods import command
 
 class MotorController(Controller):
-    position: AttrR[int] = AttrR(Int())
-    target: AttrR[int] = AttrR(Int())
+    position: AttrR[int] = AttrR(int)
+    target: AttrR[int] = AttrR(int)
 
     @command()
     async def move_and_wait(self):
@@ -37,11 +36,10 @@ takes the attribute value and returns `True` when the condition is satisfied:
 ```python
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 from fastcs.methods import command
 
 class TemperatureController(Controller):
-    temperature: AttrR[float] = AttrR(Float())
+    temperature: AttrR[float] = AttrR(float)
 
     @command()
     async def wait_for_stable(self):
@@ -89,13 +87,12 @@ import asyncio
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 from fastcs.methods import command
 
 class MultiAxisController(Controller):
-    x_position = AttrR(Float())
-    y_position = AttrR(Float())
-    z_position = AttrR(Float())
+    x_position = AttrR(float)
+    y_position = AttrR(float)
+    z_position = AttrR(float)
 
     @command()
     async def move_all_and_wait(self):

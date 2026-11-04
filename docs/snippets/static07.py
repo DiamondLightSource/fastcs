@@ -5,7 +5,6 @@ from typing import TypeVar
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import String
 from fastcs.launch import FastCS
 from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -32,7 +31,7 @@ class IDAttributeIO(AttributeIO[NumberT, IDAttributeIORef]):
 
 
 class TemperatureController(Controller):
-    device_id = AttrR(String(), io_ref=IDAttributeIORef())
+    device_id = AttrR(str, io_ref=IDAttributeIORef())
 
     def __init__(self, settings: IPConnectionSettings):
         self._ip_settings = settings

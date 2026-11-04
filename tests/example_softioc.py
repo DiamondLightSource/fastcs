@@ -4,7 +4,7 @@ from pathlib import Path
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Int
+from fastcs.datatypes import Limits, NumericLimits
 from fastcs.methods import command
 from fastcs.transports.epics.ca.transport import (
     EpicsCAOptions,
@@ -14,13 +14,20 @@ from fastcs.transports.epics.ca.transport import (
 
 
 class ParentController(Controller):
-    a: AttrR = AttrR(Int())
-    b: AttrRW = AttrRW(Int())
+    a: AttrR = AttrR(int)
+    b: AttrRW = AttrRW(int)
 
 
 class ChildController(Controller):
     fail_on_next_e: bool = True
-    c: AttrW = AttrW(Int())
+    c: AttrW = AttrW(
+        int,
+        limits=NumericLimits(
+            control=Limits(high=400_000),
+            alarm=Limits(high=40_000),
+            warning=Limits(high=4_000),
+        ),
+    )
 
     @command()
     async def d(self):
@@ -34,12 +41,12 @@ class ChildController(Controller):
             print("D: FINISHED")
 
 
-def run(id="SOFTIOC_TEST_DEVICE"):
+def run(id="SOFTIOC_TEST_DEVICE", gui_dir: Path = Path("opis")):
     controller = ParentController()
     controller.set_path([id])
     vector = ControllerVector({i: ChildController() for i in range(2)})
     controller.add_sub_controller("ChildVector", vector)
-    gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Vector")
+    gui_options = EpicsGUIOptions(output_dir=gui_dir, title="Demo Vector")
     fastcs = FastCS(
         controller,
         [
