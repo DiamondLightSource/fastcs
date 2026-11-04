@@ -38,7 +38,7 @@ def meta_class_for_dtype(dtype: type[DType], meta: Meta) -> Any:
     if issubclass(dtype, enum.Enum):
         return EnumMeta
     if issubclass(dtype, np.ndarray):
-        return TableMeta if "structured_dtype" in meta else Array1DMeta
+        return TableMeta if meta.get("structured_dtype") is not None else Array1DMeta
 
     raise TypeError(f"Unsupported datatype {dtype!r}")
 
@@ -59,6 +59,14 @@ def validate_meta(dtype: type[DType], meta: Meta, name: str = "attribute") -> No
         TypeError: If a field is not meaningful for the datatype
 
     """
+    # Check that required fields are passed in
+    if issubclass(dtype, np.ndarray) and (
+        meta.get("array_dtype") is None and meta.get("structured_dtype") is None
+    ):
+        raise TypeError(
+            f"An array attribute needs array_dtype or structured_dtype for {name}"
+        )
+
     allowed = meta_fields(meta_class_for_dtype(dtype, meta))
     for field in meta:
         if field not in allowed:

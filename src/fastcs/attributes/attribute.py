@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Generic, Literal, cast
 
 from fastcs.attributes.attribute_io_ref import AttributeIORefT
@@ -131,13 +131,23 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
         """Replace this attribute's metadata, notifying anything serving it.
 
         Args:
-            meta: The new metadata, which must be valid for the datatype
+            meta: The new metadata, which must be valid for the datatype. Fields
+                set to None are dropped, as they are by the constructor
 
         Raises:
             TypeError: If a field is not meaningful for the datatype
 
         """
+        meta = _drop_unset(meta)
         validate_meta(self._dtype, meta, self.full_name or "attribute")
+
+        # Table is mapped to np.ndarray, so check that meta update
+        # does not attempt to convert to an array
+        is_table = self._meta.get("structured_dtype") is not None
+        if is_table != (meta.get("structured_dtype") is not None):
+            raise TypeError(
+                "update_meta cannot change an attribute between array and table"
+            )
 
         self._meta = meta
         for callback in self._update_meta_callbacks:
@@ -167,13 +177,18 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
         return f"{name}(name={full_name}, dtype={dtype}, io_ref={self._io_ref})"
 
 
+def _drop_unset(meta: Mapping[str, Any]) -> Meta:
+    """``meta`` without the fields set to None, which mean the field is not set."""
+    return cast(Meta, {k: v for k, v in meta.items() if v is not None})
+
+
 def _resolve_meta(
     datatype: Any,
     element_type: Any,
     meta: dict[str, Any],
 ) -> Meta:
     """Fold what the datatype spelling implied into the metadata given."""
-    resolved: dict[str, Any] = {k: v for k, v in meta.items() if v is not None}
+    resolved: dict[str, Any] = dict(_drop_unset(meta))
 
     spelled_as_table = isinstance(datatype, type) and issubclass(datatype, Table)
     if spelled_as_table and "structured_dtype" not in resolved:

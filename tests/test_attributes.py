@@ -490,7 +490,8 @@ async def test_attribute_metadata():
     }
     assert attr.description == "the temperature"
 
-    attr.update_meta(Meta(units="mm"))
+    # A field set to None is dropped, as it is by the constructor
+    attr.update_meta(Meta(units="mm", precision=None))  # pyright: ignore[reportArgumentType]
 
     assert attr.meta == {"units": "mm"}
     assert seen == [{"units": "mm"}]  # Updating metadata runs callbacks
@@ -530,6 +531,61 @@ def test_update_meta_rejects_metadata_the_datatype_has_no_use_for():
 
     with pytest.raises(TypeError, match="'length' is not valid metadata for int"):
         attr.update_meta(Meta(length=4))
+
+
+@pytest.mark.parametrize(
+    "attr",
+    [
+        pytest.param(
+            AttrR(np.ndarray, array_dtype=np.int32, shape=(10, 10)),
+            id="missing-array-dtype",
+        ),
+        pytest.param(
+            AttrR(Table, structured_dtype=[("index", np.int32)]),
+            id="missing-structured-dtype",
+        ),
+    ],
+)
+def test_update_meta_rejects_metadata_if_missing_required_fields(attr: AttrR):
+    with pytest.raises(
+        TypeError, match="An array attribute needs array_dtype or structured_dtype"
+    ):
+        attr.update_meta(Meta(description="An update"))
+
+
+@pytest.mark.parametrize(
+    "attr, meta",
+    [
+        pytest.param(
+            AttrR(np.ndarray, array_dtype=np.int32, shape=(10, 10)),
+            Meta(structured_dtype=[("index", np.int32)]),
+            id="switch-structured-dtype",
+        ),
+        pytest.param(
+            AttrR(Table, structured_dtype=[("index", np.int32)]),
+            Meta(array_dtype=np.int32),
+            id="switch-array-dtype",
+        ),
+    ],
+)
+def test_update_meta_rejects_metadata_if_switching_array_and_table(
+    attr: AttrR, meta: Meta
+):
+    with pytest.raises(
+        TypeError,
+        match="update_meta cannot change an attribute between array and table",
+    ):
+        attr.update_meta(meta)
+
+
+def test_rejected_update_meta_leaves_the_metadata_unchanged():
+    attr = AttrR(Table, structured_dtype=[("index", np.int32)])
+    meta = attr.meta
+
+    with pytest.raises(TypeError):
+        attr.update_meta(Meta(description="An update"))
+
+    assert attr.meta == meta
 
 
 def test_array_element_type_is_not_given_twice():
