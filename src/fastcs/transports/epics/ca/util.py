@@ -1,4 +1,5 @@
 import enum
+import math
 import re
 from collections.abc import Callable
 from typing import Any, cast
@@ -96,14 +97,29 @@ def _display_limit_fields(meta: Meta) -> dict[str, Any]:
     }
 
 
-def _control_limit_fields(meta: Meta) -> dict[str, Any]:
+# The drive limit for an endpoint the control range leaves open. A record only
+# clamps when DRVH > DRVL, so both open is left unset (0/0, no clamping); with
+# only one open, a zero there would clamp writes to a bound the attribute does
+# not have. ao drive limits are doubles, longout ones 32-bit integers.
+_OPEN_DRIVE_LIMITS: dict[type, tuple[int | float, int | float]] = {
+    float: (-math.inf, math.inf),
+    int: (-(2**31), 2**31 - 1),
+}
+
+
+def _control_limit_fields(dtype: type, meta: Meta) -> dict[str, Any]:
     """The record fields for the range an attribute may be driven to."""
     limits: NumericLimits | None = meta.get("limits")
     control = limits.control if limits is not None else None
+    low = control.low if control is not None else None
+    high = control.high if control is not None else None
+    if low is None and high is None:
+        return {"DRVL": None, "DRVH": None}
 
+    open_low, open_high = _OPEN_DRIVE_LIMITS[dtype]
     return {
-        "DRVL": control.low if control is not None else None,
-        "DRVH": control.high if control is not None else None,
+        "DRVL": open_low if low is None else low,
+        "DRVH": open_high if high is None else high,
     }
 
 
@@ -206,7 +222,7 @@ def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWr
             pv,
             EGU=meta.get("units"),
             **_display_limit_fields(meta),
-            **_control_limit_fields(meta),
+            **_control_limit_fields(int, meta),
             **_alarm_limit_fields(meta),
             **common_fields,
         )
@@ -216,7 +232,7 @@ def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWr
             EGU=meta.get("units"),
             PREC=meta.get("precision", DEFAULT_PRECISION),
             **_display_limit_fields(meta),
-            **_control_limit_fields(meta),
+            **_control_limit_fields(float, meta),
             **_alarm_limit_fields(meta),
             **common_fields,
         )
@@ -266,7 +282,7 @@ def _out_record_fields(dtype: type, meta: Meta) -> dict[str, Any]:
     if dtype not in (int, float):
         return {}
 
-    return {**_in_record_fields(dtype, meta), **_control_limit_fields(meta)}
+    return {**_in_record_fields(dtype, meta), **_control_limit_fields(dtype, meta)}
 
 
 def _with_unset_values(fields: dict[str, Any]) -> dict[str, Any]:

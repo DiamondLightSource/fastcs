@@ -1,4 +1,5 @@
 import enum
+import math
 import re
 from typing import Any
 
@@ -724,6 +725,42 @@ def test_alarm_limits_follow_update_meta(mocker: MockerFixture):
                 "LSV": "NO_ALARM",
             },
             id="int-in-low-limits-removed",
+        ),
+        # An open drive limit puts no bound on writes, rather than a zero one
+        pytest.param(
+            _make_out_record,
+            AttrW(float),
+            Meta(limits=NumericLimits(control=Limits(high=10.0))),
+            {
+                "EGU": "",
+                "PREC": DEFAULT_PRECISION,
+                "LOPR": 0,
+                "HOPR": 0,
+                "DRVL": -math.inf,
+                "DRVH": 10.0,
+                "HHSV": "NO_ALARM",
+                "LLSV": "NO_ALARM",
+                "HSV": "NO_ALARM",
+                "LSV": "NO_ALARM",
+            },
+            id="float-out-high-only-control",
+        ),
+        pytest.param(
+            _make_out_record,
+            AttrW(int),
+            Meta(limits=NumericLimits(control=Limits(low=-10))),
+            {
+                "EGU": "",
+                "LOPR": 0,
+                "HOPR": 0,
+                "DRVL": -10,
+                "DRVH": 2**31 - 1,
+                "HHSV": "NO_ALARM",
+                "LLSV": "NO_ALARM",
+                "HSV": "NO_ALARM",
+                "LSV": "NO_ALARM",
+            },
+            id="int-out-low-only-control",
         ),
         pytest.param(_make_in_record, AttrR(bool), Meta(), {}, id="bool-in"),
     ],
