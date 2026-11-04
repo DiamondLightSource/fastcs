@@ -42,6 +42,20 @@ class OnOffStates(enum.IntEnum):
     ENABLED = 1
 
 
+ALARM_FIELDS = {
+    "HIHI": 100,
+    "HHSV": "MAJOR",
+    "LOLO": 0,
+    "LLSV": "MAJOR",
+    "HIGH": 90,
+    "HSV": "MINOR",
+    "LOW": 10,
+    "LSV": "MINOR",
+}
+INT_ALARMS = NumericLimits(alarm=Limits(0, 100), warning=Limits(10, 90))
+FLOAT_ALARMS = NumericLimits(alarm=Limits(0.0, 100.0), warning=Limits(10.0, 90.0))
+
+
 @pytest.mark.asyncio
 async def test_create_and_link_read_pv(mocker: MockerFixture):
     make_record = mocker.patch("fastcs.transports.epics.ca.ioc._make_in_record")
@@ -183,6 +197,31 @@ async def test_ioc_raises_if_duplicate_aliases_provided(mocker: MockerFixture):
                 "length": 10,
             },
         ),
+        (
+            AttrR(int, limits=INT_ALARMS),
+            "longIn",
+            {
+                **ALARM_FIELDS,
+                "EGU": None,
+                "LOPR": None,
+                "HOPR": None,
+                "DESC": None,
+                "initial_value": 0,
+            },
+        ),
+        (
+            AttrR(float, limits=FLOAT_ALARMS),
+            "aIn",
+            {
+                **ALARM_FIELDS,
+                "EGU": None,
+                "PREC": 2,
+                "LOPR": None,
+                "HOPR": None,
+                "DESC": None,
+                "initial_value": 0.0,
+            },
+        ),
     ),
 )
 def test_make_input_record(
@@ -286,6 +325,35 @@ class LongEnum(enum.Enum):
             AttrW(str, length=10),
             "longStringOut",
             {"length": 11, "DESC": None, "initial_value": ""},
+        ),
+        (
+            AttrW(int, limits=INT_ALARMS),
+            "longOut",
+            {
+                **ALARM_FIELDS,
+                "EGU": None,
+                "LOPR": None,
+                "HOPR": None,
+                "DRVL": None,
+                "DRVH": None,
+                "DESC": None,
+                "initial_value": 0,
+            },
+        ),
+        (
+            AttrW(float, limits=FLOAT_ALARMS),
+            "aOut",
+            {
+                **ALARM_FIELDS,
+                "EGU": None,
+                "PREC": 2,
+                "LOPR": None,
+                "HOPR": None,
+                "DRVL": None,
+                "DRVH": None,
+                "DESC": None,
+                "initial_value": 0.0,
+            },
         ),
     ),
 )
@@ -591,6 +659,25 @@ def test_table_attribute_is_not_given_a_pv(mocker: MockerFixture):
     EpicsCAIOC([api], {})
 
     create_mock.assert_not_called()
+
+
+def test_no_alarm_fields_without_limits(mocker: MockerFixture):
+    builder = mocker.patch("fastcs.transports.epics.ca.util.builder")
+
+    _make_in_record(f"{DEVICE}:Attr", AttrR(int))
+
+    assert ALARM_FIELDS.keys().isdisjoint(builder.longIn.call_args.kwargs)
+
+
+def test_alarm_limits_follow_update_meta(mocker: MockerFixture):
+    mocker.patch("fastcs.transports.epics.ca.util.builder")
+    attr = AttrR(int)
+    record = _make_in_record(f"{DEVICE}:Attr", attr)
+
+    attr.update_meta(Meta(limits=NumericLimits(alarm=Limits(high=40))))
+
+    record.set_field.assert_any_call("HIHI", 40)
+    record.set_field.assert_any_call("HHSV", "MAJOR")
 
 
 def test_update_meta(mocker: MockerFixture):
