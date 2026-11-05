@@ -4,7 +4,7 @@ import enum
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.controllers import Controller, ControllerRunner, ControllerVector
 from fastcs.datatypes import Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
 
@@ -265,11 +265,11 @@ async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
             raise RuntimeError("scan error")
 
     controller = MyTestController()
-    controller.post_initialise()
-    _, scan_coros, _ = controller.create_api_and_tasks()
+    runner = ControllerRunner(controller)
+    await runner.build()
 
     controller._connected = True
-    task = asyncio.create_task(scan_coros[0]())
+    task = asyncio.create_task(runner._scan_coros[0]())
 
     # Wait long enough for the scan to run and raise, setting _connected = False
     await asyncio.sleep(0.1)

@@ -94,8 +94,8 @@ async def test_update_periods():
     assert controller.update_once.get() == 1
     assert controller.update_never.get() == 0
 
-    assert len(fastcs._scan_tasks) == 1
-    assert len(fastcs._initial_coros) == 1
+    assert len(fastcs._runner._tasks) == 1
+    assert len(fastcs._runner._initial_coros) == 1
 
 
 @pytest.mark.asyncio

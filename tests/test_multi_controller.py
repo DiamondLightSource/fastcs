@@ -39,7 +39,7 @@ def test_controller_api_path_uses_id():
     controller.add_sub_controller("Sub", sub)
     controller.set_path(["X"])
 
-    api, _, _ = controller.create_api_and_tasks()
+    api = controller._build_api(controller.path)
 
     assert api.path == ["X"]
     assert api.sub_apis["Sub"].path == ["X", "Sub"]
@@ -48,7 +48,7 @@ def test_controller_api_path_uses_id():
 def _api_with_id(controller_class: type[Controller], id: str):
     controller = controller_class()
     controller.set_path([id])
-    api, _, _ = controller.create_api_and_tasks()
+    api = controller._build_api(controller.path)
     return api
 
 
