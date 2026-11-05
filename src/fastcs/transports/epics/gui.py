@@ -163,6 +163,11 @@ class EpicsGUI:
 
         groups: dict[str, list[ComponentUnion]] = {}
         for attr_name, attribute in controller_api.attributes.items():
+            if not attribute.enabled:
+                # The IOC is built before the GUI, so anything it could not
+                # serve has already said so - don't draw a control for it.
+                continue
+
             try:
                 signal = self._get_attribute_component(
                     controller_api.path,
@@ -189,6 +194,9 @@ class EpicsGUI:
                     components.append(signal)
 
         for name, command in controller_api.command_methods.items():
+            if not command.enabled:
+                continue
+
             signal = self._get_command_component(controller_api.path, name)
 
             match command:

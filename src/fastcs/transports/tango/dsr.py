@@ -8,7 +8,8 @@ from tango.server import Device
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.methods import CommandCallback
+from fastcs.logging import logger
+from fastcs.methods import Command
 
 from .options import TangoDSROptions
 from .util import (
@@ -108,19 +109,50 @@ def _collect_dev_attributes(
     return collection
 
 
+# Tango commands carry at most one input value, so a command taking more than
+# one argument has no faithful representation and is skipped (ADR 0015).
+TANGO_MAX_COMMAND_ARGUMENTS = 1
+
+TANGO_COMMAND_DTYPES: tuple[type, ...] = (bool, int, float, str)
+"""The command argument and return types Tango can carry.
+
+An enum is left out: Tango has no command-level enum, and picking name-or-index
+for it would be a guess a driver author cannot see or override.
+"""
+
+
+def _unservable_reason(command: Command) -> str | None:
+    """Why Tango cannot serve this command, or ``None`` if it can."""
+    if len(command.argument_types) > TANGO_MAX_COMMAND_ARGUMENTS:
+        return "a Tango command takes at most one argument"
+
+    unsupported = [
+        datatype
+        for datatype in (*command.argument_types, command.return_datatype)
+        if datatype is not None and datatype not in TANGO_COMMAND_DTYPES
+    ]
+    if unsupported:
+        names = ", ".join(datatype.__name__ for datatype in unsupported)
+        return f"Tango commands do not carry {names}"
+
+    return None
+
+
 def _wrap_command_f(
     method_name: str,
-    method: CommandCallback,
+    command: Command,
     controller_api: ControllerAPI,
     loop: asyncio.AbstractEventLoop,
-) -> Callable[..., Awaitable[None]]:
-    async def _dynamic_f(tango_device: Device) -> None:
+) -> Callable[..., Awaitable[Any]]:
+    takes_argument = bool(command.argument_types)
+
+    async def _dynamic_f(tango_device: Device, *args) -> Any:
         tango_device.info_stream(
             f"called {'_'.join(controller_api.path)} f method: {method_name}"
         )
 
-        coro = method()
-        await _run_threadsafe_blocking(coro, loop)
+        coro = command.fn(*args) if takes_argument else command.fn()
+        return await _run_threadsafe_blocking(coro, loop)
 
     _dynamic_f.__name__ = method_name
     return _dynamic_f
@@ -136,10 +168,22 @@ def _collect_dev_commands(
         path = controller_api.path[root_depth:]
 
         for name, method in controller_api.command_methods.items():
+            if (reason := _unservable_reason(method)) is not None:
+                logger.warning(
+                    "Tango transport cannot serve this command",
+                    command=name,
+                    signature=str(method.signature),
+                    reason=reason,
+                )
+                method.enabled = False
+                continue
+
             cmd_name = name.title().replace("_", "")
             d_cmd_name = f"{'_'.join(path)}_{cmd_name}" if path else cmd_name
             collection[d_cmd_name] = server.command(
-                f=_wrap_command_f(d_cmd_name, method.fn, controller_api, loop)
+                f=_wrap_command_f(d_cmd_name, method, controller_api, loop),
+                dtype_in=method.argument_types[0] if method.argument_types else None,
+                dtype_out=method.return_datatype,
             )
 
     return collection
