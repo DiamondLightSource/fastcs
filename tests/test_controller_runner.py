@@ -2,8 +2,9 @@ import asyncio
 
 import pytest
 
-from fastcs.controllers import Controller, ControllerRunner
+from fastcs.controllers import Controller
 from fastcs.methods import scan
+from fastcs.runner import ControllerRunner
 from fastcs.util import ONCE
 
 
@@ -38,6 +39,7 @@ async def test_start_runs_scans_and_stop_stops_them():
     controller = ScanController()
     runner = ControllerRunner(controller)
 
+    await runner.build()
     await runner.start()
     await asyncio.sleep(0.1)
 

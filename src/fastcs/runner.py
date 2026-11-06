@@ -68,11 +68,8 @@ class ControllerRunner:
     async def start(self) -> None:
         """Connect the controllers, run the initial reads and start the scan tasks.
 
-        Runs ``build`` first if it has not already run.
+        ``build`` must have run first.
         """
-        if not self._controller_apis:
-            await self.build()
-
         for controller in self._controllers:
             await controller.connect()
 
