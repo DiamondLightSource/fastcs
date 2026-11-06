@@ -5,7 +5,7 @@ import pytest
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR
 from fastcs.control_system import FastCS
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
 from fastcs.methods import Command, command
 from fastcs.util import ONCE
@@ -15,7 +15,7 @@ from fastcs.util import ONCE
 async def test_scan_tasks(controller):
     loop = asyncio.get_event_loop()
     transport_options = []
-    fastcs = FastCS(controller, transport_options, loop)
+    fastcs = FastCS(ControllerSpec(None, lambda: controller), transport_options, loop)
 
     asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
@@ -45,7 +45,7 @@ async def test_controller_api_methods():
     controller = MyTestController()
     loop = asyncio.get_event_loop()
     transport_options = []
-    fastcs = FastCS(controller, transport_options, loop)
+    fastcs = FastCS(ControllerSpec(None, lambda: controller), transport_options, loop)
 
     asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
@@ -81,7 +81,7 @@ async def test_update_periods():
     controller = MyController(ios=[AttributeIOTimesCalled()])
     loop = asyncio.get_event_loop()
 
-    fastcs = FastCS(controller, [], loop)
+    fastcs = FastCS(ControllerSpec(None, lambda: controller), [], loop)
 
     assert controller.update_quickly.get() == 0
     assert controller.update_once.get() == 0
@@ -113,7 +113,7 @@ async def test_controller_connect_disconnect():
     controller = MyTestController()
 
     loop = asyncio.get_event_loop()
-    fastcs = FastCS(controller, [], loop)
+    fastcs = FastCS(ControllerSpec(None, lambda: controller), [], loop)
 
     task = asyncio.create_task(fastcs.serve(interactive=False))
 

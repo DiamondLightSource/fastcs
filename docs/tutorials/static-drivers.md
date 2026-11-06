@@ -35,10 +35,12 @@ Create a `TemperatureController` class that inherits from `Controller`.
 
 ## FastCS Launcher
 
-The entrypoint to a FastCS application is the `FastCS` class. This takes a `Controller`
-and a list of transports to expose the API through and provides a `run` method to launch
-the application. Create a `FastCS` instance, pass the `TemperatureController` to it
-along with an empty list of transports (for now).
+The entrypoint to a FastCS application is the `FastCS` class. This takes a
+`ControllerSpec`, which says how to construct the `Controller` and what id to give it,
+and a list of transports to expose the API through, and provides a `run` method to
+launch the application. Create a `FastCS` instance, pass it a `ControllerSpec` for the
+`TemperatureController` with the id `DEMO`, along with an empty list of transports (for
+now).
 
 ::::{admonition} Code 2
 :class: dropdown, hint
@@ -129,7 +131,7 @@ options to the transport options and generate a `demo.bob` file to use with Phoe
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static05.py
-:emphasize-lines: 1,7,15-18,20
+:emphasize-lines: 1,7,15-19
 :::
 
 ::::
@@ -288,7 +290,7 @@ are, which is used to register the correct number of ramp controllers with the p
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,35,44,48-56,64,70-74,83
+:emphasize-lines: 10,28,32,35,44,48-56,64,70-74,82
 :::
 
 ::::
