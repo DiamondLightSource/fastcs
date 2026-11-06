@@ -1,3 +1,4 @@
+from .command import COMMAND_DTYPES as COMMAND_DTYPES
 from .command import Command as Command
 from .command import CommandCallback as CommandCallback
 from .command import UnboundCommand as UnboundCommand

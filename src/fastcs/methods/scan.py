@@ -41,8 +41,11 @@ class Scan(Method["BaseController"]):
     def _validate(self, fn: ScanCallback) -> None:
         super()._validate(fn)
 
-        if not len(self.parameters) == 0:
-            raise TypeError("Scan method cannot have arguments")
+        try:
+            self._validate_takes_no_arguments()
+            self._validate_returns_nothing()
+        except TypeError as error:
+            raise TypeError(f"Scan {error}") from error
 
     async def __call__(self):
         return await self._fn()
@@ -70,6 +73,8 @@ class UnboundScan(Method[Controller_T]):
     to the instance, creating a `Scan` instance.
     """
 
+    _takes_controller = True
+
     def __init__(self, fn: UnboundScanCallback[Controller_T], period: float) -> None:
         super().__init__(fn)
 
@@ -82,8 +87,11 @@ class UnboundScan(Method[Controller_T]):
     def _validate(self, fn: UnboundScanCallback[Controller_T]) -> None:
         super()._validate(fn)
 
-        if not len(self.parameters) == 1:
-            raise TypeError("Scan method cannot have arguments")
+        try:
+            self._validate_takes_no_arguments()
+            self._validate_returns_nothing()
+        except TypeError as error:
+            raise TypeError(f"Scan {error}") from error
 
     def bind(self, controller: Controller_T) -> Scan:
         return Scan(MethodType(self.fn, controller), self._period)
