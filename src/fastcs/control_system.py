@@ -62,7 +62,7 @@ class FastCS:
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
-        self._runner = ControllerRunner(self._controllers, self._loop)
+        self._runner = ControllerRunner(self._controllers)
         self.controller_apis: list[ControllerAPI] = []
 
     def run(self, interactive: bool = True):

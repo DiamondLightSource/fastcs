@@ -30,14 +30,13 @@ async def test_build_returns_an_api_per_controller():
 
     apis = await runner.build()
 
-    assert runner.controller_apis == apis
     assert [api.path for api in apis] == [["A"], ["B"]]
 
 
 @pytest.mark.asyncio
 async def test_start_runs_scans_and_stop_stops_them():
     controller = ScanController()
-    runner = ControllerRunner(controller)
+    runner = ControllerRunner([controller])
 
     await runner.build()
     await runner.start()

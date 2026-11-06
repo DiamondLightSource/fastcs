@@ -16,31 +16,16 @@ class ControllerRunner:
     the initial reads, the scan tasks, and stopping.
 
     Args:
-        controllers: The top-level controller(s) to run
-        loop: Optional event loop to create the tasks in. Defaults to the running
-            loop.
+        controllers: The top-level controllers to run
 
     """
 
-    def __init__(
-        self,
-        controllers: Controller | Sequence[Controller],
-        loop: asyncio.AbstractEventLoop | None = None,
-    ) -> None:
-        if isinstance(controllers, Controller):
-            controllers = [controllers]
-        self._controllers: list[Controller] = list(controllers)
-        self._loop = loop
+    def __init__(self, controllers: list[Controller]) -> None:
+        self._controllers = controllers
 
-        self._controller_apis: list[ControllerAPI] = []
         self._initial_coros: list[ScanCallback] = []
         self._scan_coros: list[ScanCallback] = []
         self._tasks: set[asyncio.Task] = set()
-
-    @property
-    def controller_apis(self) -> list[ControllerAPI]:
-        """The API of each controller. Empty until ``build`` has run."""
-        return self._controller_apis
 
     async def build(self) -> list[ControllerAPI]:
         """Initialise the controllers and create their APIs.
@@ -53,17 +38,17 @@ class ControllerRunner:
             await controller.initialise()
             controller.post_initialise()
 
-        self._controller_apis = []
+        controller_apis: list[ControllerAPI] = []
         self._initial_coros = []
         self._scan_coros = []
         for controller in self._controllers:
             api = controller._build_api(controller.path)  # noqa: SLF001
             initial_coros, scan_coros = self._collect_scans(controller, api)
-            self._controller_apis.append(api)
+            controller_apis.append(api)
             self._initial_coros.extend(initial_coros)
             self._scan_coros.extend(scan_coros)
 
-        return self._controller_apis
+        return controller_apis
 
     async def start(self) -> None:
         """Connect the controllers, run the initial reads and start the scan tasks.
@@ -76,8 +61,7 @@ class ControllerRunner:
         for coro in self._initial_coros:
             await coro()
 
-        loop = self._loop or asyncio.get_running_loop()
-        self._tasks = {loop.create_task(coro()) for coro in self._scan_coros}
+        self._tasks = {asyncio.create_task(coro()) for coro in self._scan_coros}
 
     async def stop(self) -> None:
         """Stop the scan tasks and disconnect the controllers."""

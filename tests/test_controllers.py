@@ -266,7 +266,7 @@ async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
             raise RuntimeError("scan error")
 
     controller = MyTestController()
-    runner = ControllerRunner(controller)
+    runner = ControllerRunner([controller])
     await runner.build()
 
     controller._connected = True
