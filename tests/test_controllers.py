@@ -4,9 +4,10 @@ import enum
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.controllers import Controller, ControllerRunner, ControllerVector
+from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
+from fastcs.runner import ControllerRunner
 
 
 def test_controller_nesting():

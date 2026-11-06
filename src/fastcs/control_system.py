@@ -7,8 +7,9 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
-from fastcs.controllers import Controller, ControllerAPI, ControllerRunner
+from fastcs.controllers import Controller, ControllerAPI
 from fastcs.logging import logger
+from fastcs.runner import ControllerRunner
 from fastcs.tracer import Tracer
 from fastcs.transports import Transport
 
