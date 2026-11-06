@@ -8,17 +8,18 @@ Pass a list of transports to `FastCS`:
 
 ```python
 from fastcs.control_system import FastCS
+from fastcs.controllers import ControllerSpec
 from fastcs.transports import (
     EpicsCATransport,
     GraphQLTransport,
     RestTransport,
 )
 
-controller = MyController()
-controller.set_path(["DEVICE"])  # PV prefix for EPICS / route prefix for REST
+# "DEVICE" is the PV prefix for EPICS / route prefix for REST
+spec = ControllerSpec("DEVICE", MyController)
 
 fastcs = FastCS(
-    controller,
+    spec,
     [
         EpicsCATransport(),
         RestTransport(),
@@ -72,9 +73,8 @@ Each transport has its own options:
 
 ### EPICS Channel Access
 
-The PV prefix is the first segment of the controller's path (set via
-`controller.set_path([...])` or auto-seeded by `launch()` from the YAML
-entry's `id:`).
+The PV prefix is the first segment of the controller's path (the id given
+to its `ControllerSpec`, or the YAML entry's `id:` when using `launch()`).
 
 ```python
 from pathlib import Path
@@ -161,10 +161,10 @@ from fastcs.transports import (
     EpicsPVATransport,
 )
 
-controller.set_path(["DEVICE"])
+spec = ControllerSpec("DEVICE", MyController)
 
 fastcs = FastCS(
-    controller,
+    spec,
     [
         EpicsCATransport(
             gui=EpicsGUIOptions(output_dir=Path("./opis")),

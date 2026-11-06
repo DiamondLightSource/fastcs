@@ -6,7 +6,7 @@ import pytest
 
 import fastcs.transports.epics.ca.ioc as ca_ioc
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
 from fastcs.launch import FastCS
 from fastcs.transports.epics.ca.transport import EpicsCATransport
@@ -51,10 +51,8 @@ async def test_initial_values_set_in_ca(mocker):
     pv_prefix = "SOFTIOC_INITIAL_DEVICE"
 
     loop = asyncio.get_event_loop()
-    controller = InitialValuesController()
-    controller.set_path([pv_prefix])
     fastcs = FastCS(
-        controller,
+        ControllerSpec(pv_prefix, InitialValuesController),
         [EpicsCATransport()],
         loop,
     )

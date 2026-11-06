@@ -13,7 +13,7 @@ from fastcs.attributes import (
     AttrW,
 )
 from fastcs.connections import IPConnection, IPConnectionSettings
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Bool, DataType, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -140,9 +140,8 @@ class TemperatureController(Controller):
 
 epics_ca = EpicsCATransport()
 connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
-controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+spec = ControllerSpec("DEMO", TemperatureController, connection_settings)
+fastcs = FastCS(spec, [epics_ca])
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.controllers import Controller, ControllerSpec, ControllerVector
 from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command, scan
@@ -112,7 +112,7 @@ def run(id="P4P_TEST_DEVICE"):
 
     controller.add_sub_controller("child", sub_controller)
 
-    fastcs = FastCS(controller, [p4p_options])
+    fastcs = FastCS(ControllerSpec(None, lambda: controller), [p4p_options])
     fastcs.run()
 
 
