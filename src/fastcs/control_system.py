@@ -7,7 +7,7 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
-from fastcs.controllers import Controller
+from fastcs.controllers import ControllerSpec
 from fastcs.logging import logger
 from fastcs.runner import ControllerRunner
 from fastcs.tracer import Tracer
@@ -16,43 +16,42 @@ from fastcs.transports import Transport
 tracer = Tracer()
 
 
-def _context_key(controller: Controller) -> str:
+def _context_key(spec: ControllerSpec) -> str:
     """Key used for a controller in IPython context dicts.
 
-    Falls back to the class name when no path has been seeded so
-    direct-construction callers (without launch()) still get a sensible key.
+    Falls back to the class name when the spec has no id.
     """
-    try:
-        return controller.path[0]
-    except IndexError:
-        return controller.__class__.__name__
+    if spec.id is not None:
+        return spec.id
+
+    return getattr(spec.controller_class, "__name__", repr(spec.controller_class))
 
 
 class FastCS:
     """Entrypoint for a FastCS application.
 
-    This class takes one or more `Controller` instances, runs them with a
+    This class takes one or more `ControllerSpec` instances, runs them with a
     `ControllerRunner` and serves their APIs over the given `Transport` instances.
 
     Args:
-        controllers: The controller(s) to serve in the control system. Accepts
-            either a single ``Controller`` or a sequence of them.
+        controllers: What to construct each top-level controller from. Accepts
+            either a single ``ControllerSpec`` or a sequence of them.
         transports: A list of transports to serve the API over
         loop: Optional event loop to run the control system in
     """
 
     def __init__(
         self,
-        controllers: Controller | Sequence[Controller],
+        controllers: ControllerSpec | Sequence[ControllerSpec],
         transports: Sequence[Transport],
         loop: asyncio.AbstractEventLoop | None = None,
     ):
-        if isinstance(controllers, Controller):
+        if isinstance(controllers, ControllerSpec):
             controllers = [controllers]
-        self._controllers: list[Controller] = list(controllers)
-        if not self._controllers:
+        self._specs: list[ControllerSpec] = list(controllers)
+        if not self._specs:
             raise ValueError("FastCS requires at least one controller")
-        keys = [_context_key(c) for c in self._controllers]
+        keys = [_context_key(spec) for spec in self._specs]
         if len(set(keys)) != len(keys):
             duplicates = sorted({k for k in keys if keys.count(k) > 1})
             raise ValueError(
@@ -95,16 +94,14 @@ class FastCS:
         """
         # Build the APIs before wiring transports to them, so that a transport
         # registers its callbacks before the first values are read.
-        self._runner = await ControllerRunner.build(self._controllers)
+        self._runner = await ControllerRunner.build(self._specs)
 
+        keys = [_context_key(spec) for spec in self._specs]
         context = {
-            "controllers": {_context_key(c): c for c in self._controllers},
-            "controller_apis": {
-                _context_key(c): api
-                for c, api in zip(
-                    self._controllers, self._runner.controller_apis, strict=True
-                )
-            },
+            "controllers": dict(zip(keys, self._runner.controllers, strict=True)),
+            "controller_apis": dict(
+                zip(keys, self._runner.controller_apis, strict=True)
+            ),
             "transports": [
                 transport.__class__.__name__ for transport in self._transports
             ],
@@ -138,7 +135,7 @@ class FastCS:
 
         logger.info(
             "Starting FastCS",
-            controllers=[_context_key(c) for c in self._controllers],
+            controllers=keys,
             transports=f"[{', '.join(str(t) for t in self._transports)}]",
         )
 

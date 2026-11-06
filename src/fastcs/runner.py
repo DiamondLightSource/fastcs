@@ -5,24 +5,30 @@ from typing import Self
 
 from fastcs.attributes.attr_r import AttrR
 from fastcs.attributes.attribute_io_ref import AttributeIORef
+from fastcs.connections import Connection
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
+from fastcs.controllers.controller_spec import ControllerSpec
 from fastcs.logging import logger
 from fastcs.methods import ScanCallback
 from fastcs.util import ONCE
 
 
 class ControllerRunner:
-    """Runs the lifecycle of one or more `Controller` s: initialising, connecting,
-    the initial reads, the scan tasks, and stopping.
+    """Runs the lifecycle of one or more top-level controllers: opening their
+    connections, constructing and initialising them, connecting, the initial reads,
+    the scan tasks, and stopping.
 
     Args:
-        controllers: The top-level controllers to run
+        specs: What to construct each top-level controller from
 
     """
 
-    def __init__(self, controllers: list[Controller]) -> None:
-        self._controllers = controllers
+    def __init__(self, specs: list[ControllerSpec]) -> None:
+        self._specs = specs
+
+        self._connections: list[Connection] = []
+        self._controllers: list[Controller] = []
 
         self._controller_apis: list[ControllerAPI] = []
         self._initial_coros: list[ScanCallback] = []
@@ -30,24 +36,31 @@ class ControllerRunner:
         self._tasks: set[asyncio.Task] = set()
 
     @classmethod
-    async def build(cls, controllers: list[Controller]) -> Self:
-        """Initialise the controllers and create a runner with their APIs.
+    async def build(cls, specs: list[ControllerSpec]) -> Self:
+        """Open the connections, then construct and initialise the controllers and
+        create a runner with their APIs.
 
         Args:
-            controllers: The top-level controllers to run
+            specs: What to construct each top-level controller from
 
         Returns:
             A runner ready to `start`, with an API per controller in
-            ``controller_apis``, in the order they were given
+            ``controller_apis``, in the order the specs were given
 
         """
-        runner = cls(controllers)
+        runner = cls(specs)
 
-        for controller in controllers:
+        for spec in specs:
+            for connection in spec.connections:
+                await connection.connect()
+                runner._connections.append(connection)
+
+        runner._controllers = [spec.construct() for spec in specs]
+        for controller in runner._controllers:
             await controller.initialise()
             controller.post_initialise()
 
-        for controller in controllers:
+        for controller in runner._controllers:
             api = controller.build_api(controller.path)
             initial_coros, scan_coros = runner._collect_scans(controller, api)
             runner._controller_apis.append(api)
@@ -57,8 +70,13 @@ class ControllerRunner:
         return runner
 
     @property
+    def controllers(self) -> list[Controller]:
+        """The top-level controllers, in the order the specs were given"""
+        return self._controllers
+
+    @property
     def controller_apis(self) -> list[ControllerAPI]:
-        """The API of each controller, in the order they were given"""
+        """The API of each controller, in the order the specs were given"""
         return self._controller_apis
 
     async def start(self) -> None:
@@ -72,7 +90,8 @@ class ControllerRunner:
         self._tasks = {asyncio.create_task(coro()) for coro in self._scan_coros}
 
     async def stop(self) -> None:
-        """Stop the scan tasks and disconnect the controllers."""
+        """Stop the scan tasks, disconnect the controllers and close the
+        connections."""
         self._cancel_tasks()
 
         for controller in self._controllers:
@@ -82,6 +101,12 @@ class ControllerRunner:
                 logger.exception(
                     "Exception during disconnect", controller=controller.path
                 )
+
+        for connection in reversed(self._connections):
+            try:
+                await connection.close()
+            except Exception:
+                logger.exception("Exception closing connection", connection=connection)
 
     def _collect_scans(
         self, controller: Controller, api: ControllerAPI

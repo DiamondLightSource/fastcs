@@ -11,7 +11,7 @@ from ruamel.yaml import YAML
 
 from fastcs import __version__
 from fastcs.control_system import FastCS
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.exceptions import LaunchError
 from fastcs.logging import (
     GraylogEndpoint,
@@ -182,10 +182,10 @@ def _launch(
 
             raise LaunchError("Failed to validate config") from e
 
-        controllers = _instantiate_controllers(instance_options.controllers)
+        specs = _controller_specs(instance_options.controllers)
 
         instance = FastCS(
-            controllers,
+            specs,
             instance_options.transport,
             loop=asyncio.get_event_loop(),
         )
@@ -195,17 +195,16 @@ def _launch(
     return launch_typer
 
 
-def _instantiate_controllers(
+def _controller_specs(
     controllers_options: list[Any],
-) -> list[Controller]:
-    """Instantiate each entry under `controllers:` and seed its path.
+) -> list[ControllerSpec]:
+    """Create a `ControllerSpec` for each entry under `controllers:`.
 
     Each item in ``controllers_options`` is a dynamically-built Pydantic
     model that exposes ``id``, ``type`` and the controller's options fields
     inlined as siblings. The originating Controller class and its
     options-type are looked up in ``_ENTRY_REGISTRY`` (populated by
-    ``_build_entry_model``). The entry's ``id`` is seeded into the
-    controller's ``_path`` via ``set_path([id])`` so that
+    ``_build_entry_model``). The entry's ``id`` becomes the spec's id, so that
     ``ControllerAPI.path`` is rooted at the YAML id.
     """
     seen_ids: set[str] = set()
@@ -219,7 +218,7 @@ def _instantiate_controllers(
             f"Duplicate controller id(s) in `controllers:`: {sorted(set(duplicates))}"
         )
 
-    controllers: list[Controller] = []
+    specs: list[ControllerSpec] = []
     for entry in controllers_options:
         entry_cls: type[BaseModel] = type(entry)
         registered = _ENTRY_REGISTRY[entry_cls]
@@ -229,12 +228,11 @@ def _instantiate_controllers(
                 for name in entry_cls.model_fields
                 if name not in ("id", "type")
             }
-            controller = registered.cls(registered.options_type(**field_values))
+            options = registered.options_type(**field_values)
+            specs.append(ControllerSpec(entry.id, registered.cls, options))
         else:
-            controller = registered.cls()
-        controller.set_path([entry.id])
-        controllers.append(controller)
-    return controllers
+            specs.append(ControllerSpec(entry.id, registered.cls))
+    return specs
 
 
 def _options_field_definitions(options_type: type) -> dict[str, tuple[Any, Any]]:

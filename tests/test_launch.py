@@ -318,6 +318,6 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     result = runner.invoke(app, ["run", str(cfg)])
     assert result.exit_code == 0, result.output
     init_spy.assert_called_once()
-    controllers_arg = init_spy.call_args.args[1]
-    assert [c.path[0] for c in controllers_arg] == ["one", "two"]
-    assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]
+    specs_arg = init_spy.call_args.args[1]
+    assert [s.id for s in specs_arg] == ["one", "two"]
+    assert [s.controller_class for s in specs_arg] == [IsHinted, OtherHinted]

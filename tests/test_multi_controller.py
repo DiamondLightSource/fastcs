@@ -11,7 +11,7 @@ from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR
 from fastcs.control_system import FastCS
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
 from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions
 from fastcs.transports.epics.ca.transport import EpicsCATransport
@@ -334,16 +334,18 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     """FastCS.serve drives lifecycle on every controller and routes REST traffic
     per-id; combined OpenAPI describes both prefixes."""
     a = _LifecycleController()
-    a.set_path(["alpha"])
     b = _OtherLifecycleController()
-    b.set_path(["beta"])
 
     transport = RestTransport()
     # Stop RestTransport from binding to a real port; we exercise the FastAPI
     # app directly through TestClient.
     mocker.patch.object(RestTransport, "serve", new=lambda self: asyncio.sleep(3600))
 
-    fastcs = FastCS([a, b], [transport], asyncio.get_event_loop())
+    fastcs = FastCS(
+        [ControllerSpec("alpha", lambda: a), ControllerSpec("beta", lambda: b)],
+        [transport],
+        asyncio.get_event_loop(),
+    )
     task = asyncio.create_task(fastcs.serve(interactive=False))
     try:
         await asyncio.sleep(0.1)
