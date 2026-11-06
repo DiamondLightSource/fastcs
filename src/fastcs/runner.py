@@ -47,18 +47,24 @@ class ControllerRunner:
             A runner ready to `start`, with an API per controller in
             ``controller_apis``, in the order the specs were given
 
+        If anything fails, the connections opened so far are closed again.
+
         """
         runner = cls(specs)
 
-        for spec in specs:
-            for connection in spec.connections:
-                await connection.connect()
-                runner._connections.append(connection)
+        try:
+            for spec in specs:
+                for connection in spec.connections:
+                    await connection.connect()
+                    runner._connections.append(connection)
 
-        runner._controllers = [spec.construct() for spec in specs]
-        for controller in runner._controllers:
-            await controller.initialise()
-            controller.post_initialise()
+            runner._controllers = [spec.construct() for spec in specs]
+            for controller in runner._controllers:
+                await controller.initialise()
+                controller.post_initialise()
+        except BaseException:
+            await runner._close_connections()
+            raise
 
         for controller in runner._controllers:
             api = controller.build_api(controller.path)
@@ -102,7 +108,12 @@ class ControllerRunner:
                     "Exception during disconnect", controller=controller.path
                 )
 
-        for connection in reversed(self._connections):
+        await self._close_connections()
+
+    async def _close_connections(self) -> None:
+        """Close the open connections, in the reverse of the order they opened."""
+        while self._connections:
+            connection = self._connections.pop()
             try:
                 await connection.close()
             except Exception:
