@@ -42,8 +42,6 @@ async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider
 
         for attr_name, method in controller_api.command_methods.items():
             if not method.is_void:
-                # As for CA: PVA has no typed-call representation either, so a
-                # typed command is skipped with a warning (ADR 0015).
                 logger.warning(
                     "EPICS PVA transport cannot serve a command that takes "
                     "arguments or returns a value",

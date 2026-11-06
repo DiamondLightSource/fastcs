@@ -197,9 +197,8 @@ def _wrap_command(method_name: str, command: Command) -> Callable[..., Awaitable
         return True if return_datatype is None else result
 
     _dynamic_f.__name__ = method_name
-    # Strawberry builds the mutation's arguments and result by introspecting the
-    # resolver, so the command's arguments have to show up in both the signature
-    # and the annotations of a function that does not literally declare them.
+    # Strawberry builds the mutation's arguments and result from the resolver's
+    # signature, so give it one declaring the command's arguments.
     _dynamic_f.__signature__ = Signature(  # type: ignore[attr-defined]
         [
             Parameter(name, Parameter.POSITIONAL_OR_KEYWORD, annotation=argument_type)
@@ -209,9 +208,5 @@ def _wrap_command(method_name: str, command: Command) -> Callable[..., Awaitable
         ],
         return_annotation=return_annotation,
     )
-    _dynamic_f.__annotations__ = dict(
-        zip(argument_names, command.argument_types, strict=True)
-    )
-    _dynamic_f.__annotations__["return"] = return_annotation
 
     return _dynamic_f

@@ -157,6 +157,7 @@ def _command_arguments_body(name: str, command: Command) -> type[BaseModel]:
 
 
 def _command_response_body(name: str, return_datatype: type) -> type[BaseModel]:
+    """A pydantic model of a command's return value, as a response body."""
     fields: dict[str, Any] = {"value": (return_datatype, ...)}
     return create_model(f"Call{snake_to_pascal(name)}Result", **fields)
 

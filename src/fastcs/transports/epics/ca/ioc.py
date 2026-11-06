@@ -181,10 +181,6 @@ def _create_and_link_command_pvs(
 
         for attr_name, method in controller_api.command_methods.items():
             if not method.is_void:
-                # A PV is a value, not a call: there is no representation of
-                # "call with these arguments, get this back" that is not already
-                # a set of attributes. Skip rather than refuse to serve the
-                # controller at all (ADR 0015).
                 logger.warning(
                     "EPICS CA transport cannot serve a command that takes "
                     "arguments or returns a value",

@@ -1,7 +1,7 @@
 from asyncio import iscoroutinefunction
 from collections.abc import Callable, Coroutine
-from inspect import Signature, getdoc, signature
-from typing import Any, Generic
+from inspect import Parameter, Signature, getdoc, signature
+from typing import Any, ClassVar, Generic
 
 from fastcs.tracer import Tracer
 from fastcs.util import Controller_T
@@ -12,6 +12,9 @@ MethodCallback = Callable[..., Coroutine[None, None, Any]]
 
 class Method(Generic[Controller_T], Tracer):
     """Generic base class for all FastCS Controller methods."""
+
+    _takes_controller: ClassVar[bool] = False
+    """Whether the wrapped function still declares the `Controller` it is bound to"""
 
     def __init__(self, fn: MethodCallback, *, group: str | None = None) -> None:
         super().__init__()
@@ -28,12 +31,8 @@ class Method(Generic[Controller_T], Tracer):
         if not iscoroutinefunction(fn):
             raise TypeError("Method must be async function")
 
-    def _validate_takes_no_arguments(self, expected: int) -> None:
+    def _validate_takes_no_arguments(self) -> None:
         """Reject a method that takes anything beyond its bound ``self``.
-
-        Args:
-            expected: How many parameters a no-argument method has here - one
-                for an unbound method, which still declares ``self``
 
         Raises:
             TypeError: If the method takes arguments. The message describes
@@ -41,7 +40,7 @@ class Method(Generic[Controller_T], Tracer):
                 method it was.
 
         """
-        if len(self.parameters) != expected:
+        if self.arguments:
             raise TypeError("method cannot have arguments")
 
     def _validate_returns_nothing(self) -> None:
@@ -73,6 +72,12 @@ class Method(Generic[Controller_T], Tracer):
     @property
     def parameters(self):
         return self._signature.parameters
+
+    @property
+    def arguments(self) -> list[Parameter]:
+        """The parameters a caller passes, without the leading `Controller`."""
+        parameters = list(self.parameters.values())
+        return parameters[1:] if self._takes_controller else parameters
 
     @property
     def docstring(self):

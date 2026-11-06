@@ -1,8 +1,8 @@
 # Give a Command Arguments and a Return Value
 
 A `@command` may take positional arguments and give a value back. Both are
-declared the ordinary way - by annotating the method - and both are optional and
-independent, so a command can take arguments and return nothing, return
+declared by annotating the method, and both are optional and
+independent. So, a command can take arguments and return nothing, return
 something and take nothing, or do both.
 
 ```python
@@ -51,10 +51,8 @@ an `AttrW` and trigger a void command, rather than passing it as an argument.
 
 ## Which transports serve them
 
-Not every protocol can carry a typed call, so each transport declares what it
-can do rather than the framework assuming they are all alike. A command a
-transport cannot serve is **skipped with a warning at start-up** - the rest of
-the controller is still served.
+Not every protocol can carry a typed call. A command a transport cannot serve is
+**skipped with a warning at start-up**, and the rest of the controller is still served.
 
 | Transport | Void command | Arguments | Return value |
 | --------- | ------------ | --------- | ------------ |
@@ -85,7 +83,7 @@ class Stage(Controller):
 
 ## Reading a command's signature
 
-A transport - or anything else walking a `ControllerAPI` - gets the whole
+A transport walking a `ControllerAPI` gets the whole
 picture from the command itself:
 
 ```python

@@ -42,7 +42,7 @@ class Scan(Method["BaseController"]):
         super()._validate(fn)
 
         try:
-            self._validate_takes_no_arguments(expected=0)
+            self._validate_takes_no_arguments()
             self._validate_returns_nothing()
         except TypeError as error:
             raise TypeError(f"Scan {error}") from error
@@ -73,6 +73,8 @@ class UnboundScan(Method[Controller_T]):
     to the instance, creating a `Scan` instance.
     """
 
+    _takes_controller = True
+
     def __init__(self, fn: UnboundScanCallback[Controller_T], period: float) -> None:
         super().__init__(fn)
 
@@ -85,9 +87,8 @@ class UnboundScan(Method[Controller_T]):
     def _validate(self, fn: UnboundScanCallback[Controller_T]) -> None:
         super()._validate(fn)
 
-        # The leading parameter is the ``Controller`` this is bound to.
         try:
-            self._validate_takes_no_arguments(expected=1)
+            self._validate_takes_no_arguments()
             self._validate_returns_nothing()
         except TypeError as error:
             raise TypeError(f"Scan {error}") from error

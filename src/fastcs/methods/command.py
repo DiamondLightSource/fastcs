@@ -30,51 +30,47 @@ COMMAND_DTYPES: tuple[type, ...] = (bool, int, float, str, enum.Enum)
 
 A subset of ``DType``: arrays and tables are deliberately left out. Serving them
 would mean duplicating the array serialisation each transport already has for
-attributes rather than sharing it, which ADR 0015 explicitly does not want, and
-an array-valued command has an attribute-shaped alternative today.
+attributes rather than sharing it.
 """
 
 
-def _validate_datatype(annotation: Any) -> type[DType]:
+def _validate_datatype(annotation: Any, name: str) -> type[DType]:
     """Check that an annotation is a type a command can take or return.
 
     Args:
         annotation: The annotation of a command parameter or return value
+        name: The command's name, to name it in errors
 
     Returns:
         The annotation, once it is known to be a type a command can carry
 
     Raises:
         TypeError: If the annotation is missing, or is not one of
-            `COMMAND_DTYPES`. The message describes the annotation alone -
-            the caller catches it to say which argument or return value it
-            came from.
-
+            `COMMAND_DTYPES`.
     """
     if annotation is Signature.empty:
         raise TypeError(
-            "has no type annotation. A command's argument and return types "
-            "must be fully known"
+            f"Command {name} has no type annotation. A command's argument and return "
+            "types must be fully known"
         )
 
     if not (isinstance(annotation, type) and issubclass(annotation, COMMAND_DTYPES)):
         raise TypeError(
-            f"has unsupported type {annotation!r}. Commands take and return "
-            f"{', '.join(t.__name__ for t in COMMAND_DTYPES)}"
+            f"Command {name} has unsupported type {annotation!r}. Commands take and "
+            f"return {', '.join(t.__name__ for t in COMMAND_DTYPES)}"
         )
 
     return annotation
 
 
 def _validate_arguments(
-    parameters: Sequence[Parameter], fn: Callable
+    parameters: Sequence[Parameter], name: str
 ) -> tuple[type[DType], ...]:
     """Check a command's parameters and collect their types.
 
     Args:
-        parameters: The parameters that are the command's arguments. An unbound
-            method still declares ``self``, so its caller drops the leading one
-        fn: The wrapped function, to name it in errors
+        parameters: The parameters that are the command's arguments
+        name: The command's name, to name it in errors
 
     Returns:
         The type of each argument, in order
@@ -87,35 +83,33 @@ def _validate_arguments(
     for parameter in parameters:
         if parameter.kind is Parameter.KEYWORD_ONLY:
             raise TypeError(
-                f"Command {fn.__qualname__} has keyword-only argument "
+                f"Command {name} has keyword-only argument "
                 f"'{parameter.name}'. Command arguments are positional; "
-                "keyword arguments are not supported yet"
+                "keyword arguments are not supported"
             )
         if parameter.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD):
             raise TypeError(
-                f"Command {fn.__qualname__} takes *args or **kwargs. A "
+                f"Command {name} takes *args or **kwargs. A "
                 "command's arguments must be fully known"
             )
 
         try:
-            argument_types.append(_validate_datatype(parameter.annotation))
+            argument_types.append(_validate_datatype(parameter.annotation, name))
         except TypeError as error:
-            raise TypeError(
-                f"Argument '{parameter.name}' of command {fn.__qualname__} {error}"
-            ) from error
+            raise TypeError(f"Argument '{parameter.name}': {error}") from error
 
     return tuple(argument_types)
 
 
-def _validate_return(signature: Signature, fn: Callable) -> type[DType] | None:
+def _validate_return(signature: Signature, name: str) -> type[DType] | None:
     annotation = signature.return_annotation
     if annotation in (None, Signature.empty):
         return None
 
     try:
-        return _validate_datatype(annotation)
+        return _validate_datatype(annotation, name)
     except TypeError as error:
-        raise TypeError(f"Return value of command {fn.__qualname__} {error}") from error
+        raise TypeError(f"Return value: {error}") from error
 
 
 class Command(Method["BaseController"], Generic[P, T]):
@@ -124,7 +118,7 @@ class Command(Method["BaseController"], Generic[P, T]):
     A command may take positional arguments and return a value, both of known
     types - ``Command[[float], None]`` moves to a position, ``Command[[], None]``
     is the void case. What it takes and gives back is its ``signature``, which
-    is what a transport reads to decide how - or whether - to serve it.
+    is what a transport reads to decide how (or whether) to serve it.
 
     This class contains a function that is bound to a specific `Controller` instance and
     is callable outside of the class context, without an explicit `self` parameter.
@@ -137,8 +131,9 @@ class Command(Method["BaseController"], Generic[P, T]):
     def _validate(self, fn: CommandCallback[P, T]) -> None:
         super()._validate(fn)
 
-        self._argument_types = _validate_arguments(list(self.parameters.values()), fn)
-        self._return_datatype = _validate_return(self.signature, fn)
+        fn_name = fn.__qualname__
+        self._argument_types = _validate_arguments(self.arguments, fn_name)
+        self._return_datatype = _validate_return(self.signature, fn_name)
 
     @property
     def argument_types(self) -> tuple[type[DType], ...]:
@@ -185,6 +180,8 @@ class UnboundCommand(Method[Controller_T], Generic[Controller_T, P, T]):
     to the instance, creating a `Command` instance.
     """
 
+    _takes_controller = True
+
     def __init__(
         self,
         fn: UnboundCommandCallback[Controller_T, P, T],
@@ -199,10 +196,8 @@ class UnboundCommand(Method[Controller_T], Generic[Controller_T, P, T]):
         if not self.parameters:
             raise TypeError(f"Command {fn.__qualname__} must be a method, taking self")
 
-        # The leading parameter is the ``Controller`` this is bound to, not an
-        # argument of the command.
-        _validate_arguments(list(self.parameters.values())[1:], fn)
-        _validate_return(self.signature, fn)
+        _validate_arguments(self.arguments, fn.__qualname__)
+        _validate_return(self.signature, fn.__qualname__)
 
     def bind(self, controller: Controller_T) -> Command[P, T]:
         return Command(MethodType(self.fn, controller), group=self.group)

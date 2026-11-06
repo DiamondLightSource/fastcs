@@ -110,14 +110,13 @@ def _collect_dev_attributes(
 
 
 # Tango commands carry at most one input value, so a command taking more than
-# one argument has no faithful representation and is skipped (ADR 0015).
+# one argument has no faithful representation and is skipped.
 TANGO_MAX_COMMAND_ARGUMENTS = 1
 
 TANGO_COMMAND_DTYPES: tuple[type, ...] = (bool, int, float, str)
 """The command argument and return types Tango can carry.
 
-An enum is left out: Tango has no command-level enum, and picking name-or-index
-for it would be a guess a driver author cannot see or override.
+Tango has no command-level enum.
 """
 
 

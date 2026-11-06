@@ -27,13 +27,15 @@ def test_method():
     assert method.signature == signature(do_nothing)
 
 
-def test_a_scan_takes_no_arguments_and_returns_nothing():
+def test_a_scan_returns_nothing():
     async def scan_with_return() -> int:
         return 1
 
     with pytest.raises(TypeError, match="Scan method return type must be None"):
         Scan(scan_with_return, 1.0)  # type: ignore
 
+
+def test_a_scan_takes_no_arguments():
     async def scan_with_argument(arg: int):
         pass
 
@@ -97,6 +99,7 @@ async def test_a_command_can_take_arguments_and_return_a_value():
     command = UnboundCommand(TestController.move_to).bind(TestController())
 
     assert command.argument_types == (float, bool)
+    assert list(command.signature.parameters) == ["position", "wait"]
     assert command.return_datatype is str
     assert not command.is_void
     assert await command(1.5, True) == "moved to 1.5, waited True"
@@ -158,21 +161,3 @@ def test_command_arguments_must_be_fully_known():
 
     with pytest.raises(TypeError, match=r"takes \*args or \*\*kwargs"):
         UnboundCommand(TestController.move_to)
-
-
-@pytest.mark.asyncio
-async def test_command_arguments_survive_binding():
-    """The signature a transport reads must be the bound one, without ``self``."""
-
-    class TestController(Controller):
-        seen: list[float] = []
-
-        async def move_to(self, position: float) -> None:
-            self.seen.append(position)
-
-    controller = TestController()
-    command = UnboundCommand(TestController.move_to).bind(controller)
-
-    assert list(command.signature.parameters) == ["position"]
-    await command(2.5)
-    assert controller.seen == [2.5]
