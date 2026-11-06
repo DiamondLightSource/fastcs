@@ -98,3 +98,19 @@ async def test_connection_opened_before_construction_and_closed_on_stop():
     await runner.stop()
 
     assert events == ["connect", "construct", "close"]
+
+
+class FailingController(Controller):
+    def __init__(self, connection: RecordingConnection) -> None:
+        raise RuntimeError("construction failed")
+
+
+@pytest.mark.asyncio
+async def test_connections_closed_if_build_fails():
+    events: list[str] = []
+    with pytest.raises(RuntimeError, match="construction failed"):
+        await ControllerRunner.build(
+            [ControllerSpec("A", FailingController, RecordingConnection(events))]
+        )
+
+    assert events == ["connect", "close"]
