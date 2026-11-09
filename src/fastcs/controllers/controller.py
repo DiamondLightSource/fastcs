@@ -13,7 +13,8 @@ class Controller(BaseController):
         ios: Sequence[AnyAttributeIO] | None = None,
     ) -> None:
         super().__init__(description=description, ios=ios)
-        self._connected = False
+        # Connections are open before any controller is constructed
+        self._connected = True
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
         if name.isdigit():
@@ -32,15 +33,6 @@ class Controller(BaseController):
         """Mark the controller disconnected, pausing its scan tasks until reconnect"""
         self._connected = False
 
-    async def connect(self) -> None:
-        """Hook to perform initial connection to device
-
-        This should set ``_connected`` to ``True`` if the connection was successful to
-        enable scan tasks.
-
-        """
-        self._connected = True
-
     async def reconnect(self):
         """Hook to reconnect to device after an error
 
@@ -52,7 +44,3 @@ class Controller(BaseController):
 
         """
         self._connected = True
-
-    async def disconnect(self) -> None:
-        """Hook to tidy up resources before stopping the application"""
-        pass

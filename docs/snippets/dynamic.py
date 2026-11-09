@@ -12,7 +12,7 @@ from fastcs.attributes import (
     AttrRW,
     AttrW,
 )
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Bool, DataType, Float, Int, String
 from fastcs.launch import FastCS
@@ -108,19 +108,13 @@ class TemperatureRampController(Controller):
 
 
 class TemperatureController(Controller):
-    def __init__(self, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
+    def __init__(self, connection: IPConnection):
+        self._connection = connection
 
         self._io = TemperatureControllerAttributeIO(self._connection)
         super().__init__(ios=[self._io])
 
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
-
     async def initialise(self):
-        await self.connect()
-
         api = json.loads((await self._connection.send_query("API?\r\n")).strip("\r\n"))
 
         ramps_api = api.pop("Ramps")
@@ -135,12 +129,10 @@ class TemperatureController(Controller):
             await ramp_controller.initialise()
             self.add_sub_controller(f"Ramp{idx + 1:02d}", ramp_controller)
 
-        await self._connection.close()
-
 
 epics_ca = EpicsCATransport()
-connection_settings = IPConnectionSettings("localhost", 25565)
-spec = ControllerSpec("DEMO", TemperatureController, connection_settings)
+connection = IPConnection("localhost", 25565)
+spec = ControllerSpec("DEMO", TemperatureController, connection)
 fastcs = FastCS(spec, [epics_ca])
 
 

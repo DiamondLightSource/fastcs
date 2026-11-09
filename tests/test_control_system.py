@@ -96,33 +96,3 @@ async def test_update_periods():
 
     assert len(fastcs._runner._tasks) == 1
     assert len(fastcs._runner._initial_coros) == 1
-
-
-@pytest.mark.asyncio
-async def test_controller_connect_disconnect():
-    class MyTestController(Controller):
-        connect_called = False
-        disconnect_called = False
-
-        async def connect(self):
-            self.connect_called = True
-
-        async def disconnect(self):
-            self.disconnect_called = True
-
-    controller = MyTestController()
-
-    loop = asyncio.get_event_loop()
-    fastcs = FastCS(ControllerSpec(None, lambda: controller), [], loop)
-
-    task = asyncio.create_task(fastcs.serve(interactive=False))
-
-    # connect is called at the start of serve
-    await asyncio.sleep(0.1)
-    assert controller.connect_called
-
-    task.cancel()
-
-    # disconnect is called at the end of serve
-    await asyncio.sleep(0.1)
-    assert controller.disconnect_called

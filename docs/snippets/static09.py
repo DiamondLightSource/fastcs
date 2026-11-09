@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Float, String
 from fastcs.launch import FastCS
@@ -47,20 +47,16 @@ class TemperatureController(Controller):
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("P"))
     ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef("R"))
 
-    def __init__(self, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
+    def __init__(self, connection: IPConnection):
+        self._connection = connection
 
         super().__init__(ios=[TemperatureControllerAttributeIO(self._connection)])
-
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
-connection_settings = IPConnectionSettings("localhost", 25565)
-spec = ControllerSpec("DEMO", TemperatureController, connection_settings)
+connection = IPConnection("localhost", 25565)
+spec = ControllerSpec("DEMO", TemperatureController, connection)
 fastcs = FastCS(spec, [epics_ca])
 
 if __name__ == "__main__":
