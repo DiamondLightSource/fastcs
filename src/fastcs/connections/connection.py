@@ -2,14 +2,23 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import ClassVar
+from typing import ClassVar, Generic
+
+from typing_extensions import TypeVar
+
+IntrospectionT = TypeVar("IntrospectionT", default=None)
 
 
-class Connection(ABC):
+class Connection(ABC, Generic[IntrospectionT]):
     """A link to a device.
 
-    Passed to a `ControllerSpec`. The runner opens it before the controller is
-    constructed, and closes it when the application stops.
+    A connection to a device that can describe itself returns that description from
+    ``connect``, and declares its type as the type parameter::
+
+        class EigerConnection(Connection[EigerIntrospection]):
+            async def connect(self) -> EigerIntrospection: ...
+
+    A plain ``Connection`` doesn't introspect, and its ``connect`` returns ``None``.
     """
 
     depends_on: ClassVar[type[Connection] | Sequence[type[Connection]]] = ()
@@ -22,9 +31,36 @@ class Connection(ABC):
             depends_on = EigerConnection
     """
 
+    _introspection: IntrospectionT
+
+    @property
+    def introspection(self) -> IntrospectionT:
+        """What ``connect`` returned when the runner first opened this connection.
+
+        Every connection is open before any controller is constructed, so a
+        controller can use this in its ``__init__``.
+
+        Raises:
+            RuntimeError: If the runner hasn't opened this connection yet
+
+        """
+        try:
+            return self._introspection
+        except AttributeError:
+            raise RuntimeError(
+                f"{type(self).__name__} has no introspection until the runner "
+                "has opened it"
+            ) from None
+
     @abstractmethod
-    async def connect(self) -> None:
-        """Open the link, or raise."""
+    async def connect(self) -> IntrospectionT:
+        """Open the link, or raise.
+
+        Returns:
+            The device's description of itself, or ``None`` if this connection
+            doesn't introspect
+
+        """
 
     @abstractmethod
     async def close(self) -> None:

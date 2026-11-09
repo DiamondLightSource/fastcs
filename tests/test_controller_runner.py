@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 
 import pytest
 
@@ -171,6 +172,11 @@ class ConnectionB(NamedConnection):
 ConnectionA.depends_on = [ConnectionB]
 
 
+class CycleController(Controller):
+    def __init__(self, a: ConnectionA, b: ConnectionB) -> None:
+        super().__init__()
+
+
 @pytest.mark.asyncio
 async def test_dependency_cycle_raises_before_anything_opens():
     events: list[str] = []
@@ -179,7 +185,7 @@ async def test_dependency_cycle_raises_before_anything_opens():
             [
                 ControllerSpec(
                     "A",
-                    TwoConnectionController,
+                    CycleController,
                     ConnectionA("a", events),
                     ConnectionB("b", events),
                 )
@@ -187,3 +193,40 @@ async def test_dependency_cycle_raises_before_anything_opens():
         )
 
     assert events == []
+
+
+@dataclass
+class DeviceIntrospection:
+    parameters: dict[str, int]
+
+
+class IntrospectingConnection(Connection[DeviceIntrospection]):
+    async def connect(self) -> DeviceIntrospection:
+        return DeviceIntrospection({"gain": 2})
+
+    async def close(self) -> None:
+        pass
+
+
+class IntrospectedController(Controller):
+    def __init__(self, connection: IntrospectingConnection) -> None:
+        super().__init__()
+        self.parameters = connection.introspection.parameters
+
+
+@pytest.mark.asyncio
+async def test_introspection_available_when_controller_constructed():
+    connection = IntrospectingConnection()
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", IntrospectedController, connection)]
+    )
+
+    controller = runner.controllers[0]
+    assert isinstance(controller, IntrospectedController)
+    assert controller.parameters == {"gain": 2}
+    assert connection.introspection == DeviceIntrospection({"gain": 2})
+
+
+def test_introspection_before_connecting_raises():
+    with pytest.raises(RuntimeError, match="no introspection until the runner"):
+        _ = IntrospectingConnection().introspection
