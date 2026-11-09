@@ -51,10 +51,7 @@ class ControllerRunner:
         return controller_apis
 
     async def start(self) -> None:
-        """Connect the controllers, run the initial reads and start the scan tasks.
-
-        ``build`` must have run first.
-        """
+        """Connect the controllers, run the initial reads and start the scan tasks."""
         for controller in self._controllers:
             await controller.connect()
 
@@ -155,7 +152,7 @@ def _periodic_scan_coro(
                 logger.exception("Exception in scan task", period=period)
                 controller._connected = False  # noqa: SLF001
 
-                await asyncio.sleep(1)  # Wait so this message appears last
+                await asyncio.sleep(1)
                 logger.error("Pausing scan tasks and waiting for reconnect")
 
     return scan_coro
