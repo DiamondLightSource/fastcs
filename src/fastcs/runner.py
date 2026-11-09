@@ -1,11 +1,12 @@
 import asyncio
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from typing import Self
 
 from fastcs.attributes.attr_r import AttrR
 from fastcs.attributes.attribute_io_ref import AttributeIORef
 from fastcs.connections import Connection
+from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.controllers.controller_spec import ControllerSpec
@@ -83,7 +84,11 @@ class ControllerRunner:
         return self._controller_apis
 
     async def start(self) -> None:
-        """Run the initial reads and start the scan tasks."""
+        """Set up the controllers, run the initial reads and start the scan tasks."""
+        for controller in self._controllers:
+            for sub_controller in _walk(controller):
+                await sub_controller.setup()
+
         for coro in self._initial_coros:
             await coro()
 
@@ -147,6 +152,13 @@ class ControllerRunner:
 
     def __del__(self):
         self._cancel_tasks()
+
+
+def _walk(controller: BaseController) -> Iterator[BaseController]:
+    """A controller and every controller below it, parents first"""
+    yield controller
+    for sub_controller in controller.sub_controllers.values():
+        yield from _walk(sub_controller)
 
 
 def _dependency_types(connection: Connection) -> tuple[type[Connection], ...]:
