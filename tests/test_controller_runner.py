@@ -235,3 +235,13 @@ async def test_introspection_available_when_controller_constructed():
 def test_introspection_before_connecting_raises():
     with pytest.raises(RuntimeError, match="no introspection until the runner"):
         _ = IntrospectingConnection().introspection
+
+
+@pytest.mark.asyncio
+async def test_controller_tree_sealed_after_build():
+    controller = ScanController()
+    controller.add_sub_controller("SUB", Controller())
+    await ControllerRunner.build([ControllerSpec(None, lambda: controller)])
+
+    with pytest.raises(RuntimeError, match="after it has been sealed"):
+        controller.sub_controllers["SUB"].add_sub_controller("LATE", Controller())

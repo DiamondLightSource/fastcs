@@ -12,15 +12,14 @@ role, FastCS opens the `Connection`s it is given, constructs it, calls its lifec
 hooks and runs the scan tasks it creates on the event loop.
 
 **Sub controller:** attached to a parent controller via `add_sub_controller()` or by
-assigning it as an attribute. In this role, the sub controller's lifecycle hooks
-(`reconnect`, `initialise`) are not called automatically by FastCS. The parent
-controller is responsible for calling them as part of its own lifecycle, if required.
+assigning it as an attribute. In this role, the sub controller's `reconnect` hook is
+not called automatically by FastCS. The parent controller is responsible for calling it
+as part of its own lifecycle, if required.
 
 ### Lifecycle hooks
 
 | Method | Purpose |
 |---|---|
-| `initialise` | Dynamically add attributes on startup, before the API is built |
 | `setup` | Run once at startup, before the initial reads. Called on every controller in the tree |
 | `reconnect` | Re-open connection after scan error |
 
@@ -136,7 +135,7 @@ Use `ControllerVector` when:
 
 - The device has a set of identical channels, axes, or modules identified by number
 - You need to iterate over sub controllers and perform the same action on each
-- The number of instances may vary (e.g. determined at runtime during `initialise`)
+- The number of instances may vary (e.g. determined from the connection's introspection)
 
 Use a plain `Controller` with named sub controllers when the sub controllers are
 distinct components with different types or roles.
