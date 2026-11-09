@@ -12,7 +12,7 @@ from ._pv_handlers import make_command_pv, make_shared_read_pv, make_shared_writ
 from .pvi import add_pvi_info
 
 
-async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
+def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
     """Parses `Attribute` s into p4p signals in handlers."""
     provider = StaticProvider(pv_prefix_from_path(root_controller_api.path))
 
@@ -67,13 +67,12 @@ class P4PIOC:
 
     def __init__(self, controller_apis: list[ControllerAPI]):
         self._controller_apis = controller_apis
+        self._providers = self._build_providers()
 
-    async def _build_providers(self) -> list[StaticProvider]:
-        return [await parse_attributes(api) for api in self._controller_apis]
+    def _build_providers(self) -> list[StaticProvider]:
+        return [parse_attributes(api) for api in self._controller_apis]
 
     async def run(self):
-        providers = await self._build_providers()
-
         endless_event = asyncio.Event()
-        with Server(providers):
+        with Server(self._providers):
             await endless_event.wait()
