@@ -1,7 +1,6 @@
 import asyncio
 import enum
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 
@@ -10,7 +9,6 @@ from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command, scan
-from fastcs.transports.epics.options import EpicsGUIOptions
 from fastcs.transports.epics.pva import EpicsPVATransport
 
 
@@ -57,7 +55,7 @@ class ChildController(Controller):
         super().__init__(description, ios)
 
     @command()
-    async def d(self) -> int:
+    async def d(self):
         print("D: RUNNING")
         await asyncio.sleep(0.1)
         print("D: FINISHED")
@@ -91,8 +89,7 @@ class ChildController(Controller):
 
 def run(id="P4P_TEST_DEVICE"):
     simple_attribute_io = SimpleAttributeIO()
-    gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo P4P")
-    p4p_options = EpicsPVATransport(gui=gui_options)
+    p4p_options = EpicsPVATransport()
     controller = ParentController(ios=[simple_attribute_io])
     controller.set_path([id])
 
