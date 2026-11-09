@@ -31,10 +31,10 @@ or a description for the parameter.
 
 ## Introspection
 
-A `Connection` can describe the device it connects to by returning that description
-from `connect`. FastCS opens every connection before constructing any controller, and
-stores what `connect` returned as `connection.introspection`, so a controller can use it
-in its `__init__`.
+A `Connection` can describe the device it connects to by implementing `introspect`.
+FastCS opens every connection and calls `introspect` before constructing any
+controller, and stores what it returned as `connection.introspection`, so a controller
+can use it in its `__init__`.
 
 Take the driver implementation from the previous tutorial and remove the statically
 defined `Attributes` and creation of sub controllers in `__init__`. Then create them
@@ -53,19 +53,19 @@ create `Attributes`.
 :lines: 42-60
 :::
 
-Create a connection that queries the `API?` command when it connects, and returns the
-parsed response. The type parameter, `Connection[dict[str, Any]]`, is the type that
-`connect` returns.
+Create a connection whose `introspect` queries the `API?` command and returns the
+parsed response. The type parameter, `IPConnection[dict[str, Any]]`, is the type that
+`introspect` returns.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 63-79
+:lines: 63-66
 :::
 
 Update the controllers to create their attributes from `connection.introspection` in
 `__init__`, instead of defining them statically.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 114-140
+:lines: 101-127
 :::
 
 The `suffix` field should also be removed from `TemperatureController` and
