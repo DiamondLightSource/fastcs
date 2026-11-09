@@ -166,7 +166,7 @@ class TestEpicsPva:
     async def test_typed_commands_are_skipped_and_void_ones_are_not(
         self, controller_api
     ):
-        provider = await parse_attributes(controller_api)
+        provider = parse_attributes(controller_api)
 
         assert "DEVICE:Stop" in provider.keys()
         assert "DEVICE:MoveTo" not in provider.keys()
@@ -182,7 +182,7 @@ class TestEpicsPva:
 
     @pytest.mark.asyncio
     async def test_skipping_says_why(self, controller_api, loguru_caplog):
-        await parse_attributes(controller_api)
+        parse_attributes(controller_api)
 
         assert (
             "EPICS PVA transport cannot serve a command that takes arguments or "
