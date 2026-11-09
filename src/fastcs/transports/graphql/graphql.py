@@ -183,6 +183,12 @@ def _wrap_as_field(field_name: str, operation: type) -> StrawberryField:
     return strawberry.field(_dynamic_field)
 
 
+# Strawberry treats resolver parameters with these names specially rather than
+# as GraphQL arguments. See `RESERVED_PARAMSPEC` in
+# https://github.com/strawberry-graphql/strawberry/blob/0.289.0/strawberry/types/fields/resolver.py
+_RESERVED_RESOLVER_NAMES = ("cls", "info", "root", "self")
+
+
 def _wrap_command(method_name: str, command: Command) -> Callable[..., Awaitable[Any]]:
     """Wrap a command in a function with annotations for strawberry"""
     argument_names = [
@@ -191,6 +197,13 @@ def _wrap_command(method_name: str, command: Command) -> Callable[..., Awaitable
     return_datatype = command.return_datatype
     # A void command has no value to give back, so it reports that it ran.
     return_annotation = bool if return_datatype is None else return_datatype
+
+    reserved = [name for name in argument_names if name in _RESERVED_RESOLVER_NAMES]
+    if reserved:
+        raise FastCSError(
+            f"Command {method_name!r} has argument(s) {reserved} which the GraphQL "
+            f"transport cannot expose; rename them to avoid {_RESERVED_RESOLVER_NAMES}"
+        )
 
     async def _dynamic_f(**kwargs):
         result = await command.fn(*(kwargs[name] for name in argument_names))
