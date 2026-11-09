@@ -3,7 +3,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, Field, create_model
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
@@ -143,14 +143,21 @@ def _add_attribute_api_routes(app: FastAPI, root_controller_api: ControllerAPI) 
                     )
 
 
+def _argument_field(index: int) -> str:
+    """The internal pydantic field name of a command's positional argument."""
+    return f"arg{index}"
+
+
 def _command_arguments_body(name: str, command: Command) -> type[BaseModel]:
     """A pydantic model of a command's positional arguments, as a request body."""
     parameters = list(command.signature.parameters.values())
-    # key=(type, ...) to declare a field without default value
+    # Argument names may not be valid pydantic field names (e.g. leading
+    # underscores, or `model_config`), so the fields get safe internal names and
+    # the argument names are kept as aliases, which are what the schema shows.
     fields: dict[str, Any] = {
-        parameter.name: (argument_type, ...)
-        for parameter, argument_type in zip(
-            parameters, command.argument_types, strict=True
+        _argument_field(index): (argument_type, Field(alias=parameter.name))
+        for index, (parameter, argument_type) in enumerate(
+            zip(parameters, command.argument_types, strict=True)
         )
     }
     return create_model(f"Call{snake_to_pascal(name)}Arguments", **fields)
@@ -180,7 +187,10 @@ def _wrap_command(
         return call
 
     async def call_with_arguments(request) -> dict[str, object] | None:
-        arguments = [getattr(request, argument) for argument in argument_names]
+        arguments = [
+            getattr(request, _argument_field(index))
+            for index in range(len(argument_names))
+        ]
         result = await command.fn(*arguments)
         return {"value": result} if returns_a_value else None
 

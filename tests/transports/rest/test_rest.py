@@ -1,8 +1,10 @@
 import asyncio
 import enum
+from inspect import Parameter, Signature
 
 import numpy as np
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 from tests.assertable_controller import AssertableControllerAPI, MyTestController
@@ -10,6 +12,8 @@ from tests.assertable_controller import AssertableControllerAPI, MyTestControlle
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
+from fastcs.methods import Command
+from fastcs.transports.rest.rest import _wrap_command
 from fastcs.transports.rest.transport import RestTransport
 
 
@@ -180,3 +184,21 @@ class TestRestServer:
             response = test_client.get("/SubController02/read-int")
         assert response.status_code == 200
         assert response.json()["value"] == expect
+
+
+@pytest.mark.parametrize("name", ["_value", "__value", "model_config"])
+def test_command_argument_name_not_a_valid_pydantic_field(name: str):
+    async def fn(value: int) -> int:
+        return value
+
+    fn.__signature__ = Signature(
+        [Parameter(name, Parameter.POSITIONAL_OR_KEYWORD, annotation=int)],
+        return_annotation=int,
+    )
+    app = FastAPI()
+    app.add_api_route("/do", _wrap_command("do", Command(fn)), methods=["PUT"])
+    client = TestClient(app)
+
+    assert client.put("/do", json={name: 5}).json() == {"value": 5}
+    schema = client.get("/openapi.json").json()["components"]["schemas"]
+    assert list(schema["CallDoArguments"]["properties"]) == [name]
