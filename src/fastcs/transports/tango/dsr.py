@@ -38,13 +38,13 @@ def _wrap_updater_fget(
 
 async def _run_threadsafe_blocking(
     coro: Coroutine[Any, Any, Any], loop: asyncio.AbstractEventLoop
-) -> None:
+) -> Any:
     """
     Wraps a concurrent.futures.Future object as an
     asyncio.Future to make it awaitable and then awaits it
     """
     future = asyncio.run_coroutine_threadsafe(coro, loop)
-    await asyncio.wrap_future(future)
+    return await asyncio.wrap_future(future)
 
 
 def _wrap_updater_fset(
