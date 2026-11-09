@@ -69,14 +69,15 @@ async def test_start_runs_scans_and_stop_stops_them():
 
 
 class RecordingConnection(Connection):
-    def __init__(self, events: list[str]) -> None:
+    def __init__(self, events: list[str], name: str = "") -> None:
         self.events = events
+        self.suffix = f" {name}" if name else ""
 
     async def connect(self) -> None:
-        self.events.append("connect")
+        self.events.append(f"connect{self.suffix}")
 
     async def close(self) -> None:
-        self.events.append("close")
+        self.events.append(f"close{self.suffix}")
 
 
 class ConnectedController(Controller):
@@ -122,23 +123,11 @@ async def test_connections_closed_if_build_fails():
     assert events == ["connect", "close"]
 
 
-class NamedConnection(Connection):
-    def __init__(self, name: str, events: list[str]) -> None:
-        self.name = name
-        self.events = events
-
-    async def connect(self) -> None:
-        self.events.append(f"connect {self.name}")
-
-    async def close(self) -> None:
-        self.events.append(f"close {self.name}")
-
-
-class EigerConnection(NamedConnection):
+class EigerConnection(RecordingConnection):
     pass
 
 
-class OdinConnection(NamedConnection):
+class OdinConnection(RecordingConnection):
     depends_on = EigerConnection
 
 
@@ -155,8 +144,8 @@ async def test_connections_opened_in_dependency_order_and_closed_in_reverse():
             ControllerSpec(
                 "A",
                 TwoConnectionController,
-                odin=OdinConnection("odin", events),
-                eiger=EigerConnection("eiger", events),
+                odin=OdinConnection(events, "odin"),
+                eiger=EigerConnection(events, "eiger"),
             )
         ]
     )
@@ -166,11 +155,11 @@ async def test_connections_opened_in_dependency_order_and_closed_in_reverse():
     assert events == ["connect eiger", "connect odin", "close odin", "close eiger"]
 
 
-class ConnectionA(NamedConnection):
+class ConnectionA(RecordingConnection):
     pass
 
 
-class ConnectionB(NamedConnection):
+class ConnectionB(RecordingConnection):
     depends_on = [ConnectionA]
 
 
@@ -191,8 +180,8 @@ async def test_dependency_cycle_raises_before_anything_opens():
                 ControllerSpec(
                     "A",
                     CycleController,
-                    ConnectionA("a", events),
-                    ConnectionB("b", events),
+                    ConnectionA(events, "a"),
+                    ConnectionB(events, "b"),
                 )
             ]
         )
