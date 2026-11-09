@@ -21,6 +21,7 @@ controller is responsible for calling them as part of its own lifecycle, if requ
 | Method | Purpose |
 |---|---|
 | `initialise` | Dynamically add attributes on startup, before the API is built |
+| `setup` | Run once at startup, before the initial reads. Called on every controller in the tree |
 | `reconnect` | Re-open connection after scan error |
 
 Connections to the device are not opened by the controller. They are `Connection`s
