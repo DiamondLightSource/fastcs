@@ -87,6 +87,9 @@ class UnboundScan(Method[Controller_T]):
     def _validate(self, fn: UnboundScanCallback[Controller_T]) -> None:
         super()._validate(fn)
 
+        if not self.parameters:
+            raise TypeError("Scan method must take self")
+
         try:
             self._validate_takes_no_arguments()
             self._validate_returns_nothing()

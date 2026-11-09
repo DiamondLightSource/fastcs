@@ -91,6 +91,16 @@ async def test_unbound_scan():
 
 
 @pytest.mark.asyncio
+async def test_unbound_scan_without_self_raises():
+    class TestController(Controller):
+        async def update_nothing():  # type: ignore
+            pass
+
+    with pytest.raises(TypeError, match="Scan method must take self"):
+        UnboundScan(TestController.update_nothing, 1.0)  # type: ignore
+
+
+@pytest.mark.asyncio
 async def test_a_command_can_take_arguments_and_return_a_value():
     class TestController(Controller):
         async def move_to(self, position: float, wait: bool) -> str:
