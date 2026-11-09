@@ -915,6 +915,7 @@ dependencies = [
     { name = "pygelf" },
     { name = "ruamel-yaml" },
     { name = "stdio-socket" },
+    { name = "typing-extensions" },
 ]
 
 [package.optional-dependencies]
@@ -1012,6 +1013,7 @@ requires-dist = [
     { name = "stdio-socket" },
     { name = "strawberry-graphql", marker = "extra == 'graphql'" },
     { name = "tickit", marker = "extra == 'demo'", specifier = "~=0.4.3" },
+    { name = "typing-extensions" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'graphql'", specifier = ">=0.12.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'rest'", specifier = ">=0.12.0" },
 ]

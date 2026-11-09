@@ -55,7 +55,8 @@ class ControllerRunner:
         try:
             for spec in specs:
                 for connection in _dependency_order(spec.connections):
-                    await connection.connect()
+                    introspection = await connection.connect()
+                    connection._introspection = introspection  # noqa: SLF001
                     runner._connections.append(connection)
 
             runner._controllers = [spec.construct() for spec in specs]
