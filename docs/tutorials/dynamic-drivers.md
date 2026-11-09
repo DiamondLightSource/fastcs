@@ -57,7 +57,7 @@ Update the controllers to not define attributes statically and implement initial
 methods to create these attributes dynamically.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 91-131
+:lines: 91-125
 :::
 
 The `suffix` field should also be removed from `TemperatureController` and

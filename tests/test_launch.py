@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from fastcs import __version__
 from fastcs.attributes import AttrR
+from fastcs.connections import IPConnection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.datatypes import Int
@@ -53,6 +54,11 @@ class IsHinted(Controller):
 
 class ManyArgs(Controller):
     def __init__(self, arg: SomeConfig, too_many):
+        super().__init__()
+
+
+class WithConnection(Controller):
+    def __init__(self, connection: IPConnection, arg: SomeConfig) -> None:
         super().__init__()
 
 
@@ -132,8 +138,9 @@ def test_not_hinted_schema():
 def test_over_defined_schema():
     error = (
         ""
-        "Expected no more than 2 arguments for 'ManyArgs.__init__' "
-        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, too_many)`"
+        "Expected no more than 1 argument besides connections for "
+        "'ManyArgs.__init__' but received 2 as "
+        "`(self, arg: tests.test_launch.SomeConfig, too_many)`"
     )
 
     with pytest.raises(LaunchError) as exc_info:
@@ -321,3 +328,29 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     specs_arg = init_spy.call_args.args[1]
     assert [s.id for s in specs_arg] == ["one", "two"]
     assert [s.controller_class for s in specs_arg] == [IsHinted, OtherHinted]
+
+
+def test_connections_built_from_config(mocker: MockerFixture, tmp_path):
+    init_spy = mocker.spy(FastCS, "__init__")
+    mocker.patch("fastcs.launch.FastCS.run")
+    cfg = tmp_path / "connected.yaml"
+    cfg.write_text(
+        "controllers:\n"
+        "  - id: one\n"
+        "    type: tests.WithConnection\n"
+        "    connections:\n"
+        "      connection:\n"
+        "        ip: localhost\n"
+        "        port: 8000\n"
+        "    name: a\n"
+        "transport:\n"
+        "  - rest: {}\n"
+    )
+    result = runner.invoke(_launch(WithConnection), ["run", str(cfg)])
+    assert result.exit_code == 0, result.output
+
+    [spec] = init_spy.call_args.args[1]
+    connection = spec.kwargs["connection"]
+    assert isinstance(connection, IPConnection)
+    assert (connection.ip, connection.port) == ("localhost", 8000)
+    assert spec.kwargs["arg"] == SomeConfig(name="a")

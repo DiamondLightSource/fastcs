@@ -144,10 +144,10 @@ The `Attributes` of a FastCS `Controller` need some IO with the device in order 
 and set values. This is implemented with `AttributeIO`s and connections. Generally each
 driver implements its own IO and connection logic, but there are some built in options.
 
-Update the controller to create an `IPConnection` to communicate with the simulator over
-TCP and implement a `connect` method that establishes the connection. The `connect`
-method is called by the FastCS application at the appropriate time during start up to
-ensure the connection is established before it is used.
+Create an `IPConnection` to communicate with the simulator over TCP, pass it to the
+`ControllerSpec`, and update the controller to take it as a constructor argument. FastCS
+opens the connection before constructing the controller, so it is ready to use, and
+closes it when the application stops.
 
 :::{note}
 The simulator control connection is on port 25565.
@@ -157,7 +157,7 @@ The simulator control connection is on port 25565.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static06.py
-:emphasize-lines: 4,15-22,27-28
+:emphasize-lines: 4,15-18,23-24
 :::
 
 ::::
@@ -181,7 +181,7 @@ The `update_period` property tells the base class how often to call `update`
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static07.py
-:emphasize-lines: 1,3,5-6,15-33,37,43
+:emphasize-lines: 1,3,5-6,15-33,37
 :::
 
 ::::
@@ -290,7 +290,7 @@ are, which is used to register the correct number of ramp controllers with the p
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,35,44,48-56,64,70-74,82
+:emphasize-lines: 10,28,32,35,44,48-56,62-63,69-72,78
 :::
 
 ::::
@@ -368,7 +368,7 @@ gets the array of voltages and sets each ramp controller with its value. Also ad
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static12.py
-:emphasize-lines: 2,16,60-62,91-97
+:emphasize-lines: 2,16,60-62,87-93
 :::
 
 ::::
@@ -389,7 +389,7 @@ controller.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static13.py
-:emphasize-lines: 1,17,100-105
+:emphasize-lines: 1,17,96-101
 :::
 
 ::::
@@ -421,7 +421,7 @@ logger for `TemperatureControllerAttributeIO` to log the commands it sends.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 13,48,110,115
+:emphasize-lines: 13,48,106,111
 :::
 
 ::::
@@ -446,7 +446,7 @@ visible.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static15.py
-:emphasize-lines: 13,49-51,118
+:emphasize-lines: 13,49-51,114
 :::
 
 ::::

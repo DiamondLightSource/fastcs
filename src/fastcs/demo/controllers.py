@@ -7,7 +7,7 @@ from typing import TypeVar
 import numpy as np
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection
 from fastcs.controllers import Controller
 from fastcs.datatypes import Enum, Float, Int, Waveform
 from fastcs.logging import logger
@@ -24,7 +24,6 @@ class OnOffEnum(enum.StrEnum):
 @dataclass
 class TemperatureControllerSettings:
     num_ramp_controllers: int
-    ip_settings: IPConnectionSettings
 
 
 @dataclass
@@ -71,8 +70,10 @@ class TemperatureController(Controller):
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef(name="P"))
     voltages = AttrR(Waveform(np.int32, shape=(4,)))
 
-    def __init__(self, settings: TemperatureControllerSettings) -> None:
-        self.connection = IPConnection()
+    def __init__(
+        self, connection: IPConnection, settings: TemperatureControllerSettings
+    ) -> None:
+        self.connection = connection
         self.suffix = ""
         super().__init__(
             ios=[TemperatureControllerAttributeIO(self.connection, self.suffix)]
@@ -93,13 +94,10 @@ class TemperatureController(Controller):
             # TODO: The requests all get concatenated and the sim doesn't handle it
             await asyncio.sleep(0.1)
 
-    async def connect(self) -> None:
-        await self.connection.connect(self._settings.ip_settings)
-
     async def reconnect(self):
         try:
             await self.connection.close()
-            await self.connection.connect(self._settings.ip_settings)
+            await self.connection.connect()
         except BaseException:
             logger.exception("Reconnect failed")
             return

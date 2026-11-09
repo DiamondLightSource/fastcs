@@ -53,12 +53,6 @@ class MyTestController(Controller):
         await super().initialise()
         self.initialised = True
 
-    async def connect(self) -> None:
-        self._connected = True
-
-    async def disconnect(self) -> None:
-        self._connected = False
-
     @command()
     async def go(self):
         pass

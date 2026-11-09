@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+import functools
 import inspect
 import json
 from pathlib import Path
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field, ValidationError, create_model
 from ruamel.yaml import YAML
 
 from fastcs import __version__
+from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.exceptions import LaunchError
@@ -28,15 +30,16 @@ from fastcs.transports import Transport
 @dataclasses.dataclass(frozen=True)
 class _RegisteredClass:
     cls: type[Controller]
-    expects_options: bool
+    connection_types: dict[str, type[Connection]]
+    options_name: str | None
     options_type: Any
 
 
 _ENTRY_REGISTRY: dict[type[BaseModel], _RegisteredClass] = {}
 """Maps each dynamically-built Entry model class to its originating
-Controller class and whether it expects an options arg (with the
-options-type, if any). Populated by ``_build_entry_model`` and read by
-``_instantiate_controllers``."""
+Controller class, the connections it takes and its options arg (name and
+type, if any). Populated by ``_build_entry_model`` and read by
+``_controller_specs``."""
 
 
 def launch(
@@ -53,7 +56,9 @@ def launch(
     Args:
         controller_classes: One or more FastCS Controller classes to make
             available for instantiation. Each must have a type-hinted
-            __init__ method and no more than 2 arguments. The chosen class
+            __init__ method. Its ``Connection`` arguments become its
+            ``connections:`` block, and it may take one other argument, an
+            options type whose fields are inlined into its entry. The chosen class
             for each id is selected by a required ``type`` discriminator
             in the config.
         version (Optional[str]): The version of the FastCS application.
@@ -201,9 +206,10 @@ def _controller_specs(
     """Create a `ControllerSpec` for each entry under `controllers:`.
 
     Each item in ``controllers_options`` is a dynamically-built Pydantic
-    model that exposes ``id``, ``type`` and the controller's options fields
-    inlined as siblings. The originating Controller class and its
-    options-type are looked up in ``_ENTRY_REGISTRY`` (populated by
+    model that exposes ``id``, ``type``, ``connections`` (if the controller
+    takes any) and the controller's options fields inlined as siblings. The
+    originating Controller class, its connection types and its options-type are
+    looked up in ``_ENTRY_REGISTRY`` (populated by
     ``_build_entry_model``). The entry's ``id`` becomes the spec's id, so that
     ``ControllerAPI.path`` is rooted at the YAML id.
     """
@@ -222,17 +228,47 @@ def _controller_specs(
     for entry in controllers_options:
         entry_cls: type[BaseModel] = type(entry)
         registered = _ENTRY_REGISTRY[entry_cls]
-        if registered.expects_options:
+
+        kwargs: dict[str, Any] = {}
+        for name, connection_type in registered.connection_types.items():
+            settings = getattr(entry.connections, name)
+            values = {k: getattr(settings, k) for k in type(settings).model_fields}
+            kwargs[name] = connection_type(**values)
+
+        if registered.options_name is not None:
             field_values = {
                 name: getattr(entry, name)
                 for name in entry_cls.model_fields
-                if name not in ("id", "type")
+                if name not in ("id", "type", "connections")
             }
-            options = registered.options_type(**field_values)
-            specs.append(ControllerSpec(entry.id, registered.cls, options))
-        else:
-            specs.append(ControllerSpec(entry.id, registered.cls))
+            kwargs[registered.options_name] = registered.options_type(**field_values)
+
+        specs.append(ControllerSpec(entry.id, registered.cls, **kwargs))
     return specs
+
+
+@functools.cache
+def _connection_settings_model(connection_type: type[Connection]) -> type[BaseModel]:
+    """Build the Pydantic model for one connection's block under `connections:`.
+
+    Its fields are the connection's constructor arguments. Cached so that a
+    connection class used by several controllers appears once in the schema.
+    """
+    sig = inspect.signature(connection_type.__init__)
+    hints = get_type_hints(connection_type.__init__)
+    fields: dict[str, Any] = {}
+    for name, param in list(sig.parameters.items())[1:]:
+        if name not in hints:
+            raise LaunchError(
+                f"Expected typehinting in '{connection_type.__name__}.__init__' "
+                f"but received {sig}. Add a typehint for `{name}`."
+            )
+        default = ... if param.default is inspect.Parameter.empty else param.default
+        fields[name] = (hints[name], default)
+
+    return create_model(
+        f"{connection_type.__name__}Settings", __config__={"extra": "forbid"}, **fields
+    )
 
 
 def _options_field_definitions(options_type: type) -> dict[str, tuple[Any, Any]]:
@@ -269,36 +305,54 @@ def _options_field_definitions(options_type: type) -> dict[str, tuple[Any, Any]]
 def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     """Build a Pydantic model for one entry under `controllers:`.
 
-    Each entry exposes ``id`` and a ``type`` discriminator literal alongside
-    the options-type's fields, inlined as siblings (no nested ``controller:``
-    block). The Controller class and its options-type are recorded in
-    ``_ENTRY_REGISTRY`` for use by ``_instantiate_controllers``.
+    Each entry exposes ``id`` and a ``type`` discriminator literal, a
+    ``connections`` block with one field per ``Connection`` argument, and the
+    options-type's fields, inlined as siblings (no nested ``controller:``
+    block). The Controller class, its connection types and its options-type are
+    recorded in ``_ENTRY_REGISTRY`` for use by ``_controller_specs``.
     """
     sig = inspect.signature(controller_class.__init__)
-    args = inspect.getfullargspec(controller_class.__init__)[0]
+    args = inspect.getfullargspec(controller_class.__init__)[0][1:]
+    hints = get_type_hints(controller_class.__init__)
     discriminator = _discriminator(controller_class)
 
     fields: dict[str, Any] = {
         "id": (str, ...),
         "type": (Literal[discriminator], ...),
     }
-    expects_options = False
+
+    connection_types: dict[str, type[Connection]] = {}
+    for name in args:
+        hint = hints.get(name)
+        if isinstance(hint, type) and issubclass(hint, Connection):
+            connection_types[name] = hint
+
+    if connection_types:
+        connection_fields: dict[str, Any] = {
+            name: (_connection_settings_model(connection_type), ...)
+            for name, connection_type in connection_types.items()
+        }
+        connections_model = create_model(
+            f"{controller_class.__name__}Connections",
+            __config__={"extra": "forbid"},
+            **connection_fields,
+        )
+        fields["connections"] = (connections_model, ...)
+
+    option_args = [name for name in args if name not in connection_types]
+    options_name: str | None = None
     options_type: Any = None
 
-    if len(args) == 1:
-        pass
-    elif len(args) == 2:
-        expects_options = True
-        hints = get_type_hints(controller_class.__init__)
-        hints.pop("return", None)
-        if not hints:
+    if len(option_args) == 1:
+        options_name = option_args[0]
+        if options_name not in hints:
             raise LaunchError(
                 f"Expected typehinting in '{controller_class.__name__}"
-                f".__init__' but received {sig}. Add a typehint for `{args[-1]}`."
+                f".__init__' but received {sig}. Add a typehint for `{options_name}`."
             )
-        options_type = list(hints.values())[-1]
+        options_type = hints[options_name]
         options_fields = _options_field_definitions(options_type)
-        for reserved in ("id", "type"):
+        for reserved in ("id", "type", "connections"):
             if reserved in options_fields:
                 raise LaunchError(
                     f"Options type {options_type.__name__} for "
@@ -306,10 +360,11 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
                     f"which collides with a launch-framework key."
                 )
         fields.update(options_fields)
-    else:
+    elif len(option_args) > 1:
         raise LaunchError(
-            f"Expected no more than 2 arguments for '{controller_class.__name__}"
-            f".__init__' but received {len(args)} as `{sig}`"
+            f"Expected no more than 1 argument besides connections for "
+            f"'{controller_class.__name__}.__init__' but received "
+            f"{len(option_args)} as `{sig}`"
         )
 
     entry_model = create_model(
@@ -319,7 +374,8 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     )
     _ENTRY_REGISTRY[entry_model] = _RegisteredClass(
         cls=controller_class,
-        expects_options=expects_options,
+        connection_types=connection_types,
+        options_name=options_name,
         options_type=options_type,
     )
     return entry_model
@@ -334,7 +390,7 @@ def _build_options_model(
     registered class's entry model or a discriminated union over all
     registered classes; in both cases the entry's ``id:`` and ``type:``
     fields are required. Duplicate ``id`` values across the list are
-    rejected by ``_instantiate_controllers``.
+    rejected by ``_controller_specs``.
     """
     entries = [_build_entry_model(cls) for cls in controller_classes]
 

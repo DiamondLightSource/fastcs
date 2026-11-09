@@ -16,8 +16,8 @@ from fastcs.util import ONCE
 
 class ControllerRunner:
     """Runs the lifecycle of one or more top-level controllers: opening their
-    connections, constructing and initialising them, connecting, the initial reads,
-    the scan tasks, and stopping.
+    connections, constructing and initialising them, the initial reads, the scan
+    tasks, and stopping.
 
     Args:
         specs: What to construct each top-level controller from
@@ -86,28 +86,15 @@ class ControllerRunner:
         return self._controller_apis
 
     async def start(self) -> None:
-        """Connect the controllers, run the initial reads and start the scan tasks."""
-        for controller in self._controllers:
-            await controller.connect()
-
+        """Run the initial reads and start the scan tasks."""
         for coro in self._initial_coros:
             await coro()
 
         self._tasks = {asyncio.create_task(coro()) for coro in self._scan_coros}
 
     async def stop(self) -> None:
-        """Stop the scan tasks, disconnect the controllers and close the
-        connections."""
+        """Stop the scan tasks and close the connections."""
         self._cancel_tasks()
-
-        for controller in self._controllers:
-            try:
-                await controller.disconnect()
-            except Exception:
-                logger.exception(
-                    "Exception during disconnect", controller=controller.path
-                )
-
         await self._close_connections()
 
     async def _close_connections(self) -> None:
