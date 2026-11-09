@@ -189,6 +189,10 @@ class BaseController(Tracer):
         """Hook for subclasses to dynamically add attributes before building the API"""
         pass
 
+    async def setup(self):
+        """Hook to run once at startup, before the initial reads"""
+        pass
+
     def post_initialise(self):
         """Hook to call after all attributes added, before serving the application"""
         self._validate_type_hints()

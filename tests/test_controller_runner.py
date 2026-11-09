@@ -15,9 +15,13 @@ class ScanController(Controller):
         super().__init__()
         self.read_once_count = 0
         self.scan_count = 0
+        self.setup_before_read_once = False
         self.multiple_scans = asyncio.Event()
         self.started = asyncio.Event()
         self.stopped = asyncio.Event()
+
+    async def setup(self) -> None:
+        self.setup_before_read_once = self.read_once_count == 0
 
     @scan(ONCE)
     async def read_once(self) -> None:
@@ -56,6 +60,7 @@ async def test_start_runs_scans_and_stop_stops_them():
     await runner.start()
 
     await asyncio.wait_for(controller.multiple_scans.wait(), timeout=1)
+    assert controller.setup_before_read_once
     assert controller.read_once_count == 1
 
     await asyncio.wait_for(controller.started.wait(), timeout=1)
