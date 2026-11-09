@@ -15,9 +15,7 @@ from fastcs.util import ONCE
 
 
 class ControllerRunner:
-    """Runs the lifecycle of one or more top-level controllers: opening their
-    connections, constructing and initialising them, the initial reads, the scan
-    tasks, and stopping.
+    """Runs the lifecycle of one or more top-level controllers.
 
     Args:
         specs: What to construct each top-level controller from
@@ -37,8 +35,8 @@ class ControllerRunner:
 
     @classmethod
     async def build(cls, specs: list[ControllerSpec]) -> Self:
-        """Open the connections, then construct and initialise the controllers and
-        create a runner with their APIs.
+        """Open the connections, construct the controllers and create a runner with
+        their APIs.
 
         Args:
             specs: What to construct each top-level controller from
@@ -46,8 +44,6 @@ class ControllerRunner:
         Returns:
             A runner ready to `start`, with an API per controller in
             ``controller_apis``, in the order the specs were given
-
-        If anything fails, the connections opened so far are closed again.
 
         """
         runner = cls(specs)
@@ -99,7 +95,7 @@ class ControllerRunner:
         await self._close_connections()
 
     async def _close_connections(self) -> None:
-        """Close the open connections, in the reverse of the order they opened."""
+        """Close the open connections, in reverse order."""
         while self._connections:
             connection = self._connections.pop()
             try:
@@ -111,9 +107,6 @@ class ControllerRunner:
         self, controller: Controller, api: ControllerAPI
     ) -> tuple[list[ScanCallback], list[ScanCallback]]:
         """Find the initial reads and periodic scans in a controller's tree.
-
-        Periodic scans are grouped into one task per period for each top-level
-        controller.
 
         Returns:
             The initial coroutines, and one periodic coroutine per period
@@ -157,7 +150,7 @@ class ControllerRunner:
 
 
 def _dependency_types(connection: Connection) -> tuple[type[Connection], ...]:
-    """A connection's ``depends_on``, whether given as one type or several"""
+    """A connection's ``depends_on`` as a tuple"""
     depends_on = connection.depends_on
     if isinstance(depends_on, type):
         return (depends_on,)
@@ -167,10 +160,6 @@ def _dependency_types(connection: Connection) -> tuple[type[Connection], ...]:
 
 def _dependency_order(connections: list[Connection]) -> list[Connection]:
     """Order connections so that each comes after the connections it depends on.
-
-    A connection depends on every other connection whose type is in its
-    ``depends_on``. Otherwise the given order is kept. A connection given more than
-    once appears once.
 
     Raises:
         ValueError: If the dependencies form a cycle
@@ -206,10 +195,6 @@ def _periodic_scan_coro(
     controller: Controller, period: float, scans: Sequence[ScanCallback]
 ) -> ScanCallback:
     """Create a coroutine to run scans at a given period
-
-    If a scan raises, the exception is logged and the controller is marked
-    disconnected, which pauses every scan task of that controller until its
-    ``reconnect`` hook marks it connected again.
 
     Args:
         controller: The top-level controller whose connection gates the scans
