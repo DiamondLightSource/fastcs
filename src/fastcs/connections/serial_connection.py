@@ -1,7 +1,8 @@
 import asyncio
-from dataclasses import dataclass
 
 import aioserial
+
+from fastcs.connections.connection import Connection
 
 
 class NotOpenedError(Exception):
@@ -10,21 +11,23 @@ class NotOpenedError(Exception):
     pass
 
 
-@dataclass
-class SerialConnectionSettings:
-    port: str
-    baud: int = 115200
+class SerialConnection(Connection):
+    """A serial connection.
 
+    Args:
+        port: The serial port to open
+        baud: The baud rate
 
-class SerialConnection:
-    """A serial connection."""
+    """
 
-    def __init__(self):
-        self.stream = None
+    def __init__(self, port: str, baud: int = 115200):
+        self.port = port
+        self.baud = baud
+        self.__stream = None
         self._lock = asyncio.Lock()
 
-    async def connect(self, settings: SerialConnectionSettings) -> None:
-        self.__stream = aioserial.AioSerial(port=settings.port, baudrate=settings.baud)
+    async def connect(self) -> None:
+        self.__stream = aioserial.AioSerial(port=self.port, baudrate=self.baud)
 
     @property
     def _stream(self) -> aioserial.AioSerial:
