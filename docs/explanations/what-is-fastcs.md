@@ -55,7 +55,7 @@ using `ControllerVector`. See [Controllers](controllers.md) for details.
 
 To create a driver, subclass `Controller`, declare attributes and commands as typed
 class members, take the `Connection`s it needs as constructor arguments, and implement
-lifecycle hooks (`initialise`, `reconnect`) and periodic scan tasks. The [tutorials](../tutorials.md) walk through a complete example.
+lifecycle hooks (`setup`, `reconnect`) and periodic scan tasks. The [tutorials](../tutorials.md) walk through a complete example.
 
 ## Deploying as an application
 

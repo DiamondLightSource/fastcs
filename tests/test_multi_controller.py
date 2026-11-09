@@ -307,14 +307,10 @@ class _LifecycleController(Controller):
 
     def __init__(self):
         super().__init__()
-        self.initialised = False
-        self.post_initialised = False
+        self.set_up = False
 
-    async def initialise(self):
-        self.initialised = True
-
-    def post_initialise(self):
-        self.post_initialised = True
+    async def setup(self):
+        self.set_up = True
 
 
 class _OtherLifecycleController(_LifecycleController):
@@ -343,8 +339,7 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
         await asyncio.sleep(0.1)
 
         for controller in (a, b):
-            assert controller.initialised
-            assert controller.post_initialised
+            assert controller.set_up
 
         with TestClient(transport._server._app) as client:
             assert client.get("/alpha/foo").status_code == 200

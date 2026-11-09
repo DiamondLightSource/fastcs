@@ -46,12 +46,7 @@ class MyTestController(Controller):
             self._sub_controllers.append(controller)
             self.add_sub_controller(f"SubController{index:02d}", controller)
 
-    initialised = False
     count = 0
-
-    async def initialise(self) -> None:
-        await super().initialise()
-        self.initialised = True
 
     @command()
     async def go(self):

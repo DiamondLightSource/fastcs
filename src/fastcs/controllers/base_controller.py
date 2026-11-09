@@ -37,6 +37,8 @@ class BaseController(Tracer):
     root_attribute: Attribute | None = None
     description: str | None = None
 
+    _sealed: bool = False
+
     def __init__(
         self,
         path: list[str] | None = None,
@@ -185,18 +187,25 @@ class BaseController(Tracer):
         else:
             super().__setattr__(name, value)
 
-    async def initialise(self):
-        """Hook for subclasses to dynamically add attributes before building the API"""
-        pass
-
     async def setup(self):
         """Hook to run once at startup, before the initial reads"""
         pass
 
-    def post_initialise(self):
-        """Hook to call after all attributes added, before serving the application"""
+    def _seal(self):
+        """Validate the tree and connect its attribute IOs, then stop anything being
+        added to it"""
         self._validate_type_hints()
         self._connect_attribute_ios()
+        self._set_sealed()
+
+    def _set_sealed(self):
+        self._sealed = True
+        for controller in self.sub_controllers.values():
+            controller._set_sealed()  # noqa: SLF001
+
+    def _check_not_sealed(self, name: str):
+        if self._sealed:
+            raise RuntimeError(f"Cannot add {name} to {self} after it has been sealed")
 
     def _validate_type_hints(self):
         """Validate all type-hints were introspected"""
@@ -314,6 +323,7 @@ class BaseController(Tracer):
                 )
 
     def add_attribute(self, name, attr: Attribute):
+        self._check_not_sealed(name)
         try:
             self._check_for_name_clash(name)
         except ValueError as exc:
@@ -345,6 +355,7 @@ class BaseController(Tracer):
         return self.__attributes
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
+        self._check_not_sealed(name)
         try:
             self._check_for_name_clash(name)
         except ValueError as exc:
@@ -383,6 +394,7 @@ class BaseController(Tracer):
                 )
 
     def add_command(self, name: str, command: Command):
+        self._check_not_sealed(name)
         try:
             self._check_for_name_clash(name)
             self._validate_method(name, command)
@@ -397,6 +409,7 @@ class BaseController(Tracer):
         return self.__command_methods
 
     def add_scan(self, name: str, scan: Scan):
+        self._check_not_sealed(name)
         try:
             self._check_for_name_clash(name)
             self._validate_method(name, scan)

@@ -47,8 +47,8 @@ class ControllerVector(MutableMapping[int, Controller_T], BaseController):
         if not isinstance(value, Controller):
             msg = f"Expected Controller, got {value}"
             raise TypeError(msg)
-        self._children[key] = value
         super().add_sub_controller(str(key), value)
+        self._children[key] = value
 
     def __delitem__(self, key: int) -> None:
         raise NotImplementedError("Cannot delete sub controller from ControllerVector.")

@@ -32,7 +32,6 @@ async def test_controller_api_methods():
         def __init__(self):
             super().__init__()
 
-        async def initialise(self):
             async def do_nothing_dynamic() -> None:
                 pass
 

@@ -261,7 +261,7 @@ class SubscriptionController(Controller):
         super().__init__()
         self._client = subscription_client
 
-    async def initialise(self):
+    async def setup(self):
         # Register an async callback that forwards updates into the attribute.
         async def on_temperature_change(value: float) -> None:
             await self.temperature.update(value)
