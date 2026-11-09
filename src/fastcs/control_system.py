@@ -31,8 +31,8 @@ def _context_key(controller: Controller) -> str:
 class FastCS:
     """Entrypoint for a FastCS application.
 
-    This class takes one or more `Controller`s, runs them with a `ControllerRunner`
-    and serves their APIs over the given `Transport`s.
+    This class takes one or more `Controller` instances, runs them with a
+    `ControllerRunner` and serves their APIs over the given `Transport` instances.
 
     Args:
         controllers: The controller(s) to serve in the control system. Accepts
