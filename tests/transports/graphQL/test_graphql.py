@@ -189,7 +189,7 @@ class TestGraphQLServer:
 def test_command_with_reserved_argument_name_raises(name: str):
     async def fn(value: int) -> None: ...
 
-    fn.__signature__ = Signature(
+    fn.__signature__ = Signature(  # type: ignore[attr-defined]
         [Parameter(name, Parameter.POSITIONAL_OR_KEYWORD, annotation=int)]
     )
 

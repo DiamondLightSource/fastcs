@@ -191,7 +191,7 @@ def test_command_argument_name_not_a_valid_pydantic_field(name: str):
     async def fn(value: int) -> int:
         return value
 
-    fn.__signature__ = Signature(
+    fn.__signature__ = Signature(  # type: ignore[attr-defined]
         [Parameter(name, Parameter.POSITIONAL_OR_KEYWORD, annotation=int)],
         return_annotation=int,
     )
