@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import ClassVar, Generic
+from typing import ClassVar, Generic, cast
 
 from typing_extensions import TypeVar
 
@@ -10,12 +10,12 @@ IntrospectionT = TypeVar("IntrospectionT", default=None)
 
 
 class Connection(ABC, Generic[IntrospectionT]):
-    """A link to a device, optionally returning an introspection from ``connect``.
+    """A link to a device, which can optionally introspect it.
 
     Example::
 
         class EigerConnection(Connection[EigerIntrospection]):
-            async def connect(self) -> EigerIntrospection: ...
+            async def introspect(self) -> EigerIntrospection: ...
     """
 
     depends_on: ClassVar[type[Connection] | Sequence[type[Connection]]] = ()
@@ -31,7 +31,7 @@ class Connection(ABC, Generic[IntrospectionT]):
 
     @property
     def introspection(self) -> IntrospectionT:
-        """What ``connect`` returned when the runner opened this connection.
+        """What ``introspect`` returned when the runner opened this connection.
 
         Raises:
             RuntimeError: If the runner hasn't opened this connection yet
@@ -46,13 +46,17 @@ class Connection(ABC, Generic[IntrospectionT]):
             ) from None
 
     @abstractmethod
-    async def connect(self) -> IntrospectionT:
-        """Open the link, or raise.
+    async def connect(self) -> None:
+        """Open the link, or raise."""
+
+    async def introspect(self) -> IntrospectionT:
+        """Describe the device. Called by the runner after ``connect``.
 
         Returns:
             The introspection, or ``None`` if this connection doesn't introspect
 
         """
+        return cast(IntrospectionT, None)
 
     @abstractmethod
     async def close(self) -> None:

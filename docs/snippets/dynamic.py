@@ -12,7 +12,7 @@ from fastcs.attributes import (
     AttrRW,
     AttrW,
 )
-from fastcs.connections import Connection, IPConnection
+from fastcs.connections import IPConnection
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Bool, DataType, Float, Int, String
 from fastcs.launch import FastCS
@@ -60,23 +60,10 @@ def create_attributes(parameters: dict[str, Any]) -> dict[str, Attribute]:
     return attributes
 
 
-class TemperatureControllerConnection(Connection[dict[str, Any]]):
-    def __init__(self, ip: str, port: int):
-        self._connection = IPConnection(ip, port)
-
-    async def connect(self) -> dict[str, Any]:
-        await self._connection.connect()
-        response = await self._connection.send_query("API?\r\n")
+class TemperatureControllerConnection(IPConnection[dict[str, Any]]):
+    async def introspect(self) -> dict[str, Any]:
+        response = await self.send_query("API?\r\n")
         return json.loads(response.strip("\r\n"))
-
-    async def close(self) -> None:
-        await self._connection.close()
-
-    async def send_query(self, message: str) -> str:
-        return await self._connection.send_query(message)
-
-    async def send_command(self, message: str) -> None:
-        await self._connection.send_command(message)
 
 
 NumberT = TypeVar("NumberT", int, float)

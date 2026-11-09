@@ -206,7 +206,10 @@ class DeviceIntrospection:
 
 
 class IntrospectingConnection(Connection[DeviceIntrospection]):
-    async def connect(self) -> DeviceIntrospection:
+    async def connect(self) -> None:
+        pass
+
+    async def introspect(self) -> DeviceIntrospection:
         return DeviceIntrospection({"gain": 2})
 
     async def close(self) -> None:
