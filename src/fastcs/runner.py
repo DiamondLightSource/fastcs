@@ -54,7 +54,7 @@ class ControllerRunner:
 
         try:
             for spec in specs:
-                for connection in spec.connections:
+                for connection in _dependency_order(spec.connections):
                     await connection.connect()
                     runner._connections.append(connection)
 
@@ -153,6 +153,52 @@ class ControllerRunner:
 
     def __del__(self):
         self._cancel_tasks()
+
+
+def _dependency_types(connection: Connection) -> tuple[type[Connection], ...]:
+    """A connection's ``depends_on``, whether given as one type or several"""
+    depends_on = connection.depends_on
+    if isinstance(depends_on, type):
+        return (depends_on,)
+
+    return tuple(depends_on)
+
+
+def _dependency_order(connections: list[Connection]) -> list[Connection]:
+    """Order connections so that each comes after the connections it depends on.
+
+    A connection depends on every other connection whose type is in its
+    ``depends_on``. Otherwise the given order is kept. A connection given more than
+    once appears once.
+
+    Raises:
+        ValueError: If the dependencies form a cycle
+
+    """
+    unique = list({id(c): c for c in connections}.values())
+    ordered: list[Connection] = []
+    visiting: list[Connection] = []
+
+    def visit(connection: Connection) -> None:
+        if any(connection is c for c in ordered):
+            return
+        if any(connection is c for c in visiting):
+            cycle = " -> ".join(type(c).__name__ for c in [*visiting, connection])
+            raise ValueError(f"Cycle in connection dependencies: {cycle}")
+
+        visiting.append(connection)
+        for other in unique:
+            if other is not connection and isinstance(
+                other, _dependency_types(connection)
+            ):
+                visit(other)
+        visiting.pop()
+        ordered.append(connection)
+
+    for connection in unique:
+        visit(connection)
+
+    return ordered
 
 
 def _periodic_scan_coro(

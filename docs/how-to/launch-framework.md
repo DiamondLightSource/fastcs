@@ -81,6 +81,19 @@ controllers:
     timeout: 10.0
 ```
 
+If one connection needs another to be open first, declare it on the connection
+class with `depends_on`. FastCS then opens the connections it depends on first,
+and closes them last:
+
+```python
+class OdinConnection(Connection):
+    depends_on = EigerConnection
+```
+
+For several types, use a list: `depends_on = [EigerConnection, OtherConnection]`.
+A connection depends on every connection of the listed types in the same
+controller entry.
+
 ## YAML Configuration Files
 
 Create a YAML configuration file matching the schema. The conventional
