@@ -36,10 +36,7 @@ class _RegisteredClass:
 
 
 _ENTRY_REGISTRY: dict[type[BaseModel], _RegisteredClass] = {}
-"""Maps each dynamically-built Entry model class to its originating
-Controller class, the connections it takes and its options arg (name and
-type, if any). Populated by ``_build_entry_model`` and read by
-``_controller_specs``."""
+"""Maps each Entry model to its Controller class, connections and options"""
 
 
 def launch(
@@ -56,11 +53,8 @@ def launch(
     Args:
         controller_classes: One or more FastCS Controller classes to make
             available for instantiation. Each must have a type-hinted
-            __init__ method. Its ``Connection`` arguments become its
-            ``connections:`` block, and it may take one other argument, an
-            options type whose fields are inlined into its entry. The chosen class
-            for each id is selected by a required ``type`` discriminator
-            in the config.
+            ``__init__`` taking any number of ``Connection`` arguments and at most
+            one options argument.
         version (Optional[str]): The version of the FastCS application.
 
     Raises:
@@ -205,13 +199,9 @@ def _controller_specs(
 ) -> list[ControllerSpec]:
     """Create a `ControllerSpec` for each entry under `controllers:`.
 
-    Each item in ``controllers_options`` is a dynamically-built Pydantic
-    model that exposes ``id``, ``type``, ``connections`` (if the controller
-    takes any) and the controller's options fields inlined as siblings. The
-    originating Controller class, its connection types and its options-type are
-    looked up in ``_ENTRY_REGISTRY`` (populated by
-    ``_build_entry_model``). The entry's ``id`` becomes the spec's id, so that
-    ``ControllerAPI.path`` is rooted at the YAML id.
+    Raises:
+        LaunchError: If two entries have the same id
+
     """
     seen_ids: set[str] = set()
     duplicates: list[str] = []
@@ -251,8 +241,9 @@ def _controller_specs(
 def _connection_settings_model(connection_type: type[Connection]) -> type[BaseModel]:
     """Build the Pydantic model for one connection's block under `connections:`.
 
-    Its fields are the connection's constructor arguments. Cached so that a
-    connection class used by several controllers appears once in the schema.
+    Raises:
+        LaunchError: If a constructor argument has no type hint
+
     """
     sig = inspect.signature(connection_type.__init__)
     hints = get_type_hints(connection_type.__init__)
@@ -305,11 +296,10 @@ def _options_field_definitions(options_type: type) -> dict[str, tuple[Any, Any]]
 def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     """Build a Pydantic model for one entry under `controllers:`.
 
-    Each entry exposes ``id`` and a ``type`` discriminator literal, a
-    ``connections`` block with one field per ``Connection`` argument, and the
-    options-type's fields, inlined as siblings (no nested ``controller:``
-    block). The Controller class, its connection types and its options-type are
-    recorded in ``_ENTRY_REGISTRY`` for use by ``_controller_specs``.
+    Raises:
+        LaunchError: If ``__init__`` is missing a type hint or takes more than one
+            options argument, or an options field uses a reserved key
+
     """
     sig = inspect.signature(controller_class.__init__)
     args = inspect.getfullargspec(controller_class.__init__)[0][1:]

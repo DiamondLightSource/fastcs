@@ -7,7 +7,7 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
-from fastcs.controllers import ControllerSpec
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.logging import logger
 from fastcs.runner import ControllerRunner
 from fastcs.tracer import Tracer
@@ -16,15 +16,12 @@ from fastcs.transports import Transport
 tracer = Tracer()
 
 
-def _context_key(spec: ControllerSpec) -> str:
-    """Key used for a controller in IPython context dicts.
+def _context_key(controller: Controller) -> str:
+    """Key used for a controller in IPython context dicts and logs"""
+    if controller.path:
+        return controller.path[0]
 
-    Falls back to the class name when the spec has no id.
-    """
-    if spec.id is not None:
-        return spec.id
-
-    return getattr(spec.controller_class, "__name__", repr(spec.controller_class))
+    return type(controller).__name__
 
 
 class FastCS:
@@ -51,12 +48,11 @@ class FastCS:
         self._specs: list[ControllerSpec] = list(controllers)
         if not self._specs:
             raise ValueError("FastCS requires at least one controller")
-        keys = [_context_key(spec) for spec in self._specs]
-        if len(set(keys)) != len(keys):
-            duplicates = sorted({k for k in keys if keys.count(k) > 1})
+        ids = [spec.id for spec in self._specs if spec.id is not None]
+        if len(set(ids)) != len(ids):
+            duplicates = sorted({i for i in ids if ids.count(i) > 1})
             raise ValueError(
-                f"FastCS received controllers with duplicate context keys "
-                f"{duplicates}; ensure each controller has a unique id"
+                f"FastCS received controllers with duplicate ids {duplicates}"
             )
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
@@ -96,7 +92,7 @@ class FastCS:
         # registers its callbacks before the first values are read.
         self._runner = await ControllerRunner.build(self._specs)
 
-        keys = [_context_key(spec) for spec in self._specs]
+        keys = [_context_key(controller) for controller in self._runner.controllers]
         context = {
             "controllers": dict(zip(keys, self._runner.controllers, strict=True)),
             "controller_apis": dict(
