@@ -53,19 +53,19 @@ create `Attributes`.
 :lines: 42-60
 :::
 
-Create a connection whose `introspect` queries the `API?` command and returns the
-parsed response. The type parameter, `IPConnection[dict[str, Any]]`, is the type that
-`introspect` returns.
+Define a type for the introspection, and a connection whose `introspect` queries the
+`API?` command and returns one. The type parameter,
+`IPConnection[TemperatureIntrospection]`, is the type that `introspect` returns.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 63-66
+:lines: 63-74
 :::
 
 Update the controllers to create their attributes from `connection.introspection` in
 `__init__`, instead of defining them statically.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 101-127
+:lines: 109-133
 :::
 
 The `suffix` field should also be removed from `TemperatureController` and
