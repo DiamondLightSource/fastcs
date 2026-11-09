@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 
-from fastcs.connections.connection import Connection
+from fastcs.connections.connection import Connection, IntrospectionT
 from fastcs.tracer import Tracer
 
 
@@ -41,7 +41,7 @@ class StreamConnection:
         await self.writer.wait_closed()
 
 
-class IPConnection(Connection, Tracer):
+class IPConnection(Connection[IntrospectionT], Tracer):
     """For connecting to an ip using a `StreamConnection`.
 
     Args:

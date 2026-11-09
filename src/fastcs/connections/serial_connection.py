@@ -2,7 +2,7 @@ import asyncio
 
 import aioserial
 
-from fastcs.connections.connection import Connection
+from fastcs.connections.connection import Connection, IntrospectionT
 
 
 class NotOpenedError(Exception):
@@ -11,7 +11,7 @@ class NotOpenedError(Exception):
     pass
 
 
-class SerialConnection(Connection):
+class SerialConnection(Connection[IntrospectionT]):
     """A serial connection.
 
     Args:
