@@ -72,12 +72,12 @@ and results on attributes:
 
 ```python
 class Stage(Controller):
-    target = AttrRW(float)
-    last_position = AttrR(float)
+    target = AttrRW(Float())
+    last_position = AttrR(Float())
 
     @command()
     async def move(self) -> None:
-        await self._protocol.move(self.target.setpoint)
+        await self._protocol.move(self.target.get())
         await self.last_position.update(await self._protocol.read_position())
 ```
 

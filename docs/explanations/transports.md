@@ -197,6 +197,14 @@ Transports can trigger commands, which connect directly to method calls rather t
 
 ```python
 def create_command(name, command):
+    if not command.is_void:
+        command.enabled = False
+        logging.warning(
+            "Cannot serve command %s: arguments and return values are not supported",
+            name,
+        )
+        return
+
     protocol_command = Protocol(name)
 
     async def handle_command():
