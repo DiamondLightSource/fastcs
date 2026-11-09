@@ -71,6 +71,8 @@ If a command must be reachable over EPICS, keep it void and put its arguments
 and results on attributes:
 
 ```python
+from fastcs.datatypes import Float
+
 class Stage(Controller):
     target = AttrRW(Float())
     last_position = AttrR(Float())
