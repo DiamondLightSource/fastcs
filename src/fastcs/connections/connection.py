@@ -10,22 +10,18 @@ IntrospectionT = TypeVar("IntrospectionT", default=None)
 
 
 class Connection(ABC, Generic[IntrospectionT]):
-    """A link to a device.
+    """A link to a device, optionally returning an introspection from ``connect``.
 
-    A connection to a device that can describe itself returns that description from
-    ``connect``, and declares its type as the type parameter::
+    Example::
 
         class EigerConnection(Connection[EigerIntrospection]):
             async def connect(self) -> EigerIntrospection: ...
-
-    A plain ``Connection`` doesn't introspect, and its ``connect`` returns ``None``.
     """
 
     depends_on: ClassVar[type[Connection] | Sequence[type[Connection]]] = ()
-    """The connection type, or types, this one needs before it can work.
+    """Connection type(s) in the same `ControllerSpec` to open before this one.
 
-    This connection depends on every connection of these types in the same
-    `ControllerSpec`. The runner opens those first, and closes them last::
+    Example::
 
         class OdinConnection(Connection):
             depends_on = EigerConnection
@@ -35,10 +31,7 @@ class Connection(ABC, Generic[IntrospectionT]):
 
     @property
     def introspection(self) -> IntrospectionT:
-        """What ``connect`` returned when the runner first opened this connection.
-
-        Every connection is open before any controller is constructed, so a
-        controller can use this in its ``__init__``.
+        """What ``connect`` returned when the runner opened this connection.
 
         Raises:
             RuntimeError: If the runner hasn't opened this connection yet
@@ -57,8 +50,7 @@ class Connection(ABC, Generic[IntrospectionT]):
         """Open the link, or raise.
 
         Returns:
-            The device's description of itself, or ``None`` if this connection
-            doesn't introspect
+            The introspection, or ``None`` if this connection doesn't introspect
 
         """
 
