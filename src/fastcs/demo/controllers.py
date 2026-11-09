@@ -79,8 +79,6 @@ class TemperatureController(Controller):
             ios=[TemperatureControllerAttributeIO(self.connection, self.suffix)]
         )
 
-        self._settings = settings
-
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, settings.num_ramp_controllers + 1):
             controller = TemperatureRampController(index, self.connection)
@@ -103,9 +101,6 @@ class TemperatureController(Controller):
             return
 
         self._connected = True
-
-    async def close(self) -> None:
-        await self.connection.close()
 
     @scan(0.1)
     async def update_voltages(self):
