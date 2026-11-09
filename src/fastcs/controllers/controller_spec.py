@@ -10,9 +10,10 @@ P = ParamSpec("P")
 class ControllerSpec(Generic[P]):
     """A deferred call that constructs a top-level controller.
 
-    ``ControllerSpec("DEMO", MyController, connection, count=4)`` describes
-    ``MyController(connection, count=4)``, with its path set to ``["DEMO"]``. The
-    runner opens every `Connection` in the arguments, then makes the call.
+    Example::
+
+        # MyController(connection, count=4), with path ["DEMO"]
+        ControllerSpec("DEMO", MyController, connection, count=4)
 
     Args:
         id: The root of the controller's path, or ``None`` for an empty path
