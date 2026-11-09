@@ -29,35 +29,43 @@ This contains all the metadata about the parameters in the API needed to create 
 fields such as the units of numerical parameters, limits that a parameter can be set to,
 or a description for the parameter.
 
-## FastCS Initialisation
+## Introspection
 
-Specific `Controller` classes can optionally implement an async `initialise` method to
-perform any start up logic. The intention here is that the `__init__` method should be
-minimal and the `initialise` method performs any long running calls, such as querying an
-API, allowing FastCS to run these concurrently to reduce start times.
+A `Connection` can describe the device it connects to by returning that description
+from `connect`. FastCS opens every connection before constructing any controller, and
+stores what `connect` returned as `connection.introspection`, so a controller can use it
+in its `__init__`.
 
-Take the driver implementation from the previous tutorial and remove the
-statically defined `Attributes` and creation of sub controllers in `__init__`. Then
-implement an `initialise` method to create these dynamically instead.
+Take the driver implementation from the previous tutorial and remove the statically
+defined `Attributes` and creation of sub controllers in `__init__`. Then create them
+from the introspection instead.
 
 Create a pydantic model to validate the response from the device
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 5,18-35
+:lines: 5,22-39
 :::
 
 Create a function to parse the dictionary, validate the entries against the model and
 create `Attributes`.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 38-56
+:lines: 42-60
 :::
 
-Update the controllers to not define attributes statically and implement initialise
-methods to create these attributes dynamically.
+Create a connection that queries the `API?` command when it connects, and returns the
+parsed response. The type parameter, `Connection[dict[str, Any]]`, is the type that
+`connect` returns.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 91-125
+:lines: 63-79
+:::
+
+Update the controllers to create their attributes from `connection.introspection` in
+`__init__`, instead of defining them statically.
+
+:::{literalinclude} /snippets/dynamic.py
+:lines: 114-140
 :::
 
 The `suffix` field should also be removed from `TemperatureController` and
