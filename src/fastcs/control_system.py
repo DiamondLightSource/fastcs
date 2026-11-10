@@ -7,7 +7,7 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
-from fastcs.controllers import Controller, ControllerAPI
+from fastcs.controllers import Controller
 from fastcs.logging import logger
 from fastcs.runner import ControllerRunner
 from fastcs.tracer import Tracer
@@ -62,8 +62,6 @@ class FastCS:
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
-        self.controller_apis: list[ControllerAPI] = []
-
     def run(self, interactive: bool = True):
         """Run the application
 
@@ -98,13 +96,14 @@ class FastCS:
         # Build the APIs before wiring transports to them, so that a transport
         # registers its callbacks before the first values are read.
         self._runner = await ControllerRunner.build(self._controllers)
-        self.controller_apis = self._runner.controller_apis
 
         context = {
             "controllers": {_context_key(c): c for c in self._controllers},
             "controller_apis": {
                 _context_key(c): api
-                for c, api in zip(self._controllers, self.controller_apis, strict=True)
+                for c, api in zip(
+                    self._controllers, self._runner.controller_apis, strict=True
+                )
             },
             "transports": [
                 transport.__class__.__name__ for transport in self._transports
@@ -113,7 +112,9 @@ class FastCS:
 
         coros: list[Coroutine] = []
         for transport in self._transports:
-            transport.connect(controller_apis=self.controller_apis, loop=self._loop)
+            transport.connect(
+                controller_apis=self._runner.controller_apis, loop=self._loop
+            )
             coros.append(transport.serve())
             common_context = context.keys() & transport.context.keys()
             if common_context:

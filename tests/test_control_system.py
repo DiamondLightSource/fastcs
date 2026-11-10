@@ -53,8 +53,8 @@ async def test_controller_api_methods():
     await controller.do_nothing_static()
     await controller.do_nothing_dynamic()
 
-    await fastcs.controller_apis[0].command_methods["do_nothing_static"]()
-    await fastcs.controller_apis[0].command_methods["do_nothing_dynamic"]()
+    await fastcs._runner.controller_apis[0].command_methods["do_nothing_static"]()
+    await fastcs._runner.controller_apis[0].command_methods["do_nothing_dynamic"]()
 
 
 @pytest.mark.asyncio
@@ -101,14 +101,16 @@ async def test_update_periods():
 @pytest.mark.asyncio
 async def test_controller_connect_disconnect():
     class MyTestController(Controller):
-        connect_called = False
-        disconnect_called = False
+        def __init__(self) -> None:
+            super().__init__()
+            self.connect_called = asyncio.Event()
+            self.disconnect_called = asyncio.Event()
 
         async def connect(self):
-            self.connect_called = True
+            self.connect_called.set()
 
         async def disconnect(self):
-            self.disconnect_called = True
+            self.disconnect_called.set()
 
     controller = MyTestController()
 
@@ -118,11 +120,9 @@ async def test_controller_connect_disconnect():
     task = asyncio.create_task(fastcs.serve(interactive=False))
 
     # connect is called at the start of serve
-    await asyncio.sleep(0.1)
-    assert controller.connect_called
+    await asyncio.wait_for(controller.connect_called.wait(), timeout=1)
 
     task.cancel()
 
     # disconnect is called at the end of serve
-    await asyncio.sleep(0.1)
-    assert controller.disconnect_called
+    await asyncio.wait_for(controller.disconnect_called.wait(), timeout=1)
