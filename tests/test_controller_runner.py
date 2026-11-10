@@ -9,8 +9,13 @@ from fastcs.util import ONCE
 
 
 class ScanController(Controller):
-    read_once_count = 0
-    scan_count = 0
+    def __init__(self) -> None:
+        super().__init__()
+        self.read_once_count = 0
+        self.scan_count = 0
+        self.multiple_scans = asyncio.Event()
+        self.started = asyncio.Event()
+        self.stopped = asyncio.Event()
 
     @scan(ONCE)
     async def read_once(self) -> None:
@@ -19,6 +24,18 @@ class ScanController(Controller):
     @scan(0.01)
     async def counter(self) -> None:
         self.scan_count += 1
+        if self.scan_count > 1:
+            self.multiple_scans.set()
+
+    # Different period to counter, so it runs in its own task and doesn't block it
+    @scan(0.02)
+    async def block(self) -> None:
+        self.started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.stopped.set()
+            raise
 
 
 @pytest.mark.asyncio
@@ -36,13 +53,10 @@ async def test_start_runs_scans_and_stop_stops_them():
     controller = ScanController()
     runner = await ControllerRunner.build([controller])
     await runner.start()
-    await asyncio.sleep(0.1)
 
+    await asyncio.wait_for(controller.multiple_scans.wait(), timeout=1)
     assert controller.read_once_count == 1
-    assert controller.scan_count > 1
 
+    await asyncio.wait_for(controller.started.wait(), timeout=1)
     await runner.stop()
-    count = controller.scan_count
-    await asyncio.sleep(0.05)
-
-    assert controller.scan_count == count
+    await asyncio.wait_for(controller.stopped.wait(), timeout=1)
