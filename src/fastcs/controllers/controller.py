@@ -23,6 +23,15 @@ class Controller(BaseController):
             )
         return super().add_sub_controller(name, sub_controller)
 
+    @property
+    def connected(self) -> bool:
+        """Whether the controller is connected and its scan tasks should run"""
+        return self._connected
+
+    def mark_disconnected(self) -> None:
+        """Mark the controller disconnected, pausing its scan tasks until reconnect"""
+        self._connected = False
+
     async def connect(self) -> None:
         """Hook to perform initial connection to device
 

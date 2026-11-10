@@ -101,11 +101,14 @@ async def test_update_periods():
 @pytest.mark.asyncio
 async def test_controller_connect_disconnect():
     class MyTestController(Controller):
+        connect_called = False
+        disconnect_called = False
+
         async def connect(self):
-            self.connected = True
+            self.connect_called = True
 
         async def disconnect(self):
-            self.connected = False
+            self.disconnect_called = True
 
     controller = MyTestController()
 
@@ -116,10 +119,10 @@ async def test_controller_connect_disconnect():
 
     # connect is called at the start of serve
     await asyncio.sleep(0.1)
-    assert controller.connected
+    assert controller.connect_called
 
     task.cancel()
 
     # disconnect is called at the end of serve
     await asyncio.sleep(0.1)
-    assert not controller.connected
+    assert controller.disconnect_called

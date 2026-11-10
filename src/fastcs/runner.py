@@ -153,7 +153,7 @@ def _periodic_scan_coro(
 
     async def scan_coro() -> None:
         while True:
-            if not controller._connected:  # noqa: SLF001
+            if not controller.connected:
                 await asyncio.sleep(1)
                 continue
 
@@ -161,7 +161,7 @@ def _periodic_scan_coro(
                 await asyncio.gather(asyncio.sleep(period), *[scan() for scan in scans])
             except Exception:
                 logger.exception("Exception in scan task", period=period)
-                controller._connected = False  # noqa: SLF001
+                controller.mark_disconnected()
 
                 await asyncio.sleep(1)
                 logger.error("Pausing scan tasks and waiting for reconnect")
