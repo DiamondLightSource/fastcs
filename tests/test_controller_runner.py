@@ -22,23 +22,19 @@ class ScanController(Controller):
 
 
 @pytest.mark.asyncio
-async def test_build_returns_an_api_per_controller():
+async def test_build_creates_an_api_per_controller():
     a, b = ScanController(), ScanController()
     a.set_path(["A"])
     b.set_path(["B"])
-    runner = ControllerRunner([a, b])
+    runner = await ControllerRunner.build([a, b])
 
-    apis = await runner.build()
-
-    assert [api.path for api in apis] == [["A"], ["B"]]
+    assert [api.path for api in runner.controller_apis] == [["A"], ["B"]]
 
 
 @pytest.mark.asyncio
 async def test_start_runs_scans_and_stop_stops_them():
     controller = ScanController()
-    runner = ControllerRunner([controller])
-
-    await runner.build()
+    runner = await ControllerRunner.build([controller])
     await runner.start()
     await asyncio.sleep(0.1)
 

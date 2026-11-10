@@ -1,6 +1,7 @@
 import asyncio
 from collections import defaultdict
 from collections.abc import Sequence
+from typing import Self
 
 from fastcs.attributes.attr_r import AttrR
 from fastcs.attributes.attribute_io_ref import AttributeIORef
@@ -23,32 +24,42 @@ class ControllerRunner:
     def __init__(self, controllers: list[Controller]) -> None:
         self._controllers = controllers
 
+        self._controller_apis: list[ControllerAPI] = []
         self._initial_coros: list[ScanCallback] = []
         self._scan_coros: list[ScanCallback] = []
         self._tasks: set[asyncio.Task] = set()
 
-    async def build(self) -> list[ControllerAPI]:
-        """Initialise the controllers and create their APIs.
+    @classmethod
+    async def build(cls, controllers: list[Controller]) -> Self:
+        """Initialise the controllers and create a runner with their APIs.
+
+        Args:
+            controllers: The top-level controllers to run
 
         Returns:
-            The API of each controller, in the order they were given
+            A runner ready to `start`, with an API per controller in
+            ``controller_apis``, in the order they were given
 
         """
-        for controller in self._controllers:
+        runner = cls(controllers)
+
+        for controller in controllers:
             await controller.initialise()
             controller.post_initialise()
 
-        controller_apis: list[ControllerAPI] = []
-        self._initial_coros = []
-        self._scan_coros = []
-        for controller in self._controllers:
+        for controller in controllers:
             api = controller.build_api(controller.path)
-            initial_coros, scan_coros = self._collect_scans(controller, api)
-            controller_apis.append(api)
-            self._initial_coros.extend(initial_coros)
-            self._scan_coros.extend(scan_coros)
+            initial_coros, scan_coros = runner._collect_scans(controller, api)
+            runner._controller_apis.append(api)
+            runner._initial_coros.extend(initial_coros)
+            runner._scan_coros.extend(scan_coros)
 
-        return controller_apis
+        return runner
+
+    @property
+    def controller_apis(self) -> list[ControllerAPI]:
+        """The API of each controller, in the order they were given"""
+        return self._controller_apis
 
     async def start(self) -> None:
         """Connect the controllers, run the initial reads and start the scan tasks."""
