@@ -225,12 +225,13 @@ def _validate_array(meta: Meta, value: Any) -> np.ndarray:
         return array
 
     array_dtype = array_dtype_of(meta)
-    array = np.asarray(value).astype(array_dtype)
-    if array_dtype != array.dtype:
+    source = np.asarray(value)
+    if not np.can_cast(source.dtype, array_dtype, casting="same_kind"):
         raise ValueError(
-            f"Value dtype {array.dtype} is not the same as the array dtype "
+            f"Value dtype {source.dtype} cannot be cast to the array dtype "
             f"{array_dtype}"
         )
+    array = source.astype(array_dtype)
 
     shape = meta.get("shape", DEFAULT_ARRAY_SHAPE)
     if len(shape) != len(array.shape) or any(

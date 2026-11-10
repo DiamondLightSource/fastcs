@@ -206,3 +206,33 @@ def test_is_table():
     assert is_table(Meta(structured_dtype=[("a", np.int32)]))
     assert not is_table(Meta(array_dtype=np.int32))
     assert not is_table(Meta())
+
+
+@pytest.mark.parametrize(
+    "value, array_dtype",
+    [
+        ([1, 2], np.int32),
+        ([1.5], np.float32),
+        ([1, 2], np.float64),
+        ([True], np.int32),
+        (["ab"], np.dtype("U")),
+    ],
+)
+def test_array_accepts_same_kind_casts(value, array_dtype):
+    array = validate_value(np.ndarray, Meta(array_dtype=array_dtype), value)
+    assert np.issubdtype(array.dtype, array_dtype)
+    assert array.tolist() == value
+
+
+@pytest.mark.parametrize(
+    "value, array_dtype",
+    [
+        ([1.7], np.int32),
+        ([-1], np.uint8),
+        ([1], np.bool),
+        (["1"], np.int32),
+    ],
+)
+def test_array_rejects_casts_that_change_kind(value, array_dtype):
+    with pytest.raises(ValueError, match="cannot be cast to the array dtype"):
+        validate_value(np.ndarray, Meta(array_dtype=array_dtype), value)
