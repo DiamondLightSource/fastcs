@@ -271,13 +271,13 @@ async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
     controller._connected = True
     task = asyncio.create_task(runner._scan_coros[0]())
 
-    # Wait long enough for the scan to run and raise, setting _connected = False
+    # Wait long enough for the scan to run and raise, marking it disconnected
     await asyncio.sleep(0.1)
-    assert not controller._connected
+    assert not controller.connected
 
-    # Trigger reconnect - _connected resumes scan tasks
+    # Trigger reconnect - connected resumes scan tasks
     await controller.reconnect()
-    assert controller._connected
+    assert controller.connected
 
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
