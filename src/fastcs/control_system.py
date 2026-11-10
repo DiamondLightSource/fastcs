@@ -62,7 +62,6 @@ class FastCS:
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
-        self._runner = ControllerRunner(self._controllers)
         self.controller_apis: list[ControllerAPI] = []
 
     def run(self, interactive: bool = True):
@@ -98,7 +97,8 @@ class FastCS:
         """
         # Build the APIs before wiring transports to them, so that a transport
         # registers its callbacks before the first values are read.
-        self.controller_apis = await self._runner.build()
+        self._runner = await ControllerRunner.build(self._controllers)
+        self.controller_apis = self._runner.controller_apis
 
         context = {
             "controllers": {_context_key(c): c for c in self._controllers},
