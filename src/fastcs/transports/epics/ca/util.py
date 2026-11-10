@@ -76,11 +76,6 @@ MBB_MAX_CHOICES = len(_MBB_FIELD_PREFIXES)
 DEFAULT_STRING_WAVEFORM_LENGTH = 256
 
 
-def is_epics_supported(attribute: Attribute) -> bool:
-    """Whether EPICS CA can serve this attribute - every datatype but a table."""
-    return "structured_dtype" not in attribute.meta
-
-
 def enum_names(dtype: type[enum.Enum]) -> list[str]:
     """The names of an enum's members, in declaration order."""
     return [member.name for member in dtype]

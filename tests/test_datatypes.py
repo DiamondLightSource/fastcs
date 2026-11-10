@@ -11,6 +11,7 @@ from fastcs.datatypes import (
     NumericLimits,
     Table,
     default_value,
+    is_table,
     numpy_to_python_type,
     resolve_datatype,
     validate_meta,
@@ -199,3 +200,9 @@ def test_validate_meta_rejects_fields_the_datatype_has_no_use_for():
 def test_an_array_needs_an_element_type():
     with pytest.raises(TypeError, match="needs an element type"):
         default_value(np.ndarray, Meta(shape=(3,)))
+
+
+def test_is_table():
+    assert is_table(Meta(structured_dtype=[("a", np.int32)]))
+    assert not is_table(Meta(array_dtype=np.int32))
+    assert not is_table(Meta())

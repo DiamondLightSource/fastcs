@@ -8,6 +8,8 @@ from tango.server import Device
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
+from fastcs.datatypes import is_table
+from fastcs.logging import logger
 from fastcs.methods import CommandCallback
 
 from .options import TangoDSROptions
@@ -73,6 +75,13 @@ def _collect_dev_attributes(
         for attr_name, attribute in controller_api.attributes.items():
             attr_name = attr_name.title().replace("_", "")
             d_attr_name = f"{'_'.join(path)}_{attr_name}" if path else attr_name
+
+            if is_table(attribute.meta):
+                logger.warning(
+                    "Table attributes are not supported in Tango transport",
+                    attribute=attribute,
+                )
+                continue
 
             match attribute:
                 case AttrRW():

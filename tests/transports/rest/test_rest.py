@@ -9,7 +9,7 @@ from tests.assertable_controller import AssertableControllerAPI, MyTestControlle
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Array1D
+from fastcs.datatypes import Array1D, Table
 from fastcs.transports.rest.transport import RestTransport
 
 
@@ -180,3 +180,16 @@ class TestRestServer:
             response = test_client.get("/SubController02/read-int")
         assert response.status_code == 200
         assert response.json()["value"] == expect
+
+
+def test_table_attribute_is_not_given_a_route():
+    api = ControllerAPI(
+        path=["DEVICE"],
+        attributes={
+            "table": AttrRW(Table, structured_dtype=[("a", np.int32)]),
+            "number": AttrRW(int),
+        },
+    )
+    with create_test_client(api) as test_client:
+        assert test_client.get("/DEVICE/table").status_code == 404
+        assert test_client.get("/DEVICE/number").status_code == 200

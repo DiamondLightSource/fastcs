@@ -27,7 +27,7 @@ from pydantic import ValidationError
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import DEFAULT_ARRAY_SHAPE, DEFAULT_PRECISION
+from fastcs.datatypes import DEFAULT_ARRAY_SHAPE, DEFAULT_PRECISION, is_table
 from fastcs.logging import logger
 from fastcs.methods import Command
 from fastcs.transports.epics.util import pv_prefix_from_path
@@ -62,7 +62,7 @@ class EpicsGUI:
             return TextRead(format=TextFormat.string)
         if issubclass(dtype, np.ndarray):
             # A table has no CA record to display; PvaEpicsGUI handles it first
-            if "structured_dtype" in attribute.meta:
+            if is_table(attribute.meta):
                 return None
 
             shape = attribute.meta.get("shape", DEFAULT_ARRAY_SHAPE)

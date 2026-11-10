@@ -7,8 +7,8 @@ from pydantic import create_model
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import DType_T
-from fastcs.logging import intercept_std_logger
+from fastcs.datatypes import DType_T, is_table
+from fastcs.logging import intercept_std_logger, logger
 from fastcs.methods import CommandCallback
 
 from .options import RestServerOptions
@@ -108,6 +108,13 @@ def _add_attribute_api_routes(app: FastAPI, root_controller_api: ControllerAPI) 
         for attr_name, attribute in controller_api.attributes.items():
             attr_name = attr_name.replace("_", "-")
             route = f"{'/'.join(path)}/{attr_name}" if path else attr_name
+
+            if is_table(attribute.meta):
+                logger.warning(
+                    "Table attributes are not supported in REST transport",
+                    attribute=attribute,
+                )
+                continue
 
             match attribute:
                 # https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods

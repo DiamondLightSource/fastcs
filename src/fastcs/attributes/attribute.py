@@ -8,6 +8,7 @@ from fastcs.datatypes import (
     Meta,
     Table,
     default_value,
+    is_table,
     resolve_datatype,
     validate_meta,
     validate_value,
@@ -143,8 +144,7 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
 
         # Table is mapped to np.ndarray, so check that meta update
         # does not attempt to convert to an array
-        is_table = self._meta.get("structured_dtype") is not None
-        if is_table != (meta.get("structured_dtype") is not None):
+        if is_table(self._meta) != is_table(meta):
             raise TypeError(
                 "update_meta cannot change an attribute between array and table"
             )

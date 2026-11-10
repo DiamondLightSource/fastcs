@@ -80,6 +80,11 @@ def validate_meta(dtype: type[DType], meta: Meta, name: str = "attribute") -> No
         raise ValueError(f"String length must be >= 1, got {length} for {name}")
 
 
+def is_table(meta: Meta) -> bool:
+    """Whether an attribute's metadata describes a `Table` (a structured array)."""
+    return meta.get("structured_dtype") is not None
+
+
 def array_dtype_of(meta: Meta, element_type: Any = None) -> Any:
     """The numpy element type of an array attribute.
 

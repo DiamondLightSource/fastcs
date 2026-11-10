@@ -22,6 +22,7 @@ from .types import is_array_datatype as is_array_datatype
 from .types import resolve_datatype as resolve_datatype
 from .validation import array_dtype_of as array_dtype_of
 from .validation import default_value as default_value
+from .validation import is_table as is_table
 from .validation import validate_meta as validate_meta
 from .validation import validate_value as validate_value
 from .validation import values_equal as values_equal
