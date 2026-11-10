@@ -168,7 +168,6 @@ def values_equal(dtype: type[DType], value1: Any, value2: Any) -> bool:
 
 def validate_value(dtype: type[DType_T], meta: Meta, value: Any) -> DType_T:
     """Coerce a value to ``dtype`` and check it against ``meta``.
-
     Args:
         dtype: The python type the attribute holds
         meta: The attribute's metadata
@@ -192,9 +191,6 @@ def validate_value(dtype: type[DType_T], meta: Meta, value: Any) -> DType_T:
     elif dtype is str:
         return cast(DType_T, cast(str, coerced)[: meta.get("length")])
 
-    if dtype in (int, float):
-        _check_limits(cast(int | float, coerced), meta.get("limits"))
-
     return coerced
 
 
@@ -208,7 +204,14 @@ def _coerce(dtype: type[DType_T], value: Any) -> DType_T:
         raise ValueError(f"Failed to cast {value} to type {dtype}") from e
 
 
-def _check_limits(value: int | float, limits: NumericLimits | None) -> None:
+def check_control_limits(meta: Meta, value: Any) -> None:
+    """Check a setpoint lies within the control limits in ``meta``, if any.
+
+    Raises:
+        ValueError: If the value is outside the control limits
+
+    """
+    limits = meta.get("limits")
     if limits is None:
         return
 

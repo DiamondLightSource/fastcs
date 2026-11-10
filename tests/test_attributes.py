@@ -609,8 +609,16 @@ def test_structured_dtype_needs_a_table_datatype():
 
 
 @pytest.mark.asyncio
-async def test_value_outside_control_limits_is_rejected():
+async def test_setpoint_outside_control_limits_is_rejected():
     attr = AttrRW(int, limits=NumericLimits(control=Limits(0, 10)))
 
     with pytest.raises(ValueError, match="greater than maximum 10"):
-        await attr.update(15)
+        await attr.put(15)
+
+
+@pytest.mark.asyncio
+async def test_readback_outside_control_limits_is_accepted():
+    attr = AttrR(int, limits=NumericLimits(control=Limits(0, 10)))
+
+    await attr.update(15)
+    assert attr.get() == 15

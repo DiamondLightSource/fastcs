@@ -10,6 +10,7 @@ from fastcs.datatypes import (
     Meta,
     NumericLimits,
     Table,
+    check_control_limits,
     default_value,
     is_table,
     numpy_to_python_type,
@@ -45,10 +46,6 @@ def test_coerces_to_the_datatype():
 @pytest.mark.parametrize(
     ["dtype", "meta", "value"],
     [
-        (int, Meta(limits=NumericLimits(control=Limits(low=1))), 0),
-        (int, Meta(limits=NumericLimits(control=Limits(high=-1))), 0),
-        (float, Meta(limits=NumericLimits(control=Limits(low=1))), 0.0),
-        (float, Meta(limits=NumericLimits(control=Limits(high=-1))), 0.0),
         (
             np.ndarray,
             Meta(array_dtype="uint64", shape=(1, 1)),
@@ -66,11 +63,26 @@ def test_numeric_limits_defaults():
     assert NumericLimits(alarm=Limits(0, 10)).warning == Limits(0, 10)
 
 
-def test_value_outside_defaulted_control_range_is_rejected():
-    limits = NumericLimits(display=Limits(0.0, 10.0))
+@pytest.mark.parametrize(
+    "limits, value",
+    [
+        (NumericLimits(control=Limits(low=1)), 0),
+        (NumericLimits(control=Limits(high=-1)), 0),
+        (NumericLimits(control=Limits(low=1.0)), 0.0),
+        (NumericLimits(control=Limits(high=-1.0)), 0.0),
+        # control defaults to the display range
+        (NumericLimits(display=Limits(0.0, 10.0)), -1.0),
+    ],
+)
+def test_check_control_limits_rejects_values_outside_the_range(limits, value):
+    with pytest.raises(ValueError, match="minimum|maximum"):
+        check_control_limits(Meta(limits=limits), value)
 
-    with pytest.raises(ValueError, match="less than minimum"):
-        validate_value(float, Meta(limits=limits), -1.0)
+
+def test_validate_value_does_not_check_control_limits():
+    limits = NumericLimits(control=Limits(0, 10))
+
+    assert validate_value(int, Meta(limits=limits), 15) == 15
 
 
 @pytest.mark.parametrize("bound", ["1", True, [0]])
@@ -97,7 +109,7 @@ def test_limits_dtype(limits, dtype):
 
 
 def test_int_limits_must_be_ints():
-    with pytest.raises(TypeError, match="Limits for int attribute must be ints"):
+    with pytest.raises(TypeError, match="Limits for int attribute must be int"):
         validate_meta(int, Meta(limits=NumericLimits(alarm=Limits(0, 10.5))))
 
 

@@ -18,6 +18,7 @@ from fastcs.datatypes import (
     StrMeta,
     Table,
     TableMeta,
+    check_control_limits,
 )
 from fastcs.logging import logger
 
@@ -125,6 +126,7 @@ class AttrW(Attribute[DType_T, AttributeIORefT]):
 
         """
         setpoint = self.validate(setpoint)
+        check_control_limits(self._meta, setpoint)
         if self._on_put_callback is not None:
             try:
                 await self._on_put_callback(self, setpoint)
