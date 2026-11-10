@@ -20,7 +20,7 @@ class MotorController(Controller):
     @command()
     async def move_and_wait(self):
         """Move to target and wait until we arrive."""
-        target = self.target.get()
+        target = self.target.readback
 
         # Start the move (implementation depends on your device)
         await self._start_move(target)

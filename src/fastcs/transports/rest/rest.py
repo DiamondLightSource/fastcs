@@ -69,7 +69,7 @@ def _wrap_attr_put(
     attribute: AttrW[DType_T],
 ) -> Callable[[DType_T], Coroutine[Any, Any, None]]:
     async def attr_put(request):
-        await attribute.put(cast_from_rest_type(attribute.datatype, request.value))
+        await attribute.set(cast_from_rest_type(attribute.datatype, request.value))
 
     # Fast api uses type annotations for validation, schema, conversions
     attr_put.__annotations__["request"] = _put_request_body(attribute)
@@ -95,7 +95,7 @@ def _wrap_attr_get(
     attribute: AttrR[DType_T],
 ) -> Callable[[], Coroutine[Any, Any, dict[str, object]]]:
     async def attr_get() -> dict[str, object]:
-        value = attribute.get()
+        value = attribute.readback
         return {"value": cast_to_rest_type(attribute.datatype, value)}
 
     return attr_get

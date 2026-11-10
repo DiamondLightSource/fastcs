@@ -149,8 +149,8 @@ class TestTangoDevice:
         enum_attr = tango_controller_api.attributes["enum"]
         assert isinstance(enum_attr, AttrRW)
         enum_cls = enum_attr.datatype.dtype
-        assert isinstance(enum_attr.get(), enum_cls)
-        assert enum_attr.get() == enum_cls(0)
+        assert isinstance(enum_attr.readback, enum_cls)
+        assert enum_attr.readback == enum_cls(0)
         expect = 0
         with tango_controller_api.assert_read_here(["enum"]):
             result = tango_context.read_attribute("Enum").value
@@ -159,8 +159,8 @@ class TestTangoDevice:
         with tango_controller_api.assert_write_here(["enum"]):
             tango_context.write_attribute("Enum", new)
         assert tango_context.read_attribute("Enum").value == new
-        assert isinstance(enum_attr.get(), enum_cls)
-        assert enum_attr.get() == enum_cls(1)
+        assert isinstance(enum_attr.readback, enum_cls)
+        assert enum_attr.readback == enum_cls(1)
 
     def test_1d_waveform(
         self, tango_controller_api: AssertableControllerAPI, tango_context

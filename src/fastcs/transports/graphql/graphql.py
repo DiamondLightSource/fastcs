@@ -144,7 +144,7 @@ def _wrap_attr_set(
     """Wrap an attribute in a function with annotations for strawberry"""
 
     async def _dynamic_f(value):
-        await attribute.put(value)
+        await attribute.set(value)
         return value
 
     # Add type annotations for validation, schema, conversions
@@ -161,7 +161,7 @@ def _wrap_attr_get(
     """Wrap an attribute in a function with annotations for strawberry"""
 
     async def _dynamic_f() -> DType_T:
-        return attribute.get()
+        return attribute.readback
 
     _dynamic_f.__name__ = attr_name
     _dynamic_f.__annotations__["return"] = attribute.datatype.dtype

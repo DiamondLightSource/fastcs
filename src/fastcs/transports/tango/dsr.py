@@ -30,7 +30,7 @@ def _wrap_updater_fget(
 ) -> Callable[[Any], Any]:
     async def fget(tango_device: Device):
         tango_device.info_stream(f"called fget method: {attr_name}")
-        return cast_to_tango_type(attribute.datatype, attribute.get())
+        return cast_to_tango_type(attribute.datatype, attribute.readback)
 
     return fget
 
@@ -54,7 +54,7 @@ def _wrap_updater_fset(
 ) -> Callable[[Any, Any], Any]:
     async def fset(tango_device: Device, value):
         tango_device.info_stream(f"called fset method: {attr_name}")
-        coro = attribute.put(cast_from_tango_type(attribute.datatype, value))
+        coro = attribute.set(cast_from_tango_type(attribute.datatype, value))
         await _run_threadsafe_blocking(coro, loop)
 
     return fset

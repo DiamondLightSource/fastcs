@@ -24,7 +24,7 @@ from fastcs.logging import configure_logging, logger
 from fastcs.logging._logging import LogLevel
 from fastcs.transports.tango.dsr import FASTCS_TANGO_SERVER_NAME, register_dev
 from fastcs.transports.tango.util import tango_dev_class_name, tango_dev_name
-from tests.assertable_controller import MyTestAttributeIORef, MyTestController
+from tests.assertable_controller import MyTestController
 from tests.example_p4p_ioc import run as _run_p4p_ioc
 from tests.example_softioc import run as _run_softioc
 
@@ -42,11 +42,11 @@ def clear_softioc_records():
 
 
 class BackendTestController(MyTestController):
-    read_int: AttrR = AttrR(Int(), io_ref=MyTestAttributeIORef())
-    read_write_int: AttrRW = AttrRW(Int(), io_ref=MyTestAttributeIORef())
+    read_int: AttrR = AttrR(Int())
+    read_write_int: AttrRW = AttrRW(Int())
     read_write_float: AttrRW = AttrRW(Float())
     read_bool: AttrR = AttrR(Bool())
-    write_bool: AttrW = AttrW(Bool(), io_ref=MyTestAttributeIORef())
+    write_bool: AttrW = AttrW(Bool())
     read_string: AttrRW = AttrRW(String())
 
 
