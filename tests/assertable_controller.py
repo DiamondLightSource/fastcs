@@ -81,7 +81,7 @@ class AssertableControllerAPI(ControllerAPI):
         self.command_method_spys: dict[str, MockType] = {}
 
         # Build a ControllerAPI from the given Controller
-        controller_api = controller._build_api(path or [])
+        controller_api = controller.build_api(path or [])
         # Copy its fields
         self.path = controller_api.path
         self.attributes = controller_api.attributes

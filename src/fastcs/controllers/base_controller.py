@@ -406,14 +406,14 @@ class BaseController(Tracer):
     def scan_methods(self) -> dict[str, Scan]:
         return self.__scan_methods
 
-    def _build_api(self, path: list[str]) -> ControllerAPI:
+    def build_api(self, path: list[str]) -> ControllerAPI:
         return ControllerAPI(
             path=path,
             attributes=self.attributes,
             command_methods=self.command_methods,
             scan_methods=self.scan_methods,
             sub_apis={
-                name: sub_controller._build_api(path + [name])  # noqa: SLF001
+                name: sub_controller.build_api(path + [name])
                 for name, sub_controller in self.sub_controllers.items()
             },
             description=self.description,

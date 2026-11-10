@@ -42,7 +42,7 @@ class ControllerRunner:
         self._initial_coros = []
         self._scan_coros = []
         for controller in self._controllers:
-            api = controller._build_api(controller.path)  # noqa: SLF001
+            api = controller.build_api(controller.path)
             initial_coros, scan_coros = self._collect_scans(controller, api)
             controller_apis.append(api)
             self._initial_coros.extend(initial_coros)

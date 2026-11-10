@@ -103,7 +103,7 @@ def test_get_write_widget_none():
 
 
 def test_get_components(controller):
-    controller_api = controller._build_api(["DEVICE"])
+    controller_api = controller.build_api(["DEVICE"])
     gui = EpicsGUI(controller_api)
 
     components = gui.extract_api_components(controller_api)
@@ -205,7 +205,7 @@ class _B(Controller):
 def _api_with_id(cls, name):
     c = cls()
     c.set_path([name])
-    api = c._build_api(c.path)
+    api = c.build_api(c.path)
     return api
 
 
