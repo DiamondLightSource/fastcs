@@ -73,6 +73,38 @@ def test_value_outside_defaulted_control_range_is_rejected():
         validate_value(float, Meta(limits=limits), -1.0)
 
 
+@pytest.mark.parametrize("bound", ["1", True, [0]])
+def test_limits_reject_non_numeric_bounds(bound):
+    with pytest.raises(TypeError, match="Limits must be int or float"):
+        Limits(low=bound)
+
+
+@pytest.mark.parametrize(
+    "limits, dtype",
+    [
+        (Limits(), int),
+        (Limits(0, 10), int),
+        (Limits(high=10), int),
+        (Limits(0, 10.5), float),
+        (Limits(low=0.5), float),
+        (NumericLimits(), int),
+        (NumericLimits(control=Limits(0, 10), alarm=Limits(-5, 15)), int),
+        (NumericLimits(control=Limits(0, 10), alarm=Limits(-5, 15.5)), float),
+    ],
+)
+def test_limits_dtype(limits, dtype):
+    assert limits.dtype is dtype
+
+
+def test_int_limits_must_be_ints():
+    with pytest.raises(TypeError, match="Limits for int attribute must be ints"):
+        validate_meta(int, Meta(limits=NumericLimits(alarm=Limits(0, 10.5))))
+
+
+def test_int_limits_are_valid_for_a_float():
+    validate_meta(float, Meta(limits=NumericLimits(control=Limits(0, 10))))
+
+
 def test_warning_limits_must_lie_within_the_alarm_range():
     with pytest.raises(ValueError, match="not within alarm limits"):
         NumericLimits(alarm=Limits(0, 10), warning=Limits(-1, 11))

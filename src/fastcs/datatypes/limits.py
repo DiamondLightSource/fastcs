@@ -19,6 +19,27 @@ class Limits(Generic[Numeric_T]):
     high: Numeric_T | None = None
     """The upper bound, or ``None`` for unbounded"""
 
+    def __post_init__(self) -> None:
+        for bound in (self.low, self.high):
+            # bool is an int subclass, but not a meaningful bound
+            if bound is not None and (
+                isinstance(bound, bool) or not isinstance(bound, int | float)
+            ):
+                raise TypeError(f"Limits must be int or float, got {bound!r}")
+
+    @property
+    def dtype(self) -> type[int] | type[float]:
+        """``int`` if every bound set is an int, otherwise ``float``.
+
+        >>> Limits(0, 10).dtype
+        <class 'int'>
+        >>> Limits(0, 10.5).dtype
+        <class 'float'>
+        """
+        if all(isinstance(bound, int | None) for bound in (self.low, self.high)):
+            return int
+        return float
+
     def contains(self, other: Limits[Numeric_T]) -> bool:
         """Whether ``other`` lies within this range.
 
@@ -66,6 +87,14 @@ class NumericLimits(Generic[Numeric_T]):
     """The range outside which the attribute is in a warning state"""
     alarm: Limits[Numeric_T] = UNBOUNDED
     """The range outside which the attribute is in alarm"""
+
+    @property
+    def dtype(self) -> type[int] | type[float]:
+        """``int`` if every range is int-valued, otherwise ``float``."""
+        ranges = (self.control, self.display, self.warning, self.alarm)
+        if all(limits.dtype is int for limits in ranges):
+            return int
+        return float
 
     def __post_init__(self) -> None:
         if self.control == UNBOUNDED and self.display != UNBOUNDED:

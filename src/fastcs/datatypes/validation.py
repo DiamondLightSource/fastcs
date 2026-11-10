@@ -79,6 +79,12 @@ def validate_meta(dtype: type[DType], meta: Meta, name: str = "attribute") -> No
     if length is not None and length < 1:
         raise ValueError(f"String length must be >= 1, got {length} for {name}")
 
+    # Type checkers let an int attribute match the float overload, so float limits
+    # on an int attribute are only caught here. Int limits on a float are fine.
+    limits = meta.get("limits")
+    if dtype is int and limits is not None and limits.dtype is not int:
+        raise TypeError(f"Limits for int {name} must be int, got {limits}")
+
 
 def is_table(meta: Meta) -> bool:
     """Whether an attribute's metadata describes a `Table` (a structured array)."""
