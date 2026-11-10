@@ -250,7 +250,7 @@ def test_controller_api():
             pass
 
     controller = MyTestController()
-    api = controller._build_api([])
+    api = controller.build_api([])
 
     assert api.description == controller.description
     assert list(api.attributes) == ["attr1", "attr2"]
