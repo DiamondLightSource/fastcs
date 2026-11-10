@@ -85,21 +85,20 @@ def is_table(meta: Meta) -> bool:
     return meta.get("structured_dtype") is not None
 
 
-def array_dtype_of(meta: Meta, element_type: Any = None) -> Any:
+def array_dtype_of(meta: Meta) -> Any:
     """The numpy element type of an array attribute.
 
     Args:
         meta: The attribute's metadata
-        element_type: The element type carried by the datatype spelling, if any
 
     Returns:
         The numpy element type
 
     Raises:
-        TypeError: If neither source gives one
+        TypeError: If the metadata has no ``array_dtype``
 
     """
-    array_dtype = meta.get("array_dtype", element_type)
+    array_dtype = meta.get("array_dtype")
     if array_dtype is None:
         raise TypeError(
             "An array attribute needs an element type - subscript the datatype "
