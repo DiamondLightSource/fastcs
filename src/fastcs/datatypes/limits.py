@@ -26,6 +26,8 @@ class Limits(Generic[Numeric_T]):
                 isinstance(bound, bool) or not isinstance(bound, int | float)
             ):
                 raise TypeError(f"Limits must be int or float, got {bound!r}")
+        if self.low is not None and self.high is not None and self.low > self.high:
+            raise ValueError(f"Limits low {self.low} is greater than high {self.high}")
 
     @property
     def dtype(self) -> type[int] | type[float]:
