@@ -91,6 +91,15 @@ def test_limits_reject_non_numeric_bounds(bound):
         Limits(low=bound)
 
 
+def test_limits_rejects_low_greater_than_high():
+    high_limit = 1
+    low_limit = high_limit + 1
+    with pytest.raises(
+        ValueError, match=f"Limits low {low_limit} is greater than high {high_limit}"
+    ):
+        Limits(low_limit, high_limit)
+
+
 @pytest.mark.parametrize(
     "limits, dtype",
     [
