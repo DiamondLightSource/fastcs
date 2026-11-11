@@ -39,6 +39,13 @@ class Connection(ABC, Generic[IntrospectionT]):
                 "has opened it"
             ) from None
 
+    @introspection.setter
+    def introspection(self, value: IntrospectionT) -> None:
+        if hasattr(self, "_introspection"):
+            raise RuntimeError(f"{type(self).__name__} introspection is already set")
+
+        self._introspection = value
+
     @abstractmethod
     async def connect(self) -> None:
         """Open the link, or raise."""

@@ -229,6 +229,13 @@ def test_introspection_before_connecting_raises():
         _ = IntrospectingConnection().introspection
 
 
+def test_introspection_set_twice_raises():
+    connection = IntrospectingConnection()
+    connection.introspection = DeviceIntrospection({"gain": 2})
+    with pytest.raises(RuntimeError, match="already set"):
+        connection.introspection = DeviceIntrospection({"gain": 3})
+
+
 @pytest.mark.asyncio
 async def test_controller_tree_sealed_after_build():
     controller = ScanController()
