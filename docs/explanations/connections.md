@@ -10,8 +10,10 @@ the application stops.
 |---|---|---|
 | `IPConnection` | TCP | included |
 | `SerialConnection` | Serial port | `pip install "fastcs[serial]"` |
+| `HTTPConnection` | HTTP | `pip install "fastcs[http]"` |
 
-Both exchange text messages that end with a terminator, `\r\n` by default:
+`IPConnection` and `SerialConnection` exchange text messages that end with a
+terminator, `\r\n` by default:
 
 ```python
 connection = IPConnection("10.0.0.5", 4000, terminator="\r\n", timeout=5.0)
@@ -23,3 +25,18 @@ reply = await connection.query("R?")  # sends "R?\r\n", returns the reply withou
 For binary protocols, `write_bytes` and `query_bytes` send raw bytes without a
 terminator. If an exchange fails or takes longer than `timeout`, the link is closed and
 later calls raise `DisconnectedError`.
+
+`HTTPConnection` talks to a device with a JSON API. `get`, `put`, `post` and `delete`
+take a path relative to its `url`, send JSON, and return the parsed reply. An error
+status raises `httpx.HTTPStatusError`. For replies that aren't JSON, `request` returns
+the raw response:
+
+```python
+connection = HTTPConnection("http://10.0.0.5:8000/api", timeout=5.0)
+
+await connection.put("/rate", json=5)
+rate = await connection.get("/rate")
+```
+
+Like the other connections, it raises `TimeoutError` when the device doesn't answer in
+time. It raises `ConnectionError` when the server can't be reached.
