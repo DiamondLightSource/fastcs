@@ -71,17 +71,17 @@ class TemperatureController(Controller):
     voltages = AttrR(Waveform(np.int32, shape=(4,)))
 
     def __init__(
-        self, connection: IPConnection, settings: TemperatureControllerSettings
+        self, sensor: IPConnection, settings: TemperatureControllerSettings
     ) -> None:
-        self.connection = connection
+        self.sensor = sensor
         self.suffix = ""
         super().__init__(
-            ios=[TemperatureControllerAttributeIO(self.connection, self.suffix)]
+            ios=[TemperatureControllerAttributeIO(self.sensor, self.suffix)]
         )
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, settings.num_ramp_controllers + 1):
-            controller = TemperatureRampController(index, self.connection)
+            controller = TemperatureRampController(index, self.sensor)
             self._ramp_controllers.append(controller)
             self.add_sub_controller(f"R{index}", controller)
 
@@ -94,8 +94,8 @@ class TemperatureController(Controller):
 
     async def reconnect(self):
         try:
-            await self.connection.close()
-            await self.connection.connect()
+            await self.sensor.close()
+            await self.sensor.connect()
         except BaseException:
             logger.exception("Reconnect failed")
             return
@@ -106,7 +106,7 @@ class TemperatureController(Controller):
     async def update_voltages(self):
         query = "V?"
         voltages = json.loads(
-            (await self.connection.send_query(f"{query}\r\n")).strip("\r\n")
+            (await self.sensor.send_query(f"{query}\r\n")).strip("\r\n")
         )
 
         await self.voltages.update(voltages)
@@ -131,9 +131,8 @@ class TemperatureRampController(Controller):
     actual = AttrR(Float(prec=3), io_ref=TemperatureControllerAttributeIORef(name="A"))
     voltage = AttrR(Float(prec=3))
 
-    def __init__(self, index: int, conn: IPConnection) -> None:
+    def __init__(self, index: int, sensor: IPConnection) -> None:
         suffix = f"{index:02d}"
         super().__init__(
-            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(conn, suffix)]
+            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(sensor, suffix)]
         )
-        self.connection = conn
