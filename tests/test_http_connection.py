@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 import pytest_asyncio
 
-from fastcs.connections import HTTPConnection
+from fastcs.connections import DisconnectedError, HTTPConnection
 
 
 class _RateDevice(BaseHTTPRequestHandler):
@@ -24,6 +24,13 @@ class _RateDevice(BaseHTTPRequestHandler):
         type(self).rate = json.loads(body)
         self._reply(None)
 
+    def do_POST(self):
+        self.do_PUT()
+
+    def do_DELETE(self):
+        type(self).rate = 0
+        self._reply(None)
+
     def _reply(self, value):
         body = b"" if value is None else json.dumps(value).encode()
         self.send_response(200)
@@ -37,6 +44,7 @@ class _RateDevice(BaseHTTPRequestHandler):
 
 @pytest_asyncio.fixture
 async def connection():
+    _RateDevice.rate = 0
     server = ThreadingHTTPServer(("127.0.0.1", 0), _RateDevice)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     # The probe in connect() gets a 404 for "/", which still counts as reachable
@@ -62,3 +70,28 @@ async def test_connect_to_closed_port_raises_connection_error():
 
     with pytest.raises(ConnectionError):
         await HTTPConnection(f"http://127.0.0.1:{port}").connect()
+
+
+@pytest.mark.asyncio
+async def test_post_delete_and_request(connection: HTTPConnection):
+    await connection.post("/rate", json=7)
+    assert (await connection.request("GET", "/rate")).json() == 7
+
+    await connection.delete("/rate")
+    assert await connection.get("/rate") == 0
+
+
+@pytest.mark.asyncio
+async def test_unanswered_and_unconnected_requests_raise():
+    with socket.socket() as silent:
+        silent.bind(("127.0.0.1", 0))
+        silent.listen()
+        connection = HTTPConnection(
+            f"http://127.0.0.1:{silent.getsockname()[1]}", timeout=0.1
+        )
+        with pytest.raises(TimeoutError):
+            await connection.connect()
+
+    await connection.close()
+    with pytest.raises(DisconnectedError):
+        await connection.get("/rate")

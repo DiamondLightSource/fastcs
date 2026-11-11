@@ -45,3 +45,10 @@ async def test_timeout_closes_connection(connection: SerialConnection):
 
     with pytest.raises(DisconnectedError):
         await connection.write("R=5")
+
+
+@pytest.mark.asyncio
+async def test_write_and_bytes_methods(connection: SerialConnection):
+    await connection.write("R=5")
+    await connection.write_bytes(b"R=6\r\n")
+    assert await connection.query_bytes(b"R?\r\n", 3) == b"5\r\n"
