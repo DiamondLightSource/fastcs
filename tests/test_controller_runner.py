@@ -244,3 +244,10 @@ async def test_controller_tree_sealed_after_build():
 
     with pytest.raises(RuntimeError, match="after it has been sealed"):
         controller.sub_controllers["SUB"].add_sub_controller("LATE", Controller())
+
+
+def test_seal_twice_raises():
+    controller = Controller()
+    controller.seal()
+    with pytest.raises(RuntimeError, match="already sealed"):
+        controller.seal()
