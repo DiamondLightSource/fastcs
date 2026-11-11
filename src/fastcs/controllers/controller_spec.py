@@ -12,11 +12,11 @@ class ControllerSpec(Generic[P]):
 
     Example::
 
-        # MyController(connection, count=4), with path ["DEMO"]
-        ControllerSpec("DEMO", MyController, connection, count=4)
+        # MyController(connection=connection, count=4), with path ["DEMO"]
+        ControllerSpec("DEMO", MyController, connection=connection, count=4)
 
     Args:
-        id: The root of the controller's path, or ``None`` for an empty path
+        id: The root of the controller's path
         controller_class: The controller class, or any callable returning one
         args: Positional arguments for ``controller_class``
         kwargs: Keyword arguments for ``controller_class``
@@ -25,7 +25,7 @@ class ControllerSpec(Generic[P]):
 
     def __init__(
         self,
-        id: str | None,
+        id: str,
         controller_class: Callable[P, Controller],
         /,
         *args: P.args,
@@ -45,7 +45,6 @@ class ControllerSpec(Generic[P]):
     def construct(self) -> Controller:
         """Construct the controller and set its path"""
         controller = self.controller_class(*self.args, **self.kwargs)
-        if self.id is not None:
-            controller.set_path([self.id])
+        controller.set_path([self.id])
 
         return controller

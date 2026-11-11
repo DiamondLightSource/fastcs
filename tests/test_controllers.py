@@ -266,7 +266,7 @@ async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
             raise RuntimeError("scan error")
 
     controller = MyTestController()
-    runner = await ControllerRunner.build([ControllerSpec(None, lambda: controller)])
+    runner = await ControllerRunner.build([ControllerSpec("A", lambda: controller)])
 
     controller._connected = True
     task = asyncio.create_task(runner._scan_coros[0]())

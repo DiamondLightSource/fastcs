@@ -90,7 +90,6 @@ def run(id="P4P_TEST_DEVICE"):
     simple_attribute_io = SimpleAttributeIO()
     p4p_options = EpicsPVATransport()
     controller = ParentController(ios=[simple_attribute_io])
-    controller.set_path([id])
 
     class ChildVector(ControllerVector):
         vector_attribute: AttrR = AttrR(Int())
@@ -112,7 +111,7 @@ def run(id="P4P_TEST_DEVICE"):
 
     controller.add_sub_controller("child", sub_controller)
 
-    fastcs = FastCS(ControllerSpec(None, lambda: controller), [p4p_options])
+    fastcs = FastCS(ControllerSpec(id, lambda: controller), [p4p_options])
     fastcs.run()
 
 
