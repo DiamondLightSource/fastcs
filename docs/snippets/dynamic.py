@@ -135,7 +135,7 @@ class TemperatureController(Controller):
 
 epics_ca = EpicsCATransport()
 connection = TemperatureConnection("localhost", 25565)
-spec = ControllerSpec("DEMO", TemperatureController, connection)
+spec = ControllerSpec("DEMO", TemperatureController, connection=connection)
 fastcs = FastCS(spec, [epics_ca])
 
 

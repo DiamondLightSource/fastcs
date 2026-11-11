@@ -290,7 +290,7 @@ are, which is used to register the correct number of ramp controllers with the p
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,35,44,48-56,62-63,69-72,78
+:emphasize-lines: 10,28,32,35,44,48-56,62-63,69-72,77-79
 :::
 
 ::::
