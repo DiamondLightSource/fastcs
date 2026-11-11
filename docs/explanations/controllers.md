@@ -20,7 +20,7 @@ as part of its own lifecycle, if required.
 
 | Method | Purpose |
 |---|---|
-| `setup` | Run once at startup, before the initial reads. Called on every controller in the tree |
+| `setup` | Called by the framework after all attributes are added, before serving the application. Called on every controller in the tree |
 | `reconnect` | Re-open connection after scan error |
 
 Connections to the device are not opened by the controller. They are `Connection`s

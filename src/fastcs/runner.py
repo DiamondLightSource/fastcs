@@ -16,16 +16,9 @@ from fastcs.util import ONCE
 
 
 class ControllerRunner:
-    """Runs the lifecycle of one or more top-level controllers.
+    """Runs the lifecycle of one or more top-level controllers."""
 
-    Args:
-        specs: What to construct each top-level controller from
-
-    """
-
-    def __init__(self, specs: list[ControllerSpec]) -> None:
-        self._specs = specs
-
+    def __init__(self) -> None:
         self._connections: list[Connection] = []
         self._controllers: list[Controller] = []
 
@@ -47,7 +40,7 @@ class ControllerRunner:
             ``controller_apis``, in the order the specs were given
 
         """
-        runner = cls(specs)
+        runner = cls()
 
         try:
             for spec in specs:
