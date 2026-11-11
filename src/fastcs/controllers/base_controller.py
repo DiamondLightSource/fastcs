@@ -188,12 +188,12 @@ class BaseController(Tracer):
             super().__setattr__(name, value)
 
     async def setup(self):
-        """Hook to run once at startup, before the initial reads"""
+        """Hook that runs after all attributes added, before serving the application"""
         pass
 
     def seal(self):
         """Validate and connect this controller and its sub controllers, then stop
-        anything being added to them
+        anything being added to them. Called by the framework after construction.
 
         Raises:
             RuntimeError: If the controller is already sealed
