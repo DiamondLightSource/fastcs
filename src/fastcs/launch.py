@@ -4,7 +4,15 @@ import functools
 import inspect
 import json
 from pathlib import Path
-from typing import Annotated, Any, Literal, Optional, Union, get_type_hints
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    Optional,
+    Union,
+    get_origin,
+    get_type_hints,
+)
 
 import typer
 from pydantic import BaseModel, Field, ValidationError, create_model
@@ -249,6 +257,8 @@ def _connection_settings_model(connection_type: type[Connection]) -> type[BaseMo
     hints = get_type_hints(connection_type.__init__)
     fields: dict[str, Any] = {}
     for name, param in list(sig.parameters.items())[1:]:
+        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+            continue
         if name not in hints:
             raise LaunchError(
                 f"Expected typehinting in '{connection_type.__name__}.__init__' "
@@ -313,7 +323,8 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
 
     connection_types: dict[str, type[Connection]] = {}
     for name in args:
-        hint = hints.get(name)
+        # A parametrised hint like IPConnection[Introspection] is checked by its class
+        hint = get_origin(hints.get(name)) or hints.get(name)
         if isinstance(hint, type) and issubclass(hint, Connection):
             connection_types[name] = hint
 
