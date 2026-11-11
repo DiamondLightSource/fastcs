@@ -921,6 +921,7 @@ dependencies = [
 all = [
     { name = "aioserial" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "httpx" },
     { name = "numpy" },
     { name = "p4p" },
     { name = "pvi" },
@@ -948,6 +949,9 @@ epicspva = [
 graphql = [
     { name = "strawberry-graphql" },
     { name = "uvicorn", extra = ["standard"] },
+]
+http = [
+    { name = "httpx" },
 ]
 rest = [
     { name = "fastapi", extra = ["standard"] },
@@ -999,9 +1003,11 @@ requires-dist = [
     { name = "fastcs", extras = ["epicsca"], marker = "extra == 'epics'" },
     { name = "fastcs", extras = ["epicspva"], marker = "extra == 'epics'" },
     { name = "fastcs", extras = ["graphql"], marker = "extra == 'all'" },
+    { name = "fastcs", extras = ["http"], marker = "extra == 'all'" },
     { name = "fastcs", extras = ["rest"], marker = "extra == 'all'" },
     { name = "fastcs", extras = ["serial"], marker = "extra == 'all'" },
     { name = "fastcs", extras = ["tango"], marker = "extra == 'all'" },
+    { name = "httpx", marker = "extra == 'http'" },
     { name = "ipython" },
     { name = "loguru", specifier = "~=0.7" },
     { name = "numpy" },
@@ -1021,7 +1027,7 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'graphql'", specifier = ">=0.12.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'rest'", specifier = ">=0.12.0" },
 ]
-provides-extras = ["demo", "serial", "epicsca", "epicspva", "epics", "tango", "graphql", "rest", "all"]
+provides-extras = ["demo", "serial", "http", "epicsca", "epicspva", "epics", "tango", "graphql", "rest", "all"]
 
 [package.metadata.requires-dev]
 dev = [

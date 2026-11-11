@@ -1,0 +1,178 @@
+from collections.abc import Generator
+from contextlib import contextmanager
+from typing import Any
+
+import httpx
+
+from fastcs.connections.connection import Connection, DisconnectedError, IntrospectionT
+from fastcs.tracer import Tracer
+
+
+class HTTPConnection(Connection[IntrospectionT], Tracer):
+    """An HTTP link to a device with a JSON API.
+
+    Example::
+
+        connection = HTTPConnection("http://10.0.0.5:8000/api")
+        await connection.put("/rate", json=5)
+        rate = await connection.get("/rate")
+
+    Args:
+        url: The base URL that request paths are relative to
+        timeout: Seconds to wait to connect, or for a response
+        headers: Headers to send with every request
+
+    """
+
+    def __init__(
+        self,
+        url: str = "http://127.0.0.1:8080",
+        timeout: float = 5.0,
+        headers: dict[str, str] | None = None,
+    ):
+        super().__init__()
+        self.url = url
+        self.timeout = timeout
+        self.headers = headers or {}
+        self._client: httpx.AsyncClient | None = None
+
+    async def connect(self) -> None:
+        """Create the client and check the server answers.
+
+        Raises:
+            ConnectionError: If the server can't be reached
+            TimeoutError: If the server doesn't answer within ``timeout``
+
+        """
+        client = httpx.AsyncClient(
+            base_url=self.url, timeout=self.timeout, headers=self.headers
+        )
+        try:
+            # Any response, even an error status, shows the server is reachable
+            with _link_errors(f"GET {self.url}"):
+                await client.get("")
+        except BaseException:
+            await client.aclose()
+            raise
+
+        self._client = client
+
+    async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        """Send a GET request.
+
+        Returns:
+            The parsed JSON reply, or ``None`` if the reply is empty
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            ConnectionError: If the server can't be reached
+            TimeoutError: If the reply takes longer than ``timeout``
+            httpx.HTTPStatusError: If the reply has an error status
+
+        """
+        return _json(await self._send("GET", path, params=params))
+
+    async def put(self, path: str, json: Any = None) -> Any:
+        """Send a PUT request with a JSON body.
+
+        Returns:
+            The parsed JSON reply, or ``None`` if the reply is empty
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            ConnectionError: If the server can't be reached
+            TimeoutError: If the reply takes longer than ``timeout``
+            httpx.HTTPStatusError: If the reply has an error status
+
+        """
+        return _json(await self._send("PUT", path, json=json))
+
+    async def post(self, path: str, json: Any = None) -> Any:
+        """Send a POST request with a JSON body.
+
+        Returns:
+            The parsed JSON reply, or ``None`` if the reply is empty
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            ConnectionError: If the server can't be reached
+            TimeoutError: If the reply takes longer than ``timeout``
+            httpx.HTTPStatusError: If the reply has an error status
+
+        """
+        return _json(await self._send("POST", path, json=json))
+
+    async def delete(self, path: str) -> Any:
+        """Send a DELETE request.
+
+        Returns:
+            The parsed JSON reply, or ``None`` if the reply is empty
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            ConnectionError: If the server can't be reached
+            TimeoutError: If the reply takes longer than ``timeout``
+            httpx.HTTPStatusError: If the reply has an error status
+
+        """
+        return _json(await self._send("DELETE", path))
+
+    async def request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        """Send any request, for replies that aren't JSON.
+
+        Example::
+
+            response = await connection.request("GET", "/image", params={"n": 1})
+            image = response.content
+
+        Args:
+            method: The HTTP method
+            path: The path, relative to ``url``
+            kwargs: Passed to `httpx.AsyncClient.request`
+
+        Returns:
+            The response, whatever its status
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            ConnectionError: If the server can't be reached
+            TimeoutError: If the reply takes longer than ``timeout``
+
+        """
+        return await self._send(method, path, **kwargs)
+
+    async def close(self) -> None:
+        if self._client is None:
+            return
+
+        client = self._client
+        self._client = None
+        await client.aclose()
+
+    async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        if self._client is None:
+            raise DisconnectedError(f"{self.url} is not connected")
+
+        with _link_errors(f"{method} {self.url}{path}"):
+            response = await self._client.request(method, path, **kwargs)
+
+        self.log_event(
+            "Received response", method=method, path=path, status=response.status_code
+        )
+        return response
+
+
+@contextmanager
+def _link_errors(request: str) -> Generator[None, None, None]:
+    """Raise httpx's link errors as the built-in types the other connections raise"""
+    try:
+        yield
+    except httpx.TimeoutException as e:
+        raise TimeoutError(f"{request} timed out") from e
+    except httpx.TransportError as e:
+        raise ConnectionError(f"{request} failed: {e}") from e
+
+
+def _json(response: httpx.Response) -> Any:
+    response.raise_for_status()
+    return response.json() if response.content else None
