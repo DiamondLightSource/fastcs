@@ -18,14 +18,8 @@ class Connection(ABC, Generic[IntrospectionT]):
             async def introspect(self) -> EigerIntrospection: ...
     """
 
+    # Connection type(s) in the same ControllerSpec to open before this one
     depends_on: ClassVar[type[Connection] | Sequence[type[Connection]]] = ()
-    """Connection type(s) in the same `ControllerSpec` to open before this one.
-
-    Example::
-
-        class OdinConnection(Connection):
-            depends_on = EigerConnection
-    """
 
     _introspection: IntrospectionT
 
