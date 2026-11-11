@@ -25,8 +25,7 @@ class IDAttributeIO(AttributeIO[NumberT, IDAttributeIORef]):
         self._connection = connection
 
     async def update(self, attr: AttrR[NumberT, IDAttributeIORef]):
-        response = await self._connection.send_query("ID?\r\n")
-        value = response.strip("\r\n")
+        value = await self._connection.query("ID?")
 
         await attr.update(attr.dtype(value))
 

@@ -1,52 +1,38 @@
-from unittest.mock import AsyncMock, MagicMock
+import asyncio
 
 import pytest
+import pytest_asyncio
 
-from fastcs.connections.ip_connection import IPConnection
-
-
-@pytest.fixture
-def connection():
-    conn = IPConnection()
-    mock_stream = MagicMock()
-    mock_stream.__aenter__ = AsyncMock(return_value=mock_stream)
-    mock_stream.__aexit__ = AsyncMock(return_value=False)
-    mock_stream.close = AsyncMock()
-    conn._IPConnection__connection = mock_stream  # pyright: ignore[reportAttributeAccessIssue]
-    return conn, mock_stream
+from fastcs.connections import DisconnectedError, IPConnection
 
 
-@pytest.mark.asyncio
-async def test_close_when_not_connected(connection):
-    conn, mock_stream = connection
-    conn._IPConnection__connection = None
+async def _reply_to_r(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    while line := await reader.readuntil(b"\r\n"):
+        if line == b"R?\r\n":
+            writer.write(b"5\r\n")
+            await writer.drain()
 
-    await conn.close()
 
-    mock_stream.close.assert_not_awaited()
-    assert conn._IPConnection__connection is None
+@pytest_asyncio.fixture
+async def connection():
+    server = await asyncio.start_server(_reply_to_r, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    connection = IPConnection("127.0.0.1", port, timeout=0.1)
+    await connection.connect()
+    yield connection
+    await connection.close()
+    server.close()
 
 
 @pytest.mark.asyncio
-async def test_close_connected_and_connection_reset(connection):
-    conn, mock_stream = connection
+async def test_query_adds_and_strips_terminator(connection: IPConnection):
+    assert await connection.query("R?") == "5"
 
-    await conn.close()
-    mock_stream.close.assert_awaited_once()
-    assert conn._IPConnection__connection is None
 
-    conn._IPConnection__connection = mock_stream
-    mock_stream.close.side_effect = ConnectionResetError
+@pytest.mark.asyncio
+async def test_timeout_closes_connection(connection: IPConnection):
+    with pytest.raises(TimeoutError):
+        await connection.query("NO_REPLY?")
 
-    await conn.close()
-    assert mock_stream.close.await_count == 2
-    assert conn._IPConnection__connection is None
-
-    # Other exceptions are propagated, but connection is reset
-    conn._IPConnection__connection = mock_stream
-    mock_stream.close.side_effect = OSError
-
-    with pytest.raises(OSError):
-        await conn.close()
-
-    assert conn._IPConnection__connection is None
+    with pytest.raises(DisconnectedError):
+        await connection.write("R=5")

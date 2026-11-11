@@ -46,15 +46,14 @@ class TemperatureControllerAttributeIO(
         self, attr: AttrW[NumberT, TemperatureControllerAttributeIORef], value: NumberT
     ) -> None:
         command = f"{attr.io_ref.name}{self.suffix}={attr.dtype(value)}"
-        await self._connection.send_command(f"{command}\r\n")
+        await self._connection.write(command)
         self.log_event("Send command for attribute", topic=attr, command=command)
 
     async def update(
         self, attr: AttrR[NumberT, TemperatureControllerAttributeIORef]
     ) -> None:
         query = f"{attr.io_ref.name}{self.suffix}?"
-        response = await self._connection.send_query(f"{query}\r\n")
-        response = response.strip("\r\n")
+        response = await self._connection.query(query)
         self.log_event(
             "Query for attribute",
             topic=attr,
@@ -105,9 +104,7 @@ class TemperatureController(Controller):
     @scan(0.1)
     async def update_voltages(self):
         query = "V?"
-        voltages = json.loads(
-            (await self.sensor.send_query(f"{query}\r\n")).strip("\r\n")
-        )
+        voltages = json.loads(await self.sensor.query(query))
 
         await self.voltages.update(voltages)
 

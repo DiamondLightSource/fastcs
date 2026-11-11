@@ -30,8 +30,7 @@ class TemperatureControllerAttributeIO(
 
     async def update(self, attr: AttrR[NumberT, TemperatureControllerAttributeIORef]):
         query = f"{attr.io_ref.name}?"
-        response = await self._connection.send_query(f"{query}\r\n")
-        value = response.strip("\r\n")
+        value = await self._connection.query(query)
 
         await attr.update(attr.dtype(value))
 
