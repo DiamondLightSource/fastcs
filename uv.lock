@@ -913,6 +913,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pydantic" },
     { name = "pygelf" },
+    { name = "pyzmq" },
     { name = "ruamel-yaml" },
     { name = "stdio-socket" },
 ]
@@ -1007,6 +1008,7 @@ requires-dist = [
     { name = "pydantic" },
     { name = "pygelf" },
     { name = "pytango", marker = "extra == 'tango'" },
+    { name = "pyzmq", specifier = ">=27.1.0" },
     { name = "ruamel-yaml" },
     { name = "softioc", marker = "extra == 'epicsca'", specifier = ">=4.7.1" },
     { name = "stdio-socket" },
