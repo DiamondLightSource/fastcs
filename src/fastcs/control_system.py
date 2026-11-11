@@ -31,7 +31,7 @@ class FastCS:
     `ControllerRunner` and serves their APIs over the given `Transport` instances.
 
     Args:
-        controllers: What to construct each top-level controller from. Accepts
+        specs: What to construct each top-level controller from. Accepts
             either a single ``ControllerSpec`` or a sequence of them.
         transports: A list of transports to serve the API over
         loop: Optional event loop to run the control system in
@@ -39,16 +39,16 @@ class FastCS:
 
     def __init__(
         self,
-        controllers: ControllerSpec | Sequence[ControllerSpec],
+        specs: ControllerSpec | Sequence[ControllerSpec],
         transports: Sequence[Transport],
         loop: asyncio.AbstractEventLoop | None = None,
     ):
-        if isinstance(controllers, ControllerSpec):
-            controllers = [controllers]
-        self._specs: list[ControllerSpec] = list(controllers)
+        if isinstance(specs, ControllerSpec):
+            specs = [specs]
+        self._specs: list[ControllerSpec] = list(specs)
         if not self._specs:
             raise ValueError("FastCS requires at least one controller")
-        ids = [spec.id for spec in self._specs if spec.id is not None]
+        ids = [spec.id for spec in self._specs]
         if len(set(ids)) != len(ids):
             duplicates = sorted({i for i in ids if ids.count(i) > 1})
             raise ValueError(
