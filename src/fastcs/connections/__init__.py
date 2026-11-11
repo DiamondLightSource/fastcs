@@ -1,4 +1,4 @@
 from .connection import Connection as Connection
+from .connection import DisconnectedError as DisconnectedError
 from .ip_connection import IPConnection as IPConnection
-from .ip_connection import StreamConnection as StreamConnection
 from .serial_connection import SerialConnection as SerialConnection

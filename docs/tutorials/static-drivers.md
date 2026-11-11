@@ -181,7 +181,7 @@ The `update_period` property tells the base class how often to call `update`
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static07.py
-:emphasize-lines: 1,3,5-6,15-33,37
+:emphasize-lines: 1,3,5-6,15-32,36
 :::
 
 ::::
@@ -222,7 +222,7 @@ etc.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static08.py
-:emphasize-lines: 10,19-21,33-38,42-43
+:emphasize-lines: 10,19-21,33-37,41-42
 :::
 
 ::::
@@ -238,15 +238,15 @@ Update the IO to implement `send` and then add a new `AttrRW` with type `Float` 
 and set the ramp rate.
 
 :::{note}
-The set commands do not return a response, so use the `send_command` method instead of
-`send_query`.
+The set commands do not return a response, so use the `write` method instead of
+`query`.
 :::
 
 ::::{admonition} Code 9
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static09.py
-:emphasize-lines: 7,40-44,48-50
+:emphasize-lines: 7,39-43,47-49
 :::
 
 ::::
@@ -290,7 +290,7 @@ are, which is used to register the correct number of ramp controllers with the p
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,35,44,48-56,62-63,69-72,77-79
+:emphasize-lines: 10,28,32,34,43,47-55,61-62,68-71,76-78
 :::
 
 ::::
@@ -315,7 +315,7 @@ Add an `AttrRW` to the `TemperatureRampController`s with an `Enum` type, using a
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static11.py
-:emphasize-lines: 1,11,49-51,57
+:emphasize-lines: 1,11,48-50,56
 :::
 
 ::::
@@ -368,7 +368,7 @@ gets the array of voltages and sets each ramp controller with its value. Also ad
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static12.py
-:emphasize-lines: 2,16,60-62,87-93
+:emphasize-lines: 2,16,59-61,86-90
 :::
 
 ::::
@@ -389,7 +389,7 @@ controller.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static13.py
-:emphasize-lines: 1,17,96-101
+:emphasize-lines: 1,17,93-98
 :::
 
 ::::
@@ -421,7 +421,7 @@ logger for `TemperatureControllerAttributeIO` to log the commands it sends.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 13,48,106,111
+:emphasize-lines: 13,47,103,108
 :::
 
 ::::
@@ -446,7 +446,7 @@ visible.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static15.py
-:emphasize-lines: 13,49-51,114
+:emphasize-lines: 13,48-50,111
 :::
 
 ::::

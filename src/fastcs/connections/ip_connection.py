@@ -1,95 +1,139 @@
 import asyncio
-from dataclasses import dataclass
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-from fastcs.connections.connection import Connection, IntrospectionT
+from fastcs.connections.connection import Connection, DisconnectedError, IntrospectionT
 from fastcs.tracer import Tracer
 
 
-class DisconnectedError(Exception):
-    """Raised if the ip connection is disconnected."""
-
-    pass
-
-
-@dataclass
-class StreamConnection:
-    """For reading and writing to a stream."""
-
-    reader: asyncio.StreamReader
-    writer: asyncio.StreamWriter
-
-    def __post_init__(self):
-        self._lock = asyncio.Lock()
-
-    async def __aenter__(self):
-        await self._lock.acquire()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self._lock.release()
-
-    async def send_message(self, message) -> None:
-        self.writer.write(message.encode("utf-8"))
-        await self.writer.drain()
-
-    async def receive_response(self) -> str:
-        data = await self.reader.readline()
-        return data.decode("utf-8")
-
-    async def close(self):
-        self.writer.close()
-        await self.writer.wait_closed()
-
-
 class IPConnection(Connection[IntrospectionT], Tracer):
-    """For connecting to an ip using a `StreamConnection`.
+    """A TCP link to a device that exchanges terminated messages.
+
+    Example::
+
+        connection = IPConnection("10.0.0.5", 4000)
+        await connection.write("R=5")
+        reply = await connection.query("R?")
 
     Args:
         ip: The address to connect to
         port: The port to connect to
+        terminator: Added to the end of each message, and marks the end of each reply
+        encoding: The text encoding of messages and replies
+        timeout: Seconds to wait for each operation before closing the link
 
     """
 
-    def __init__(self, ip: str = "127.0.0.1", port: int = 25565):
+    def __init__(
+        self,
+        ip: str = "127.0.0.1",
+        port: int = 25565,
+        terminator: str = "\r\n",
+        encoding: str = "utf-8",
+        timeout: float = 5.0,
+    ):
         super().__init__()
         self.ip = ip
         self.port = port
-        self.__connection = None
-
-    @property
-    def _connection(self) -> StreamConnection:
-        if self.__connection is None:
-            raise DisconnectedError("Need to call connect() before using IPConnection.")
-
-        return self.__connection
+        self.terminator = terminator
+        self.encoding = encoding
+        self.timeout = timeout
+        self._streams: tuple[asyncio.StreamReader, asyncio.StreamWriter] | None = None
+        self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
-        reader, writer = await asyncio.open_connection(self.ip, self.port)
-        self.__connection = StreamConnection(reader, writer)
+        async with asyncio.timeout(self.timeout):
+            self._streams = await asyncio.open_connection(self.ip, self.port)
 
-    async def send_command(self, message: str) -> None:
-        async with self._connection as connection:
-            await connection.send_message(message)
+    async def write(self, message: str) -> None:
+        """Send a message, adding the terminator.
 
-    async def send_query(self, message: str) -> str:
-        async with self._connection as connection:
-            await connection.send_message(message)
-            response = await connection.receive_response()
-            self.log_event(
-                "Received query response",
-                query=message.strip(),
-                response=response.strip(),
-            )
-            return response
+        Raises:
+            DisconnectedError: If the link isn't open
+            TimeoutError: If sending takes longer than ``timeout``
 
-    async def close(self):
-        if self.__connection is None:
-            return
+        """
+        async with self._exchange() as (_, writer):
+            writer.write(f"{message}{self.terminator}".encode(self.encoding))
+            await writer.drain()
 
-        async with self._connection as connection:
+    async def query(self, message: str) -> str:
+        """Send a message and read the reply.
+
+        Returns:
+            The reply, without its terminator
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            TimeoutError: If the reply takes longer than ``timeout``
+
+        """
+        terminator = self.terminator.encode(self.encoding)
+        async with self._exchange() as (reader, writer):
+            writer.write(f"{message}{self.terminator}".encode(self.encoding))
+            await writer.drain()
+            reply = await reader.readuntil(terminator)
+
+        response = reply.removesuffix(terminator).decode(self.encoding)
+        self.log_event("Received query response", query=message, response=response)
+        return response
+
+    async def write_bytes(self, data: bytes) -> None:
+        """Send raw bytes, without a terminator.
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            TimeoutError: If sending takes longer than ``timeout``
+
+        """
+        async with self._exchange() as (_, writer):
+            writer.write(data)
+            await writer.drain()
+
+    async def query_bytes(self, data: bytes, size: int) -> bytes:
+        """Send raw bytes and read a reply of a fixed size.
+
+        Returns:
+            The reply, exactly ``size`` bytes long
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            TimeoutError: If the reply takes longer than ``timeout``
+
+        """
+        async with self._exchange() as (reader, writer):
+            writer.write(data)
+            await writer.drain()
+            return await reader.readexactly(size)
+
+    async def close(self) -> None:
+        async with self._lock:
+            if self._streams is None:
+                return
+
+            _, writer = self._streams
+            self._streams = None
+            writer.close()
             try:
-                await connection.close()
+                await writer.wait_closed()
             except ConnectionResetError:
                 pass
-            finally:
-                self.__connection = None
+
+    @asynccontextmanager
+    async def _exchange(
+        self,
+    ) -> AsyncIterator[tuple[asyncio.StreamReader, asyncio.StreamWriter]]:
+        """Hold the lock for one exchange, closing the link if it fails part way"""
+        async with self._lock:
+            if self._streams is None:
+                raise DisconnectedError(f"{self.ip}:{self.port} is not connected")
+
+            reader, writer = self._streams
+            try:
+                async with asyncio.timeout(self.timeout):
+                    yield reader, writer
+            except BaseException:
+                # A late reply could be left in the stream and read by the next query
+                self._streams = None
+                writer.close()
+                raise
