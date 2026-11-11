@@ -188,7 +188,8 @@ class BaseController(Tracer):
             super().__setattr__(name, value)
 
     async def setup(self):
-        """Hook that runs after all attributes added, before serving the application"""
+        """Hook called by the framework after all attributes are added, before serving
+        the application"""
         pass
 
     def seal(self):
