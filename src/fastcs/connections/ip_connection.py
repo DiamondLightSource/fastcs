@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastcs.connections.connection import Connection, DisconnectedError, IntrospectionT
@@ -53,8 +53,9 @@ class IPConnection(Connection[IntrospectionT], Tracer):
             TimeoutError: If sending takes longer than ``timeout``
 
         """
+        data = f"{message}{self.terminator}".encode(self.encoding)
         async with self._exchange() as (_, writer):
-            writer.write(f"{message}{self.terminator}".encode(self.encoding))
+            writer.write(data)
             await writer.drain()
 
     async def query(self, message: str) -> str:
@@ -68,9 +69,10 @@ class IPConnection(Connection[IntrospectionT], Tracer):
             TimeoutError: If the reply takes longer than ``timeout``
 
         """
+        data = f"{message}{self.terminator}".encode(self.encoding)
         terminator = self.terminator.encode(self.encoding)
         async with self._exchange() as (reader, writer):
-            writer.write(f"{message}{self.terminator}".encode(self.encoding))
+            writer.write(data)
             await writer.drain()
             reply = await reader.readuntil(terminator)
 
@@ -122,7 +124,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
     @asynccontextmanager
     async def _exchange(
         self,
-    ) -> AsyncIterator[tuple[asyncio.StreamReader, asyncio.StreamWriter]]:
+    ) -> AsyncGenerator[tuple[asyncio.StreamReader, asyncio.StreamWriter], None]:
         """Hold the lock for one exchange, closing the link if it fails part way"""
         async with self._lock:
             if self._streams is None:
