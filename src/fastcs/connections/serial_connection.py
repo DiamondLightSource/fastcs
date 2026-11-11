@@ -1,59 +1,132 @@
 import asyncio
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 import aioserial
 
-from fastcs.connections.connection import Connection, IntrospectionT
+from fastcs.connections.connection import Connection, DisconnectedError, IntrospectionT
+from fastcs.tracer import Tracer
 
 
-class NotOpenedError(Exception):
-    """If the serial stream is not opened."""
+class SerialConnection(Connection[IntrospectionT], Tracer):
+    """A serial link to a device that exchanges terminated messages.
 
-    pass
+    Example::
 
-
-class SerialConnection(Connection[IntrospectionT]):
-    """A serial connection.
+        connection = SerialConnection("/dev/ttyUSB0", baud=9600)
+        await connection.write("R=5")
+        reply = await connection.query("R?")
 
     Args:
         port: The serial port to open
         baud: The baud rate
+        terminator: Added to the end of each message, and marks the end of each reply
+        encoding: The text encoding of messages and replies
+        timeout: Seconds to wait for each operation before closing the link
 
     """
 
-    def __init__(self, port: str, baud: int = 115200):
+    def __init__(
+        self,
+        port: str,
+        baud: int = 115200,
+        terminator: str = "\r\n",
+        encoding: str = "utf-8",
+        timeout: float = 5.0,
+    ):
+        super().__init__()
         self.port = port
         self.baud = baud
-        self.__stream = None
+        self.terminator = terminator
+        self.encoding = encoding
+        self.timeout = timeout
+        self._stream: aioserial.AioSerial | None = None
         self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
-        self.__stream = aioserial.AioSerial(port=self.port, baudrate=self.baud)
+        self._stream = aioserial.AioSerial(port=self.port, baudrate=self.baud)
 
-    @property
-    def _stream(self) -> aioserial.AioSerial:
-        if self.__stream is None:
-            raise NotOpenedError(
-                "Need to call connect() before using SerialConnection."
-            )
+    async def write(self, message: str) -> None:
+        """Send a message, adding the terminator.
 
-        return self.__stream
+        Raises:
+            DisconnectedError: If the link isn't open
+            TimeoutError: If sending takes longer than ``timeout``
 
-    async def send_command(self, message: bytes) -> None:
-        async with self._lock:
-            await self._send_message(message)
+        """
+        data = f"{message}{self.terminator}".encode(self.encoding)
+        async with self._exchange() as stream:
+            await stream.write_async(data)
 
-    async def send_query(self, message: bytes, response_size: int) -> bytes:
-        async with self._lock:
-            await self._send_message(message)
-            return await self._receive_response(response_size)
+    async def query(self, message: str) -> str:
+        """Send a message and read the reply.
 
-    async def _send_message(self, message):
-        await self._stream.write_async(message)
+        Returns:
+            The reply, without its terminator
 
-    async def _receive_response(self, size):
-        return await self._stream.read_async(size)
+        Raises:
+            DisconnectedError: If the link isn't open
+            TimeoutError: If the reply takes longer than ``timeout``
+
+        """
+        data = f"{message}{self.terminator}".encode(self.encoding)
+        terminator = self.terminator.encode(self.encoding)
+        async with self._exchange() as stream:
+            await stream.write_async(data)
+            reply = await stream.read_until_async(terminator)
+
+        response = reply.removesuffix(terminator).decode(self.encoding)
+        self.log_event("Received query response", query=message, response=response)
+        return response
+
+    async def write_bytes(self, data: bytes) -> None:
+        """Send raw bytes, without a terminator.
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            TimeoutError: If sending takes longer than ``timeout``
+
+        """
+        async with self._exchange() as stream:
+            await stream.write_async(data)
+
+    async def query_bytes(self, data: bytes, size: int) -> bytes:
+        """Send raw bytes and read a reply of a fixed size.
+
+        Returns:
+            The reply, exactly ``size`` bytes long
+
+        Raises:
+            DisconnectedError: If the link isn't open
+            TimeoutError: If the reply takes longer than ``timeout``
+
+        """
+        async with self._exchange() as stream:
+            await stream.write_async(data)
+            return await stream.read_async(size)
 
     async def close(self) -> None:
         async with self._lock:
-            self._stream.close()
-            self.__stream = None
+            if self._stream is None:
+                return
+
+            stream = self._stream
+            self._stream = None
+            stream.close()
+
+    @asynccontextmanager
+    async def _exchange(self) -> AsyncGenerator[aioserial.AioSerial, None]:
+        """Hold the lock for one exchange, closing the link if it fails part way"""
+        async with self._lock:
+            if self._stream is None:
+                raise DisconnectedError(f"{self.port} is not connected")
+
+            stream = self._stream
+            try:
+                async with asyncio.timeout(self.timeout):
+                    yield stream
+            except BaseException:
+                # A late reply could be left in the stream and read by the next query
+                self._stream = None
+                stream.close()
+                raise

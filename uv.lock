@@ -906,7 +906,6 @@ wheels = [
 name = "fastcs"
 source = { editable = "." }
 dependencies = [
-    { name = "aioserial" },
     { name = "fastapi", extra = ["standard"] },
     { name = "ipython" },
     { name = "loguru" },
@@ -920,6 +919,7 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
+    { name = "aioserial" },
     { name = "fastapi", extra = ["standard"] },
     { name = "numpy" },
     { name = "p4p" },
@@ -953,6 +953,9 @@ rest = [
     { name = "fastapi", extra = ["standard"] },
     { name = "numpy" },
     { name = "uvicorn", extra = ["standard"] },
+]
+serial = [
+    { name = "aioserial" },
 ]
 tango = [
     { name = "pytango" },
@@ -989,7 +992,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aioserial" },
+    { name = "aioserial", marker = "extra == 'serial'" },
     { name = "fastapi", extras = ["standard"] },
     { name = "fastapi", extras = ["standard"], marker = "extra == 'rest'" },
     { name = "fastcs", extras = ["epics"], marker = "extra == 'all'" },
@@ -997,6 +1000,7 @@ requires-dist = [
     { name = "fastcs", extras = ["epicspva"], marker = "extra == 'epics'" },
     { name = "fastcs", extras = ["graphql"], marker = "extra == 'all'" },
     { name = "fastcs", extras = ["rest"], marker = "extra == 'all'" },
+    { name = "fastcs", extras = ["serial"], marker = "extra == 'all'" },
     { name = "fastcs", extras = ["tango"], marker = "extra == 'all'" },
     { name = "ipython" },
     { name = "loguru", specifier = "~=0.7" },
@@ -1017,7 +1021,7 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'graphql'", specifier = ">=0.12.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'rest'", specifier = ">=0.12.0" },
 ]
-provides-extras = ["demo", "epicsca", "epicspva", "epics", "tango", "graphql", "rest", "all"]
+provides-extras = ["demo", "serial", "epicsca", "epicspva", "epics", "tango", "graphql", "rest", "all"]
 
 [package.metadata.requires-dev]
 dev = [
