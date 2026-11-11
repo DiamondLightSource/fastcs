@@ -7,21 +7,13 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
-from fastcs.controllers import Controller, ControllerSpec
+from fastcs.controllers import ControllerSpec
 from fastcs.logging import logger
 from fastcs.runner import ControllerRunner
 from fastcs.tracer import Tracer
 from fastcs.transports import Transport
 
 tracer = Tracer()
-
-
-def _context_key(controller: Controller) -> str:
-    """Key used for a controller in IPython context dicts and logs"""
-    if controller.path:
-        return controller.path[0]
-
-    return type(controller).__name__
 
 
 class FastCS:
@@ -92,7 +84,7 @@ class FastCS:
         # registers its callbacks before the first values are read.
         self._runner = await ControllerRunner.build(self._specs)
 
-        keys = [_context_key(controller) for controller in self._runner.controllers]
+        keys = [controller.path[0] for controller in self._runner.controllers]
         context = {
             "controllers": dict(zip(keys, self._runner.controllers, strict=True)),
             "controller_apis": dict(
