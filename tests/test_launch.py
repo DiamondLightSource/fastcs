@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 
 from fastcs import __version__
 from fastcs.attributes import AttrR
-from fastcs.connections import IPConnection
+from fastcs.connections import Connection, IPConnection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.datatypes import Int
@@ -59,6 +59,19 @@ class ManyArgs(Controller):
 
 class WithConnection(Controller):
     def __init__(self, connection: IPConnection, arg: SomeConfig) -> None:
+        super().__init__()
+
+
+class NoSettingsConnection(Connection):
+    async def connect(self) -> None: ...
+
+    async def close(self) -> None: ...
+
+
+class WithGenericConnections(Controller):
+    def __init__(
+        self, sensor: IPConnection[SomeConfig], link: NoSettingsConnection
+    ) -> None:
         super().__init__()
 
 
@@ -354,3 +367,19 @@ def test_connections_built_from_config(mocker: MockerFixture, tmp_path):
     assert isinstance(connection, IPConnection)
     assert (connection.ip, connection.port) == ("localhost", 8000)
     assert spec.kwargs["arg"] == SomeConfig(name="a")
+
+
+def test_parametrised_and_no_settings_connections():
+    options_model = _build_options_model([WithGenericConnections])
+    options_model.model_validate(
+        {
+            "controllers": [
+                {
+                    "id": "one",
+                    "type": "tests.WithGenericConnections",
+                    "connections": {"sensor": {}, "link": {}},
+                }
+            ],
+            "transport": [{"rest": {}}],
+        }
+    )
