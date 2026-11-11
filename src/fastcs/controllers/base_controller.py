@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 from collections import Counter
 from collections.abc import Sequence
 from copy import deepcopy
@@ -13,6 +14,7 @@ from typing import (
 
 from fastcs.attributes import AnyAttributeIO, Attribute, AttrR, AttrW, HintedAttribute
 from fastcs.controllers.controller_api import ControllerAPI
+from fastcs.datatypes.enum import check_enum_hint
 from fastcs.logging import logger
 from fastcs.methods import Command, Method, Scan, UnboundCommand, UnboundScan
 from fastcs.tracer import Tracer
@@ -323,18 +325,37 @@ class BaseController(Tracer):
                     f"hinted attribute '{name}' does not match defined access mode. "
                     f"Expected '{hint.attr_type.__name__}' got '{type(attr).__name__}'."
                 )
-            if hint.dtype is not None and hint.dtype != attr.datatype.dtype:
-                raise RuntimeError(
-                    f"Controller '{self.__class__.__name__}' introspection of "
-                    f"hinted attribute '{name}' does not match defined datatype. "
-                    f"Expected '{hint.dtype.__name__}', "
-                    f"got '{attr.datatype.dtype.__name__}'."
-                )
+            if hint.dtype is not None:
+                self._check_hinted_dtype(name, hint.dtype, attr.datatype.dtype)
 
         attr.set_name(name)
         attr.set_path(self.path)
         self.__attributes[name] = attr
         super().__setattr__(name, attr)
+
+    def _check_hinted_dtype(self, name: str, hinted: type, actual: type):
+        """Check the dtype of an `Attribute` against the dtype in its type hint.
+
+        Dtypes must be identical, except for enums, which may also match on their
+        values - see `check_enum_hint`.
+        """
+        if hinted is actual:
+            return
+
+        message = (
+            f"Controller '{self.__class__.__name__}' introspection of "
+            f"hinted attribute '{name}' does not match defined datatype. "
+            f"Expected '{hinted.__name__}', got '{actual.__name__}'"
+        )
+
+        if issubclass(hinted, enum.Enum) and issubclass(actual, enum.Enum):
+            try:
+                check_enum_hint(hinted, actual)
+                return
+            except ValueError as e:
+                raise RuntimeError(f"{message}: {e}.") from e
+
+        raise RuntimeError(f"{message}.")
 
     @property
     def attributes(self) -> dict[str, Attribute]:
