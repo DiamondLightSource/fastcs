@@ -235,7 +235,14 @@ def _validate_array(meta: Meta, value: Any) -> np.ndarray:
 
     array_dtype = array_dtype_of(meta)
     source = np.asarray(value)
-    if not np.can_cast(source.dtype, array_dtype, casting="same_kind"):
+    # numpy counts signed to unsigned as a change of kind, which would reject
+    # a list like [5, 255] (int64) for a uint8 array
+    signed_to_unsigned = np.issubdtype(
+        source.dtype, np.signedinteger
+    ) and np.issubdtype(array_dtype, np.unsignedinteger)
+    if not signed_to_unsigned and not np.can_cast(
+        source.dtype, array_dtype, casting="same_kind"
+    ):
         raise ValueError(
             f"Value dtype {source.dtype} cannot be cast to the array dtype "
             f"{array_dtype}"

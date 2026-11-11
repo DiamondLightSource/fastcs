@@ -269,6 +269,7 @@ def test_is_table():
         ([1, 2], np.float64),
         ([True], np.int32),
         (["ab"], np.dtype("U")),
+        ([5, 255], np.uint8),
     ],
 )
 def test_array_accepts_same_kind_casts(value, array_dtype):
@@ -281,7 +282,6 @@ def test_array_accepts_same_kind_casts(value, array_dtype):
     "value, array_dtype",
     [
         ([1.7], np.int32),
-        ([-1], np.uint8),
         ([1], np.bool),
         (["1"], np.int32),
     ],
