@@ -25,17 +25,17 @@ class Connection(ABC, Generic[IntrospectionT]):
 
     @property
     def introspection(self) -> IntrospectionT:
-        """What ``introspect`` returned when the runner opened this connection.
+        """What ``introspect`` returned when the framework opened this connection.
 
         Raises:
-            RuntimeError: If the runner hasn't opened this connection yet
+            RuntimeError: If the framework hasn't opened this connection yet
 
         """
         try:
             return self._introspection
         except AttributeError:
             raise RuntimeError(
-                f"{type(self).__name__} has no introspection until the runner "
+                f"{type(self).__name__} has no introspection until the framework "
                 "has opened it"
             ) from None
 
@@ -48,10 +48,10 @@ class Connection(ABC, Generic[IntrospectionT]):
 
     @abstractmethod
     async def connect(self) -> None:
-        """Open the link, or raise."""
+        """Open the link, or raise. Called by the framework before construction."""
 
     async def introspect(self) -> IntrospectionT:
-        """Describe the device. Called by the runner after ``connect``.
+        """Describe the device. Called by the framework after ``connect``.
 
         Returns:
             The introspection, or ``None`` if this connection doesn't introspect
@@ -61,4 +61,4 @@ class Connection(ABC, Generic[IntrospectionT]):
 
     @abstractmethod
     async def close(self) -> None:
-        """Close the link."""
+        """Close the link. Called by the framework on stop, or if build fails."""

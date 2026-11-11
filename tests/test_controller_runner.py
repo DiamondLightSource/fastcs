@@ -225,7 +225,7 @@ async def test_introspection_available_when_controller_constructed():
 
 
 def test_introspection_before_connecting_raises():
-    with pytest.raises(RuntimeError, match="no introspection until the runner"):
+    with pytest.raises(RuntimeError, match="no introspection until the framework"):
         _ = IntrospectingConnection().introspection
 
 
