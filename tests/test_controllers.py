@@ -4,15 +4,15 @@ import enum
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.controllers import Controller, ControllerVector, GroupLayout
 from fastcs.datatypes import Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
 
 
 def test_controller_nesting():
     controller = Controller()
-    sub_controller = Controller()
-    sub_sub_controller = Controller()
+    sub_controller = Controller(path=["a"])
+    sub_sub_controller = Controller(path=["a", "b"])
 
     controller.a = sub_controller
     sub_controller.b = sub_sub_controller
@@ -23,15 +23,12 @@ def test_controller_nesting():
     assert sub_controller.sub_controllers == {"b": sub_sub_controller}
 
     with pytest.raises(ValueError, match=r"Cannot add sub controller"):
-        controller.a = Controller()
-
-    with pytest.raises(ValueError, match=r"already registered"):
-        controller.c = sub_controller
+        controller.a = Controller(path=["a"])
 
 
 class SomeSubController(Controller):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *, path=None):
+        super().__init__(path=path)
 
     sub_attribute = AttrR(Int())
 
@@ -43,8 +40,8 @@ class SomeController(Controller):
     equal_attr = AttrR(Int())
     annotated_and_equal_attr: AttrR[int] = AttrR(Int())
 
-    def __init__(self, sub_controller: Controller):
-        super().__init__()
+    def __init__(self, sub_controller: Controller, *, path=None):
+        super().__init__(path=path)
 
         self.attr_on_object = AttrR(Int())
 
@@ -55,7 +52,7 @@ class SomeController(Controller):
 
 
 def test_attribute_parsing():
-    sub_controller = SomeSubController()
+    sub_controller = SomeSubController(path=["sub_controller"])
     controller = SomeController(sub_controller)
 
     assert set(controller.attributes.keys()) == {
@@ -86,13 +83,17 @@ async def noop() -> None:
     "member_name, member_value, expected_error",
     [
         ("attr", AttrR(Float()), r"Cannot add attribute"),
-        ("attr", Controller(), r"Cannot add sub controller"),
+        ("attr", Controller(path=["attr"]), r"Cannot add sub controller"),
         ("attr", Command(noop), r"Cannot add command"),
         ("sub_controller", AttrR(Int()), r"Cannot add attribute"),
-        ("sub_controller", Controller(), r"Cannot add sub controller"),
+        (
+            "sub_controller",
+            Controller(path=["sub_controller"]),
+            r"Cannot add sub controller",
+        ),
         ("sub_controller", Command(noop), r"Cannot add command"),
         ("cmd", AttrR(Int()), r"Cannot add attribute"),
-        ("cmd", Controller(), r"Cannot add sub controller"),
+        ("cmd", Controller(path=["cmd"]), r"Cannot add sub controller"),
         ("cmd", Command(noop), r"Cannot add command"),
     ],
 )
@@ -105,7 +106,7 @@ def test_conflicting_attributes_and_controllers_and_commands(
 
         def __init__(self):
             super().__init__()
-            self.sub_controller = Controller()
+            self.sub_controller = Controller(path=["sub_controller"])
 
     controller = ConflictingController()
 
@@ -114,7 +115,7 @@ def test_conflicting_attributes_and_controllers_and_commands(
 
 
 def test_controller_raises_error_if_passed_numeric_sub_controller_name():
-    sub_controller = SomeSubController()
+    sub_controller = SomeSubController(path=["sub_controller"])
     controller = SomeController(sub_controller)
 
     with pytest.raises(ValueError, match="Numeric-only names are not allowed"):
@@ -122,15 +123,19 @@ def test_controller_raises_error_if_passed_numeric_sub_controller_name():
 
 
 def test_controller_vector_raises_error_if_add_sub_controller_called():
-    controller_vector = ControllerVector({i: SomeSubController() for i in range(2)})
+    controller_vector = ControllerVector(
+        {i: SomeSubController(path=[str(i)]) for i in range(2)}
+    )
 
     with pytest.raises(NotImplementedError, match="Use __setitem__ instead"):
-        controller_vector.add_sub_controller("subcontroller", SomeSubController())
+        controller_vector.add_sub_controller(
+            "subcontroller", SomeSubController(path=["subcontroller"])
+        )
 
 
 def test_controller_vector_indexing():
-    controller = SomeSubController()
-    another_controller = SomeSubController()
+    controller = SomeSubController(path=["10"])
+    another_controller = SomeSubController(path=["1"])
     controller_vector = ControllerVector({1: another_controller})
     controller_vector[10] = controller
     assert controller_vector.sub_controllers["10"] == controller
@@ -142,14 +147,17 @@ def test_controller_vector_indexing():
 
 
 def test_controller_vector_delitem_raises_exception():
-    controller = SomeSubController()
+    controller = SomeSubController(path=["1"])
     controller_vector = ControllerVector({1: controller})
     with pytest.raises(NotImplementedError, match="Cannot delete"):
         del controller_vector[1]
 
 
 def test_controller_vector_iter():
-    sub_controllers = {1: SomeSubController(), 2: SomeSubController()}
+    sub_controllers = {
+        1: SomeSubController(path=["1"]),
+        2: SomeSubController(path=["2"]),
+    }
     controller_vector = ControllerVector(sub_controllers)
 
     for index, child in controller_vector.items():
@@ -207,9 +215,9 @@ async def test_sub_controller_hint_validation():
         controller._validate_type_hints()
 
     with pytest.raises(RuntimeError, match="does not match defined type"):
-        controller.add_sub_controller("child", Controller())
+        controller.add_sub_controller("child", Controller(path=["child"]))
 
-    controller.add_sub_controller("child", SomeSubController())
+    controller.add_sub_controller("child", SomeSubController(path=["child"]))
     controller._validate_type_hints()
 
 
@@ -249,7 +257,7 @@ def test_controller_api():
             pass
 
     controller = MyTestController()
-    api = controller._build_api([])
+    api = controller._build_api()
 
     assert api.description == controller.description
     assert list(api.attributes) == ["attr1", "attr2"]
@@ -282,3 +290,12 @@ async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+
+def test_controller_with_group_layout():
+    """Test that group_layout parameter is properly set on a controller."""
+    controller = Controller(group_layout=GroupLayout.INLINE)
+    assert controller.group_layout == GroupLayout.INLINE
+
+    controller_default = Controller()
+    assert controller_default.group_layout == GroupLayout.SUBSCREEN

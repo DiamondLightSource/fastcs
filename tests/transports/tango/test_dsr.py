@@ -43,7 +43,7 @@ class TangoController(MyTestController):
 
 @pytest.fixture(scope="class")
 def tango_controller_api(class_mocker: MockerFixture) -> AssertableControllerAPI:
-    return AssertableControllerAPI(TangoController(), class_mocker, path=["DEVICE"])
+    return AssertableControllerAPI(TangoController(path=["DEVICE"]), class_mocker)
 
 
 def create_test_context(tango_controller_api: AssertableControllerAPI):
