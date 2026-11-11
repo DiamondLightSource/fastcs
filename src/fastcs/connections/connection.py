@@ -7,6 +7,7 @@ from typing import ClassVar, Generic, cast
 from typing_extensions import TypeVar
 
 IntrospectionT = TypeVar("IntrospectionT", default=None)
+"""What a `Connection`'s ``introspect`` returns, or ``None`` if it doesn't introspect"""
 
 
 class Connection(ABC, Generic[IntrospectionT]):
