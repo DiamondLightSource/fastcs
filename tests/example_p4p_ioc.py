@@ -1,26 +1,14 @@
 import asyncio
 import enum
-from dataclasses import dataclass
 
 import numpy as np
 
-from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
+from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, Table, Waveform
+from fastcs.datatypes import Bool, Enum, Float, Int, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command, scan
 from fastcs.transports.epics.pva import EpicsPVATransport
-
-
-@dataclass
-class SimpleAttributeIORef(AttributeIORef):
-    pass
-
-
-class SimpleAttributeIO(AttributeIO[DType_T, SimpleAttributeIORef]):
-    async def send(self, attr: AttrW[DType_T, SimpleAttributeIORef], value):
-        if isinstance(attr, AttrRW):
-            await attr.update(value)
 
 
 class FEnum(enum.Enum):
@@ -33,39 +21,47 @@ class FEnum(enum.Enum):
 
 class ParentController(Controller):
     description = "some controller"
-    a: AttrRW = AttrRW(
-        Int(max=400_000, max_alarm=40_000), io_ref=SimpleAttributeIORef()
-    )
-    b: AttrW = AttrW(Float(min=-1, min_alarm=-0.5), io_ref=SimpleAttributeIORef())
+    a: AttrRW = AttrRW(Int(max=400_000, max_alarm=40_000))
+    b: AttrW = AttrW(Float(min=-1, min_alarm=-0.5))
 
     table: AttrRW = AttrRW(
         Table([("A", np.int32), ("B", "i"), ("C", "?"), ("D", np.float64)]),
-        io_ref=SimpleAttributeIORef(),
     )
-
-    def __init__(self, description=None, ios=None):
-        super().__init__(description, ios)
 
 
 class ChildController(Controller):
     fail_on_next_e = True
-    c: AttrW = AttrW(Int(), io_ref=SimpleAttributeIORef())
+    c: AttrW = AttrW(Int())
 
-    def __init__(self, description=None, ios=None):
-        super().__init__(description, ios)
+    def __init__(self, description: str | None = None):
+        super().__init__(description=description)
+
+        # A getter/setter pair against an in-memory "device", doing what an
+        # AttributeIO used to do. The setter clamps the requested value and
+        # returns what it accepted, which becomes both the readback and the
+        # setpoint; the getter seeds the setpoint when the controller connects.
+        self._clamped = 5
+        self.clamped = AttrRW(Int(), getter=self.get_clamped, setter=self.set_clamped)
+
+    async def get_clamped(self) -> int:
+        return self._clamped
+
+    async def set_clamped(self, value: int) -> int:
+        self._clamped = min(max(value, 0), 100)
+        return self._clamped
 
     @command()
     async def d(self):
         print("D: RUNNING")
         await asyncio.sleep(0.1)
         print("D: FINISHED")
-        await self.j.update(self.j.get() + 1)
+        await self.j.update(self.j.readback + 1)
 
-    e: AttrR = AttrR(Bool(), io_ref=SimpleAttributeIORef())
+    e: AttrR = AttrR(Bool())
 
     @scan(1)
     async def flip_flop(self):
-        await self.e.update(not self.e.get())
+        await self.e.update(not self.e.readback)
 
     f: AttrRW = AttrRW(Enum(FEnum))
     g: AttrRW = AttrRW(Waveform(np.int64, shape=(3,)))
@@ -81,15 +77,14 @@ class ChildController(Controller):
         else:
             self.fail_on_next_e = True
             print("I: FINISHED")
-            await self.j.update(self.j.get() + 1)
+            await self.j.update(self.j.readback + 1)
 
     j: AttrR = AttrR(Int())
 
 
 def run(id="P4P_TEST_DEVICE"):
-    simple_attribute_io = SimpleAttributeIO()
     p4p_options = EpicsPVATransport()
-    controller = ParentController(ios=[simple_attribute_io])
+    controller = ParentController()
     controller.set_path([id])
 
     class ChildVector(ControllerVector):
@@ -100,12 +95,8 @@ def run(id="P4P_TEST_DEVICE"):
 
     sub_controller = ChildVector(
         {
-            1: ChildController(
-                description="some sub controller", ios=[simple_attribute_io]
-            ),
-            2: ChildController(
-                description="another sub controller", ios=[simple_attribute_io]
-            ),
+            1: ChildController(description="some sub controller"),
+            2: ChildController(description="another sub controller"),
         },
         description="some child vector",
     )

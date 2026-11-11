@@ -1,22 +1,30 @@
 import json
-from dataclasses import KW_ONLY, dataclass
 from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from fastcs.attributes import (
-    Attribute,
-    AttributeIO,
-    AttributeIORef,
-    AttrR,
-    AttrRW,
-    AttrW,
-)
+from fastcs.attributes import Attribute, AttrR, AttrRW
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.datatypes import Bool, DataType, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.transports.epics.ca import EpicsCATransport
+
+ValueT = TypeVar("ValueT")
+
+
+class TemperatureProtocol:
+    def __init__(self, connection: IPConnection):
+        self._connection = connection
+
+    async def send_command(self, param: str, value: ValueT, dtype: type[ValueT]):
+        command = f"{param}={dtype(value)}"  # type: ignore[call-arg]
+        await self._connection.send_command(f"{command}\r\n")
+
+    async def send_query(self, param: str, dtype: type[ValueT]) -> ValueT:
+        query = f"{param}?"
+        response = await self._connection.send_query(f"{query}\r\n")
+        return dtype(response.strip("\r\n"))  # type: ignore[call-arg]
 
 
 class TemperatureControllerParameter(BaseModel):
@@ -39,7 +47,9 @@ class TemperatureControllerParameter(BaseModel):
                 return String()
 
 
-def create_attributes(parameters: dict[str, Any]) -> dict[str, Attribute]:
+def create_attributes(
+    parameters: dict[str, Any], protocol: TemperatureProtocol
+) -> dict[str, Attribute]:
     attributes: dict[str, Attribute] = {}
     for name, parameter in parameters.items():
         name = name.replace(" ", "_").lower()
@@ -50,46 +60,23 @@ def create_attributes(parameters: dict[str, Any]) -> dict[str, Attribute]:
             print(f"Failed to validate parameter '{parameter}'\n{e}")
             continue
 
-        io_ref = TemperatureControllerAttributeIORef(parameter.command)
+        datatype = parameter.fastcs_datatype
+        command = parameter.command
+
+        async def getter(command=command, dtype=datatype.dtype):
+            return await protocol.send_query(command, dtype)
+
         match parameter.access_mode:
             case "r":
-                attributes[name] = AttrR(parameter.fastcs_datatype, io_ref=io_ref)
+                attributes[name] = AttrR(datatype, getter=getter)
             case "rw":
-                attributes[name] = AttrRW(parameter.fastcs_datatype, io_ref=io_ref)
+
+                async def setter(value, command=command, dtype=datatype.dtype):
+                    await protocol.send_command(command, value, dtype)
+
+                attributes[name] = AttrRW(datatype, getter=getter, setter=setter)
 
     return attributes
-
-
-NumberT = TypeVar("NumberT", int, float)
-
-
-@dataclass
-class TemperatureControllerAttributeIORef(AttributeIORef):
-    name: str
-    _: KW_ONLY
-    update_period: float | None = 0.2
-
-
-class TemperatureControllerAttributeIO(
-    AttributeIO[NumberT, TemperatureControllerAttributeIORef]
-):
-    def __init__(self, connection: IPConnection):
-        super().__init__()
-
-        self._connection = connection
-
-    async def update(self, attr: AttrR[NumberT, TemperatureControllerAttributeIORef]):
-        query = f"{attr.io_ref.name}?"
-        response = await self._connection.send_query(f"{query}\r\n")
-        value = response.strip("\r\n")
-
-        await attr.update(attr.dtype(value))
-
-    async def send(
-        self, attr: AttrW[NumberT, TemperatureControllerAttributeIORef], value: NumberT
-    ) -> None:
-        command = f"{attr.io_ref.name}={attr.dtype(value)}"
-        await self._connection.send_command(f"{command}\r\n")
 
 
 class TemperatureRampController(Controller):
@@ -97,13 +84,16 @@ class TemperatureRampController(Controller):
         self,
         index: int,
         parameters: dict[str, TemperatureControllerParameter],
-        io: TemperatureControllerAttributeIO,
+        protocol: TemperatureProtocol,
     ):
         self._parameters = parameters
-        super().__init__(f"Ramp{index}", ios=[io])
+        self._protocol = protocol
+        super().__init__(f"Ramp{index}")
 
     async def initialise(self):
-        for name, attribute in create_attributes(self._parameters).items():
+        for name, attribute in create_attributes(
+            self._parameters, self._protocol
+        ).items():
             self.add_attribute(name, attribute)
 
 
@@ -111,9 +101,9 @@ class TemperatureController(Controller):
     def __init__(self, settings: IPConnectionSettings):
         self._ip_settings = settings
         self._connection = IPConnection()
+        self._protocol = TemperatureProtocol(self._connection)
 
-        self._io = TemperatureControllerAttributeIO(self._connection)
-        super().__init__(ios=[self._io])
+        super().__init__()
 
     async def connect(self):
         await self._connection.connect(self._ip_settings)
@@ -125,12 +115,12 @@ class TemperatureController(Controller):
 
         ramps_api = api.pop("Ramps")
 
-        for name, attribute in create_attributes(api).items():
+        for name, attribute in create_attributes(api, self._protocol).items():
             self.add_attribute(name, attribute)
 
         for idx, ramp_parameters in enumerate(ramps_api):
             ramp_controller = TemperatureRampController(
-                idx + 1, ramp_parameters, self._io
+                idx + 1, ramp_parameters, self._protocol
             )
             await ramp_controller.initialise()
             self.add_sub_controller(f"Ramp{idx + 1:02d}", ramp_controller)

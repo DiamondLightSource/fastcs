@@ -92,7 +92,21 @@ addopts = """
     """
 # https://iscinumpy.gitlab.io/post/bound-version-constraints/#watch-for-warnings
 # https://github.com/DiamondLightSource/FastCS/issues/230
-filterwarnings = "error"
+#
+# The two pytest-generated warnings are downgraded to "report but do not fail".
+# They are raised for events that happen *outside* any test - an exception during
+# garbage collection, or in a non-main thread - and pytest attributes them to
+# whichever test happens to be running at the time. This suite leaves objects
+# alive in its subprocess and multiprocessing fixtures (run_ioc_as_subprocess's
+# forkserver and Queues, the tickit Popen in test_docs_snippets), so the
+# resulting ResourceWarning lands on an unrelated test, and which one varies by
+# Python version and by run. They are still printed, so real leaks stay visible;
+# track them down with PYTHONTRACEMALLOC=25, which adds the allocation traceback.
+filterwarnings = [
+    "error",
+    "default::pytest.PytestUnraisableExceptionWarning",
+    "default::pytest.PytestUnhandledThreadExceptionWarning",
+]
 # Doctest python code in docs, python code in src docstrings, test functions in tests
 testpaths = "docs src tests"
 timeout = 5

@@ -175,7 +175,7 @@ float_type.validate(42)     # Returns 42.0 (int -> float)
 Validation runs automatically when:
 
 1. **Attribute update**: `await attr.update(value)` validates before storing
-2. **Put request**: `await attr.put(value)` validates before sending to device
+2. **Set request**: `await attr.set(value)` validates before sending to device
 3. **Initial value**: Values passed to `initial_value` are validated on creation
 
 ```python
@@ -188,9 +188,9 @@ attr = AttrRW(Int(min=0, max=10), initial_value=5)
 await attr.update(7)    # OK
 await attr.update(15)   # Raises ValueError
 
-# Puts are validated
-await attr.put(3)       # OK
-await attr.put(-1)      # Raises ValueError
+# Sets are validated
+await attr.set(3)       # OK
+await attr.set(-1)      # Raises ValueError
 ```
 
 ## Transport Handling
