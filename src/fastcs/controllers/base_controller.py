@@ -191,17 +191,22 @@ class BaseController(Tracer):
         """Hook to run once at startup, before the initial reads"""
         pass
 
-    def _seal(self):
-        """Validate the tree and connect its attribute IOs, then stop anything being
-        added to it"""
+    def seal(self):
+        """Validate and connect this controller and its sub controllers, then stop
+        anything being added to them
+
+        Raises:
+            RuntimeError: If the controller is already sealed
+
+        """
+        if self._sealed:
+            raise RuntimeError(f"{self} is already sealed")
+
         self._validate_type_hints()
         self._connect_attribute_ios()
-        self._set_sealed()
-
-    def _set_sealed(self):
         self._sealed = True
         for controller in self.sub_controllers.values():
-            controller._set_sealed()  # noqa: SLF001
+            controller.seal()
 
     def _check_not_sealed(self, name: str):
         if self._sealed:
@@ -217,9 +222,6 @@ class BaseController(Tracer):
 
         for name in self.__hinted_methods:
             self._validate_hinted_method(name)
-
-        for subcontroller in self.sub_controllers.values():
-            subcontroller._validate_type_hints()  # noqa: SLF001
 
     def _validate_hinted_member(self, name: str, expected_type: type[T]) -> T:
         """Validate that a hinted member exists on the controller"""
@@ -291,9 +293,6 @@ class BaseController(Tracer):
                 attr.set_on_put_callback(io.send)
             if isinstance(attr, AttrR):
                 attr.set_update_callback(io.update)
-
-        for controller in self.sub_controllers.values():
-            controller._connect_attribute_ios()  # noqa: SLF001
 
     @property
     def path(self) -> list[str]:

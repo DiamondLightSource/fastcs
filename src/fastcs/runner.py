@@ -58,7 +58,7 @@ class ControllerRunner:
 
             runner._controllers = [spec.construct() for spec in specs]
             for controller in runner._controllers:
-                controller._seal()  # noqa: SLF001
+                controller.seal()
         except BaseException:
             await runner._close_connections()
             raise
