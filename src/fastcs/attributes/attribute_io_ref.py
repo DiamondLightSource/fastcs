@@ -24,3 +24,11 @@ AttributeIORefT = TypeVar(
     "AttributeIORefT", bound=AttributeIORef, default=AttributeIORef, covariant=True
 )
 """An `AttributeIORef` for an `Attribute`"""
+
+IORef_T = TypeVar("IORef_T", bound=AttributeIORef, default=AttributeIORef)
+"""A TypeVar of `AttributeIORef` for the constructor overloads
+
+Distinct from `AttributeIORefT` because the overloads bind it from ``io_ref`` in
+the same signature that annotates ``self``, and a class-scoped TypeVar cannot be
+used there.
+"""

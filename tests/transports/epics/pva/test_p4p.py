@@ -16,7 +16,7 @@ from p4p.nt import NTTable
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, String, Table, Waveform
+from fastcs.datatypes import Array1D, DType_T, Limits, NumericLimits, Table
 from fastcs.launch import FastCS
 from fastcs.methods import command
 from fastcs.transports.epics.pva.transport import EpicsPVATransport
@@ -201,10 +201,19 @@ async def test_numeric_alarms(p4p_subprocess: tuple[str, Queue]):
         assert value["alarm"]["severity"] == 2
         assert value["alarm"]["message"] == "Above maximum alarm limit: 40000"
 
+        # Inside alarm limit, but still above the warning limit
         await ctxt.put(f"{pv_prefix}:A", 40_000)
 
         value = (await a_values.get()).raw
         assert value["value"] == 40_000
+        assert isinstance(value["value"], int)
+        assert value["alarm"]["severity"] == 1
+        assert value["alarm"]["message"] == "Above maximum warning limit: 4000"
+
+        await ctxt.put(f"{pv_prefix}:A", 4_000)
+
+        value = (await a_values.get()).raw
+        assert value["value"] == 4_000
         assert isinstance(value["value"], int)
         assert value["alarm"]["severity"] == 0
         assert value["alarm"]["message"] == "No alarm"
@@ -225,7 +234,7 @@ def test_alarms_set_if_put_fails():
             raise ValueError("Failed")
 
     class SomeController(Controller):
-        a = AttrW(Int(), io_ref=SimpleAttributeIORef())
+        a = AttrW(int, io_ref=SimpleAttributeIORef())
 
     controller = SomeController(ios=[SimpleAttributeIO()])
     pv_prefix = str(uuid4())
@@ -254,8 +263,17 @@ def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
 
 def test_read_signal_set():
     class SomeController(Controller):
-        a: AttrRW = AttrRW(Int(max=400_000, max_alarm=40_000))
-        b: AttrR = AttrR(Float(min=-1, min_alarm=-0.5, prec=2))
+        a: AttrRW = AttrRW(
+            int,
+            limits=NumericLimits(
+                control=Limits(high=400_000), alarm=Limits(high=40_000)
+            ),
+        )
+        b: AttrR = AttrR(
+            float,
+            limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5)),
+            precision=2,
+        )
 
     controller = SomeController()
     pv_prefix = str(uuid4())
@@ -295,20 +313,29 @@ def test_read_signal_set():
 
 def test_pvi_grouping():
     class ChildChildController(Controller):
-        attr_e: AttrRW = AttrRW(Int())
-        attr_f: AttrR = AttrR(String())
+        attr_e: AttrRW = AttrRW(int)
+        attr_f: AttrR = AttrR(str)
 
     class ChildController(Controller):
-        attr_c: AttrW = AttrW(Bool(), description="Some bool")
-        attr_d: AttrW = AttrW(String())
+        attr_c: AttrW = AttrW(bool, description="Some bool")
+        attr_d: AttrW = AttrW(str)
 
     class SomeController(Controller):
         description = "some controller"
-        attr_1: AttrRW = AttrRW(Int(max=400_000, max_alarm=40_000))
-        attr_1: AttrRW = AttrRW(Float(min=-1, min_alarm=-0.5, prec=2))
-        another_attr_0: AttrRW = AttrRW(Int())
-        another_attr_1000: AttrRW = AttrRW(Int())
-        a_third_attr: AttrW = AttrW(Int())
+        attr_1: AttrRW = AttrRW(
+            int,
+            limits=NumericLimits(
+                control=Limits(high=400_000), alarm=Limits(high=40_000)
+            ),
+        )
+        attr_1: AttrRW = AttrRW(
+            float,
+            limits=NumericLimits(control=Limits(low=-1), alarm=Limits(low=-0.5)),
+            precision=2,
+        )
+        another_attr_0: AttrRW = AttrRW(int)
+        another_attr_1000: AttrRW = AttrRW(int)
+        a_third_attr: AttrW = AttrW(int)
 
     controller = SomeController()
 
@@ -451,9 +478,9 @@ async def test_more_exotic_datatypes():
         C = 3
 
     class SomeController(Controller):
-        some_waveform: AttrRW = AttrRW(Waveform(np.int64, shape=(10, 10)))
-        some_table: AttrRW = AttrRW(Table(table_columns))
-        some_enum: AttrRW = AttrRW(Enum(AnEnum))
+        some_waveform: AttrRW = AttrRW(Array1D[np.int64], shape=(10, 10))
+        some_table: AttrRW = AttrRW(Table, structured_dtype=table_columns)
+        some_enum: AttrRW = AttrRW(AnEnum)
 
     controller = SomeController()
     pv_prefix = str(uuid4())
@@ -561,12 +588,7 @@ async def test_more_exotic_datatypes():
     ]
 
     for expected_enum, actual_enum in zip(expected_enum_gets, enum_values, strict=True):
-        assert (
-            expected_enum
-            == controller.some_enum.datatype.members[  # type: ignore
-                actual_enum.todict()["value"]["index"]
-            ]
-        )
+        assert expected_enum == list(AnEnum)[actual_enum.todict()["value"]["index"]]
 
 
 def test_command_method_put_twice(caplog):

@@ -1,3 +1,4 @@
+import enum
 import math
 import time
 from enum import IntEnum
@@ -9,10 +10,14 @@ from p4p.nt import NTEnum, NTNDArray, NTScalar, NTTable
 from pydantic import BaseModel
 
 from fastcs.attributes import Attribute, AttrR, AttrW
-from fastcs.datatypes import Bool, DType, Enum, Float, Int, String, Table, Waveform
-from fastcs.datatypes.datatype import DType_T
-
-P4P_ALLOWED_DATATYPES = (Int, Float, String, Bool, Enum, Waveform, Table)
+from fastcs.datatypes import (
+    DEFAULT_ARRAY_SHAPE,
+    DEFAULT_PRECISION,
+    DType,
+    DType_T,
+    Meta,
+    NumericLimits,
+)
 
 # https://numpy.org/devdocs/reference/arrays.dtypes.html#arrays-dtypes
 # Some numpy dtypes don't match directly with the p4p ones
@@ -48,61 +53,67 @@ def _table_with_numpy_dtypes_to_p4p_dtypes(numpy_dtypes: list[tuple[str, DTypeLi
 def make_p4p_type(
     attribute: Attribute,
 ) -> NTScalar | NTEnum | NTNDArray | NTTable:
-    """Creates a p4p type for a given `Attribute` `DataType`."""
+    """Creates a p4p type for a given `Attribute` datatype."""
 
     display = isinstance(attribute, AttrR)
     control = isinstance(attribute, AttrW)
-    match attribute.datatype:
-        case Int():
-            return NTScalar.buildType("i", display=display, control=control)
-        case Float():
-            return NTScalar.buildType("d", display=display, control=control, form=True)
-        case String():
-            return NTScalar.buildType("s", display=display, control=control)
-        case Bool():
-            return NTScalar.buildType("?", display=display, control=control)
-        case Enum():
-            return NTEnum()
-        case Waveform():
-            # TODO: https://github.com/DiamondLightSource/FastCS/issues/123
-            # * Make 1D scalar array for 1D shapes.
-            #     This will require converting from np.int32 to "ai"
-            #     if len(shape) == 1:
-            #         return NTScalarArray(convert np.datatype32 to string "ad")
-            # * Add an option for allowing shape to change, if so we will
-            #   use an NDArray here even if shape is 1D
+    dtype = attribute.dtype
 
-            return NTNDArray()
-        case Table(structured_dtype):
+    if dtype is bool:
+        return NTScalar.buildType("?", display=display, control=control)
+    if dtype is int:
+        return NTScalar.buildType(
+            "i", display=display, control=control, valueAlarm=True
+        )
+    if dtype is float:
+        return NTScalar.buildType(
+            "d", display=display, control=control, valueAlarm=True, form=True
+        )
+    if dtype is str:
+        return NTScalar.buildType("s", display=display, control=control)
+    if issubclass(dtype, enum.Enum):
+        return NTEnum()
+    if issubclass(dtype, np.ndarray):
+        if (structured_dtype := attribute.meta.get("structured_dtype")) is not None:
             # TODO: `NTEnum/NTNDArray/NTTable.wrap` don't accept extra fields until
             # https://github.com/epics-base/p4p/issues/166
             return NTTable(
                 columns=_table_with_numpy_dtypes_to_p4p_dtypes(structured_dtype)
             )
-        case _:
-            raise RuntimeError(f"DataType `{attribute.datatype}` unsupported in P4P.")
+
+        # TODO: https://github.com/DiamondLightSource/FastCS/issues/123
+        # * Make 1D scalar array for 1D shapes.
+        #     This will require converting from np.int32 to "ai"
+        #     if len(shape) == 1:
+        #         return NTScalarArray(convert np.datatype32 to string "ad")
+        # * Add an option for allowing shape to change, if so we will
+        #   use an NDArray here even if shape is 1D
+
+        return NTNDArray()
+
+    raise RuntimeError(f"Datatype `{dtype}` unsupported in P4P.")
 
 
 def cast_from_p4p_value(attribute: Attribute[DType_T], value: object) -> DType_T:
     """Converts from a p4p value to a FastCS `Attribute` value."""
-    match attribute.datatype:
-        case Enum():
-            assert hasattr(value, "index"), "Got non-enum p4p.Value for Enum DataType"
-            index: int = value.index  # pyright: ignore[reportAttributeAccessIssue]
-            return attribute.datatype.validate(attribute.datatype.members[index])
-        case Waveform(shape=shape):
-            # p4p sends a flattened array
-            assert value.shape == (math.prod(shape),)
-            return attribute.datatype.validate(value.reshape(attribute.datatype.shape))
-        case Table(structured_dtype):
+    dtype = attribute.dtype
+
+    if issubclass(dtype, enum.Enum):
+        assert hasattr(value, "index"), "Got non-enum p4p.Value for Enum datatype"
+        index: int = value.index  # pyright: ignore[reportAttributeAccessIssue]
+        return attribute.validate(list(dtype)[index])
+
+    if issubclass(dtype, np.ndarray):
+        if (structured_dtype := attribute.meta.get("structured_dtype")) is not None:
             assert isinstance(value, np.ndarray)
-            return attribute.datatype.validate(np.array(value, dtype=structured_dtype))
-        case attribute.datatype if issubclass(
-            type(attribute.datatype), P4P_ALLOWED_DATATYPES
-        ):
-            return attribute.datatype.validate(value)  # type: ignore
-        case _:
-            raise ValueError(f"Unsupported datatype {attribute.datatype}")
+            return attribute.validate(np.array(value, dtype=structured_dtype))
+
+        shape = attribute.meta.get("shape", DEFAULT_ARRAY_SHAPE)
+        # p4p sends a flattened array
+        assert value.shape == (math.prod(shape),)  # pyright: ignore[reportAttributeAccessIssue]
+        return attribute.validate(value.reshape(shape))  # pyright: ignore[reportAttributeAccessIssue]
+
+    return attribute.validate(value)
 
 
 class Severity(IntEnum):
@@ -185,78 +196,111 @@ def p4p_timestamp_now() -> dict[str, dict[str, int]]:
 def p4p_display(attribute: Attribute) -> dict:
     """Gets the p4p display structure for a given attribute."""
     display = {}
+    meta = attribute.meta
     if attribute.description is not None:
         display["description"] = attribute.description
-    if isinstance(attribute.datatype, (Float | Int)):
-        if attribute.datatype.max is not None:
-            display["limitHigh"] = attribute.datatype.max
-        if attribute.datatype.min is not None:
-            display["limitLow"] = attribute.datatype.min
-        if attribute.datatype.units is not None:
-            display["units"] = attribute.datatype.units
-    if isinstance(attribute.datatype, Float):
-        if attribute.datatype.prec is not None:
-            display["precision"] = attribute.datatype.prec
+    if attribute.dtype in (int, float):
+        limits: NumericLimits | None = meta.get("limits")
+        if limits is not None:
+            if limits.display.high is not None:
+                display["limitHigh"] = limits.display.high
+            if limits.display.low is not None:
+                display["limitLow"] = limits.display.low
+        if (units := meta.get("units")) is not None:
+            display["units"] = units
+    if attribute.dtype is float:
+        display["precision"] = meta.get("precision", DEFAULT_PRECISION)
     if display:
         return {"display": display}
     return {}
 
 
-def _p4p_check_numeric_for_alarm_states(
-    datatype: Int | Float, value: DType
-) -> dict[str, dict[str, int | str]]:
-    low = None if datatype.min_alarm is None else value < datatype.min_alarm  # type: ignore
-    high = None if datatype.max_alarm is None else value > datatype.max_alarm  # type: ignore
-    severity = (
-        Severity.MAJOR
-        if high not in (None, False) or low not in (None, False)
-        else Severity.NO_ALARM
-    )
-    status, message = Status.NO_ALARM, "No alarm"
-    if low:
-        status, message = (
-            Status.RECORD,
-            f"Below minimum alarm limit: {datatype.min_alarm}",
-        )
-    if high:
-        status, message = (
-            Status.RECORD,
-            f"Above maximum alarm limit: {datatype.max_alarm}",
-        )
+def p4p_control(attribute: Attribute) -> dict:
+    """Gets the p4p control structure for a given attribute."""
+    control = {}
+    if attribute.dtype in (int, float):
+        limits: NumericLimits | None = attribute.meta.get("limits")
+        if limits is not None:
+            if limits.control.high is not None:
+                control["limitHigh"] = limits.control.high
+            if limits.control.low is not None:
+                control["limitLow"] = limits.control.low
+    if control:
+        return {"control": control}
+    return {}
 
-    return p4p_alarm_states(severity, status, message).model_dump()
+
+def p4p_value_alarm(attribute: Attribute) -> dict:
+    """Gets the p4p valueAlarm structure - the alarm and warning thresholds."""
+    limits: NumericLimits | None = attribute.meta.get("limits")
+    if attribute.dtype not in (int, float) or limits is None:
+        return {}
+
+    value_alarm = {}
+    for limit, severity_field, value, severity in (
+        ("lowAlarmLimit", "lowAlarmSeverity", limits.alarm.low, Severity.MAJOR),
+        ("highAlarmLimit", "highAlarmSeverity", limits.alarm.high, Severity.MAJOR),
+        ("lowWarningLimit", "lowWarningSeverity", limits.warning.low, Severity.MINOR),
+        (
+            "highWarningLimit",
+            "highWarningSeverity",
+            limits.warning.high,
+            Severity.MINOR,
+        ),
+    ):
+        if value is not None:
+            value_alarm[limit] = value
+            value_alarm[severity_field] = severity
+
+    if value_alarm:
+        return {"valueAlarm": {"active": True, **value_alarm}}
+    return {}
+
+
+def _p4p_check_numeric_for_alarm_states(meta: Meta, value: DType) -> dict:
+    limits: NumericLimits | None = meta.get("limits")
+    if limits is not None:
+        # The alarm range is checked first, so a value outside both is MAJOR
+        for severity, kind, bounds in (
+            (Severity.MAJOR, "alarm", limits.alarm),
+            (Severity.MINOR, "warning", limits.warning),
+        ):
+            if bounds.low is not None and value < bounds.low:
+                message = f"Below minimum {kind} limit: {bounds.low}"
+                return p4p_alarm_states(severity, Status.RECORD, message).model_dump()
+            if bounds.high is not None and value > bounds.high:  # type: ignore
+                message = f"Above maximum {kind} limit: {bounds.high}"
+                return p4p_alarm_states(severity, Status.RECORD, message).model_dump()
+
+    return p4p_alarm_states(Severity.NO_ALARM, Status.NO_ALARM, "No alarm").model_dump()
 
 
 def cast_to_p4p_value(attribute: Attribute[DType_T], value: DType_T) -> object:
     """Converts a FastCS ``Attribute`` value to a p4p value"""
-    match attribute.datatype:
-        case Enum():
-            return {
-                "index": attribute.datatype.index_of(value),
-                "choices": attribute.datatype.names,
-            }
-        case Waveform():
-            return attribute.datatype.validate(value)
-        case Table():
-            return attribute.datatype.validate(value)
+    dtype = attribute.dtype
 
-        case datatype if issubclass(type(datatype), P4P_ALLOWED_DATATYPES):
-            record_fields: dict = {"value": datatype.validate(value)}
-            if isinstance(attribute, AttrR):
-                record_fields.update(p4p_display(attribute))
+    if issubclass(dtype, enum.Enum):
+        members = list(dtype)
+        return {
+            "index": members.index(value),  # pyright: ignore[reportArgumentType]
+            "choices": [member.name for member in members],
+        }
 
-            if isinstance(datatype, (Float | Int)):
-                record_fields.update(
-                    _p4p_check_numeric_for_alarm_states(
-                        datatype,
-                        value,
-                    )
-                )
-            else:
-                record_fields.update(p4p_alarm_states())
+    if issubclass(dtype, np.ndarray):
+        return attribute.validate(value)
 
-            record_fields.update(p4p_timestamp_now())
+    record_fields: dict = {"value": attribute.validate(value)}
+    if isinstance(attribute, AttrR):
+        record_fields.update(p4p_display(attribute))
+    if isinstance(attribute, AttrW):
+        record_fields.update(p4p_control(attribute))
 
-            return Value(make_p4p_type(attribute), record_fields)
-        case _:
-            raise ValueError(f"Unsupported datatype {attribute.datatype}")
+    if dtype in (int, float):
+        record_fields.update(p4p_value_alarm(attribute))
+        record_fields.update(_p4p_check_numeric_for_alarm_states(attribute.meta, value))
+    else:
+        record_fields.update(p4p_alarm_states())
+
+    record_fields.update(p4p_timestamp_now())
+
+    return Value(make_p4p_type(attribute), record_fields)

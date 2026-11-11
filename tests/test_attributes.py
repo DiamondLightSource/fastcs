@@ -3,34 +3,42 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Generic, TypeVar
 
+import numpy as np
+import numpy.typing as npt
 import pytest
 from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, Int, String
+from fastcs.datatypes import (
+    DEFAULT_ARRAY_SHAPE,
+    Array1D,
+    Limits,
+    Meta,
+    NumericLimits,
+    Table,
+)
 
 
 def test_attribute_access_mode():
     """Test that attributes have the correct access_mode property."""
-    attr_r = AttrR(String())
+    attr_r = AttrR(str)
     assert attr_r.access_mode == "r"
 
-    attr_w = AttrW(String())
+    attr_w = AttrW(str)
     assert attr_w.access_mode == "w"
 
-    attr_rw = AttrRW(String())
+    attr_rw = AttrRW(str)
     assert attr_rw.access_mode == "rw"
 
 
 def test_attr_r():
-    attr = AttrR(String(), group="test group")
+    attr = AttrR(str, group="test group")
 
     with pytest.raises(RuntimeError):
         _ = attr.io_ref
 
     assert not attr.has_io_ref()
-    assert isinstance(attr.datatype, String)
     assert attr.dtype == str
     assert attr.group == "test group"
     assert attr.name == ""
@@ -52,7 +60,7 @@ def test_attr_r():
 
 @pytest.mark.asyncio
 async def test_attr_update(mocker: MockerFixture):
-    attr = AttrRW(Int())
+    attr = AttrRW(int)
 
     await attr.update(42)
     assert attr.get() == 42
@@ -63,7 +71,7 @@ async def test_attr_update(mocker: MockerFixture):
     with pytest.raises(ValueError, match="Failed to cast"):
         await attr.update("not_an_int")  # type: ignore
 
-    attr = AttrRW(Int())
+    attr = AttrRW(int)
     sync_setpoint_mock = mocker.AsyncMock()
     attr.add_sync_setpoint_callback(sync_setpoint_mock)
 
@@ -79,7 +87,7 @@ async def test_attr_update(mocker: MockerFixture):
 
 @pytest.mark.asyncio
 async def test_wait_for_predicate(mocker: MockerFixture):
-    attr = AttrR(Int(), initial_value=0)
+    attr = AttrR(int, initial_value=0)
 
     async def update(attr: AttrR):
         while True:
@@ -107,7 +115,7 @@ async def test_wait_for_predicate(mocker: MockerFixture):
 
 @pytest.mark.asyncio
 async def test_wait_for_value(mocker: MockerFixture):
-    attr = AttrR(Int(), initial_value=0)
+    attr = AttrR(int, initial_value=0)
 
     async def update(attr: AttrR):
         await asyncio.sleep(0.5)
@@ -143,7 +151,7 @@ async def test_attributes():
     async def device_add():
         device["number"] += 1
 
-    attr_r = AttrR(String())
+    attr_r = AttrR(str)
     attr_r.add_on_update_callback(partial(update_ui, key="state"), always=False)
     await attr_r.update(device["state"])
     assert ui["state"] == "Idle"
@@ -153,7 +161,7 @@ async def test_attributes():
     # Identical update does not trigger callback as always=False
     assert ui["update_count"] == 1
 
-    attr_rw = AttrRW(Int())
+    attr_rw = AttrRW(int)
     attr_rw._on_put_callback = partial(send, key="number")
     attr_rw.add_sync_setpoint_callback(partial(update_ui, key="number"))
     await attr_rw.put(2, sync_setpoint=True)
@@ -172,8 +180,8 @@ async def test_attribute_io():
             print("I am updating", self.ref_type, attr.io_ref.cool)
 
     class MyController(Controller):
-        my_attr = AttrR(Int(), io_ref=MyAttributeIORef(cool=5))
-        your_attr = AttrR(Int(), io_ref=MyAttributeIORef(cool=10))
+        my_attr = AttrR(int, io_ref=MyAttributeIORef(cool=5))
+        your_attr = AttrR(int, io_ref=MyAttributeIORef(cool=10))
 
         def __init__(self):
             super().__init__(ios=[MyAttributeIO()])
@@ -181,14 +189,14 @@ async def test_attribute_io():
     c = MyController()
 
     class ControllerNoIO(Controller):
-        my_attr = AttrR(Int(), io_ref=MyAttributeIORef(cool=5))
+        my_attr = AttrR(int, io_ref=MyAttributeIORef(cool=5))
 
     @dataclass
     class OtherAttributeIORef(AttributeIORef):
         not_cool: int
 
     class MissingIOController(Controller):
-        my_attr = AttrR(Int(), io_ref=OtherAttributeIORef(not_cool=5))
+        my_attr = AttrR(int, io_ref=OtherAttributeIORef(not_cool=5))
 
     with pytest.raises(ValueError, match="does not have an AttributeIO to handle"):
         controller = MissingIOController()
@@ -304,7 +312,7 @@ async def test_dynamic_attribute_io_specification():
         async def initialise(self):
             self._connection = DummyConnection()
             await self._connection.connect()
-            dtype_mapping = {"int": Int, "float": Float}
+            dtype_mapping = {"int": int, "float": float}
             example_introspection_response = await self._connection.get(
                 "config/introspect_api"
             )
@@ -319,12 +327,15 @@ async def test_dynamic_attribute_io_specification():
                     )
                     attr_class = AttrR if ro else AttrRW
                     attr = attr_class(
-                        datatype=dtype_mapping[parameter_response["dtype"]](
-                            min=parameter_response.get("min", None),
-                            max=parameter_response.get("max", None),
-                        ),
+                        dtype_mapping[parameter_response["dtype"]],
                         io_ref=ref,
                         initial_value=parameter_response.get("value", None),
+                        limits=NumericLimits(
+                            control=Limits(
+                                low=parameter_response.get("min", None),
+                                high=parameter_response.get("max", None),
+                            )
+                        ),
                     )
 
                     self.add_attribute(ref.name, attr)
@@ -350,8 +361,8 @@ async def test_dynamic_attribute_io_specification():
 @pytest.mark.asyncio
 async def test_attribute_no_io(mocker: MockerFixture):
     class MyController(Controller):
-        no_ref = AttrRW(Int())
-        base_class_ref = AttrRW(Int(), io_ref=AttributeIORef())
+        no_ref = AttrRW(int)
+        base_class_ref = AttrRW(int, io_ref=AttributeIORef())
 
     with pytest.raises(
         ValueError,
@@ -406,7 +417,7 @@ def test_add_update_callback_twice_raises():
     async def do_update(attr: AttrR[int]):
         pass
 
-    attr = AttrRW(Int())
+    attr = AttrRW(int)
     attr.set_update_callback(do_update)
 
     with pytest.raises(RuntimeError):
@@ -415,7 +426,7 @@ def test_add_update_callback_twice_raises():
 
 @pytest.mark.asyncio
 async def test_bind_update():
-    attr = AttrRW(Int())
+    attr = AttrRW(int)
 
     with pytest.raises(RuntimeError):
         attr.bind_update_callback()
@@ -432,7 +443,7 @@ async def test_bind_update():
 
 @pytest.mark.asyncio
 async def test_bind_update_exception():
-    attr = AttrRW(Int())
+    attr = AttrRW(int)
 
     async def do_update(attr: AttrR[int]):
         raise ValueError("do_update failed")
@@ -447,7 +458,7 @@ async def test_bind_update_exception():
 
 @pytest.mark.asyncio
 async def test_put():
-    attr = AttrW(Int())
+    attr = AttrW(int)
 
     async def do_put(attr: AttrW[int], value: int):
         raise ValueError("do_put failed")
@@ -463,3 +474,151 @@ async def test_put():
 
     with pytest.raises(RuntimeError, match="Attribute already has an on put callback"):
         attr.set_on_put_callback(do_put)
+
+
+@pytest.mark.asyncio
+async def test_attribute_metadata():
+    attr = AttrRW(float, precision=3, units="degC", description="the temperature")
+    seen: list[Meta] = []
+    attr.add_update_meta_callback(seen.append)
+
+    assert attr.dtype is float
+    assert attr.meta == {
+        "precision": 3,
+        "units": "degC",
+        "description": "the temperature",
+    }
+    assert attr.description == "the temperature"
+
+    # A field set to None is dropped, as it is by the constructor
+    attr.update_meta(Meta(units="mm", precision=None))  # pyright: ignore[reportArgumentType]
+
+    assert attr.meta == {"units": "mm"}
+    assert seen == [{"units": "mm"}]  # Updating metadata runs callbacks
+
+    controlled = AttrRW(int, limits=NumericLimits(control=Limits(0, 10)))
+    await controlled.put(5)
+    assert controlled.get() == 5
+
+    # Only the control range constrains a value; the rest are served, not enforced
+    alarmed = AttrR(float, limits=NumericLimits(alarm=Limits(0.0, 10.0)))
+    await alarmed.update(15.0)
+    assert alarmed.get() == 15.0
+
+
+def test_array_attribute():
+    subscripted = AttrR(Array1D[np.int32], shape=(4,))
+    assert subscripted.dtype is np.ndarray
+    assert subscripted.meta.get("array_dtype") is np.int32
+    assert np.array_equal(subscripted.get(), np.zeros(4, dtype=np.int32))  # Default
+
+    unshaped = AttrR(npt.NDArray[np.int32])
+    assert unshaped.meta.get("array_dtype") is np.int32
+    assert unshaped.get().dtype == np.int32
+    assert unshaped.get().shape == DEFAULT_ARRAY_SHAPE
+
+
+def test_metadata_the_datatype_has_no_use_for_is_rejected():
+    # Also a static error - the constructor overloads unpack StrMeta for a str
+    # attribute - but the runtime check is what catches metadata arriving from a
+    # source the type checker never saw.
+    with pytest.raises(TypeError, match="'precision' is not valid metadata for str"):
+        AttrR(str, precision=3)  # pyright: ignore[reportCallIssue, reportArgumentType]
+
+
+def test_update_meta_rejects_metadata_the_datatype_has_no_use_for():
+    attr = AttrR(int)
+
+    with pytest.raises(TypeError, match="'length' is not valid metadata for int"):
+        attr.update_meta(Meta(length=4))
+
+
+@pytest.mark.parametrize(
+    "attr",
+    [
+        pytest.param(
+            AttrR(np.ndarray, array_dtype=np.int32, shape=(10, 10)),
+            id="missing-array-dtype",
+        ),
+        pytest.param(
+            AttrR(Table, structured_dtype=[("index", np.int32)]),
+            id="missing-structured-dtype",
+        ),
+    ],
+)
+def test_update_meta_rejects_metadata_if_missing_required_fields(attr: AttrR):
+    with pytest.raises(
+        TypeError, match="An array attribute needs array_dtype or structured_dtype"
+    ):
+        attr.update_meta(Meta(description="An update"))
+
+
+@pytest.mark.parametrize(
+    "attr, meta",
+    [
+        pytest.param(
+            AttrR(np.ndarray, array_dtype=np.int32, shape=(10, 10)),
+            Meta(structured_dtype=[("index", np.int32)]),
+            id="switch-structured-dtype",
+        ),
+        pytest.param(
+            AttrR(Table, structured_dtype=[("index", np.int32)]),
+            Meta(array_dtype=np.int32),
+            id="switch-array-dtype",
+        ),
+    ],
+)
+def test_update_meta_rejects_metadata_if_switching_array_and_table(
+    attr: AttrR, meta: Meta
+):
+    with pytest.raises(
+        TypeError,
+        match="update_meta cannot change an attribute between array and table",
+    ):
+        attr.update_meta(meta)
+
+
+def test_rejected_update_meta_leaves_the_metadata_unchanged():
+    attr = AttrR(Table, structured_dtype=[("index", np.int32)])
+    meta = attr.meta
+
+    with pytest.raises(TypeError):
+        attr.update_meta(Meta(description="An update"))
+
+    assert attr.meta == meta
+
+
+def test_array_element_type_is_not_given_twice():
+    with pytest.raises(TypeError, match="already given by the datatype subscript"):
+        AttrR(Array1D[np.int32], array_dtype=np.int64)
+
+
+def test_a_table_needs_its_columns():
+    with pytest.raises(TypeError, match="Table attribute needs its columns"):
+        AttrR(Table)
+
+
+def test_structured_dtype_needs_a_table_datatype():
+    with pytest.raises(TypeError, match="only valid for a Table attribute"):
+        # Statically an error, as structured_dtype belongs to TableMeta.
+        # Checked at runtime as well.
+        AttrR(  # pyright: ignore[reportCallIssue]
+            Array1D[np.int32],  # pyright: ignore[reportArgumentType]
+            structured_dtype=[("a", np.int32)],
+        )
+
+
+@pytest.mark.asyncio
+async def test_setpoint_outside_control_limits_is_rejected():
+    attr = AttrRW(int, limits=NumericLimits(control=Limits(0, 10)))
+
+    with pytest.raises(ValueError, match="greater than maximum 10"):
+        await attr.put(15)
+
+
+@pytest.mark.asyncio
+async def test_readback_outside_control_limits_is_accepted():
+    attr = AttrR(int, limits=NumericLimits(control=Limits(0, 10)))
+
+    await attr.update(15)
+    assert attr.get() == 15

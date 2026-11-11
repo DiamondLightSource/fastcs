@@ -9,20 +9,20 @@ from tests.assertable_controller import AssertableControllerAPI, MyTestControlle
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
+from fastcs.datatypes import Array1D, Table
 from fastcs.transports.rest.transport import RestTransport
 
 
 class RestController(MyTestController):
-    read_int = AttrR(Int())
-    read_write_int = AttrRW(Int())
-    read_write_float = AttrRW(Float())
-    read_bool = AttrR(Bool())
-    write_bool = AttrW(Bool())
-    read_string = AttrRW(String())
-    enum = AttrRW(Enum(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2})))
-    one_d_waveform = AttrRW(Waveform(np.int32, (10,)))
-    two_d_waveform = AttrRW(Waveform(np.int32, (10, 10)))
+    read_int = AttrR(int)
+    read_write_int = AttrRW(int)
+    read_write_float = AttrRW(float)
+    read_bool = AttrR(bool)
+    write_bool = AttrW(bool)
+    read_string = AttrRW(str)
+    enum = AttrRW(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2}))
+    one_d_waveform = AttrRW(Array1D[np.int32], shape=(10,))
+    two_d_waveform = AttrRW(Array1D[np.int32], shape=(10, 10))
 
 
 @pytest.fixture(scope="class")
@@ -97,7 +97,7 @@ class TestRestServer:
     ):
         enum_attr = rest_controller_api.attributes["enum"]
         assert isinstance(enum_attr, AttrRW)
-        enum_cls = enum_attr.datatype.dtype
+        enum_cls = enum_attr.dtype
         assert isinstance(enum_attr.get(), enum_cls)
         assert enum_attr.get() == enum_cls(0)
         expect = 0
@@ -180,3 +180,16 @@ class TestRestServer:
             response = test_client.get("/SubController02/read-int")
         assert response.status_code == 200
         assert response.json()["value"] == expect
+
+
+def test_table_attribute_is_not_given_a_route():
+    api = ControllerAPI(
+        path=["DEVICE"],
+        attributes={
+            "table": AttrRW(Table, structured_dtype=[("a", np.int32)]),
+            "number": AttrRW(int),
+        },
+    )
+    with create_test_client(api) as test_client:
+        assert test_client.get("/DEVICE/table").status_code == 404
+        assert test_client.get("/DEVICE/number").status_code == 200

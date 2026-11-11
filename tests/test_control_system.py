@@ -6,7 +6,6 @@ import pytest
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
-from fastcs.datatypes import Int
 from fastcs.methods import Command, command
 from fastcs.util import ONCE
 
@@ -70,13 +69,9 @@ async def test_update_periods():
             await attr.update(attr.io_ref._times_called)
 
     class MyController(Controller):
-        update_once = AttrR(Int(), io_ref=AttributeIORefTimesCalled(update_period=ONCE))
-        update_quickly = AttrR(
-            Int(), io_ref=AttributeIORefTimesCalled(update_period=0.1)
-        )
-        update_never = AttrR(
-            Int(), io_ref=AttributeIORefTimesCalled(update_period=None)
-        )
+        update_once = AttrR(int, io_ref=AttributeIORefTimesCalled(update_period=ONCE))
+        update_quickly = AttrR(int, io_ref=AttributeIORefTimesCalled(update_period=0.1))
+        update_never = AttrR(int, io_ref=AttributeIORefTimesCalled(update_period=None))
 
     controller = MyController(ios=[AttributeIOTimesCalled()])
     loop = asyncio.get_event_loop()

@@ -1,3 +1,4 @@
+import numpy as np
 from pvi.device import (
     CheckBox,
     ImageColorMap,
@@ -9,7 +10,10 @@ from pvi.device import (
 )
 
 from fastcs.attributes import Attribute, AttrR, AttrW
-from fastcs.datatypes import Bool, Table, Waveform, numpy_to_fastcs_datatype
+from fastcs.datatypes import (
+    DEFAULT_ARRAY_SHAPE,
+    numpy_to_python_type,
+)
 from fastcs.transports.epics.gui import EpicsGUI
 
 
@@ -22,39 +26,42 @@ class PvaEpicsGUI(EpicsGUI):
         return f"pva://{super()._get_pv(attr_path, name)}"
 
     def _get_read_widget(self, attribute: Attribute) -> ReadWidgetUnion | None:
-        match attribute.datatype:
-            case Table():
-                fastcs_datatypes = [
-                    numpy_to_fastcs_datatype(datatype)
-                    for _, datatype in attribute.datatype.structured_dtype
-                ]
+        structured_dtype = attribute.meta.get("structured_dtype")
+        if structured_dtype is not None:
+            column_types = [
+                numpy_to_python_type(column_dtype)
+                for _, column_dtype in structured_dtype
+            ]
 
-                base_get_read_widget = super()._get_read_widget
-                widgets = [
-                    base_get_read_widget(AttrR(datatype))
-                    for datatype in fastcs_datatypes
-                ]
+            base_get_read_widget = super()._get_read_widget
+            widgets = [
+                base_get_read_widget(AttrR(column_type)) for column_type in column_types
+            ]
 
-                return TableRead(widgets=widgets)  # type: ignore
-            case Waveform(shape=(height, width)):
+            return TableRead(widgets=widgets)  # type: ignore
+
+        if issubclass(attribute.dtype, np.ndarray):
+            shape = attribute.meta.get("shape", DEFAULT_ARRAY_SHAPE)
+            if len(shape) == 2:
+                height, width = shape
                 return ImageRead(
                     height=height, width=width, color_map=ImageColorMap.GRAY
                 )
-            case _:
-                return super()._get_read_widget(attribute)
+
+        return super()._get_read_widget(attribute)
 
     def _get_write_widget(self, attribute: Attribute) -> WriteWidgetUnion | None:
-        match attribute.datatype:
-            case Table():
-                widgets = []
-                for _, datatype in attribute.datatype.structured_dtype:
-                    fastcs_datatype = numpy_to_fastcs_datatype(datatype)
-                    if isinstance(fastcs_datatype, Bool):
-                        # Replace with compact version for Table row
-                        widget = CheckBox()
-                    else:
-                        widget = super()._get_write_widget(AttrW(fastcs_datatype))
-                    widgets.append(widget)
-                return TableWrite(widgets=widgets)
-            case _:
-                return super()._get_write_widget(attribute)
+        structured_dtype = attribute.meta.get("structured_dtype")
+        if structured_dtype is not None:
+            widgets = []
+            for _, column_dtype in structured_dtype:
+                column_type = numpy_to_python_type(column_dtype)
+                if column_type is bool:
+                    # Replace with compact version for Table row
+                    widget = CheckBox()
+                else:
+                    widget = super()._get_write_widget(AttrW(column_type))
+                widgets.append(widget)
+            return TableWrite(widgets=widgets)
+
+        return super()._get_write_widget(attribute)

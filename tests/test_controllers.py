@@ -5,7 +5,6 @@ import pytest
 
 from fastcs.attributes import AttrR, AttrRW
 from fastcs.controllers import Controller, ControllerVector
-from fastcs.datatypes import Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
 
 
@@ -33,22 +32,22 @@ class SomeSubController(Controller):
     def __init__(self):
         super().__init__()
 
-    sub_attribute = AttrR(Int())
+    sub_attribute = AttrR(int)
 
-    root_attribute = AttrR(Int())
+    root_attribute = AttrR(int)
 
 
 class SomeController(Controller):
     annotated_attr_not_defined_in_init: AttrR[int]
-    equal_attr = AttrR(Int())
-    annotated_and_equal_attr: AttrR[int] = AttrR(Int())
+    equal_attr = AttrR(int)
+    annotated_and_equal_attr: AttrR[int] = AttrR(int)
 
     def __init__(self, sub_controller: Controller):
         super().__init__()
 
-        self.attr_on_object = AttrR(Int())
+        self.attr_on_object = AttrR(int)
 
-        self.attributes["_attributes_attr"] = AttrR(Int())
+        self.attributes["_attributes_attr"] = AttrR(int)
         self.attributes["_attributes_attr_equal"] = self.equal_attr
 
         self.sub_controller = sub_controller
@@ -85,13 +84,13 @@ async def noop() -> None:
 @pytest.mark.parametrize(
     "member_name, member_value, expected_error",
     [
-        ("attr", AttrR(Float()), r"Cannot add attribute"),
+        ("attr", AttrR(float), r"Cannot add attribute"),
         ("attr", Controller(), r"Cannot add sub controller"),
         ("attr", Command(noop), r"Cannot add command"),
-        ("sub_controller", AttrR(Int()), r"Cannot add attribute"),
+        ("sub_controller", AttrR(int), r"Cannot add attribute"),
         ("sub_controller", Controller(), r"Cannot add sub controller"),
         ("sub_controller", Command(noop), r"Cannot add command"),
-        ("cmd", AttrR(Int()), r"Cannot add attribute"),
+        ("cmd", AttrR(int), r"Cannot add attribute"),
         ("cmd", Controller(), r"Cannot add sub controller"),
         ("cmd", Command(noop), r"Cannot add command"),
     ],
@@ -100,7 +99,7 @@ def test_conflicting_attributes_and_controllers_and_commands(
     member_name, member_value, expected_error
 ):
     class ConflictingController(Controller):
-        attr = AttrR(Int())
+        attr = AttrR(int)
         cmd = Command(noop)
 
         def __init__(self):
@@ -163,10 +162,10 @@ def test_attribute_hint_validation():
     controller = HintedController()
 
     with pytest.raises(RuntimeError, match="does not match defined datatype"):
-        controller.add_attribute("read_write_int", AttrRW(Float()))
+        controller.add_attribute("read_write_int", AttrRW(float))
 
     with pytest.raises(RuntimeError, match="does not match defined access mode"):
-        controller.add_attribute("read_write_int", AttrR(Int()))
+        controller.add_attribute("read_write_int", AttrR(int))
 
     with pytest.raises(RuntimeError, match="failed to introspect hinted attribute"):
         controller.read_write_int = 5  # type: ignore
@@ -175,7 +174,7 @@ def test_attribute_hint_validation():
     with pytest.raises(RuntimeError, match="failed to introspect hinted attribute"):
         controller._validate_type_hints()
 
-    controller.add_attribute("read_write_int", AttrRW(Int()))
+    controller.add_attribute("read_write_int", AttrRW(int))
 
 
 def test_enum_attribute_hint_validation():
@@ -191,9 +190,9 @@ def test_enum_attribute_hint_validation():
     controller = HintedController()
 
     with pytest.raises(RuntimeError, match="does not match defined datatype"):
-        controller.add_attribute("enum", AttrRW(Enum(BadEnum)))
+        controller.add_attribute("enum", AttrRW(BadEnum))
 
-    controller.add_attribute("enum", AttrRW(Enum(GoodEnum)))
+    controller.add_attribute("enum", AttrRW(GoodEnum))
 
 
 @pytest.mark.asyncio
@@ -233,12 +232,12 @@ async def test_method_hint_validation():
 
 def test_controller_api():
     class MyTestController(Controller):
-        attr1: AttrRW[int] = AttrRW(Int())
+        attr1: AttrRW[int] = AttrRW(int)
 
         def __init__(self):
             super().__init__(description="Controller for testing")
 
-            self.attr2 = AttrRW(Int())
+            self.attr2 = AttrRW(int)
 
         @command()
         async def do_nothing(self):

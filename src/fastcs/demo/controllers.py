@@ -9,7 +9,7 @@ import numpy as np
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import Enum, Float, Int, Waveform
+from fastcs.datatypes import Array1D
 from fastcs.logging import logger
 from fastcs.methods import command, scan
 
@@ -67,9 +67,9 @@ class TemperatureControllerAttributeIO(
 
 
 class TemperatureController(Controller):
-    ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef(name="R"))
-    power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef(name="P"))
-    voltages = AttrR(Waveform(np.int32, shape=(4,)))
+    ramp_rate = AttrRW(float, io_ref=TemperatureControllerAttributeIORef(name="R"))
+    power = AttrR(float, io_ref=TemperatureControllerAttributeIORef(name="P"))
+    voltages = AttrR(Array1D[np.int32], shape=(4,))
 
     def __init__(self, settings: TemperatureControllerSettings) -> None:
         self.connection = IPConnection()
@@ -129,14 +129,16 @@ class TemperatureController(Controller):
 
 
 class TemperatureRampController(Controller):
-    start = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="S"))
-    end = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="E"))
-    enabled = AttrRW(
-        Enum(OnOffEnum), io_ref=TemperatureControllerAttributeIORef(name="N")
+    start = AttrRW(int, io_ref=TemperatureControllerAttributeIORef(name="S"))
+    end = AttrRW(int, io_ref=TemperatureControllerAttributeIORef(name="E"))
+    enabled = AttrRW(OnOffEnum, io_ref=TemperatureControllerAttributeIORef(name="N"))
+    target = AttrR(
+        float, precision=3, io_ref=TemperatureControllerAttributeIORef(name="T")
     )
-    target = AttrR(Float(prec=3), io_ref=TemperatureControllerAttributeIORef(name="T"))
-    actual = AttrR(Float(prec=3), io_ref=TemperatureControllerAttributeIORef(name="A"))
-    voltage = AttrR(Float(prec=3))
+    actual = AttrR(
+        float, precision=3, io_ref=TemperatureControllerAttributeIORef(name="A")
+    )
+    voltage = AttrR(float, precision=3)
 
     def __init__(self, index: int, conn: IPConnection) -> None:
         suffix = f"{index:02d}"
