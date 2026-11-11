@@ -251,12 +251,12 @@
     "TemperatureControllerConnections": {
       "additionalProperties": false,
       "properties": {
-        "connection": {
+        "sensor": {
           "$ref": "#/$defs/IPConnectionSettings"
         }
       },
       "required": [
-        "connection"
+        "sensor"
       ],
       "title": "TemperatureControllerConnections",
       "type": "object"
