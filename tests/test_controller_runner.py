@@ -17,6 +17,7 @@ class ScanController(Controller):
         self.scan_count = 0
         self.setup_before_read_once = False
         self.multiple_scans = asyncio.Event()
+        self.scanned = asyncio.Event()
         self.started = asyncio.Event()
         self.stopped = asyncio.Event()
 
@@ -30,6 +31,7 @@ class ScanController(Controller):
     @scan(0.01)
     async def counter(self) -> None:
         self.scan_count += 1
+        self.scanned.set()
         if self.scan_count > 1:
             self.multiple_scans.set()
 
@@ -67,6 +69,34 @@ async def test_start_runs_scans_and_stop_stops_them():
     await asyncio.wait_for(controller.started.wait(), timeout=1)
     await runner.stop()
     assert controller.stopped.is_set()
+
+
+async def _wait_for_scans(controller: ScanController, count: int) -> None:
+    """Wait until the controller's counter scan has run at least ``count`` times"""
+    while controller.scan_count < count:
+        controller.scanned.clear()
+        await controller.scanned.wait()
+
+
+@pytest.mark.asyncio
+async def test_clearing_a_scan_gate_pauses_only_that_controllers_scans():
+    paused, running = ScanController(), ScanController()
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", lambda: paused), ControllerSpec("B", lambda: running)]
+    )
+    await runner.start()
+    await asyncio.wait_for(_wait_for_scans(paused, 2), timeout=1)
+
+    runner._scan_gates[id(paused)].clear()
+    # Same period, so two cycles of the other let a paused cycle under way finish
+    await asyncio.wait_for(_wait_for_scans(running, running.scan_count + 2), timeout=1)
+    paused_count = paused.scan_count
+    await asyncio.wait_for(_wait_for_scans(running, running.scan_count + 3), timeout=1)
+    assert paused.scan_count == paused_count
+
+    runner._scan_gates[id(paused)].set()
+    await asyncio.wait_for(_wait_for_scans(paused, paused_count + 1), timeout=1)
+    await runner.stop()
 
 
 class RecordingConnection(Connection):
