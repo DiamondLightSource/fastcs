@@ -46,22 +46,22 @@ class ControllerRunner:
             for spec in specs:
                 for connection in _dependency_order(spec.connections):
                     await connection.connect()
-                    connection.introspection = await connection.introspect()
                     runner._connections.append(connection)
+                    connection.introspection = await connection.introspect()
 
             runner._controllers = [spec.construct() for spec in specs]
             for controller in runner._controllers:
                 controller.seal()
+
+            for controller in runner._controllers:
+                api = controller.build_api(controller.path)
+                initial_coros, scan_coros = runner._collect_scans(controller, api)
+                runner._controller_apis.append(api)
+                runner._initial_coros.extend(initial_coros)
+                runner._scan_coros.extend(scan_coros)
         except BaseException:
             await runner._close_connections()
             raise
-
-        for controller in runner._controllers:
-            api = controller.build_api(controller.path)
-            initial_coros, scan_coros = runner._collect_scans(controller, api)
-            runner._controller_apis.append(api)
-            runner._initial_coros.extend(initial_coros)
-            runner._scan_coros.extend(scan_coros)
 
         return runner
 

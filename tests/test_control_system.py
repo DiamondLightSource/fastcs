@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import pytest
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR
+from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
@@ -95,3 +96,32 @@ async def test_update_periods():
 
     assert len(fastcs._runner._tasks) == 1
     assert len(fastcs._runner._initial_coros) == 1
+
+
+class ClosingConnection(Connection):
+    closed = False
+
+    async def connect(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class FailingSetupController(Controller):
+    def __init__(self, connection: ClosingConnection) -> None:
+        super().__init__()
+
+    async def setup(self) -> None:
+        raise RuntimeError("setup failed")
+
+
+@pytest.mark.asyncio
+async def test_connections_closed_if_startup_fails():
+    connection = ClosingConnection()
+    fastcs = FastCS(ControllerSpec("A", FailingSetupController, connection), [])
+
+    with pytest.raises(RuntimeError, match="setup failed"):
+        await fastcs.serve(interactive=False)
+
+    assert connection.closed

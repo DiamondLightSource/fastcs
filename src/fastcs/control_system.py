@@ -84,57 +84,58 @@ class FastCS:
         # registers its callbacks before the first values are read.
         self._runner = await ControllerRunner.build(self._specs)
 
-        keys = [controller.path[0] for controller in self._runner.controllers]
-        context = {
-            "controllers": dict(zip(keys, self._runner.controllers, strict=True)),
-            "controller_apis": dict(
-                zip(keys, self._runner.controller_apis, strict=True)
-            ),
-            "transports": [
-                transport.__class__.__name__ for transport in self._transports
-            ],
-        }
-
-        coros: list[Coroutine] = []
-        for transport in self._transports:
-            transport.connect(
-                controller_apis=self._runner.controller_apis, loop=self._loop
-            )
-            coros.append(transport.serve())
-            common_context = context.keys() & transport.context.keys()
-            if common_context:
-                raise RuntimeError(
-                    "Duplicate context keys found between "
-                    f"current context { ({k: context[k] for k in common_context}) } "
-                    f"and {transport.__class__.__name__} context: "
-                    f"{ ({k: transport.context[k] for k in common_context}) }"
-                )
-            context.update(transport.context)
-
-        if interactive:
-            coros.append(self._interactive_shell(context))
-        else:
-
-            async def block_forever():
-                while True:
-                    await asyncio.sleep(1)
-
-            coros.append(block_forever())
-
-        logger.info(
-            "Starting FastCS",
-            controllers=keys,
-            transports=f"[{', '.join(str(t) for t in self._transports)}]",
-        )
-
-        await self._runner.start()
-
         try:
-            await asyncio.gather(*coros)
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception("Unhandled exception in serve")
+            keys = [controller.path[0] for controller in self._runner.controllers]
+            context = {
+                "controllers": dict(zip(keys, self._runner.controllers, strict=True)),
+                "controller_apis": dict(
+                    zip(keys, self._runner.controller_apis, strict=True)
+                ),
+                "transports": [
+                    transport.__class__.__name__ for transport in self._transports
+                ],
+            }
+
+            for transport in self._transports:
+                transport.connect(
+                    controller_apis=self._runner.controller_apis, loop=self._loop
+                )
+                common_context = context.keys() & transport.context.keys()
+                if common_context:
+                    current = {k: context[k] for k in common_context}
+                    new = {k: transport.context[k] for k in common_context}
+                    raise RuntimeError(
+                        "Duplicate context keys found between "
+                        f"current context {current} "
+                        f"and {transport.__class__.__name__} context: {new}"
+                    )
+                context.update(transport.context)
+
+            logger.info(
+                "Starting FastCS",
+                controllers=keys,
+                transports=f"[{', '.join(str(t) for t in self._transports)}]",
+            )
+
+            await self._runner.start()
+
+            coros: list[Coroutine] = [t.serve() for t in self._transports]
+            if interactive:
+                coros.append(self._interactive_shell(context))
+            else:
+
+                async def block_forever():
+                    while True:
+                        await asyncio.sleep(1)
+
+                coros.append(block_forever())
+
+            try:
+                await asyncio.gather(*coros)
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception("Unhandled exception in serve")
         finally:
             logger.info("Shutting down FastCS")
             await self._runner.stop()
