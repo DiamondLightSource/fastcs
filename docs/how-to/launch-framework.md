@@ -57,11 +57,20 @@ if __name__ == "__main__":
 Any `__init__` argument whose type is a `Connection` becomes a block under the
 entry's `connections:` key, named after the argument. Its fields are the
 connection's constructor arguments. FastCS opens each connection before
-constructing the controller, and closes it on shutdown:
+constructing the controller, and closes it on shutdown.
+
+The address and port now belong to the connection, so they move out of
+`DeviceSettings` and into the `connections:` block:
 
 ```python
+from dataclasses import dataclass
+
 from fastcs.connections import IPConnection
 from fastcs.controllers import Controller
+
+@dataclass
+class DeviceSettings:
+    timeout: float = 5.0
 
 class DeviceController(Controller):
     def __init__(self, connection: IPConnection, settings: DeviceSettings):
