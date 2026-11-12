@@ -20,7 +20,7 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
 
     Args:
         url: The base URL that request paths are relative to
-        timeout: Seconds to wait to connect, or for a response
+        timeout: Seconds to wait to connect, or for a response before closing the link
         headers: Headers to send with every request
 
     """
@@ -152,12 +152,20 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
         await client.aclose()
 
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
-        if self._client is None:
+        client = self._client
+        if client is None:
             raise DisconnectedError(f"{self.url} is not connected")
 
-        with _link_errors(f"{method} {self.url}{path}"):
-            async with asyncio.timeout(self.timeout):
-                response = await self._client.request(method, path, **kwargs)
+        try:
+            with _link_errors(f"{method} {self.url}{path}"):
+                async with asyncio.timeout(self.timeout):
+                    response = await client.request(method, path, **kwargs)
+        except (ConnectionError, TimeoutError):
+            # Close the link so later calls raise DisconnectedError
+            if self._client is client:
+                self._client = None
+                await client.aclose()
+            raise
 
         self.log_event(
             "Received response", method=method, path=path, status=response.status_code
