@@ -1,4 +1,6 @@
-from fastcs.util import snake_to_pascal
+import pytest
+
+from fastcs.util import optional_dependency, snake_to_pascal
 
 
 def test_snake_to_pascal():
@@ -26,3 +28,14 @@ def test_snake_to_pascal():
     assert snake_to_pascal(name10) == "Name_With_%_Invalid_&_Symbols_£_"
     assert snake_to_pascal(name11) == "ABCD"
     assert snake_to_pascal(name12) == "Test"
+
+
+def test_optional_dependency_skips_listed_missing_package():
+    with optional_dependency("missing_package"):
+        import missing_package.submodule  # noqa: F401
+
+
+def test_optional_dependency_raises_for_other_missing_module():
+    with pytest.raises(ModuleNotFoundError, match="other_missing_package"):
+        with optional_dependency("missing_package"):
+            import other_missing_package  # noqa: F401
