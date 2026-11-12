@@ -175,8 +175,8 @@ class MultiChannelController(Controller):
             await channel.voltage.update(float(voltage))
 ```
 
-The scan period (here `0.1` seconds) sets how often the batched query runs. Scans that
-raise an exception will pause and wait for `reconnect()` to be called before resuming.
+The scan period (here `0.1` seconds) sets how often the batched query runs. If the
+connection goes down, the scan pauses until FastCS has reconnected it.
 
 ### Scan as a cache for `AttributeIO.update`
 
