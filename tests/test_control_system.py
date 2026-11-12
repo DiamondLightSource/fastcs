@@ -97,7 +97,7 @@ async def test_update_periods():
     assert controller.update_never.get() == 0
 
     assert len(fastcs._runner._tasks) == 1
-    assert len(fastcs._runner._initial_coros) == 1
+    assert sum(map(len, fastcs._runner._initial_coros.values())) == 1
 
 
 class ClosingConnection(Connection):
@@ -113,6 +113,7 @@ class ClosingConnection(Connection):
 class FailingSetupController(Controller):
     def __init__(self, connection: ClosingConnection) -> None:
         super().__init__()
+        self.connection = connection
 
     async def setup(self) -> None:
         raise RuntimeError("setup failed")
