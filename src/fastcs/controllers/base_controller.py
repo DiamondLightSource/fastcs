@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import Counter
 from collections.abc import Sequence
 from copy import deepcopy
@@ -67,6 +68,7 @@ class BaseController(Tracer):
         ios = ios or []
         self._attribute_ref_io_map = {io.ref_type: io for io in ios}
         self._validate_io(ios)
+        self._started_event: asyncio.Event = asyncio.Event()
 
     def _find_type_hints(self):
         """Find `Attribute` and `Controller` type hints for introspection validation"""
@@ -193,6 +195,22 @@ class BaseController(Tracer):
         """Hook to call after all attributes added, before serving the application"""
         self._validate_type_hints()
         self._connect_attribute_ios()
+        self._started_event.set()
+
+    async def wait_for_startup(self, timeout: float | None = None) -> bool:
+        """Wait for the controller to be fully started.
+
+        This method blocks until the controller has completed post_initialise,
+        making it ready for use.
+
+        :param timeout: Maximum time to wait in seconds. None means wait forever.
+        :return: True if startup completed, False if timeout occurred.
+        """
+        try:
+            await asyncio.wait_for(self._started_event.wait(), timeout=timeout)
+            return True
+        except TimeoutError:
+            return False
 
     def _validate_type_hints(self):
         """Validate all type-hints were introspected"""
