@@ -43,8 +43,25 @@ class ParentController(Controller):
         io_ref=SimpleAttributeIORef(),
     )
 
-    def __init__(self, description=None, ios=None):
-        super().__init__(description, ios)
+    def __init__(self, description=None):
+        simple_attribute_io = SimpleAttributeIO()
+        super().__init__(description, ios=[simple_attribute_io])
+        self.add_sub_controller(
+            "child",
+            ChildVector(
+                {
+                    1: ChildController(
+                        description="some sub controller",
+                        ios=[simple_attribute_io],
+                    ),
+                    2: ChildController(
+                        description="another sub controller",
+                        ios=[simple_attribute_io],
+                    ),
+                },
+                description="some child vector",
+            ),
+        )
 
 
 class ChildController(Controller):
@@ -86,32 +103,15 @@ class ChildController(Controller):
     j: AttrR = AttrR(Int())
 
 
+class ChildVector(ControllerVector):
+    vector_attribute: AttrR = AttrR(Int())
+
+    def __init__(self, children, description=None):
+        super().__init__(children, description)
+
+
 def run(id="P4P_TEST_DEVICE"):
-    simple_attribute_io = SimpleAttributeIO()
-    p4p_options = EpicsPVATransport()
-    controller = ParentController(ios=[simple_attribute_io])
-
-    class ChildVector(ControllerVector):
-        vector_attribute: AttrR = AttrR(Int())
-
-        def __init__(self, children, description=None):
-            super().__init__(children, description)
-
-    sub_controller = ChildVector(
-        {
-            1: ChildController(
-                description="some sub controller", ios=[simple_attribute_io]
-            ),
-            2: ChildController(
-                description="another sub controller", ios=[simple_attribute_io]
-            ),
-        },
-        description="some child vector",
-    )
-
-    controller.add_sub_controller("child", sub_controller)
-
-    fastcs = FastCS([ControllerSpec(id, lambda: controller)], [p4p_options])
+    fastcs = FastCS([ControllerSpec(id, ParentController)], [EpicsPVATransport()])
     fastcs.run()
 
 
