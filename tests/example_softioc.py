@@ -17,6 +17,12 @@ class ParentController(Controller):
     a: AttrR = AttrR(Int())
     b: AttrRW = AttrRW(Int())
 
+    def __init__(self):
+        super().__init__()
+        self.add_sub_controller(
+            "ChildVector", ControllerVector({i: ChildController() for i in range(2)})
+        )
+
 
 class ChildController(Controller):
     fail_on_next_e: bool = True
@@ -35,12 +41,9 @@ class ChildController(Controller):
 
 
 def run(id="SOFTIOC_TEST_DEVICE"):
-    controller = ParentController()
-    vector = ControllerVector({i: ChildController() for i in range(2)})
-    controller.add_sub_controller("ChildVector", vector)
     gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Vector")
     fastcs = FastCS(
-        [ControllerSpec(id, lambda: controller)],
+        [ControllerSpec(id, ParentController)],
         [
             EpicsCATransport(
                 epicsca=EpicsCAOptions(
