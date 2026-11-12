@@ -123,6 +123,26 @@ async def test_connections_closed_if_build_fails():
     assert events == ["connect", "close"]
 
 
+class FailingIntrospectConnection(RecordingConnection):
+    async def introspect(self) -> None:
+        raise RuntimeError("introspect failed")
+
+
+@pytest.mark.asyncio
+async def test_connection_closed_if_introspect_fails():
+    events: list[str] = []
+    with pytest.raises(RuntimeError, match="introspect failed"):
+        await ControllerRunner.build(
+            [
+                ControllerSpec(
+                    "A", ConnectedController, FailingIntrospectConnection(events)
+                )
+            ]
+        )
+
+    assert events == ["connect", "close"]
+
+
 class EigerConnection(RecordingConnection):
     pass
 
