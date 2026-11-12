@@ -111,6 +111,17 @@ class RecordingConnection(Connection):
         self.events.append(f"close{self.suffix}")
 
 
+class HoldingController(Controller):
+    def __init__(self, connection: Connection) -> None:
+        super().__init__()
+        self.connection = connection
+        self.reads = 0
+
+    @scan(ONCE)
+    async def read_once(self) -> None:
+        self.reads += 1
+
+
 class ConnectedController(Controller):
     def __init__(self, connection: RecordingConnection) -> None:
         super().__init__()
@@ -136,6 +147,48 @@ async def test_connection_opened_before_construction_and_closed_on_stop():
     await runner.stop()
 
     assert events == ["connect", "construct", "close"]
+
+
+class UnheldController(Controller):
+    def __init__(self, connection: Connection) -> None:
+        super().__init__()
+
+
+class TwoHeldController(Controller):
+    def __init__(self, a: RecordingConnection, b: RecordingConnection) -> None:
+        super().__init__()
+        self.a = a
+        self.b = b
+
+
+class UnopenedController(Controller):
+    def __init__(self) -> None:
+        super().__init__()
+        self.connection = RecordingConnection([])
+
+
+@pytest.mark.parametrize(
+    "spec, message",
+    [
+        (
+            ControllerSpec("A", UnheldController, RecordingConnection([])),
+            "No controller holds",
+        ),
+        (
+            ControllerSpec(
+                "A", TwoHeldController, RecordingConnection([]), RecordingConnection([])
+            ),
+            "more than one connection",
+        ),
+        (ControllerSpec("A", UnopenedController), "wasn't opened by the framework"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_build_raises_if_connections_break_the_holding_rules(
+    spec: ControllerSpec, message: str
+):
+    with pytest.raises(ValueError, match=message):
+        await ControllerRunner.build([spec])
 
 
 class FailingController(Controller):
@@ -200,6 +253,8 @@ class OdinConnection(RecordingConnection):
 class TwoConnectionController(Controller):
     def __init__(self, odin: OdinConnection, eiger: EigerConnection) -> None:
         super().__init__()
+        self.ODIN = HoldingController(odin)
+        self.EIGER = HoldingController(eiger)
 
 
 @pytest.mark.asyncio
@@ -274,6 +329,7 @@ class IntrospectingConnection(Connection[DeviceIntrospection]):
 class IntrospectedController(Controller):
     def __init__(self, connection: IntrospectingConnection) -> None:
         super().__init__()
+        self.connection = connection
         self.parameters = connection.introspection.parameters
 
 
@@ -341,3 +397,63 @@ def test_seal_twice_raises():
     controller.seal()
     with pytest.raises(RuntimeError, match="already sealed"):
         controller.seal()
+
+
+class FlakyConnection(Connection):
+    reconnect_period = 0
+
+    def __init__(self, failures: int) -> None:
+        self.failures = failures
+        self.connects = 0
+        self.reconnected = asyncio.Event()
+
+    async def connect(self) -> None:
+        self.connects += 1
+        if self.connects == 1:
+            return
+        if self.failures:
+            self.failures -= 1
+            raise ConnectionError("Device is off")
+        self.reconnected.set()
+
+    async def close(self) -> None:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_watcher_reconnects_then_marks_controllers_up():
+    connection = FlakyConnection(failures=1)
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", HoldingController, connection)]
+    )
+    await runner.start()
+    controller = runner.controllers[0]
+    assert isinstance(controller, HoldingController)
+
+    connection.state.mark_down()
+    await asyncio.wait_for(connection.reconnected.wait(), timeout=1)
+    await asyncio.wait_for(runner._scan_gates[id(controller)].wait(), timeout=1)
+
+    assert connection.connects == 3
+    assert controller.connected.get() is True
+    assert controller.reads == 2
+    await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_watcher_gives_up_and_leaves_controllers_down():
+    connection = FlakyConnection(failures=0)
+    connection.reconnect_attempts = 0
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", HoldingController, connection)]
+    )
+    await runner.start()
+    controller = runner.controllers[0]
+
+    connection.state.mark_down()
+    await asyncio.wait_for(runner._watchers[id(connection)], timeout=1)
+
+    assert connection.connects == 1
+    assert controller.connected.get() is False
+    assert not runner._scan_gates[id(controller)].is_set()
+    await runner.stop()

@@ -74,6 +74,10 @@ class Connection(ABC, Generic[IntrospectionT]):
     # Replaced with a live state by the framework when it opens this connection
     state: ConnectionState = _InertConnectionState()
 
+    # How many times, and how many seconds apart, the framework tries to reconnect
+    reconnect_attempts: int = 10
+    reconnect_period: float = 5.0
+
     _introspection: IntrospectionT
 
     @property
