@@ -321,16 +321,16 @@ class _OtherLifecycleController(_LifecycleController):
 async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     """FastCS.serve drives lifecycle on every controller and routes REST traffic
     per-id; combined OpenAPI describes both prefixes."""
-    a = _LifecycleController()
-    b = _OtherLifecycleController()
-
     transport = RestTransport()
     # Stop RestTransport from binding to a real port; we exercise the FastAPI
     # app directly through TestClient.
     mocker.patch.object(RestTransport, "serve", new=lambda self: asyncio.sleep(3600))
 
     fastcs = FastCS(
-        [ControllerSpec("alpha", lambda: a), ControllerSpec("beta", lambda: b)],
+        [
+            ControllerSpec("alpha", _LifecycleController),
+            ControllerSpec("beta", _OtherLifecycleController),
+        ],
         [transport],
         asyncio.get_event_loop(),
     )
@@ -338,7 +338,8 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     try:
         await asyncio.sleep(0.1)
 
-        for controller in (a, b):
+        for controller in fastcs._runner.controllers:
+            assert isinstance(controller, _LifecycleController)
             assert controller.set_up
 
         with TestClient(transport._server._app) as client:

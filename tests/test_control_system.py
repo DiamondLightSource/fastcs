@@ -10,16 +10,18 @@ from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
 from fastcs.methods import Command, command
 from fastcs.util import ONCE
+from tests.assertable_controller import MyTestController
 
 
 @pytest.mark.asyncio
-async def test_scan_tasks(controller):
+async def test_scan_tasks(controller_spec):
     loop = asyncio.get_event_loop()
-    transport_options = []
-    fastcs = FastCS([ControllerSpec("A", lambda: controller)], transport_options, loop)
+    fastcs = FastCS([controller_spec], [], loop)
 
     asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
+    controller = fastcs._runner.controllers[0]
+    assert isinstance(controller, MyTestController)
 
     for _ in range(3):
         count = controller.count
@@ -42,13 +44,13 @@ async def test_controller_api_methods():
         async def do_nothing_static(self):
             pass
 
-    controller = MyTestController()
     loop = asyncio.get_event_loop()
-    transport_options = []
-    fastcs = FastCS([ControllerSpec("A", lambda: controller)], transport_options, loop)
+    fastcs = FastCS([ControllerSpec("A", MyTestController)], [], loop)
 
     asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
+    controller = fastcs._runner.controllers[0]
+    assert isinstance(controller, MyTestController)
 
     await controller.do_nothing_static()
     await controller.do_nothing_dynamic()

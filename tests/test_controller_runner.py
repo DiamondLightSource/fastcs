@@ -55,8 +55,9 @@ async def test_build_creates_an_api_per_controller():
 
 @pytest.mark.asyncio
 async def test_start_runs_scans_and_stop_stops_them():
-    controller = ScanController()
-    runner = await ControllerRunner.build([ControllerSpec("A", lambda: controller)])
+    runner = await ControllerRunner.build([ControllerSpec("A", ScanController)])
+    controller = runner.controllers[0]
+    assert isinstance(controller, ScanController)
     await runner.start()
 
     await asyncio.wait_for(controller.multiple_scans.wait(), timeout=1)
@@ -273,9 +274,13 @@ def test_introspection_set_twice_raises():
 
 @pytest.mark.asyncio
 async def test_controller_tree_sealed_after_build():
-    controller = ScanController()
-    controller.add_sub_controller("SUB", Controller())
-    await ControllerRunner.build([ControllerSpec("A", lambda: controller)])
+    class ParentController(Controller):
+        def __init__(self) -> None:
+            super().__init__()
+            self.add_sub_controller("SUB", Controller())
+
+    runner = await ControllerRunner.build([ControllerSpec("A", ParentController)])
+    controller = runner.controllers[0]
 
     with pytest.raises(RuntimeError, match="after it has been sealed"):
         controller.sub_controllers["SUB"].add_sub_controller("LATE", Controller())
