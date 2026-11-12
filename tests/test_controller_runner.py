@@ -143,6 +143,21 @@ async def test_connection_closed_if_introspect_fails():
     assert events == ["connect", "close"]
 
 
+@pytest.mark.asyncio
+async def test_connection_shared_between_specs_raises_before_anything_opens():
+    events: list[str] = []
+    connection = RecordingConnection(events)
+    with pytest.raises(ValueError, match="used by controllers 'A' and 'B'"):
+        await ControllerRunner.build(
+            [
+                ControllerSpec("A", ConnectedController, connection),
+                ControllerSpec("B", ConnectedController, connection),
+            ]
+        )
+
+    assert events == []
+
+
 class EigerConnection(RecordingConnection):
     pass
 

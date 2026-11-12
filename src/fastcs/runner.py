@@ -39,7 +39,11 @@ class ControllerRunner:
             A runner ready to `start`, with an API per controller in
             ``controller_apis``, in the order the specs were given
 
+        Raises:
+            ValueError: If a connection is shared between specs
+
         """
+        _check_connections_not_shared(specs)
         runner = cls()
 
         try:
@@ -153,6 +157,25 @@ def _walk(controller: BaseController) -> Iterator[BaseController]:
     yield controller
     for sub_controller in controller.sub_controllers.values():
         yield from _walk(sub_controller)
+
+
+def _check_connections_not_shared(specs: list[ControllerSpec]) -> None:
+    """Check that no connection is used by more than one spec.
+
+    Raises:
+        ValueError: If a connection is shared between specs
+
+    """
+    owners: dict[int, str] = {}
+    for spec in specs:
+        for connection in {id(c): c for c in spec.connections}.values():
+            owner = owners.setdefault(id(connection), spec.id)
+            if owner != spec.id:
+                raise ValueError(
+                    f"{type(connection).__name__} is used by controllers "
+                    f"'{owner}' and '{spec.id}'; a connection can't be shared "
+                    "between controllers. Put them in one controller tree instead."
+                )
 
 
 def _dependency_types(connection: Connection) -> tuple[type[Connection], ...]:
