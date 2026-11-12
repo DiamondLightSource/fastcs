@@ -43,24 +43,42 @@ class _RateDevice(BaseHTTPRequestHandler):
         pass
 
 
-@pytest_asyncio.fixture
-async def connection():
+@pytest.fixture
+def server():
     _RateDevice.rate = 0
     server = ThreadingHTTPServer(("127.0.0.1", 0), _RateDevice)
     threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield server
+    server.shutdown()
+    server.server_close()
+
+
+@pytest_asyncio.fixture
+async def connection(server: ThreadingHTTPServer):
     # The probe in connect() gets a 404 for "/", which still counts as reachable
     connection = HTTPConnection(f"http://127.0.0.1:{server.server_port}", timeout=1)
     await connection.connect()
     yield connection
     await connection.close()
-    server.shutdown()
-    server.server_close()
 
 
 @pytest.mark.asyncio
 async def test_put_then_get_json(connection: HTTPConnection):
     await connection.put("/rate", json=5)
     assert await connection.get("/rate") == 5
+
+
+@pytest.mark.asyncio
+async def test_link_failure_closes_connection(
+    server: ThreadingHTTPServer, connection: HTTPConnection
+):
+    server.shutdown()
+    server.server_close()
+
+    with pytest.raises(ConnectionError):
+        await connection.get("/rate")
+    with pytest.raises(DisconnectedError):
+        await connection.get("/rate")
 
 
 @pytest.mark.asyncio
