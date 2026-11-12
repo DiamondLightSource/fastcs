@@ -17,9 +17,10 @@ def test_controller_nesting():
 
     controller.a = sub_controller
     sub_controller.b = sub_sub_controller
+    controller.set_path(["root"])
 
-    assert sub_controller.path == ["a"]
-    assert sub_sub_controller.path == ["a", "b"]
+    assert sub_controller.path == ["root", "a"]
+    assert sub_sub_controller.path == ["root", "a", "b"]
     assert controller.sub_controllers == {"a": sub_controller}
     assert sub_controller.sub_controllers == {"b": sub_sub_controller}
 
@@ -28,6 +29,25 @@ def test_controller_nesting():
 
     with pytest.raises(ValueError, match=r"already registered"):
         controller.c = sub_controller
+
+
+class LeafController(Controller):
+    x = AttrR(Int())
+
+
+class TreeController(Controller):
+    def __init__(self) -> None:
+        super().__init__()
+        self.child = Controller()
+        self.child.leaf = LeafController()
+
+
+def test_spec_sets_path_of_sub_controllers_added_in_init():
+    controller = ControllerSpec("ROOT", TreeController).construct()
+
+    leaf = controller.sub_controllers["child"].sub_controllers["leaf"]
+    assert leaf.path == ["ROOT", "child", "leaf"]
+    assert leaf.attributes["x"].full_name == "ROOT.child.leaf.x"
 
 
 class SomeSubController(Controller):
