@@ -19,6 +19,8 @@ def _reply_to_r(device: int):
             line, buffer = buffer.split(b"\r\n", 1)
             if line == b"R?":
                 os.write(device, b"5\r\n")
+            elif line == b"LONG?":
+                os.write(device, b"12345\r\n")
 
 
 @pytest_asyncio.fixture
@@ -52,3 +54,19 @@ async def test_write_and_bytes_methods(connection: SerialConnection):
     await connection.write("R=5")
     await connection.write_bytes(b"R=6\r\n")
     assert await connection.query_bytes(b"R?\r\n", 3) == b"5\r\n"
+
+
+@pytest.mark.asyncio
+async def test_reply_longer_than_limit_raises_and_closes_connection():
+    device, port = os.openpty()
+    threading.Thread(target=_reply_to_r, args=(device,), daemon=True).start()
+    connection = SerialConnection(os.ttyname(port), timeout=0.1, limit=4)
+    await connection.connect()
+
+    with pytest.raises(ValueError, match="longer than 4 bytes"):
+        await connection.query("LONG?")
+    with pytest.raises(DisconnectedError):
+        await connection.write("R=5")
+
+    os.close(port)
+    os.close(device)

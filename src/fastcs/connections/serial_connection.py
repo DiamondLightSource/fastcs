@@ -23,6 +23,7 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
         terminator: Added to the end of each message, and marks the end of each reply
         encoding: The text encoding of messages and replies
         timeout: Seconds to wait for each operation before closing the link
+        limit: Most bytes a reply can have, not counting its terminator
 
     """
 
@@ -33,6 +34,7 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
         terminator: str = "\r\n",
         encoding: str = "utf-8",
         timeout: float = 5.0,
+        limit: int = 2**16,
     ):
         super().__init__()
         self.port = port
@@ -40,6 +42,7 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
         self.terminator = terminator
         self.encoding = encoding
         self.timeout = timeout
+        self.limit = limit
         self._stream: aioserial.AioSerial | None = None
         self._lock = asyncio.Lock()
 
@@ -67,13 +70,18 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
         Raises:
             DisconnectedError: If the link isn't open
             TimeoutError: If the reply takes longer than ``timeout``
+            ValueError: If the reply is longer than ``limit``
 
         """
         data = f"{message}{self.terminator}".encode(self.encoding)
         terminator = self.terminator.encode(self.encoding)
         async with self._exchange() as stream:
             await stream.write_async(data)
-            reply = await stream.read_until_async(terminator)
+            reply = await stream.read_until_async(
+                terminator, size=self.limit + len(terminator)
+            )
+            if not reply.endswith(terminator):
+                raise ValueError(f"{self.port} reply is longer than {self.limit} bytes")
 
         response = reply.removesuffix(terminator).decode(self.encoding)
         self.log_event("Received query response", query=message, response=response)

@@ -21,6 +21,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         terminator: Added to the end of each message, and marks the end of each reply
         encoding: The text encoding of messages and replies
         timeout: Seconds to wait for each operation before closing the link
+        limit: Most bytes a reply can have, not counting its terminator
 
     """
 
@@ -31,6 +32,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         terminator: str = "\r\n",
         encoding: str = "utf-8",
         timeout: float = 5.0,
+        limit: int = 2**16,
     ):
         super().__init__()
         self.ip = ip
@@ -38,12 +40,15 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         self.terminator = terminator
         self.encoding = encoding
         self.timeout = timeout
+        self.limit = limit
         self._streams: tuple[asyncio.StreamReader, asyncio.StreamWriter] | None = None
         self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
         async with asyncio.timeout(self.timeout):
-            self._streams = await asyncio.open_connection(self.ip, self.port)
+            self._streams = await asyncio.open_connection(
+                self.ip, self.port, limit=self.limit
+            )
 
     async def write(self, message: str) -> None:
         """Send a message, adding the terminator.
@@ -67,6 +72,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         Raises:
             DisconnectedError: If the link isn't open
             TimeoutError: If the reply takes longer than ``timeout``
+            ValueError: If the reply is longer than ``limit``
 
         """
         data = f"{message}{self.terminator}".encode(self.encoding)
@@ -74,7 +80,12 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         async with self._exchange() as (reader, writer):
             writer.write(data)
             await writer.drain()
-            reply = await reader.readuntil(terminator)
+            try:
+                reply = await reader.readuntil(terminator)
+            except asyncio.LimitOverrunError as e:
+                raise ValueError(
+                    f"{self.ip}:{self.port} reply is longer than {self.limit} bytes"
+                ) from e
 
         response = reply.removesuffix(terminator).decode(self.encoding)
         self.log_event("Received query response", query=message, response=response)
