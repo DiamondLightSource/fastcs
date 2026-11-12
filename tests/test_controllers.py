@@ -43,11 +43,11 @@ class TreeController(Controller):
 
 
 def test_spec_sets_path_of_sub_controllers_added_in_init():
-    controller = ControllerSpec("ROOT", TreeController).construct()
+    controller = ControllerSpec("root", TreeController).construct()
 
     leaf = controller.sub_controllers["child"].sub_controllers["leaf"]
-    assert leaf.path == ["ROOT", "child", "leaf"]
-    assert leaf.attributes["x"].full_name == "ROOT.child.leaf.x"
+    assert leaf.path == ["root", "child", "leaf"]
+    assert leaf.attributes["x"].full_name == "root.child.leaf.x"
 
 
 class SomeSubController(Controller):
