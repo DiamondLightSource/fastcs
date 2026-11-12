@@ -65,7 +65,7 @@ async def test_start_runs_scans_and_stop_stops_them():
 
     await asyncio.wait_for(controller.started.wait(), timeout=1)
     await runner.stop()
-    await asyncio.wait_for(controller.stopped.wait(), timeout=1)
+    assert controller.stopped.is_set()
 
 
 class RecordingConnection(Connection):
