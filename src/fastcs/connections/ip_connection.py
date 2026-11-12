@@ -27,6 +27,10 @@ class IPConnection(Connection[IntrospectionT], Tracer):
 
     """
 
+    # Long enough to ride out a device being power cycled
+    reconnect_attempts = 30
+    reconnect_period = 2.0
+
     def __init__(
         self,
         ip: str,

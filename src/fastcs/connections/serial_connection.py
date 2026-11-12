@@ -36,6 +36,10 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
 
     """
 
+    # Reopening a local port is quick, and one gone for longer needs a person
+    reconnect_attempts = 10
+    reconnect_period = 1.0
+
     def __init__(
         self,
         port: str,
