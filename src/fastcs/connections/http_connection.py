@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
@@ -50,7 +51,8 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
         try:
             # Any response, even an error status, shows the server is reachable
             with _link_errors(f"GET {self.url}"):
-                await client.get("")
+                async with asyncio.timeout(self.timeout):
+                    await client.get("")
         except BaseException:
             await client.aclose()
             raise
@@ -154,7 +156,8 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             raise DisconnectedError(f"{self.url} is not connected")
 
         with _link_errors(f"{method} {self.url}{path}"):
-            response = await self._client.request(method, path, **kwargs)
+            async with asyncio.timeout(self.timeout):
+                response = await self._client.request(method, path, **kwargs)
 
         self.log_event(
             "Received response", method=method, path=path, status=response.status_code

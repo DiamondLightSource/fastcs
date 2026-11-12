@@ -1,3 +1,4 @@
+import asyncio
 import json
 import socket
 import threading
@@ -95,3 +96,26 @@ async def test_unanswered_and_unconnected_requests_raise():
     await connection.close()
     with pytest.raises(DisconnectedError):
         await connection.get("/rate")
+
+
+@pytest.mark.asyncio
+async def test_slowly_dripped_reply_times_out():
+    async def drip(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        await reader.readuntil(b"\r\n\r\n")
+        writer.write(b"HTTP/1.1 200 OK\r\n")
+        while True:
+            writer.write(b"X")
+            await writer.drain()
+            await asyncio.sleep(0.02)
+
+    server = await asyncio.start_server(drip, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    connection = HTTPConnection(f"http://127.0.0.1:{port}", timeout=0.2)
+
+    # Guard with asyncio.wait, which doesn't raise TimeoutError itself
+    task = asyncio.create_task(connection.connect())
+    await asyncio.wait([task], timeout=2)
+    server.close()
+
+    assert task.done()
+    assert isinstance(task.exception(), TimeoutError)
