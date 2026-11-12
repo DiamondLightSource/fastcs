@@ -106,9 +106,9 @@ transport:
 ## 5. Direct `FastCS(...)` usage takes `ControllerSpec`s
 
 If you instantiate `FastCS` directly rather than via `launch()`, pass a
-`ControllerSpec` instead of a constructed controller:
-`FastCS(ControllerSpec("DEVICE", MyController), transports)`. For
-multi-controller, pass a sequence:
+list of `ControllerSpec`s instead of a constructed controller:
+`FastCS([ControllerSpec("DEVICE", MyController)], transports)`. For
+multi-controller, add more specs to the list:
 `FastCS([ControllerSpec("A", ControllerA), ControllerSpec("B", ControllerB)], transports)`.
 The spec's id replaces calling `set_path([...])`.
 

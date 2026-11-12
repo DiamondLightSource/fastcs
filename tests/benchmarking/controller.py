@@ -22,7 +22,7 @@ def run():
         TangoTransport(),
     ]
     spec = ControllerSpec("BENCHMARK-DEVICE", MyTestController)
-    instance = FastCS(spec, transport_options, asyncio.get_event_loop())
+    instance = FastCS([spec], transport_options, asyncio.get_event_loop())
     instance.run()
 
 
