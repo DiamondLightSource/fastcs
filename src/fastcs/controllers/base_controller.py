@@ -38,6 +38,7 @@ class BaseController(Tracer):
     description: str | None = None
 
     _sealed: bool = False
+    _registered: bool = False
 
     def __init__(
         self,
@@ -301,12 +302,23 @@ class BaseController(Tracer):
         return self._path
 
     def set_path(self, path: list[str]):
+        """Set the path of this controller, its attributes and its sub controllers.
+
+        Args:
+            path: The path of this controller
+
+        Raises:
+            ValueError: If the path is already set
+
+        """
         if self._path:
-            raise ValueError(f"sub controller is already registered under {self.path}")
+            raise ValueError(f"{self} already has path {self.path}")
 
         self._path = path
         for attribute in self.__attributes.values():
             attribute.set_path(path)
+        for name, sub_controller in self.__sub_controllers.items():
+            sub_controller.set_path(path + [name])
 
     def _check_for_name_clash(self, name: str):
         namespaces = {
@@ -371,7 +383,12 @@ class BaseController(Tracer):
                     f"'{sub_controller.__class__.__name__}'."
                 )
 
-        sub_controller.set_path(self.path + [name])
+        if sub_controller._registered:  # noqa: SLF001
+            raise ValueError(f"{sub_controller} is already registered")
+        sub_controller._registered = True  # noqa: SLF001
+
+        if self.path:
+            sub_controller.set_path(self.path + [name])
         self.__sub_controllers[name] = sub_controller
         super().__setattr__(name, sub_controller)
 
