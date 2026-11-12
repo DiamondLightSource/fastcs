@@ -88,7 +88,9 @@ class ControllerRunner:
 
     async def stop(self) -> None:
         """Stop the scan tasks and close the connections."""
+        tasks = list(self._tasks)
         self._cancel_tasks()
+        await asyncio.gather(*tasks, return_exceptions=True)
         await self._close_connections()
 
     async def _close_connections(self) -> None:
