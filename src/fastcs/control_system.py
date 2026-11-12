@@ -43,6 +43,7 @@ class FastCS:
             raise ValueError(
                 f"FastCS received controllers with duplicate ids {duplicates}"
             )
+        self._ids = ids
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
@@ -82,11 +83,12 @@ class FastCS:
         self._runner = await ControllerRunner.build(self._specs)
 
         try:
-            keys = [controller.path[0] for controller in self._runner.controllers]
             context = {
-                "controllers": dict(zip(keys, self._runner.controllers, strict=True)),
+                "controllers": dict(
+                    zip(self._ids, self._runner.controllers, strict=True)
+                ),
                 "controller_apis": dict(
-                    zip(keys, self._runner.controller_apis, strict=True)
+                    zip(self._ids, self._runner.controller_apis, strict=True)
                 ),
                 "transports": [
                     transport.__class__.__name__ for transport in self._transports
@@ -110,7 +112,7 @@ class FastCS:
 
             logger.info(
                 "Starting FastCS",
-                controllers=keys,
+                controllers=self._ids,
                 transports=f"[{', '.join(str(t) for t in self._transports)}]",
             )
 
