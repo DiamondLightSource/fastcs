@@ -354,12 +354,19 @@ def test_ioc(mocker: MockerFixture, epics_controller_api: ControllerAPI):
     EpicsCAIOC([epics_controller_api], {})
 
     # Check records are created
-    util_builder.boolIn.assert_called_once_with(
+    util_builder.boolIn.assert_any_call(
         f"{DEVICE}:ReadBool",
         DESC=None,
         ZNAM="False",
         ONAM="True",
         initial_value=False,
+    )
+    util_builder.boolIn.assert_any_call(
+        f"{DEVICE}:Connected",
+        DESC="Whether its connections are up",
+        ZNAM="False",
+        ONAM="True",
+        initial_value=True,
     )
     util_builder.longIn.assert_any_call(
         f"{DEVICE}:ReadInt",
