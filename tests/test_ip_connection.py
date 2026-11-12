@@ -10,7 +10,9 @@ async def _reply_to_r(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     while line := await reader.readuntil(b"\r\n"):
         if line == b"R?\r\n":
             writer.write(b"5\r\n")
-            await writer.drain()
+        elif line == b"LONG?\r\n":
+            writer.write(b"12345\r\n")
+        await writer.drain()
 
 
 @pytest_asyncio.fixture
@@ -43,3 +45,18 @@ async def test_write_and_bytes_methods(connection: IPConnection):
     await connection.write("R=5")
     await connection.write_bytes(b"R=6\r\n")
     assert await connection.query_bytes(b"R?\r\n", 3) == b"5\r\n"
+
+
+@pytest.mark.asyncio
+async def test_reply_longer_than_limit_raises_and_closes_connection():
+    server = await asyncio.start_server(_reply_to_r, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    connection = IPConnection("127.0.0.1", port, timeout=0.1, limit=4)
+    await connection.connect()
+
+    with pytest.raises(ValueError, match="longer than 4 bytes"):
+        await connection.query("LONG?")
+    with pytest.raises(DisconnectedError):
+        await connection.write("R=5")
+
+    server.close()
