@@ -20,22 +20,17 @@ class ControllerRunner:
     def __init__(self) -> None:
         self._connections: list[Connection] = []
         self._controllers: list[Controller] = []
-        # id of each connection -> the controllers that hold it, in tree order
         self._controllers_by_connection: dict[int, list[BaseController]] = defaultdict(
             list
         )
 
-        # id of each connection -> the connections it waits for when reconnecting
         self._dependencies: dict[int, list[Connection]] = {}
 
         self._controller_apis: list[ControllerAPI] = []
-        # id of each controller -> its read-once reads
         self._initial_coros: dict[int, list[ScanCallback]] = defaultdict(list)
         self._scan_coros: list[ScanCallback] = []
-        # id of each controller -> its scan gate, set while its scans may run
         self._scan_gates: dict[int, asyncio.Event] = {}
         self._tasks: set[asyncio.Task] = set()
-        # id of each connection -> its watcher
         self._watchers: dict[int, asyncio.Task] = {}
 
     @classmethod
