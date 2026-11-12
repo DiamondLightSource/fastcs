@@ -8,6 +8,7 @@ from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
+from fastcs.exceptions import FatalError
 from fastcs.methods import Command, command
 from fastcs.util import ONCE
 from tests.assertable_controller import MyTestController
@@ -128,3 +129,41 @@ async def test_connections_closed_if_startup_fails():
         await fastcs.serve(interactive=False)
 
     assert connection.closed
+
+
+class ChangingConnection(Connection[dict[str, int]]):
+    def __init__(self) -> None:
+        self.introspections = 0
+        self.closes = 0
+
+    async def connect(self) -> None:
+        pass
+
+    async def introspect(self) -> dict[str, int]:
+        self.introspections += 1
+        return {"gain": 1} if self.introspections == 1 else {"offset": 1}
+
+    async def close(self) -> None:
+        self.closes += 1
+
+
+class DroppingController(Controller):
+    def __init__(self, connection: ChangingConnection) -> None:
+        super().__init__()
+        self.connection = connection
+
+    async def setup(self) -> None:
+        # The watcher reconnects as soon as it starts
+        self.connection.state.mark_down()
+
+
+@pytest.mark.asyncio
+async def test_serve_raises_fatal_error_and_closes_connections():
+    connection = ChangingConnection()
+    fastcs = FastCS([ControllerSpec("A", DroppingController, connection)], [])
+
+    with pytest.raises(FatalError, match="changed structure"):
+        await asyncio.wait_for(fastcs.serve(interactive=False), timeout=1)
+
+    # Once on reconnect, once on shutdown
+    assert connection.closes == 2

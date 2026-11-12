@@ -492,3 +492,40 @@ async def test_watcher_gives_up_and_leaves_controllers_down():
     assert controller.connected.get() is False
     assert not runner._scan_gates[id(controller)].is_set()
     await runner.stop()
+
+
+class HeldEigerConnection(EigerConnection):
+    def __init__(self, events: list[str], name: str = "") -> None:
+        super().__init__(events, name)
+        self.connecting = asyncio.Event()
+        self.release = asyncio.Event()
+        self.release.set()
+
+    async def connect(self) -> None:
+        self.connecting.set()
+        await self.release.wait()
+        await super().connect()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_waits_for_dependencies_to_be_up():
+    events: list[str] = []
+    eiger = HeldEigerConnection(events, "eiger")
+    odin = OdinConnection(events, "odin")
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", TwoConnectionController, odin=odin, eiger=eiger)]
+    )
+    await runner.start()
+    events.clear()
+    eiger.connecting.clear()
+    eiger.release.clear()
+
+    eiger.state.mark_down()
+    odin.state.mark_down()
+    await asyncio.wait_for(eiger.connecting.wait(), timeout=1)
+    assert events == ["close eiger"]
+
+    eiger.release.set()
+    await asyncio.wait_for(odin.state.wait_up(), timeout=1)
+    assert events == ["close eiger", "connect eiger", "close odin", "connect odin"]
+    await runner.stop()
