@@ -1,7 +1,10 @@
 import asyncio
+import dataclasses
 from collections import defaultdict
-from collections.abc import Iterator, Sequence
-from typing import Self
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any, Self
+
+from pydantic import BaseModel
 
 from fastcs.attributes.attr_r import AttrR
 from fastcs.connections import Connection, ConnectionState
@@ -9,6 +12,7 @@ from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.controllers.controller_spec import ControllerSpec
+from fastcs.exceptions import FatalError
 from fastcs.logging import logger
 from fastcs.methods import ScanCallback
 from fastcs.util import ONCE
@@ -102,6 +106,15 @@ class ControllerRunner:
             for connection in self._connections
         }
 
+    async def wait_for_fatal_error(self) -> None:
+        """Wait on the connection watchers, which only stop by giving up or failing.
+
+        Raises:
+            FatalError: If a watcher hits one
+
+        """
+        await asyncio.gather(*self._watchers.values())
+
     async def stop(self) -> None:
         """Stop the scan tasks and watchers, and close the connections."""
         tasks = [*self._tasks, *self._watchers.values()]
@@ -170,10 +183,14 @@ class ControllerRunner:
             await controller.connected.update(False)
 
     async def _reconnect(self, connection: Connection) -> bool:
-        """Try to reconnect, once its dependencies are up.
+        """Try to reconnect and introspect, once its dependencies are up, marking the
+        connection up so that ``introspect`` can use it.
 
         Returns:
             Whether it reconnected within ``reconnect_attempts``
+
+        Raises:
+            FatalError: If the new introspection's structure is different
 
         """
         for attempt in range(connection.reconnect_attempts):
@@ -186,19 +203,28 @@ class ControllerRunner:
             try:
                 await connection.close()
                 await connection.connect()
+                connection.state.mark_up()
+                introspection = await connection.introspect()
             except Exception:
+                connection.state.mark_down()
                 logger.exception(
                     "Reconnect failed", connection=connection, attempt=attempt + 1
                 )
-            else:
-                return True
+                continue
+
+            if _structure(introspection) != _structure(connection.introspection):
+                raise FatalError(
+                    f"{type(connection).__name__} introspection changed structure on "
+                    "reconnect, so the controllers built from it are out of date"
+                )
+
+            return True
 
         return False
 
     async def _mark_up(self, connection: Connection) -> None:
-        """Mark a connection up, then mark connected each controller holding it,
-        re-run its read-once reads and resume its scans."""
-        connection.state.mark_up()
+        """Mark connected each controller holding a connection, re-run its read-once
+        reads and resume its scans."""
         for controller in self._controllers_by_connection[id(connection)]:
             await controller.connected.update(True)
             for read in self._initial_coros[id(controller)]:
@@ -271,6 +297,24 @@ def _scans(controller: BaseController) -> Iterator[tuple[float, ScanCallback]]:
             period = attribute.io_ref.update_period
             if period is not None:
                 yield period, attribute.bind_update_callback()
+
+
+def _structure(value: Any) -> Any:
+    """The shape of a value: the fields, keys and lengths it's made of, but not its
+    leaf values or their types"""
+    if isinstance(value, BaseModel):
+        fields = type(value).model_fields
+        return {name: _structure(getattr(value, name)) for name in fields}
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {
+            field.name: _structure(getattr(value, field.name))
+            for field in dataclasses.fields(value)
+        }
+    if isinstance(value, Mapping):
+        return {key: _structure(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_structure(item) for item in value]
+    return None
 
 
 def _held_connections(controller: BaseController) -> list[Connection]:
