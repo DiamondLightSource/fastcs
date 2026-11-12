@@ -1,5 +1,5 @@
 import re
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, TypeVar
 
@@ -23,7 +23,7 @@ def snake_to_pascal(name: str) -> str:
 
 
 @contextmanager
-def optional_dependency(*names: str) -> Iterator[None]:
+def optional_dependency(*names: str) -> Generator[None, None, None]:
     """Skip the imports in the block if one of the given packages isn't installed.
 
     Example::
