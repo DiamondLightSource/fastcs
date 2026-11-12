@@ -50,7 +50,7 @@ gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Cont
 epics_ca = EpicsCATransport(gui=gui_options)
 connection = IPConnection("localhost", 25565)
 spec = ControllerSpec("DEMO", TemperatureController, connection=connection)
-fastcs = FastCS(spec, [epics_ca])
+fastcs = FastCS([spec], [epics_ca])
 
 if __name__ == "__main__":
     fastcs.run()

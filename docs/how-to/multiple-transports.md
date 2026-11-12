@@ -19,7 +19,7 @@ from fastcs.transports import (
 spec = ControllerSpec("DEVICE", MyController)
 
 fastcs = FastCS(
-    spec,
+    [spec],
     [
         EpicsCATransport(),
         RestTransport(),
@@ -164,7 +164,7 @@ from fastcs.transports import (
 spec = ControllerSpec("DEVICE", MyController)
 
 fastcs = FastCS(
-    spec,
+    [spec],
     [
         EpicsCATransport(
             gui=EpicsGUIOptions(output_dir=Path("./opis")),

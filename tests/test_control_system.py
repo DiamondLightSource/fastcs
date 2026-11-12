@@ -16,7 +16,7 @@ from fastcs.util import ONCE
 async def test_scan_tasks(controller):
     loop = asyncio.get_event_loop()
     transport_options = []
-    fastcs = FastCS(ControllerSpec("A", lambda: controller), transport_options, loop)
+    fastcs = FastCS([ControllerSpec("A", lambda: controller)], transport_options, loop)
 
     asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
@@ -45,7 +45,7 @@ async def test_controller_api_methods():
     controller = MyTestController()
     loop = asyncio.get_event_loop()
     transport_options = []
-    fastcs = FastCS(ControllerSpec("A", lambda: controller), transport_options, loop)
+    fastcs = FastCS([ControllerSpec("A", lambda: controller)], transport_options, loop)
 
     asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
@@ -81,7 +81,7 @@ async def test_update_periods():
     controller = MyController(ios=[AttributeIOTimesCalled()])
     loop = asyncio.get_event_loop()
 
-    fastcs = FastCS(ControllerSpec("A", lambda: controller), [], loop)
+    fastcs = FastCS([ControllerSpec("A", lambda: controller)], [], loop)
 
     assert controller.update_quickly.get() == 0
     assert controller.update_once.get() == 0
@@ -119,7 +119,7 @@ class FailingSetupController(Controller):
 @pytest.mark.asyncio
 async def test_connections_closed_if_startup_fails():
     connection = ClosingConnection()
-    fastcs = FastCS(ControllerSpec("A", FailingSetupController, connection), [])
+    fastcs = FastCS([ControllerSpec("A", FailingSetupController, connection)], [])
 
     with pytest.raises(RuntimeError, match="setup failed"):
         await fastcs.serve(interactive=False)

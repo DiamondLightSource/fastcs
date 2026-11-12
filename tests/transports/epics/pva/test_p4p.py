@@ -248,7 +248,9 @@ def test_alarms_set_if_put_fails():
 
 
 def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
-    return FastCS(ControllerSpec(pv_prefix, lambda: controller), [EpicsPVATransport()])
+    return FastCS(
+        [ControllerSpec(pv_prefix, lambda: controller)], [EpicsPVATransport()]
+    )
 
 
 def test_read_signal_set():

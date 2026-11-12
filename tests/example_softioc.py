@@ -40,7 +40,7 @@ def run(id="SOFTIOC_TEST_DEVICE"):
     controller.add_sub_controller("ChildVector", vector)
     gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Vector")
     fastcs = FastCS(
-        ControllerSpec(id, lambda: controller),
+        [ControllerSpec(id, lambda: controller)],
         [
             EpicsCATransport(
                 epicsca=EpicsCAOptions(

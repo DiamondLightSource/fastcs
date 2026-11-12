@@ -77,7 +77,7 @@ connection = IPConnection("localhost", 25565)
 spec = ControllerSpec(
     "DEMO", TemperatureController, ramp_count=4, connection=connection
 )
-fastcs = FastCS(spec, [epics_ca])
+fastcs = FastCS([spec], [epics_ca])
 
 if __name__ == "__main__":
     fastcs.run()

@@ -52,7 +52,7 @@ async def test_initial_values_set_in_ca(mocker):
 
     loop = asyncio.get_event_loop()
     fastcs = FastCS(
-        ControllerSpec(pv_prefix, InitialValuesController),
+        [ControllerSpec(pv_prefix, InitialValuesController)],
         [EpicsCATransport()],
         loop,
     )
