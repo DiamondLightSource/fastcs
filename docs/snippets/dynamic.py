@@ -12,8 +12,8 @@ from fastcs.attributes import (
     AttrRW,
     AttrW,
 )
-from fastcs.connections import IPConnection, IPConnectionSettings
-from fastcs.controllers import Controller
+from fastcs.connections import IPConnection
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Bool, DataType, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -60,6 +60,20 @@ def create_attributes(parameters: dict[str, Any]) -> dict[str, Attribute]:
     return attributes
 
 
+@dataclass
+class TemperatureIntrospection:
+    parameters: dict[str, Any]
+    ramps: list[dict[str, Any]]
+
+
+class TemperatureConnection(IPConnection[TemperatureIntrospection]):
+    async def introspect(self) -> TemperatureIntrospection:
+        response = await self.send_query("API?\r\n")
+        parameters = json.loads(response.strip("\r\n"))
+        ramps = parameters.pop("Ramps")
+        return TemperatureIntrospection(parameters, ramps)
+
+
 NumberT = TypeVar("NumberT", int, float)
 
 
@@ -73,7 +87,7 @@ class TemperatureControllerAttributeIORef(AttributeIORef):
 class TemperatureControllerAttributeIO(
     AttributeIO[NumberT, TemperatureControllerAttributeIORef]
 ):
-    def __init__(self, connection: IPConnection):
+    def __init__(self, connection: TemperatureConnection):
         super().__init__()
 
         self._connection = connection
@@ -96,53 +110,33 @@ class TemperatureRampController(Controller):
     def __init__(
         self,
         index: int,
-        parameters: dict[str, TemperatureControllerParameter],
+        parameters: dict[str, Any],
         io: TemperatureControllerAttributeIO,
     ):
-        self._parameters = parameters
         super().__init__(f"Ramp{index}", ios=[io])
 
-    async def initialise(self):
-        for name, attribute in create_attributes(self._parameters).items():
+        for name, attribute in create_attributes(parameters).items():
             self.add_attribute(name, attribute)
 
 
 class TemperatureController(Controller):
-    def __init__(self, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
+    def __init__(self, connection: TemperatureConnection):
+        io = TemperatureControllerAttributeIO(connection)
+        super().__init__(ios=[io])
 
-        self._io = TemperatureControllerAttributeIO(self._connection)
-        super().__init__(ios=[self._io])
-
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
-
-    async def initialise(self):
-        await self.connect()
-
-        api = json.loads((await self._connection.send_query("API?\r\n")).strip("\r\n"))
-
-        ramps_api = api.pop("Ramps")
-
-        for name, attribute in create_attributes(api).items():
+        introspection = connection.introspection
+        for name, attribute in create_attributes(introspection.parameters).items():
             self.add_attribute(name, attribute)
 
-        for idx, ramp_parameters in enumerate(ramps_api):
-            ramp_controller = TemperatureRampController(
-                idx + 1, ramp_parameters, self._io
-            )
-            await ramp_controller.initialise()
+        for idx, ramp_parameters in enumerate(introspection.ramps):
+            ramp_controller = TemperatureRampController(idx + 1, ramp_parameters, io)
             self.add_sub_controller(f"Ramp{idx + 1:02d}", ramp_controller)
-
-        await self._connection.close()
 
 
 epics_ca = EpicsCATransport()
-connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
-controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+connection = TemperatureConnection("localhost", 25565)
+spec = ControllerSpec("DEMO", TemperatureController, connection=connection)
+fastcs = FastCS([spec], [epics_ca])
 
 
 if __name__ == "__main__":

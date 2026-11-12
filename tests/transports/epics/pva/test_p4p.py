@@ -15,7 +15,7 @@ from p4p.client.thread import Context as ThreadContext
 from p4p.nt import NTTable
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.controllers import Controller, ControllerSpec, ControllerVector
 from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, String, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command
@@ -248,8 +248,9 @@ def test_alarms_set_if_put_fails():
 
 
 def make_fastcs(pv_prefix: str, controller: Controller) -> FastCS:
-    controller.set_path([pv_prefix])
-    return FastCS(controller, [EpicsPVATransport()])
+    return FastCS(
+        [ControllerSpec(pv_prefix, lambda: controller)], [EpicsPVATransport()]
+    )
 
 
 def test_read_signal_set():

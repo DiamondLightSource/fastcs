@@ -37,6 +37,9 @@ class BaseController(Tracer):
     root_attribute: Attribute | None = None
     description: str | None = None
 
+    _sealed: bool = False
+    _registered: bool = False
+
     def __init__(
         self,
         path: list[str] | None = None,
@@ -185,14 +188,27 @@ class BaseController(Tracer):
         else:
             super().__setattr__(name, value)
 
-    async def initialise(self):
-        """Hook for subclasses to dynamically add attributes before building the API"""
+    async def setup(self):
+        """Hook called by the framework after all attributes are added, before serving
+        the application"""
         pass
 
-    def post_initialise(self):
-        """Hook to call after all attributes added, before serving the application"""
+    def seal(self):
+        """Validate and connect this controller and its sub controllers, then stop
+        anything being added to them. Called by the framework after construction.
+
+        Raises:
+            RuntimeError: If the controller is already sealed
+
+        """
+        if self._sealed:
+            raise RuntimeError(f"{self} is already sealed")
+
         self._validate_type_hints()
         self._connect_attribute_ios()
+        self._sealed = True
+        for controller in self.sub_controllers.values():
+            controller.seal()
 
     def _validate_type_hints(self):
         """Validate all type-hints were introspected"""
@@ -205,25 +221,26 @@ class BaseController(Tracer):
         for name in self.__hinted_methods:
             self._validate_hinted_method(name)
 
-        for subcontroller in self.sub_controllers.values():
-            subcontroller._validate_type_hints()  # noqa: SLF001
+    def _validate_hinted_member(
+        self, name: str, kind: str, expected_type: type[T]
+    ) -> T:
+        """Validate that a hinted member exists on the controller
 
-    def _validate_hinted_member(self, name: str, expected_type: type[T]) -> T:
-        """Validate that a hinted member exists on the controller"""
+        Raises:
+            RuntimeError: If no member of the expected type has the given name
+
+        """
         member = getattr(self, name, None)
         if member is None or not isinstance(member, expected_type):
-            raise RuntimeError()
+            raise RuntimeError(
+                f"Controller `{self.__class__.__name__}` failed to introspect "
+                f"hinted {kind} `{name}` during initialisation"
+            )
         return member
 
     def _validate_hinted_method(self, name: str):
         """Check that a `Method` with the given name exists on the controller"""
-        try:
-            method = self._validate_hinted_member(name, Method)
-        except RuntimeError:
-            raise RuntimeError(
-                f"Controller `{self.__class__.__name__}` failed to introspect "
-                f"hinted method `{name}` during initialisation"
-            ) from None
+        method = self._validate_hinted_member(name, "method", Method)
 
         logger.debug(
             "Validated hinted method", name=name, controller=self, method=method
@@ -231,13 +248,7 @@ class BaseController(Tracer):
 
     def _validate_hinted_attribute(self, name: str):
         """Check that an `Attribute` with the given name exists on the controller"""
-        try:
-            attr = self._validate_hinted_member(name, Attribute)
-        except RuntimeError:
-            raise RuntimeError(
-                f"Controller `{self.__class__.__name__}` failed to introspect "
-                f"hinted attribute `{name}` during initialisation"
-            ) from None
+        attr = self._validate_hinted_member(name, "attribute", Attribute)
 
         logger.debug(
             "Validated hinted attribute", name=name, controller=self, attribute=attr
@@ -245,13 +256,7 @@ class BaseController(Tracer):
 
     def _validate_hinted_controller(self, name: str):
         """Check that a sub controller with the given name exists on the controller"""
-        try:
-            controller = self._validate_hinted_member(name, BaseController)
-        except RuntimeError:
-            raise RuntimeError(
-                f"Controller `{self.__class__.__name__}` failed to introspect "
-                f"hinted controller `{name}` during initialisation"
-            ) from None
+        controller = self._validate_hinted_member(name, "controller", BaseController)
 
         logger.debug(
             "Validated hinted sub controller",
@@ -279,41 +284,58 @@ class BaseController(Tracer):
             if isinstance(attr, AttrR):
                 attr.set_update_callback(io.update)
 
-        for controller in self.sub_controllers.values():
-            controller._connect_attribute_ios()  # noqa: SLF001
-
     @property
     def path(self) -> list[str]:
         """Path prefix of attributes, recursively including parent Controllers."""
         return self._path
 
     def set_path(self, path: list[str]):
+        """Set the path of this controller, its attributes and its sub controllers.
+
+        Args:
+            path: The path of this controller
+
+        Raises:
+            ValueError: If the path is already set
+
+        """
         if self._path:
-            raise ValueError(f"sub controller is already registered under {self.path}")
+            raise ValueError(f"{self} already has path {self.path}")
 
         self._path = path
         for attribute in self.__attributes.values():
             attribute.set_path(path)
+        for name, sub_controller in self.__sub_controllers.items():
+            sub_controller.set_path(path + [name])
 
-    def _check_for_name_clash(self, name: str):
+    def _check_can_add(self, name: str, kind: str, member: object):
+        """Check that a member can be added to this controller under ``name``.
+
+        Raises:
+            RuntimeError: If the controller has been sealed
+            ValueError: If ``name`` is already used by another member
+
+        """
+        if self._sealed:
+            raise RuntimeError(
+                f"Cannot add {kind} {name} to {self} after it has been sealed"
+            )
+
         namespaces = {
             "attribute": self.__attributes,
             "sub controller": self.__sub_controllers,
             "scan method": self.__scan_methods,
             "command method": self.__command_methods,
         }
-
-        for kind, namespace in namespaces.items():
+        for existing_kind, namespace in namespaces.items():
             if name in namespace:
                 raise ValueError(
-                    f"Controller {self} has existing {kind} {name}: {namespace[name]}"
+                    f"Cannot add {kind} {member}. Controller {self} has existing "
+                    f"{existing_kind} {name}: {namespace[name]}"
                 )
 
     def add_attribute(self, name, attr: Attribute):
-        try:
-            self._check_for_name_clash(name)
-        except ValueError as exc:
-            raise ValueError(f"Cannot add attribute {attr}.") from exc
+        self._check_can_add(name, "attribute", attr)
 
         if name in self.__hinted_attributes:
             hint = self.__hinted_attributes[name]
@@ -341,10 +363,7 @@ class BaseController(Tracer):
         return self.__attributes
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
-        try:
-            self._check_for_name_clash(name)
-        except ValueError as exc:
-            raise ValueError(f"Cannot add sub controller {sub_controller}.") from exc
+        self._check_can_add(name, "sub controller", sub_controller)
 
         if name in self.__hinted_sub_controllers:
             hint = self.__hinted_sub_controllers[name]
@@ -356,7 +375,12 @@ class BaseController(Tracer):
                     f"'{sub_controller.__class__.__name__}'."
                 )
 
-        sub_controller.set_path(self.path + [name])
+        if sub_controller._registered:  # noqa: SLF001
+            raise ValueError(f"{sub_controller} is already registered")
+        sub_controller._registered = True  # noqa: SLF001
+
+        if self.path:
+            sub_controller.set_path(self.path + [name])
         self.__sub_controllers[name] = sub_controller
         super().__setattr__(name, sub_controller)
 
@@ -367,11 +391,12 @@ class BaseController(Tracer):
     def sub_controllers(self) -> dict[str, BaseController]:
         return self.__sub_controllers
 
-    def _validate_method(self, name: str, method: Method):
+    def _validate_method(self, name: str, kind: str, method: Method):
         if name in self.__hinted_methods:
             hint = self.__hinted_methods[name]
             if not isinstance(method, hint):
                 raise RuntimeError(
+                    f"Cannot add {kind} {method}. "
                     f"Controller '{self.__class__.__name__}' introspection of "
                     f"hinted method '{name}' does not match defined type. "
                     f"Expected '{hint.__name__}' got "
@@ -379,11 +404,8 @@ class BaseController(Tracer):
                 )
 
     def add_command(self, name: str, command: Command):
-        try:
-            self._check_for_name_clash(name)
-            self._validate_method(name, command)
-        except (ValueError, RuntimeError) as exc:
-            raise exc.__class__(f"Cannot add command method {command}.") from exc
+        self._check_can_add(name, "command method", command)
+        self._validate_method(name, "command method", command)
 
         self.__command_methods[name] = command
         super().__setattr__(name, command)
@@ -393,11 +415,8 @@ class BaseController(Tracer):
         return self.__command_methods
 
     def add_scan(self, name: str, scan: Scan):
-        try:
-            self._check_for_name_clash(name)
-            self._validate_method(name, scan)
-        except (ValueError, RuntimeError) as exc:
-            raise exc.__class__(f"Cannot add scan method {scan}.") from exc
+        self._check_can_add(name, "scan method", scan)
+        self._validate_method(name, "scan method", scan)
 
         self.__scan_methods[name] = scan
         super().__setattr__(name, scan)

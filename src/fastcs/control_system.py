@@ -7,7 +7,7 @@ from typing import Any
 
 from IPython.terminal.embed import InteractiveShellEmbed
 
-from fastcs.controllers import Controller
+from fastcs.controllers import ControllerSpec
 from fastcs.logging import logger
 from fastcs.runner import ControllerRunner
 from fastcs.tracer import Tracer
@@ -16,49 +16,34 @@ from fastcs.transports import Transport
 tracer = Tracer()
 
 
-def _context_key(controller: Controller) -> str:
-    """Key used for a controller in IPython context dicts.
-
-    Falls back to the class name when no path has been seeded so
-    direct-construction callers (without launch()) still get a sensible key.
-    """
-    try:
-        return controller.path[0]
-    except IndexError:
-        return controller.__class__.__name__
-
-
 class FastCS:
     """Entrypoint for a FastCS application.
 
-    This class takes one or more `Controller` instances, runs them with a
+    This class takes one or more `ControllerSpec` instances, runs them with a
     `ControllerRunner` and serves their APIs over the given `Transport` instances.
 
     Args:
-        controllers: The controller(s) to serve in the control system. Accepts
-            either a single ``Controller`` or a sequence of them.
+        specs: What to construct each top-level controller from
         transports: A list of transports to serve the API over
         loop: Optional event loop to run the control system in
     """
 
     def __init__(
         self,
-        controllers: Controller | Sequence[Controller],
+        specs: Sequence[ControllerSpec],
         transports: Sequence[Transport],
         loop: asyncio.AbstractEventLoop | None = None,
     ):
-        if isinstance(controllers, Controller):
-            controllers = [controllers]
-        self._controllers: list[Controller] = list(controllers)
-        if not self._controllers:
+        self._specs: list[ControllerSpec] = list(specs)
+        if not self._specs:
             raise ValueError("FastCS requires at least one controller")
-        keys = [_context_key(c) for c in self._controllers]
-        if len(set(keys)) != len(keys):
-            duplicates = sorted({k for k in keys if keys.count(k) > 1})
+        ids = [spec.id for spec in self._specs]
+        if len(set(ids)) != len(ids):
+            duplicates = sorted({i for i in ids if ids.count(i) > 1})
             raise ValueError(
-                f"FastCS received controllers with duplicate context keys "
-                f"{duplicates}; ensure each controller has a unique id"
+                f"FastCS received controllers with duplicate ids {duplicates}"
             )
+        self._ids = ids
         self._transports = transports
         self._loop = loop or asyncio.get_event_loop()
 
@@ -95,61 +80,61 @@ class FastCS:
         """
         # Build the APIs before wiring transports to them, so that a transport
         # registers its callbacks before the first values are read.
-        self._runner = await ControllerRunner.build(self._controllers)
-
-        context = {
-            "controllers": {_context_key(c): c for c in self._controllers},
-            "controller_apis": {
-                _context_key(c): api
-                for c, api in zip(
-                    self._controllers, self._runner.controller_apis, strict=True
-                )
-            },
-            "transports": [
-                transport.__class__.__name__ for transport in self._transports
-            ],
-        }
-
-        coros: list[Coroutine] = []
-        for transport in self._transports:
-            transport.connect(
-                controller_apis=self._runner.controller_apis, loop=self._loop
-            )
-            coros.append(transport.serve())
-            common_context = context.keys() & transport.context.keys()
-            if common_context:
-                raise RuntimeError(
-                    "Duplicate context keys found between "
-                    f"current context { ({k: context[k] for k in common_context}) } "
-                    f"and {transport.__class__.__name__} context: "
-                    f"{ ({k: transport.context[k] for k in common_context}) }"
-                )
-            context.update(transport.context)
-
-        if interactive:
-            coros.append(self._interactive_shell(context))
-        else:
-
-            async def block_forever():
-                while True:
-                    await asyncio.sleep(1)
-
-            coros.append(block_forever())
-
-        logger.info(
-            "Starting FastCS",
-            controllers=[_context_key(c) for c in self._controllers],
-            transports=f"[{', '.join(str(t) for t in self._transports)}]",
-        )
-
-        await self._runner.start()
+        self._runner = await ControllerRunner.build(self._specs)
 
         try:
-            await asyncio.gather(*coros)
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            logger.exception("Unhandled exception in serve")
+            context = {
+                "controllers": dict(
+                    zip(self._ids, self._runner.controllers, strict=True)
+                ),
+                "controller_apis": dict(
+                    zip(self._ids, self._runner.controller_apis, strict=True)
+                ),
+                "transports": [
+                    transport.__class__.__name__ for transport in self._transports
+                ],
+            }
+
+            for transport in self._transports:
+                transport.connect(
+                    controller_apis=self._runner.controller_apis, loop=self._loop
+                )
+                common_context = context.keys() & transport.context.keys()
+                if common_context:
+                    current = {k: context[k] for k in common_context}
+                    new = {k: transport.context[k] for k in common_context}
+                    raise RuntimeError(
+                        "Duplicate context keys found between "
+                        f"current context {current} "
+                        f"and {transport.__class__.__name__} context: {new}"
+                    )
+                context.update(transport.context)
+
+            logger.info(
+                "Starting FastCS",
+                controllers=self._ids,
+                transports=f"[{', '.join(str(t) for t in self._transports)}]",
+            )
+
+            await self._runner.start()
+
+            coros: list[Coroutine] = [t.serve() for t in self._transports]
+            if interactive:
+                coros.append(self._interactive_shell(context))
+            else:
+
+                async def block_forever():
+                    while True:
+                        await asyncio.sleep(1)
+
+                coros.append(block_forever())
+
+            try:
+                await asyncio.gather(*coros)
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception("Unhandled exception in serve")
         finally:
             logger.info("Shutting down FastCS")
             await self._runner.stop()

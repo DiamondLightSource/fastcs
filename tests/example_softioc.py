@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.control_system import FastCS
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.controllers import Controller, ControllerSpec, ControllerVector
 from fastcs.datatypes import Int
 from fastcs.methods import command
 from fastcs.transports.epics.ca.transport import (
@@ -16,6 +16,12 @@ from fastcs.transports.epics.ca.transport import (
 class ParentController(Controller):
     a: AttrR = AttrR(Int())
     b: AttrRW = AttrRW(Int())
+
+    def __init__(self):
+        super().__init__()
+        self.add_sub_controller(
+            "ChildVector", ControllerVector({i: ChildController() for i in range(2)})
+        )
 
 
 class ChildController(Controller):
@@ -35,13 +41,9 @@ class ChildController(Controller):
 
 
 def run(id="SOFTIOC_TEST_DEVICE"):
-    controller = ParentController()
-    controller.set_path([id])
-    vector = ControllerVector({i: ChildController() for i in range(2)})
-    controller.add_sub_controller("ChildVector", vector)
     gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Vector")
     fastcs = FastCS(
-        controller,
+        [ControllerSpec(id, ParentController)],
         [
             EpicsCATransport(
                 epicsca=EpicsCAOptions(

@@ -52,6 +52,57 @@ if __name__ == "__main__":
     launch(DeviceController, version="1.0.0")
 ```
 
+## Adding Connections
+
+Any `__init__` argument whose type is a `Connection` becomes a block under the
+entry's `connections:` key, named after the argument. Its fields are the
+connection's constructor arguments. FastCS opens each connection before
+constructing the controller, and closes it on shutdown.
+
+The address and port now belong to the connection, so they move out of
+`DeviceSettings` and into the `connections:` block:
+
+```python
+from dataclasses import dataclass
+
+from fastcs.connections import IPConnection
+from fastcs.controllers import Controller
+
+@dataclass
+class DeviceSettings:
+    timeout: float = 5.0
+
+class DeviceController(Controller):
+    def __init__(self, connection: IPConnection, settings: DeviceSettings):
+        super().__init__()
+        self.connection = connection
+        self.settings = settings
+```
+
+```yaml
+controllers:
+  - id: DEVICE
+    type: my_driver.DeviceController
+    connections:
+      connection:
+        ip: "192.168.1.100"
+        port: 25565
+    timeout: 10.0
+```
+
+If one connection needs another to be open first, declare it on the connection
+class with `depends_on`. FastCS then opens the connections it depends on first,
+and closes them last:
+
+```python
+class OdinConnection(Connection):
+    depends_on = EigerConnection
+```
+
+For several types, use a list: `depends_on = [EigerConnection, OtherConnection]`.
+A connection depends on every connection of the listed types in the same
+controller entry.
+
 ## YAML Configuration Files
 
 Create a YAML configuration file matching the schema. The conventional
@@ -204,8 +255,10 @@ FastCS: 0.12.0
 
 The `launch()` function requires:
 
-1. Controller `__init__` must have at most 2 arguments (including `self`)
+1. Controller `__init__` may take any number of `Connection` arguments, and at most
+   one other argument, the configuration
 2. If a configuration argument exists, it must have a type hint
+3. Every constructor argument of a `Connection` must have a type hint
 
 Using a dataclass or Pydantic model is recommended for the configuration type, as it enables JSON schema generation. Other type-hinted types will work, but will not produce a useful schema.
 

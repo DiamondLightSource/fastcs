@@ -2,7 +2,7 @@ import asyncio
 
 from fastcs import FastCS
 from fastcs.attributes import AttrR, AttrW
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Bool, Int
 from fastcs.transports.epics.ca.transport import EpicsCATransport
 from fastcs.transports.rest.options import RestServerOptions
@@ -21,9 +21,8 @@ def run():
         EpicsCATransport(),
         TangoTransport(),
     ]
-    controller = MyTestController()
-    controller.set_path(["BENCHMARK-DEVICE"])
-    instance = FastCS(controller, transport_options, asyncio.get_event_loop())
+    spec = ControllerSpec("BENCHMARK-DEVICE", MyTestController)
+    instance = FastCS([spec], transport_options, asyncio.get_event_loop())
     instance.run()
 
 

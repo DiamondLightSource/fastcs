@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import TypeVar
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
-from fastcs.connections import IPConnection, IPConnectionSettings
-from fastcs.controllers import Controller
+from fastcs.connections import IPConnection
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Enum, Float, Int, String
 from fastcs.launch import FastCS
 from fastcs.logging import LogLevel, configure_logging, logger
@@ -78,9 +78,8 @@ class TemperatureController(Controller):
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("P"))
     ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef("R"))
 
-    def __init__(self, ramp_count: int, settings: IPConnectionSettings):
-        self._ip_settings = settings
-        self._connection = IPConnection()
+    def __init__(self, ramp_count: int, connection: IPConnection):
+        self._connection = connection
 
         super().__init__(ios=[TemperatureControllerAttributeIO(self._connection)])
 
@@ -89,9 +88,6 @@ class TemperatureController(Controller):
             controller = TemperatureRampController(index, self._connection)
             self._ramp_controllers.append(controller)
             self.add_sub_controller(f"R{index}", controller)
-
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
 
     @scan(0.1)
     async def update_voltages(self):
@@ -114,11 +110,12 @@ configure_logging(LogLevel.TRACE)
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
-connection_settings = IPConnectionSettings("localhost", 25565)
-logger.info("Configuring connection settings", connection_settings=connection_settings)
-controller = TemperatureController(4, connection_settings)
-controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+connection = IPConnection("localhost", 25565)
+logger.info("Configuring connection", ip=connection.ip, port=connection.port)
+spec = ControllerSpec(
+    "DEMO", TemperatureController, ramp_count=4, connection=connection
+)
+fastcs = FastCS([spec], [epics_ca])
 
 if __name__ == "__main__":
     fastcs.run()

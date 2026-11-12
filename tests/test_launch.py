@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from fastcs import __version__
 from fastcs.attributes import AttrR
+from fastcs.connections import Connection, IPConnection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
 from fastcs.datatypes import Int
@@ -53,6 +54,29 @@ class IsHinted(Controller):
 
 class ManyArgs(Controller):
     def __init__(self, arg: SomeConfig, too_many):
+        super().__init__()
+
+
+class WithConnection(Controller):
+    def __init__(self, connection: IPConnection, arg: SomeConfig) -> None:
+        super().__init__()
+
+
+class KeywordOnlyConnection(Controller):
+    def __init__(self, *, connection: IPConnection) -> None:
+        super().__init__()
+
+
+class NoSettingsConnection(Connection):
+    async def connect(self) -> None: ...
+
+    async def close(self) -> None: ...
+
+
+class WithGenericConnections(Controller):
+    def __init__(
+        self, sensor: IPConnection[SomeConfig], link: NoSettingsConnection
+    ) -> None:
         super().__init__()
 
 
@@ -132,8 +156,9 @@ def test_not_hinted_schema():
 def test_over_defined_schema():
     error = (
         ""
-        "Expected no more than 2 arguments for 'ManyArgs.__init__' "
-        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, too_many)`"
+        "Expected no more than 1 argument besides connections for "
+        "'ManyArgs.__init__' but received 2 as "
+        "`(self, arg: tests.test_launch.SomeConfig, too_many)`"
     )
 
     with pytest.raises(LaunchError) as exc_info:
@@ -276,8 +301,7 @@ def test_type_name_override():
 
 
 def test_duplicate_id_rejected_at_run(mocker: MockerFixture, tmp_path):
-    """Two entries with the same `id` are rejected at run time. (List-form
-    YAML accepts duplicate ids syntactically, so the launcher checks.)"""
+    """Two entries with the same `id` are rejected when FastCS is created."""
     mocker.patch("fastcs.launch.FastCS.run")
     cfg = tmp_path / "dup.yaml"
     cfg.write_text(
@@ -293,8 +317,8 @@ def test_duplicate_id_rejected_at_run(mocker: MockerFixture, tmp_path):
     )
     app = _launch(IsHinted)
     result = runner.invoke(app, ["run", str(cfg)])
-    assert isinstance(result.exception, LaunchError)
-    assert "Duplicate controller id" in str(result.exception)
+    assert isinstance(result.exception, ValueError)
+    assert "duplicate ids ['same']" in str(result.exception)
 
 
 def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
@@ -318,6 +342,64 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     result = runner.invoke(app, ["run", str(cfg)])
     assert result.exit_code == 0, result.output
     init_spy.assert_called_once()
-    controllers_arg = init_spy.call_args.args[1]
-    assert [c.path[0] for c in controllers_arg] == ["one", "two"]
-    assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]
+    specs_arg = init_spy.call_args.args[1]
+    assert [s.id for s in specs_arg] == ["one", "two"]
+    assert [s.controller_class for s in specs_arg] == [IsHinted, OtherHinted]
+
+
+def test_connections_built_from_config(mocker: MockerFixture, tmp_path):
+    init_spy = mocker.spy(FastCS, "__init__")
+    mocker.patch("fastcs.launch.FastCS.run")
+    cfg = tmp_path / "connected.yaml"
+    cfg.write_text(
+        "controllers:\n"
+        "  - id: one\n"
+        "    type: tests.WithConnection\n"
+        "    connections:\n"
+        "      connection:\n"
+        "        ip: localhost\n"
+        "        port: 8000\n"
+        "    name: a\n"
+        "transport:\n"
+        "  - rest: {}\n"
+    )
+    result = runner.invoke(_launch(WithConnection), ["run", str(cfg)])
+    assert result.exit_code == 0, result.output
+
+    [spec] = init_spy.call_args.args[1]
+    connection = spec.kwargs["connection"]
+    assert isinstance(connection, IPConnection)
+    assert (connection.ip, connection.port) == ("localhost", 8000)
+    assert spec.kwargs["arg"] == SomeConfig(name="a")
+
+
+def test_parametrised_and_no_settings_connections():
+    options_model = _build_options_model([WithGenericConnections])
+    options_model.model_validate(
+        {
+            "controllers": [
+                {
+                    "id": "one",
+                    "type": "tests.WithGenericConnections",
+                    "connections": {"sensor": {}, "link": {}},
+                }
+            ],
+            "transport": [{"rest": {}}],
+        }
+    )
+
+
+def test_keyword_only_connection_in_schema():
+    options_model = _build_options_model([KeywordOnlyConnection])
+    options_model.model_validate(
+        {
+            "controllers": [
+                {
+                    "id": "one",
+                    "type": "tests.KeywordOnlyConnection",
+                    "connections": {"connection": {"ip": "localhost", "port": 8000}},
+                }
+            ],
+            "transport": [{"rest": {}}],
+        }
+    )

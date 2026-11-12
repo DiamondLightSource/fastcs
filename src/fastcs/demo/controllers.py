@@ -7,7 +7,7 @@ from typing import TypeVar
 import numpy as np
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
-from fastcs.connections import IPConnection, IPConnectionSettings
+from fastcs.connections import IPConnection
 from fastcs.controllers import Controller
 from fastcs.datatypes import Enum, Float, Int, Waveform
 from fastcs.logging import logger
@@ -24,7 +24,6 @@ class OnOffEnum(enum.StrEnum):
 @dataclass
 class TemperatureControllerSettings:
     num_ramp_controllers: int
-    ip_settings: IPConnectionSettings
 
 
 @dataclass
@@ -71,18 +70,18 @@ class TemperatureController(Controller):
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef(name="P"))
     voltages = AttrR(Waveform(np.int32, shape=(4,)))
 
-    def __init__(self, settings: TemperatureControllerSettings) -> None:
-        self.connection = IPConnection()
+    def __init__(
+        self, sensor: IPConnection, settings: TemperatureControllerSettings
+    ) -> None:
+        self.sensor = sensor
         self.suffix = ""
         super().__init__(
-            ios=[TemperatureControllerAttributeIO(self.connection, self.suffix)]
+            ios=[TemperatureControllerAttributeIO(self.sensor, self.suffix)]
         )
-
-        self._settings = settings
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, settings.num_ramp_controllers + 1):
-            controller = TemperatureRampController(index, self.connection)
+            controller = TemperatureRampController(index, self.sensor)
             self._ramp_controllers.append(controller)
             self.add_sub_controller(f"R{index}", controller)
 
@@ -93,27 +92,21 @@ class TemperatureController(Controller):
             # TODO: The requests all get concatenated and the sim doesn't handle it
             await asyncio.sleep(0.1)
 
-    async def connect(self) -> None:
-        await self.connection.connect(self._settings.ip_settings)
-
     async def reconnect(self):
         try:
-            await self.connection.close()
-            await self.connection.connect(self._settings.ip_settings)
+            await self.sensor.close()
+            await self.sensor.connect()
         except BaseException:
             logger.exception("Reconnect failed")
             return
 
         self._connected = True
 
-    async def close(self) -> None:
-        await self.connection.close()
-
     @scan(0.1)
     async def update_voltages(self):
         query = "V?"
         voltages = json.loads(
-            (await self.connection.send_query(f"{query}\r\n")).strip("\r\n")
+            (await self.sensor.send_query(f"{query}\r\n")).strip("\r\n")
         )
 
         await self.voltages.update(voltages)
@@ -138,9 +131,8 @@ class TemperatureRampController(Controller):
     actual = AttrR(Float(prec=3), io_ref=TemperatureControllerAttributeIORef(name="A"))
     voltage = AttrR(Float(prec=3))
 
-    def __init__(self, index: int, conn: IPConnection) -> None:
+    def __init__(self, index: int, sensor: IPConnection) -> None:
         suffix = f"{index:02d}"
         super().__init__(
-            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(conn, suffix)]
+            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(sensor, suffix)]
         )
-        self.connection = conn
