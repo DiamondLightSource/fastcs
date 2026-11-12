@@ -12,7 +12,16 @@ from tests.assertable_controller import (
 )
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
+from fastcs.datatypes import (
+    Bool,
+    Enum,
+    Float,
+    Int,
+    String,
+    SubsetEnum,
+    SupersetEnum,
+    Waveform,
+)
 from fastcs.transports.tango.transport import TangoTransport
 
 
@@ -29,6 +38,27 @@ def mock_run_threadsafe_blocking(module_mocker: MockerFixture):
     yield m
 
 
+class Gain(SupersetEnum):
+    AUTO = 0
+    LOW = 1
+    HIGH = 2
+
+
+# Device lacks AUTO, as introspection would report
+DeviceGain = enum.Enum("DeviceGain", {"LOW": 1, "HIGH": 2})
+
+
+class Trigger(int, SubsetEnum):
+    INTERNAL = 0
+    EXTERNAL = 1
+
+
+# Device has an extra SOFTWARE choice that Trigger doesn't define
+DeviceTrigger = enum.Enum(
+    "DeviceTrigger", {"INTERNAL": 0, "EXTERNAL": 1, "SOFTWARE": 2}
+)
+
+
 class TangoController(MyTestController):
     read_int = AttrR(Int())
     read_write_int = AttrRW(Int())
@@ -37,6 +67,8 @@ class TangoController(MyTestController):
     write_bool = AttrW(Bool())
     read_string = AttrRW(String())
     enum = AttrRW(Enum(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2})))
+    superset_enum = AttrRW(Enum(Gain, allowed=DeviceGain))
+    subset_enum = AttrRW(Enum(Trigger, allowed=DeviceTrigger))
     one_d_waveform = AttrRW(Waveform(np.int32, (10,)))
     two_d_waveform = AttrRW(Waveform(np.int32, (10, 10)))
 
@@ -76,6 +108,8 @@ class TestTangoDevice:
             "WriteBool",
             "ReadString",
             "Enum",
+            "SupersetEnum",
+            "SubsetEnum",
             "OneDWaveform",
             "TwoDWaveform",
             "SubController01_ReadInt",
@@ -161,6 +195,41 @@ class TestTangoDevice:
         assert tango_context.read_attribute("Enum").value == new
         assert isinstance(enum_attr.get(), enum_cls)
         assert enum_attr.get() == enum_cls(1)
+
+    def test_superset_enum(
+        self, tango_controller_api: AssertableControllerAPI, tango_context
+    ):
+        attr = tango_controller_api.attributes["superset_enum"]
+        assert isinstance(attr, AttrRW)
+        labels = list(tango_context.get_attribute_config("SupersetEnum").enum_labels)
+        assert labels == ["LOW", "HIGH"]  # no AUTO, the device doesn't have it
+
+        with tango_controller_api.assert_read_here(["superset_enum"]):
+            index = tango_context.read_attribute("SupersetEnum").value
+        assert labels[index] == attr.get().name
+
+        with tango_controller_api.assert_write_here(["superset_enum"]):
+            tango_context.write_attribute("SupersetEnum", labels.index("HIGH"))
+        assert attr.get() is Gain.HIGH
+
+    def test_subset_enum(
+        self, tango_controller_api: AssertableControllerAPI, tango_context
+    ):
+        attr = tango_controller_api.attributes["subset_enum"]
+        assert isinstance(attr, AttrRW)
+        labels = list(tango_context.get_attribute_config("SubsetEnum").enum_labels)
+        assert labels == ["INTERNAL", "EXTERNAL", "SOFTWARE"]  # includes device extra
+
+        # A device extra is stored as its raw value, not a Trigger member
+        with tango_controller_api.assert_write_here(["subset_enum"]):
+            tango_context.write_attribute("SubsetEnum", labels.index("SOFTWARE"))
+        assert attr.get() == 2
+        assert not isinstance(attr.get(), Trigger)
+        assert labels[tango_context.read_attribute("SubsetEnum").value] == "SOFTWARE"
+
+        # Known choices are still Trigger members (put can only be spied on once)
+        tango_context.write_attribute("SubsetEnum", labels.index("EXTERNAL"))
+        assert attr.get() is Trigger.EXTERNAL
 
     def test_1d_waveform(
         self, tango_controller_api: AssertableControllerAPI, tango_context

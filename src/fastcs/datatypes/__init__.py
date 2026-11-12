@@ -4,6 +4,11 @@ from .datatype import DataType as DataType
 from .datatype import DType as DType
 from .datatype import DType_T as DType_T
 from .enum import Enum as Enum
+from .enum import EnumTypes as EnumTypes
+from .enum import StrictEnum as StrictEnum
+from .enum import SubsetEnum as SubsetEnum
+from .enum import SupersetEnum as SupersetEnum
+from .enum import validate_enum_choices as validate_enum_choices
 from .float import Float as Float
 from .int import Int as Int
 from .string import String as String
