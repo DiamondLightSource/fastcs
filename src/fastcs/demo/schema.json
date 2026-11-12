@@ -186,6 +186,38 @@
           "default": 25565,
           "title": "Port",
           "type": "integer"
+        },
+        "terminator": {
+          "default": "\r\n",
+          "title": "Terminator",
+          "type": "string"
+        },
+        "encoding": {
+          "default": "utf-8",
+          "title": "Encoding",
+          "type": "string"
+        },
+        "timeout": {
+          "default": 5.0,
+          "title": "Timeout",
+          "type": "number"
+        },
+        "limit": {
+          "default": 65536,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "reconnect_attempts": {
+          "default": 30,
+          "minimum": 0,
+          "title": "Reconnect Attempts",
+          "type": "integer"
+        },
+        "reconnect_period": {
+          "default": 2.0,
+          "minimum": 0,
+          "title": "Reconnect Period",
+          "type": "number"
         }
       },
       "title": "IPConnectionSettings",

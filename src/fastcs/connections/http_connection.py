@@ -27,6 +27,10 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
 
     """
 
+    # Long enough to ride out a slow server restart
+    reconnect_attempts = 60
+    reconnect_period = 5.0
+
     def __init__(
         self,
         url: str,

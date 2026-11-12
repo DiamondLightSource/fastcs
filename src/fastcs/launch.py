@@ -215,7 +215,12 @@ def _controller_specs(
         for name, connection_type in registered.connection_types.items():
             settings = getattr(entry.connections, name)
             values = {k: getattr(settings, k) for k in type(settings).model_fields}
-            kwargs[name] = connection_type(**values)
+            attempts = values.pop("reconnect_attempts")
+            period = values.pop("reconnect_period")
+            connection = connection_type(**values)
+            connection.reconnect_attempts = attempts
+            connection.reconnect_period = period
+            kwargs[name] = connection
 
         if registered.options_name is not None:
             field_values = {
@@ -233,8 +238,12 @@ def _controller_specs(
 def _connection_settings_model(connection_type: type[Connection]) -> type[BaseModel]:
     """Build the Pydantic model for one connection's block under `connections:`.
 
+    The block has the constructor's arguments, and the framework's
+    ``reconnect_attempts`` and ``reconnect_period``.
+
     Raises:
-        LaunchError: If a constructor argument has no type hint
+        LaunchError: If a constructor argument has no type hint, or has the name of a
+            framework setting
 
     """
     sig = inspect.signature(connection_type.__init__)
@@ -248,8 +257,22 @@ def _connection_settings_model(connection_type: type[Connection]) -> type[BaseMo
                 f"Expected typehinting in '{connection_type.__name__}.__init__' "
                 f"but received {sig}. Add a typehint for `{name}`."
             )
+        if name in ("reconnect_attempts", "reconnect_period"):
+            raise LaunchError(
+                f"'{connection_type.__name__}.__init__' can't take `{name}`, which is "
+                "a framework setting."
+            )
         default = ... if param.default is inspect.Parameter.empty else param.default
         fields[name] = (hints[name], default)
+
+    fields["reconnect_attempts"] = (
+        int,
+        Field(default=connection_type.reconnect_attempts, ge=0),
+    )
+    fields["reconnect_period"] = (
+        float,
+        Field(default=connection_type.reconnect_period, ge=0),
+    )
 
     return create_model(
         f"{connection_type.__name__}Settings", __config__={"extra": "forbid"}, **fields
