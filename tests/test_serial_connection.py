@@ -5,7 +5,7 @@ import time
 import pytest
 import pytest_asyncio
 
-from fastcs.connections import DisconnectedError, SerialConnection
+from fastcs.connections import ConnectionState, DisconnectedError, SerialConnection
 
 
 def _reply_to_r(device: int):
@@ -50,9 +50,11 @@ async def test_connect_when_connected_raises(connection: SerialConnection):
 
 
 @pytest.mark.asyncio
-async def test_timeout_closes_connection(connection: SerialConnection):
+async def test_timeout_marks_down_and_closes_connection(connection: SerialConnection):
+    connection.state = ConnectionState()
     with pytest.raises(TimeoutError):
         await connection.query("NO_REPLY?")
+    assert not connection.state.up
 
     with pytest.raises(DisconnectedError):
         await connection.write("R=5")

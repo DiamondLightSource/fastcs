@@ -6,7 +6,12 @@ from typing import Any
 
 import httpx
 
-from fastcs.connections.connection import Connection, DisconnectedError, IntrospectionT
+from fastcs.connections.connection import (
+    Connection,
+    DisconnectedError,
+    IntrospectionT,
+    disconnect_on,
+)
 from fastcs.tracer import Tracer
 
 
@@ -165,6 +170,7 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             self._client = None
             await client.aclose()
 
+    @disconnect_on(TimeoutError)
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         client = self._client
         if client is None:

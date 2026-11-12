@@ -3,7 +3,7 @@ import asyncio
 import pytest
 import pytest_asyncio
 
-from fastcs.connections import DisconnectedError, IPConnection
+from fastcs.connections import ConnectionState, DisconnectedError, IPConnection
 
 
 async def _reply_to_r(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -40,9 +40,11 @@ async def test_connect_when_connected_raises(connection: IPConnection):
 
 
 @pytest.mark.asyncio
-async def test_timeout_closes_connection(connection: IPConnection):
+async def test_timeout_marks_down_and_closes_connection(connection: IPConnection):
+    connection.state = ConnectionState()
     with pytest.raises(TimeoutError):
         await connection.query("NO_REPLY?")
+    assert not connection.state.up
 
     with pytest.raises(DisconnectedError):
         await connection.write("R=5")

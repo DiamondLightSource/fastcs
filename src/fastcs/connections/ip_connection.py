@@ -2,7 +2,12 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastcs.connections.connection import Connection, DisconnectedError, IntrospectionT
+from fastcs.connections.connection import (
+    Connection,
+    DisconnectedError,
+    IntrospectionT,
+    disconnect_on,
+)
 from fastcs.tracer import Tracer
 
 
@@ -62,6 +67,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
                     self.ip, self.port, limit=self.limit
                 )
 
+    @disconnect_on(OSError, asyncio.IncompleteReadError)
     async def write(self, message: str) -> None:
         """Send a message, adding the terminator.
 
@@ -78,6 +84,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
 
         self.log_event("Sent message", message=message)
 
+    @disconnect_on(OSError, asyncio.IncompleteReadError)
     async def query(self, message: str) -> str:
         """Send a message and read the reply.
 
@@ -107,6 +114,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         self.log_event("Received query response", query=message, response=response)
         return response
 
+    @disconnect_on(OSError, asyncio.IncompleteReadError)
     async def write_bytes(self, data: bytes) -> None:
         """Send raw bytes, without a terminator.
 
@@ -122,6 +130,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
 
         self.log_event("Sent bytes", data=data)
 
+    @disconnect_on(OSError, asyncio.IncompleteReadError)
     async def query_bytes(self, data: bytes, size: int) -> bytes:
         """Send raw bytes and read a reply of a fixed size.
 
