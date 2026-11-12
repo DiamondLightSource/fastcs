@@ -21,6 +21,10 @@ class ControllerRunner:
     def __init__(self) -> None:
         self._connections: list[Connection] = []
         self._controllers: list[Controller] = []
+        # id of each connection -> the controllers that hold it, in tree order
+        self._controllers_by_connection: dict[int, list[BaseController]] = defaultdict(
+            list
+        )
 
         self._controller_apis: list[ControllerAPI] = []
         self._initial_coros: list[ScanCallback] = []
@@ -54,8 +58,7 @@ class ControllerRunner:
                     connection.introspection = await connection.introspect()
 
             runner._controllers = [spec.construct() for spec in specs]
-            for controller in runner._controllers:
-                controller.seal()
+            runner._seal()
 
             for controller in runner._controllers:
                 api = controller.build_api(controller.path)
@@ -97,6 +100,18 @@ class ControllerRunner:
         await asyncio.gather(*tasks, return_exceptions=True)
         await self._close_connections()
 
+    def _seal(self) -> None:
+        """Seal every controller, recording which controllers hold each connection."""
+        opened = {id(connection) for connection in self._connections}
+        for controller in self._controllers:
+            for sub_controller in _walk(controller):
+                sub_controller.seal()
+                for connection in _held_connections(sub_controller):
+                    if id(connection) in opened:
+                        self._controllers_by_connection[id(connection)].append(
+                            sub_controller
+                        )
+
     async def _close_connections(self) -> None:
         """Close the open connections, in reverse order."""
         while self._connections:
@@ -136,8 +151,7 @@ class ControllerRunner:
                             )
 
         scan_coros = [
-            _periodic_scan_coro(controller, period, scans)
-            for period, scans in scan_dict.items()
+            _periodic_scan_coro(period, scans) for period, scans in scan_dict.items()
         ]
         return initial_coros, scan_coros
 
@@ -157,6 +171,12 @@ def _walk(controller: BaseController) -> Iterator[BaseController]:
     yield controller
     for sub_controller in controller.sub_controllers.values():
         yield from _walk(sub_controller)
+
+
+def _held_connections(controller: BaseController) -> list[Connection]:
+    """The connections stored as attributes of a controller, once each"""
+    values = vars(controller).values()
+    return list({id(v): v for v in values if isinstance(v, Connection)}.values())
 
 
 def _check_connections_not_shared(specs: list[ControllerSpec]) -> None:
@@ -220,13 +240,10 @@ def _dependency_order(connections: list[Connection]) -> list[Connection]:
     return ordered
 
 
-def _periodic_scan_coro(
-    controller: Controller, period: float, scans: Sequence[ScanCallback]
-) -> ScanCallback:
+def _periodic_scan_coro(period: float, scans: Sequence[ScanCallback]) -> ScanCallback:
     """Create a coroutine to run scans at a given period
 
     Args:
-        controller: The top-level controller whose connection gates the scans
         period: The period to run the scans at
         scans: A list of `ScanCallback` to run periodically
 
@@ -237,17 +254,10 @@ def _periodic_scan_coro(
 
     async def scan_coro() -> None:
         while True:
-            if not controller.connected:
-                await asyncio.sleep(1)
-                continue
-
             try:
                 await asyncio.gather(asyncio.sleep(period), *[scan() for scan in scans])
             except Exception:
                 logger.exception("Exception in scan task", period=period)
-                controller.mark_disconnected()
-
                 await asyncio.sleep(1)
-                logger.error("Pausing scan tasks and waiting for reconnect")
 
     return scan_coro

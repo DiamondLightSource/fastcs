@@ -1,13 +1,11 @@
-import asyncio
 import enum
 
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW
 from fastcs.controllers import Controller, ControllerSpec, ControllerVector
-from fastcs.datatypes import Enum, Float, Int
+from fastcs.datatypes import Bool, Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
-from fastcs.runner import ControllerRunner
 
 
 def test_controller_nesting():
@@ -80,6 +78,7 @@ def test_attribute_parsing():
     controller = SomeController(sub_controller)
 
     assert set(controller.attributes.keys()) == {
+        "connected",
         "_attributes_attr",
         "attr_on_object",
         "_attributes_attr_equal",
@@ -95,6 +94,7 @@ def test_attribute_parsing():
     )
 
     assert sub_controller.attributes == {
+        "connected": sub_controller.connected,
         "sub_attribute": sub_controller.sub_attribute,
     }
 
@@ -273,32 +273,16 @@ def test_controller_api():
     api = controller.build_api([])
 
     assert api.description == controller.description
-    assert list(api.attributes) == ["attr1", "attr2"]
+    assert list(api.attributes) == ["attr1", "connected", "attr2"]
     assert list(api.command_methods) == ["do_nothing"]
     assert list(api.scan_methods) == ["scan_nothing"]
 
 
-@pytest.mark.asyncio
-async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
-    class MyTestController(Controller):
-        @scan(0.01)
-        async def failing_scan(self):
-            raise RuntimeError("scan error")
+def test_connected_attribute_added_and_name_reserved():
+    controller = Controller()
+    assert controller.connected.get() is True
 
-    runner = await ControllerRunner.build([ControllerSpec("A", MyTestController)])
-    controller = runner.controllers[0]
-
-    controller._connected = True
-    task = asyncio.create_task(runner._scan_coros[0]())
-
-    # Wait long enough for the scan to run and raise, marking it disconnected
-    await asyncio.sleep(0.1)
-    assert not controller.connected
-
-    # Trigger reconnect - connected resumes scan tasks
-    await controller.reconnect()
-    assert controller.connected
-
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
+    with pytest.raises(ValueError, match="Cannot add attribute"):
+        controller.add_attribute("connected", AttrR(Bool()))
+    with pytest.raises(ValueError, match="has existing attribute connected"):
+        controller.connected = False  # pyright: ignore[reportAttributeAccessIssue]
