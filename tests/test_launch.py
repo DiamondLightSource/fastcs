@@ -301,8 +301,7 @@ def test_type_name_override():
 
 
 def test_duplicate_id_rejected_at_run(mocker: MockerFixture, tmp_path):
-    """Two entries with the same `id` are rejected at run time. (List-form
-    YAML accepts duplicate ids syntactically, so the launcher checks.)"""
+    """Two entries with the same `id` are rejected when FastCS is created."""
     mocker.patch("fastcs.launch.FastCS.run")
     cfg = tmp_path / "dup.yaml"
     cfg.write_text(
@@ -318,8 +317,8 @@ def test_duplicate_id_rejected_at_run(mocker: MockerFixture, tmp_path):
     )
     app = _launch(IsHinted)
     result = runner.invoke(app, ["run", str(cfg)])
-    assert isinstance(result.exception, LaunchError)
-    assert "Duplicate controller id" in str(result.exception)
+    assert isinstance(result.exception, ValueError)
+    assert "duplicate ids ['same']" in str(result.exception)
 
 
 def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):

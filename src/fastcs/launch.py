@@ -205,23 +205,7 @@ def _launch(
 def _controller_specs(
     controllers_options: list[Any],
 ) -> list[ControllerSpec]:
-    """Create a `ControllerSpec` for each entry under `controllers:`.
-
-    Raises:
-        LaunchError: If two entries have the same id
-
-    """
-    seen_ids: set[str] = set()
-    duplicates: list[str] = []
-    for entry in controllers_options:
-        if entry.id in seen_ids:
-            duplicates.append(entry.id)
-        seen_ids.add(entry.id)
-    if duplicates:
-        raise LaunchError(
-            f"Duplicate controller id(s) in `controllers:`: {sorted(set(duplicates))}"
-        )
-
+    """Create a `ControllerSpec` for each entry under `controllers:`."""
     specs: list[ControllerSpec] = []
     for entry in controllers_options:
         entry_cls: type[BaseModel] = type(entry)
@@ -395,7 +379,7 @@ def _build_options_model(
     registered class's entry model or a discriminated union over all
     registered classes; in both cases the entry's ``id:`` and ``type:``
     fields are required. Duplicate ``id`` values across the list are
-    rejected by ``_controller_specs``.
+    rejected by `FastCS`.
     """
     entries = [_build_entry_model(cls) for cls in controller_classes]
 
