@@ -10,7 +10,6 @@ from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.connections import IPConnection
 from fastcs.controllers import Controller
 from fastcs.datatypes import Enum, Float, Int, Waveform
-from fastcs.logging import logger
 from fastcs.methods import command, scan
 
 NumberT = TypeVar("NumberT", int, float)
@@ -90,16 +89,6 @@ class TemperatureController(Controller):
             await rc.enabled.put(OnOffEnum.Off, sync_setpoint=True)
             # TODO: The requests all get concatenated and the sim doesn't handle it
             await asyncio.sleep(0.1)
-
-    async def reconnect(self):
-        try:
-            await self.sensor.close()
-            await self.sensor.connect()
-        except BaseException:
-            logger.exception("Reconnect failed")
-            return
-
-        self._connected = True
 
     @scan(0.1)
     async def update_voltages(self):

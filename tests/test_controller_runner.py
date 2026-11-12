@@ -273,6 +273,26 @@ def test_introspection_set_twice_raises():
 
 
 @pytest.mark.asyncio
+async def test_build_maps_each_connection_to_the_controllers_holding_it():
+    class Holder(Controller):
+        def __init__(self, connection: Connection) -> None:
+            super().__init__()
+            self.connection = connection
+
+    class Parent(Controller):
+        def __init__(self, connection: Connection) -> None:
+            super().__init__()
+            self.A = Holder(connection)
+            self.B = Holder(connection)
+
+    connection = RecordingConnection([])
+    runner = await ControllerRunner.build([ControllerSpec("P", Parent, connection)])
+
+    holders = list(runner.controllers[0].sub_controllers.values())
+    assert runner._controllers_by_connection[id(connection)] == holders
+
+
+@pytest.mark.asyncio
 async def test_controller_tree_sealed_after_build():
     class ParentController(Controller):
         def __init__(self) -> None:
