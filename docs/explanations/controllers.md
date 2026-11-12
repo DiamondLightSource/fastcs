@@ -12,28 +12,31 @@ role, FastCS opens the `Connection`s it is given, constructs it, calls its lifec
 hooks and runs the scan tasks it creates on the event loop.
 
 **Sub controller:** attached to a parent controller via `add_sub_controller()` or by
-assigning it as an attribute. In this role, the sub controller's `reconnect` hook is
-not called automatically by FastCS. The parent controller is responsible for calling it
-as part of its own lifecycle, if required.
+assigning it as an attribute. Its attributes are exposed under a prefixed path.
 
 ### Lifecycle hooks
 
 | Method | Purpose |
 |---|---|
 | `setup` | Called by the framework after all attributes are added, before serving the application. Called on every controller in the tree |
-| `reconnect` | Re-open connection after scan error |
 
 Connections to the device are not opened by the controller. They are `Connection`s
-passed to its constructor, which FastCS opens before constructing it and closes on
-shutdown.
+passed to its constructor, which FastCS opens before constructing it, reconnects if the
+link goes down, and closes on shutdown. A controller stores the connection it uses, and
+passes it on to any sub controllers that need it. See
+[Connections](connections.md).
 
 ### Scan task behaviour
 
-When used as the root controller, FastCS collects all `@scan` methods and readable
-attributes with `update_period` set, across the whole controller hierarchy to be run as
-background tasks by FastCS. Scan tasks are gated on the `_connected` flag: if a scan
-raises an exception, `_connected` is set to `False` and tasks pause until `reconnect`
-sets it back to `True`.
+FastCS collects the `@scan` methods and readable attributes with `update_period` set
+from every controller in the tree, and runs them as background tasks. A scan that
+raises an exception is logged, and runs again on its next period.
+
+Every controller has a read-only `connected` attribute. When the connection a controller
+holds goes down, FastCS sets `connected` to `False` and pauses that controller's scans.
+Once the connection is back, it sets `connected` to `True`, re-runs the controller's
+`ONCE` scans and resumes the others. Controllers that hold no connection, or a different
+one, carry on.
 
 ```python
 from fastcs.controllers import Controller
@@ -49,14 +52,6 @@ class TemperatureController(Controller):
     def __init__(self, connection: DeviceConnection):
         super().__init__()
         self._connection = connection
-
-    async def reconnect(self):
-        try:
-            await self._connection.close()
-            await self._connection.connect()
-            self._connected = True
-        except Exception:
-            logger.error("Failed to reconnect")
 
     @scan(period=1.0)
     async def update_temperature(self):
