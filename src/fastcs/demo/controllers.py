@@ -122,3 +122,4 @@ class TemperatureRampController(Controller):
         super().__init__(
             f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(sensor, suffix)]
         )
+        self.sensor = sensor

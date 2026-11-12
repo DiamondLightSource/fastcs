@@ -4,7 +4,6 @@ from collections.abc import Iterator, Sequence
 from typing import Self
 
 from fastcs.attributes.attr_r import AttrR
-from fastcs.attributes.attribute_io_ref import AttributeIORef
 from fastcs.connections import Connection
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
@@ -29,6 +28,8 @@ class ControllerRunner:
         self._controller_apis: list[ControllerAPI] = []
         self._initial_coros: list[ScanCallback] = []
         self._scan_coros: list[ScanCallback] = []
+        # id of each controller -> its scan gate, set while its scans may run
+        self._scan_gates: dict[int, asyncio.Event] = {}
         self._tasks: set[asyncio.Task] = set()
 
     @classmethod
@@ -61,11 +62,8 @@ class ControllerRunner:
             runner._seal()
 
             for controller in runner._controllers:
-                api = controller.build_api(controller.path)
-                initial_coros, scan_coros = runner._collect_scans(controller, api)
-                runner._controller_apis.append(api)
-                runner._initial_coros.extend(initial_coros)
-                runner._scan_coros.extend(scan_coros)
+                runner._controller_apis.append(controller.build_api(controller.path))
+                runner._collect_scans(controller)
         except BaseException:
             await runner._close_connections()
             raise
@@ -121,39 +119,28 @@ class ControllerRunner:
             except Exception:
                 logger.exception("Exception closing connection", connection=connection)
 
-    def _collect_scans(
-        self, controller: Controller, api: ControllerAPI
-    ) -> tuple[list[ScanCallback], list[ScanCallback]]:
+    def _collect_scans(self, controller: Controller) -> None:
         """Find the initial reads and periodic scans in a controller's tree.
 
-        Returns:
-            The initial coroutines, and one periodic coroutine per period
+        Each controller in the tree gets its own scan gate, and one periodic
+        coroutine per period that waits on that gate before each cycle.
 
         """
-        initial_coros: list[ScanCallback] = []
-        scan_dict: dict[float, list[ScanCallback]] = defaultdict(list)
-
-        for sub_api in api.walk_api():
-            for method in sub_api.scan_methods.values():
-                if method.period is ONCE:
-                    initial_coros.append(method.fn)
+        for sub_controller in _walk(controller):
+            scans_by_period: dict[float, list[ScanCallback]] = defaultdict(list)
+            for period, scan in _scans(sub_controller):
+                if period is ONCE:
+                    self._initial_coros.append(scan)
                 else:
-                    scan_dict[method.period].append(method.fn)
+                    scans_by_period[period].append(scan)
 
-            for attribute in sub_api.attributes.values():
-                match attribute:
-                    case AttrR(_io_ref=AttributeIORef(update_period=update_period)):
-                        if update_period is ONCE:
-                            initial_coros.append(attribute.bind_update_callback())
-                        elif update_period is not None:
-                            scan_dict[update_period].append(
-                                attribute.bind_update_callback()
-                            )
-
-        scan_coros = [
-            _periodic_scan_coro(period, scans) for period, scans in scan_dict.items()
-        ]
-        return initial_coros, scan_coros
+            gate = asyncio.Event()
+            gate.set()
+            self._scan_gates[id(sub_controller)] = gate
+            self._scan_coros.extend(
+                _periodic_scan_coro(period, scans, gate)
+                for period, scans in scans_by_period.items()
+            )
 
     def _cancel_tasks(self) -> None:
         for task in self._tasks:
@@ -171,6 +158,19 @@ def _walk(controller: BaseController) -> Iterator[BaseController]:
     yield controller
     for sub_controller in controller.sub_controllers.values():
         yield from _walk(sub_controller)
+
+
+def _scans(controller: BaseController) -> Iterator[tuple[float, ScanCallback]]:
+    """The period and callback of each scan method and polled attribute of a
+    controller, not including its sub controllers"""
+    for method in controller.scan_methods.values():
+        yield method.period, method.fn
+
+    for attribute in controller.attributes.values():
+        if isinstance(attribute, AttrR) and attribute.has_io_ref():
+            period = attribute.io_ref.update_period
+            if period is not None:
+                yield period, attribute.bind_update_callback()
 
 
 def _held_connections(controller: BaseController) -> list[Connection]:
@@ -240,12 +240,15 @@ def _dependency_order(connections: list[Connection]) -> list[Connection]:
     return ordered
 
 
-def _periodic_scan_coro(period: float, scans: Sequence[ScanCallback]) -> ScanCallback:
+def _periodic_scan_coro(
+    period: float, scans: Sequence[ScanCallback], gate: asyncio.Event
+) -> ScanCallback:
     """Create a coroutine to run scans at a given period
 
     Args:
         period: The period to run the scans at
         scans: A list of `ScanCallback` to run periodically
+        gate: Waited on before each cycle, so clearing it pauses the scans
 
     Returns:
         A wrapper `ScanCallback` that runs all of the callbacks at a given period
@@ -254,6 +257,7 @@ def _periodic_scan_coro(period: float, scans: Sequence[ScanCallback]) -> ScanCal
 
     async def scan_coro() -> None:
         while True:
+            await gate.wait()
             try:
                 await asyncio.gather(asyncio.sleep(period), *[scan() for scan in scans])
             except Exception:
