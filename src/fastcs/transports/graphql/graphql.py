@@ -214,9 +214,16 @@ def _wrap_command(method_name: str, command: Command) -> Callable[..., Awaitable
     # signature, so give it one declaring the command's arguments.
     _dynamic_f.__signature__ = Signature(  # type: ignore[attr-defined]
         [
-            Parameter(name, Parameter.POSITIONAL_OR_KEYWORD, annotation=argument_type)
-            for name, argument_type in zip(
-                argument_names, command.argument_types, strict=True
+            Parameter(
+                parameter.name,
+                Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=argument_type,
+                default=parameter.default,
+            )
+            for parameter, argument_type in zip(
+                command.signature.parameters.values(),
+                command.argument_types,
+                strict=True,
             )
         ],
         return_annotation=return_annotation,

@@ -32,7 +32,7 @@ class TypedCommandController(Controller):
 
     # Arguments with no return
     @command()
-    async def move_to(self, position: float, wait: bool) -> None:
+    async def move_to(self, position: float, wait: bool = False) -> None:
         self.calls.append((position, wait))
 
     # Return with no arguments
@@ -66,13 +66,13 @@ class TestRest:
         assert client.put("/DEVICE/stop").status_code == 204
 
     def test_arguments_are_taken_from_the_request_body(self, client):
-        response = client.put("/DEVICE/move-to", json={"position": 2.5, "wait": True})
+        response = client.put("/DEVICE/move-to", json={"position": 2.5})
 
         assert response.status_code == 204
-        assert TypedCommandController.calls == [(2.5, True)]
+        assert TypedCommandController.calls == [(2.5, False)]
 
     def test_a_missing_argument_is_rejected(self, client):
-        response = client.put("/DEVICE/move-to", json={"position": 2.5})
+        response = client.put("/DEVICE/move-to", json={"wait": True})
 
         assert response.status_code == 422
         assert TypedCommandController.calls == []
@@ -113,18 +113,18 @@ class TestGraphQL:
         assert self.query(client, "DEVICE { stop }") == {"DEVICE": {"stop": True}}
 
     def test_arguments_are_mutation_arguments(self, client):
-        assert self.query(client, "DEVICE { moveTo(position: 2.5, wait: true) }") == {
+        assert self.query(client, "DEVICE { moveTo(position: 2.5) }") == {
             "DEVICE": {"moveTo": True}
         }
-        assert TypedCommandController.calls == [(2.5, True)]
+        assert TypedCommandController.calls == [(2.5, False)]
 
     def test_a_missing_argument_is_rejected(self, client):
         response = client.post(
-            "/graphql", json={"query": "mutation { DEVICE { moveTo(position: 2.5) } }"}
+            "/graphql", json={"query": "mutation { DEVICE { moveTo(wait: true) } }"}
         )
 
         [error] = response.json()["errors"]
-        assert "argument 'wait'" in error["message"]
+        assert "argument 'position'" in error["message"]
         assert TypedCommandController.calls == []
 
     def test_return_value_is_the_mutation_result(self, client):

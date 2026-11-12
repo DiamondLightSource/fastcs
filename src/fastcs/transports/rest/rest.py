@@ -1,4 +1,5 @@
 from collections.abc import Callable, Coroutine
+from inspect import Parameter
 from typing import Any
 
 import uvicorn
@@ -148,6 +149,11 @@ def _argument_field(index: int) -> str:
     return f"arg{index}"
 
 
+def _default(parameter: Parameter) -> Any:
+    """A parameter's default, or ``...`` (required) if it has none."""
+    return ... if parameter.default is Parameter.empty else parameter.default
+
+
 def _command_arguments_body(name: str, command: Command) -> type[BaseModel]:
     """A pydantic model of a command's positional arguments, as a request body."""
     parameters = list(command.signature.parameters.values())
@@ -155,7 +161,10 @@ def _command_arguments_body(name: str, command: Command) -> type[BaseModel]:
     # underscores, or `model_config`), so the fields get safe internal names and
     # the argument names are kept as aliases, which are what the schema shows.
     fields: dict[str, Any] = {
-        _argument_field(index): (argument_type, Field(alias=parameter.name))
+        _argument_field(index): (
+            argument_type,
+            Field(_default(parameter), alias=parameter.name),
+        )
         for index, (parameter, argument_type) in enumerate(
             zip(parameters, command.argument_types, strict=True)
         )
