@@ -5,8 +5,9 @@ import pytest
 
 from fastcs.connections import Connection
 from fastcs.controllers import Controller, ControllerSpec
+from fastcs.exceptions import FatalError
 from fastcs.methods import scan
-from fastcs.runner import ControllerRunner
+from fastcs.runner import ControllerRunner, _structure
 from fastcs.util import ONCE
 
 
@@ -344,6 +345,40 @@ async def test_introspection_available_when_controller_constructed():
     assert isinstance(controller, IntrospectedController)
     assert controller.parameters == {"gain": 2}
     assert connection.introspection == DeviceIntrospection({"gain": 2})
+
+
+def test_structure_counts_fields_and_keys_but_not_values():
+    assert _structure(DeviceIntrospection({"gain": 2})) == _structure(
+        DeviceIntrospection({"gain": 3})
+    )
+    assert _structure(DeviceIntrospection({"gain": 2})) != _structure(
+        DeviceIntrospection({"offset": 2})
+    )
+
+
+class ChangingConnection(IntrospectingConnection):
+    def __init__(self) -> None:
+        self.introspections = 0
+
+    async def introspect(self) -> DeviceIntrospection:
+        self.introspections += 1
+        if self.introspections == 1:
+            return DeviceIntrospection({"gain": 2})
+        return DeviceIntrospection({"offset": 2})
+
+
+@pytest.mark.asyncio
+async def test_introspection_changing_structure_on_reconnect_is_fatal():
+    connection = ChangingConnection()
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", IntrospectedController, connection)]
+    )
+    await runner.start()
+
+    connection.state.mark_down()
+    with pytest.raises(FatalError, match="changed structure"):
+        await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
+    await runner.stop()
 
 
 def test_introspection_before_connecting_raises():
