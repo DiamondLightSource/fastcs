@@ -80,11 +80,11 @@ doesn't have a connection.
 :class: dropdown, hint
 
 :::
-In [1]: controller.device_id
+In [1]: controllers["DEMO"].device_id
 
 Out[1]: AttrR(String())
 
-In [2]: controller.device_id.get()
+In [2]: controllers["DEMO"].device_id.get()
 
 Out[2]: ''
 :::
@@ -456,7 +456,7 @@ ramp so that the value updates. Check the console to see the messages.  Call
 `disable_tracing` to disable the log messages for `power`.
 
 ```
-In [1]: controller.power.enable_tracing()
+In [1]: controllers["DEMO"].power.enable_tracing()
 [2025-11-18 11:11:12.060+0000 T] Query for attribute          [TemperatureControllerAttributeIO] query=P?, response=0.0
 [2025-11-18 11:11:12.060+0000 T] Attribute set                [AttrR] attribute=AttrR(path=power, datatype=Float, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='P')), value=0.0
 [2025-11-18 11:11:12.060+0000 T] PV set from attribute        [fastcs.transports.epics.ca.ioc] pv=DEMO:Power, value=0.0
@@ -470,7 +470,7 @@ In [1]: controller.power.enable_tracing()
 [2025-11-18 11:11:12.464+0000 T] Query for attribute          [TemperatureControllerAttributeIO] query=P?, response=30.452524641833854
 [2025-11-18 11:11:12.464+0000 T] Attribute set                [AttrR] attribute=AttrR(path=power, datatype=Float, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='P')), value=30.452524641833854
 [2025-11-18 11:11:12.465+0000 T] PV set from attribute        [fastcs.transports.epics.ca.ioc] pv=DEMO:Power, value=30.45
-In [2]: controller.power.disable_tracing()
+In [2]: controllers["DEMO"].power.disable_tracing()
 ```
 
 These log messages include other trace loggers that log messages with `power` as the
