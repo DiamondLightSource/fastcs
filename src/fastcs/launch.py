@@ -312,7 +312,11 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
 
     """
     sig = inspect.signature(controller_class.__init__)
-    args = inspect.getfullargspec(controller_class.__init__)[0][1:]
+    args = [
+        name
+        for name, param in list(sig.parameters.items())[1:]
+        if param.kind not in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
+    ]
     hints = get_type_hints(controller_class.__init__)
     discriminator = _discriminator(controller_class)
 
