@@ -62,6 +62,11 @@ class WithConnection(Controller):
         super().__init__()
 
 
+class KeywordOnlyConnection(Controller):
+    def __init__(self, *, connection: IPConnection) -> None:
+        super().__init__()
+
+
 class NoSettingsConnection(Connection):
     async def connect(self) -> None: ...
 
@@ -378,6 +383,22 @@ def test_parametrised_and_no_settings_connections():
                     "id": "one",
                     "type": "tests.WithGenericConnections",
                     "connections": {"sensor": {}, "link": {}},
+                }
+            ],
+            "transport": [{"rest": {}}],
+        }
+    )
+
+
+def test_keyword_only_connection_in_schema():
+    options_model = _build_options_model([KeywordOnlyConnection])
+    options_model.model_validate(
+        {
+            "controllers": [
+                {
+                    "id": "one",
+                    "type": "tests.KeywordOnlyConnection",
+                    "connections": {"connection": {"ip": "localhost", "port": 8000}},
                 }
             ],
             "transport": [{"rest": {}}],
