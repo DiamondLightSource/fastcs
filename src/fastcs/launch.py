@@ -332,7 +332,14 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     options_name: str | None = None
     options_type: Any = None
 
-    if len(option_args) == 1:
+    if len(option_args) > 1:
+        raise LaunchError(
+            f"Expected no more than 1 argument besides connections for "
+            f"'{controller_class.__name__}.__init__' but received "
+            f"{len(option_args)} as `{sig}`"
+        )
+
+    if option_args:
         options_name = option_args[0]
         if options_name not in hints:
             raise LaunchError(
@@ -349,12 +356,6 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
                     f"which collides with a launch-framework key."
                 )
         fields.update(options_fields)
-    elif len(option_args) > 1:
-        raise LaunchError(
-            f"Expected no more than 1 argument besides connections for "
-            f"'{controller_class.__name__}.__init__' but received "
-            f"{len(option_args)} as `{sig}`"
-        )
 
     entry_model = create_model(
         f"{controller_class.__name__}Entry",
