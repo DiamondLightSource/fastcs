@@ -6,6 +6,7 @@ import functools
 import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Mapping, Sequence
+from contextvars import ContextVar
 from typing import Any, ClassVar, Generic, cast, overload
 
 from pydantic import BaseModel
@@ -132,6 +133,9 @@ class Connection(ABC, Generic[IntrospectionT]):
 
 _MethodT = TypeVar("_MethodT", bound=Callable[..., Coroutine[Any, Any, Any]])
 
+# The connection the framework is reconnecting in this task, which may use its own IO
+_reconnecting: ContextVar[Connection | None] = ContextVar("_reconnecting", default=None)
+
 
 @overload
 def disconnect_on(method: _MethodT, /) -> _MethodT: ...
@@ -182,7 +186,7 @@ def disconnect_on(*errors: Any) -> Any:
 
         @functools.wraps(method)
         async def wrapper(self: Connection, *args: Any, **kwargs: Any) -> Any:
-            if not self.state.up:
+            if not self.state.up and _reconnecting.get() is not self:
                 raise DisconnectedError(f"{type(self).__name__} is disconnected")
 
             try:

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from fastcs.connections import Connection
+from fastcs.connections import Connection, DisconnectedError, disconnect_on
 from fastcs.connections.connection import _structure
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.exceptions import FatalError
@@ -551,4 +551,48 @@ async def test_reconnect_waits_for_dependencies_to_be_up():
     eiger.release.set()
     await asyncio.wait_for(odin.state.wait_up(), timeout=1)
     assert events == ["close eiger", "connect eiger", "close odin", "connect odin"]
+    await runner.stop()
+
+
+class HandshakeConnection(Connection):
+    reconnect_period = 0
+
+    def __init__(self) -> None:
+        self.handshakes = 0
+        self.introspecting = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def connect(self) -> None:
+        await self.handshake()
+
+    @disconnect_on
+    async def handshake(self) -> None:
+        self.handshakes += 1
+
+    async def introspect(self) -> None:
+        if self.handshakes > 1:
+            self.introspecting.set()
+            await self.release.wait()
+
+    async def close(self) -> None:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_only_the_reconnect_can_use_a_down_connection():
+    connection = HandshakeConnection()
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", HoldingController, connection)]
+    )
+    await runner.start()
+    controller = runner.controllers[0]
+
+    connection.state.mark_down()
+    await asyncio.wait_for(connection.introspecting.wait(), timeout=1)
+    with pytest.raises(DisconnectedError):
+        await connection.handshake()
+
+    connection.release.set()
+    await controller.connected.wait_for_value(True, timeout=1)
+    assert connection.handshakes == 2
     await runner.stop()

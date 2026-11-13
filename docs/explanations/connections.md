@@ -66,8 +66,9 @@ class EigerConnection(Connection):
 If the method raises a `ConnectionError`, a `DisconnectedError` or one of the listed
 exceptions, the connection is marked down and the exception carries on to the caller.
 While it's down, decorated methods raise `DisconnectedError` without touching the
-device. Other exceptions, like an error reply from the device, leave the link alone. The
-built-in connections already decorate their IO methods.
+device, except when called from the connection's own `connect()` or `introspect()` while
+FastCS reconnects it. Other exceptions, like an error reply from the device, leave the
+link alone. The built-in connections already decorate their IO methods.
 
 When a connection is marked down, FastCS:
 
@@ -75,8 +76,9 @@ When a connection is marked down, FastCS:
 2. Waits for the connections it `depends_on` to be up, then calls `close()`, `connect()`
    and `introspect()`. The first try is straight away, and later ones are
    `reconnect_period` seconds apart.
-3. Once that works, sets `connected` back to `True`, re-runs the controllers' `ONCE`
-   scans and resumes the others.
+3. Once that works and the introspection's structure is unchanged, marks the connection
+   up, sets `connected` back to `True`, re-runs the controllers' `ONCE` scans and
+   resumes the others.
 4. After `reconnect_attempts` failed tries, gives up. The controllers stay disconnected
    while the rest of the application carries on.
 

@@ -5,6 +5,7 @@ from typing import Self
 
 from fastcs.attributes.attr_r import AttrR
 from fastcs.connections import Connection, ConnectionState
+from fastcs.connections.connection import _reconnecting
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
@@ -180,8 +181,8 @@ class ControllerRunner:
             await controller.connected.update(False)
 
     async def _reconnect(self, connection: Connection) -> bool:
-        """Try to reconnect and introspect, once its dependencies are up, marking the
-        connection up so that ``introspect`` can use it.
+        """Try to reconnect and introspect, once its dependencies are up, and mark the
+        connection up if the introspection's structure is unchanged.
 
         Returns:
             Whether it reconnected within ``reconnect_attempts``
@@ -197,17 +198,18 @@ class ControllerRunner:
             for dependency in self._dependencies[id(connection)]:
                 await dependency.state.wait_up()
 
+            token = _reconnecting.set(connection)
             try:
                 await connection.close()
                 await connection.connect()
-                connection.state.mark_up()
                 introspection = await connection.introspect()
             except Exception:
-                connection.state.mark_down()
                 logger.exception(
                     "Reconnect failed", connection=connection, attempt=attempt + 1
                 )
                 continue
+            finally:
+                _reconnecting.reset(token)
 
             if connection.introspection_changed(introspection):
                 raise FatalError(
@@ -215,6 +217,7 @@ class ControllerRunner:
                     "reconnect, so the controllers built from it are out of date"
                 )
 
+            connection.state.mark_up()
             return True
 
         return False
