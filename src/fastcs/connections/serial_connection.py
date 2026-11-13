@@ -6,7 +6,12 @@ from typing import Literal
 import aioserial
 import serial
 
-from fastcs.connections.connection import Connection, DisconnectedError, IntrospectionT
+from fastcs.connections.connection import (
+    Connection,
+    DisconnectedError,
+    IntrospectionT,
+    disconnect_on,
+)
 from fastcs.tracer import Tracer
 
 
@@ -30,6 +35,10 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
         ValueError: If ``terminator`` is empty
 
     """
+
+    # Reopening a local port is quick, and one gone for longer needs a person
+    reconnect_attempts = 10
+    reconnect_period = 1.0
 
     def __init__(
         self,
@@ -87,6 +96,7 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
                 exclusive=True,
             )
 
+    @disconnect_on(OSError)
     async def write(self, message: str) -> None:
         """Send a message, adding the terminator.
 
@@ -102,6 +112,7 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
 
         self.log_event("Sent message", message=message)
 
+    @disconnect_on(OSError)
     async def query(self, message: str) -> str:
         """Send a message and read the reply.
 
@@ -129,6 +140,7 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
         self.log_event("Received query response", query=message, response=response)
         return response
 
+    @disconnect_on(OSError)
     async def write_bytes(self, data: bytes) -> None:
         """Send raw bytes, without a terminator.
 
@@ -143,6 +155,7 @@ class SerialConnection(Connection[IntrospectionT], Tracer):
 
         self.log_event("Sent bytes", data=data)
 
+    @disconnect_on(OSError)
     async def query_bytes(self, data: bytes, size: int) -> bytes:
         """Send raw bytes and read a reply of a fixed size.
 

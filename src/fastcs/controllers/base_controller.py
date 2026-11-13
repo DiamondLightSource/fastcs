@@ -13,6 +13,7 @@ from typing import (
 
 from fastcs.attributes import AnyAttributeIO, Attribute, AttrR, AttrW, HintedAttribute
 from fastcs.controllers.controller_api import ControllerAPI
+from fastcs.datatypes import Bool
 from fastcs.logging import logger
 from fastcs.methods import Command, Method, Scan, UnboundCommand, UnboundScan
 from fastcs.tracer import Tracer
@@ -35,10 +36,14 @@ class BaseController(Tracer):
     # These class attributes can be overridden on child classes to define default
     # behaviour of instantiated controllers
     root_attribute: Attribute | None = None
+    # Added to every controller by the framework in __init__
+    connected: AttrR[bool]
     description: str | None = None
 
     _sealed: bool = False
     _registered: bool = False
+    # Whether the name dicts exist, so assignments can be checked against them
+    _names_ready: bool = False
 
     def __init__(
         self,
@@ -59,6 +64,7 @@ class BaseController(Tracer):
         self.__sub_controllers: dict[str, BaseController] = {}
         self.__command_methods: dict[str, Command] = {}
         self.__scan_methods: dict[str, Scan] = {}
+        self._names_ready = True
 
         self.__hinted_attributes: dict[str, HintedAttribute] = {}
         self.__hinted_methods: dict[str, type[Method]] = {}
@@ -66,6 +72,16 @@ class BaseController(Tracer):
         self._find_type_hints()
 
         self._bind_attrs()
+
+        # Added to every controller by the framework, so drivers can't use the name
+        self.add_attribute(
+            "connected",
+            AttrR(
+                Bool(),
+                initial_value=True,
+                description="Whether its connections are up",
+            ),
+        )
 
         ios = ios or []
         self._attribute_ref_io_map = {io.ref_type: io for io in ios}
@@ -186,6 +202,8 @@ class BaseController(Tracer):
         elif isinstance(value, BaseController):
             self.add_sub_controller(name, value)
         else:
+            if self._names_ready:
+                self._check_name_free(name, "value", value)
             super().__setattr__(name, value)
 
     async def setup(self):
@@ -194,8 +212,8 @@ class BaseController(Tracer):
         pass
 
     def seal(self):
-        """Validate and connect this controller and its sub controllers, then stop
-        anything being added to them. Called by the framework after construction.
+        """Validate and connect this controller, then stop anything being added to it.
+        Called by the framework on every controller in the tree after construction.
 
         Raises:
             RuntimeError: If the controller is already sealed
@@ -207,8 +225,6 @@ class BaseController(Tracer):
         self._validate_type_hints()
         self._connect_attribute_ios()
         self._sealed = True
-        for controller in self.sub_controllers.values():
-            controller.seal()
 
     def _validate_type_hints(self):
         """Validate all type-hints were introspected"""
@@ -320,7 +336,15 @@ class BaseController(Tracer):
             raise RuntimeError(
                 f"Cannot add {kind} {name} to {self} after it has been sealed"
             )
+        self._check_name_free(name, kind, member)
 
+    def _check_name_free(self, name: str, kind: str, member: object):
+        """Check that ``name`` is not already used by a member of this controller.
+
+        Raises:
+            ValueError: If ``name`` is already used by another member
+
+        """
         namespaces = {
             "attribute": self.__attributes,
             "sub controller": self.__sub_controllers,

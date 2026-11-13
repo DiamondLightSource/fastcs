@@ -6,7 +6,12 @@ from typing import Any
 
 import httpx
 
-from fastcs.connections.connection import Connection, DisconnectedError, IntrospectionT
+from fastcs.connections.connection import (
+    Connection,
+    DisconnectedError,
+    IntrospectionT,
+    disconnect_on,
+)
 from fastcs.tracer import Tracer
 
 
@@ -21,6 +26,10 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             bundle to check it against
 
     """
+
+    # Long enough to ride out a slow server restart
+    reconnect_attempts = 60
+    reconnect_period = 5.0
 
     def __init__(
         self,
@@ -165,6 +174,7 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             self._client = None
             await client.aclose()
 
+    @disconnect_on
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         client = self._client
         if client is None:

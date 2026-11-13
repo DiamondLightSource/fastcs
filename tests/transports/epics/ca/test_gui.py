@@ -116,7 +116,13 @@ def test_get_components(controller):
                     name="ReadInt",
                     read_pv="DEVICE:SubController01:ReadInt",
                     read_widget=TextRead(),
-                )
+                ),
+                SignalR(
+                    name="Connected",
+                    description="Whether its connections are up",
+                    read_pv="DEVICE:SubController01:Connected",
+                    read_widget=LED(),
+                ),
             ],
         ),
         Group(
@@ -127,7 +133,13 @@ def test_get_components(controller):
                     name="ReadInt",
                     read_pv="DEVICE:SubController02:ReadInt",
                     read_widget=TextRead(),
-                )
+                ),
+                SignalR(
+                    name="Connected",
+                    description="Whether its connections are up",
+                    read_pv="DEVICE:SubController02:Connected",
+                    read_widget=LED(),
+                ),
             ],
         ),
         SignalR(
@@ -163,6 +175,12 @@ def test_get_components(controller):
             name="ReadString",
             read_pv="DEVICE:ReadString_RBV",
             write_pv="DEVICE:ReadString",
+        ),
+        SignalR(
+            name="Connected",
+            description="Whether its connections are up",
+            read_pv="DEVICE:Connected",
+            read_widget=LED(),
         ),
         SignalX(
             name="Go",

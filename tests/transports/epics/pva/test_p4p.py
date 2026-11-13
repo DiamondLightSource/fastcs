@@ -40,6 +40,7 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
             "r": f"{pv_prefix}:Table_RBV",
             "w": f"{pv_prefix}:Table",
         },
+        "connected": {"r": f"{pv_prefix}:Connected"},
     }
 
     child_vector_pvi_pv = parent_pvi["value"]["child"]["d"]
@@ -56,6 +57,7 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         },
         "__1": {"d": f"{pv_prefix}:Child:1:PVI"},
         "__2": {"d": f"{pv_prefix}:Child:2:PVI"},
+        "connected": {"r": f"{pv_prefix}:Child:Connected"},
     }
 
     child_pvi_pv = _child_vector_pvi["value"]["__1"]["d"]
@@ -73,6 +75,7 @@ async def test_ioc(p4p_subprocess: tuple[str, Queue]):
         "h": {"w": f"{pv_prefix}:Child:1:H", "r": f"{pv_prefix}:Child:1:H_RBV"},
         "i": {"x": f"{pv_prefix}:Child:1:I"},
         "j": {"r": f"{pv_prefix}:Child:1:J"},
+        "connected": {"r": f"{pv_prefix}:Child:1:Connected"},
     }
 
 
@@ -401,6 +404,7 @@ def test_pvi_grouping():
                 "child0": {"d": f"{pv_prefix}:Child0:PVI"},
                 "child1": {"d": f"{pv_prefix}:Child1:PVI"},
                 "child2": {"d": f"{pv_prefix}:Child2:PVI"},
+                "connected": {"r": f"{pv_prefix}:Connected"},
             },
         }
         assert len(child_vector_controller_pvi) == 1
@@ -416,6 +420,7 @@ def test_pvi_grouping():
                 "__0": {"d": f"{pv_prefix}:Child:0:PVI"},
                 "__1": {"d": f"{pv_prefix}:Child:1:PVI"},
                 "__2": {"d": f"{pv_prefix}:Child:2:PVI"},
+                "connected": {"r": f"{pv_prefix}:Child:Connected"},
             },
         }
         assert len(child_child_controller_pvi) == 1
@@ -432,6 +437,7 @@ def test_pvi_grouping():
                 "attr_d": {
                     "w": f"{pv_prefix}:Child:0:AttrD",
                 },
+                "connected": {"r": f"{pv_prefix}:Child:0:Connected"},
             },
         }
 

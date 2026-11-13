@@ -8,7 +8,7 @@ import pytest
 import pytest_asyncio
 
 import fastcs.connections
-from fastcs.connections import DisconnectedError, HTTPConnection
+from fastcs.connections import ConnectionState, DisconnectedError, HTTPConnection
 
 
 class _RateDevice(BaseHTTPRequestHandler):
@@ -76,14 +76,16 @@ async def test_connect_when_connected_raises(connection: HTTPConnection):
 
 
 @pytest.mark.asyncio
-async def test_link_failure_closes_connection(
+async def test_link_failure_marks_down_and_closes_connection(
     server: ThreadingHTTPServer, connection: HTTPConnection
 ):
+    connection.state = ConnectionState()
     server.shutdown()
     server.server_close()
 
     with pytest.raises(ConnectionError):
         await connection.get("/rate")
+    assert not connection.state.up
     with pytest.raises(DisconnectedError):
         await connection.get("/rate")
 
