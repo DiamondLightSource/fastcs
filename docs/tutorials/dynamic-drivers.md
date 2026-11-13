@@ -58,14 +58,14 @@ Define a type for the introspection, and a connection whose `introspect` queries
 `IPConnection[TemperatureIntrospection]`, is the type that `introspect` returns.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 63-74
+:lines: 63-73
 :::
 
 Update the controllers to create their attributes from `connection.introspection` in
 `__init__`, instead of defining them statically.
 
 :::{literalinclude} /snippets/dynamic.py
-:lines: 109-133
+:lines: 107-131
 :::
 
 The `suffix` field should also be removed from `TemperatureController` and

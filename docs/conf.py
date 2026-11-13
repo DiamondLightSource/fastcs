@@ -110,6 +110,11 @@ nitpick_ignore_regex = [
     ("py:obj", r"fastcs.*.DType_T"),
     (r"py:.*", r"fastcs\.demo.*"),
     (r"py:.*", r"tickit.*"),
+    # httpx doesn't have intersphinx mapping
+    (r"py:.*", r"httpx\..*"),
+    ("any", r"httpx\..*"),
+    # pyserial doesn't have intersphinx mapping
+    (r"py:.*", r"serial\..*"),
     ("py:class", r"numpy.*"),
 ]
 

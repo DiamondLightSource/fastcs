@@ -10,6 +10,10 @@ IntrospectionT = TypeVar("IntrospectionT", default=None)
 """What a `Connection`'s ``introspect`` returns, or ``None`` if it doesn't introspect"""
 
 
+class DisconnectedError(ConnectionError):
+    """Raised when using a connection whose link isn't open"""
+
+
 class Connection(ABC, Generic[IntrospectionT]):
     """A link to a device, which can optionally introspect it.
 

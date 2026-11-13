@@ -381,7 +381,10 @@ def test_parametrised_and_no_settings_connections():
                 {
                     "id": "one",
                     "type": "tests.WithGenericConnections",
-                    "connections": {"sensor": {}, "link": {}},
+                    "connections": {
+                        "sensor": {"ip": "localhost", "port": 8000},
+                        "link": {},
+                    },
                 }
             ],
             "transport": [{"rest": {}}],

@@ -33,11 +33,11 @@ class MyDeviceIO(AttributeIO[float, MyDeviceIORef]):
         self._connection = connection
 
     async def update(self, attr: AttrR[float, MyDeviceIORef]):
-        response = await self._connection.send_query(f"{attr.io_ref.register}?\r\n")
-        await attr.update(float(response.strip()))
+        response = await self._connection.query(f"{attr.io_ref.register}?")
+        await attr.update(float(response))
 
     async def send(self, attr: AttrW[float, MyDeviceIORef], value: float):
-        await self._connection.send_command(f"{attr.io_ref.register}={value}\r\n")
+        await self._connection.write(f"{attr.io_ref.register}={value}")
 
 
 class MyController(Controller):
@@ -95,13 +95,13 @@ class MyDeviceIO(AttributeIO[float, MyDeviceIORef]):
         self._on_put_response = on_put_response
 
     async def update(self, attr: AttrR[float, MyDeviceIORef]):
-        response = await self._connection.send_query(f"{attr.io_ref.register}?\r\n")
-        await attr.update(float(response.strip()))
+        response = await self._connection.query(f"{attr.io_ref.register}?")
+        await attr.update(float(response))
 
     async def send(self, attr: AttrW[float, MyDeviceIORef], value: float):
         # Device responds with a snapshot of all current values after a set
-        response = await self._connection.send_query(
-            f"{attr.io_ref.register}={value}\r\n"
+        response = await self._connection.query(
+            f"{attr.io_ref.register}={value}"
         )
         if self._on_put_response is not None:
             await self._on_put_response(response)
@@ -117,7 +117,7 @@ class MyController(Controller):
         super().__init__(ios=[MyDeviceIO(connection, self._handle_put_response)])
 
     async def _handle_put_response(self, response: str) -> None:
-        actual, power, status = response.strip().split(",")
+        actual, power, status = response.split(",")
         await self.actual_temperature.update(float(actual))
         await self.power.update(float(power))
         await self.status.update(float(status))
@@ -169,7 +169,7 @@ class MultiChannelController(Controller):
     async def update_voltages(self):
         # One request returns all channel voltages
         voltages = json.loads(
-            (await self._connection.send_query("V?\r\n")).strip()
+            await self._connection.query("V?")
         )
         for channel, voltage in zip(self._channels, voltages):
             await channel.voltage.update(float(voltage))
@@ -235,7 +235,7 @@ class MultiChannelController(Controller):
     @scan(0.1)
     async def fetch_voltages(self):
         voltages = json.loads(
-            (await self._connection.send_query("V?\r\n")).strip()
+            await self._connection.query("V?")
         )
         self._channel_io.update_cache(dict(enumerate(map(float, voltages))))
 ```

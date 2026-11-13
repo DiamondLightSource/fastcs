@@ -17,7 +17,6 @@ classifiers = [
 ]
 description = "Control system agnostic framework for building Device support in Python that will work for both EPICS and Tango"
 dependencies = [
-    "aioserial",
     "fastapi[standard]",
     "numpy",
     "pydantic",
@@ -35,13 +34,22 @@ requires-python = ">=3.11"
 
 [project.optional-dependencies]
 demo = ["tickit~=0.4.3"]
+serial = ["aioserial"]
+http = ["httpx"]
 epicsca = ["pvi~=0.14.4", "softioc>=4.7.1"]
 epicspva = ["p4p", "pvi~=0.14.4"]
 epics = ["fastcs[epicsca]", "fastcs[epicspva]"]
 tango = ["pytango"]
 graphql = ["strawberry-graphql", "uvicorn[standard]>=0.12.0"]
 rest = ["fastapi[standard]", "numpy", "uvicorn[standard]>=0.12.0"]
-all = ["fastcs[epics]", "fastcs[tango]", "fastcs[graphql]", "fastcs[rest]"]
+all = [
+    "fastcs[epics]",
+    "fastcs[tango]",
+    "fastcs[graphql]",
+    "fastcs[rest]",
+    "fastcs[serial]",
+    "fastcs[http]",
+]
 
 [dependency-groups]
 dev = [
