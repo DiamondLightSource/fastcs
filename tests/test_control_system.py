@@ -10,6 +10,7 @@ from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
 from fastcs.exceptions import FatalError
 from fastcs.methods import Command, command
+from fastcs.transports import Transport
 from fastcs.util import ONCE
 from tests.assertable_controller import MyTestController
 
@@ -157,13 +158,34 @@ class DroppingController(Controller):
         self.connection.state.mark_down()
 
 
+class ForeverTransport(Transport):
+    cancelled = False
+
+    def connect(self, controller_apis, loop) -> None:
+        pass
+
+    async def serve(self) -> None:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+
+
+# Keep the test transport out of the launcher's transport schema
+Transport.subclasses.remove(ForeverTransport)
+
+
 @pytest.mark.asyncio
 async def test_serve_raises_fatal_error_and_closes_connections():
     connection = ChangingConnection()
-    fastcs = FastCS([ControllerSpec("A", DroppingController, connection)], [])
+    transport = ForeverTransport()
+    fastcs = FastCS([ControllerSpec("A", DroppingController, connection)], [transport])
 
     with pytest.raises(FatalError, match="changed structure"):
         await asyncio.wait_for(fastcs.serve(interactive=False), timeout=1)
 
     # Once on reconnect, once on shutdown
     assert connection.closes == 2
+    assert transport.cancelled
+    assert asyncio.all_tasks() == {asyncio.current_task()}
