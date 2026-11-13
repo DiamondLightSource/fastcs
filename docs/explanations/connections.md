@@ -42,4 +42,6 @@ rate = await connection.get("/rate")
 ```
 
 Like the other connections, it raises `TimeoutError` when the device doesn't answer in
-time. It raises `ConnectionError` when the server can't be reached.
+time, but leaves the link open, as one slow request doesn't mean the server has gone. It
+raises `ConnectionError` when the server can't be reached, and closes the link so later
+calls raise `DisconnectedError`.
