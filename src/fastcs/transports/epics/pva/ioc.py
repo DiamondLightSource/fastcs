@@ -4,6 +4,7 @@ from p4p.server import Server, StaticProvider
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
+from fastcs.logging import logger
 from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
@@ -11,7 +12,7 @@ from ._pv_handlers import make_command_pv, make_shared_read_pv, make_shared_writ
 from .pvi import add_pvi_info
 
 
-async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
+def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
     """Parses `Attribute` s into p4p signals in handlers."""
     provider = StaticProvider(pv_prefix_from_path(root_controller_api.path))
 
@@ -40,6 +41,16 @@ async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider
                     provider.add(f"{full_pv_name}", attribute_pv)
 
         for attr_name, method in controller_api.command_methods.items():
+            if not method.is_void:
+                logger.warning(
+                    "EPICS PVA transport cannot serve a command that takes "
+                    "arguments or returns a value",
+                    command=attr_name,
+                    signature=str(method.signature),
+                )
+                method.enabled = False
+                continue
+
             full_pv_name = f"{pv_prefix}:{snake_to_pascal(attr_name)}"
             command_pv = make_command_pv(method.fn)
             provider.add(f"{full_pv_name}", command_pv)
@@ -56,13 +67,12 @@ class P4PIOC:
 
     def __init__(self, controller_apis: list[ControllerAPI]):
         self._controller_apis = controller_apis
+        self._providers = self._build_providers()
 
-    async def _build_providers(self) -> list[StaticProvider]:
-        return [await parse_attributes(api) for api in self._controller_apis]
+    def _build_providers(self) -> list[StaticProvider]:
+        return [parse_attributes(api) for api in self._controller_apis]
 
     async def run(self):
-        providers = await self._build_providers()
-
         endless_event = asyncio.Event()
-        with Server(providers):
+        with Server(self._providers):
             await endless_event.wait()

@@ -1,4 +1,5 @@
 from collections.abc import Awaitable, Callable, Coroutine
+from inspect import Parameter, Signature
 from typing import Any
 
 import strawberry
@@ -12,6 +13,7 @@ from fastcs.controllers import ControllerAPI
 from fastcs.datatypes.datatype import DType_T
 from fastcs.exceptions import FastCSError
 from fastcs.logging import intercept_std_logger
+from fastcs.methods import Command
 
 from .options import GraphQLServerOptions
 
@@ -112,7 +114,7 @@ class GraphQLAPI:
     def _process_commands(self, controller_api: ControllerAPI):
         """Create mutations from api commands"""
         for name, method in controller_api.command_methods.items():
-            self.mutations.append(strawberry.mutation(_wrap_command(name, method.fn)))
+            self.mutations.append(strawberry.mutation(_wrap_command(name, method)))
 
     def _process_sub_apis(self, root_controller_api: ControllerAPI):
         """Recursively add fields from the queries and mutations of sub apis"""
@@ -181,13 +183,50 @@ def _wrap_as_field(field_name: str, operation: type) -> StrawberryField:
     return strawberry.field(_dynamic_field)
 
 
-def _wrap_command(method_name: str, method: Callable) -> Callable[..., Awaitable[bool]]:
-    """Wrap a command in a function with annotations for strawberry"""
+# Strawberry treats resolver parameters with these names specially rather than
+# as GraphQL arguments. See `RESERVED_PARAMSPEC` in
+# https://github.com/strawberry-graphql/strawberry/blob/0.289.0/strawberry/types/fields/resolver.py
+_RESERVED_RESOLVER_NAMES = ("cls", "info", "root", "self")
 
-    async def _dynamic_f() -> bool:
-        await method()
-        return True
+
+def _wrap_command(method_name: str, command: Command) -> Callable[..., Awaitable[Any]]:
+    """Wrap a command in a function with annotations for strawberry"""
+    argument_names = [
+        parameter.name for parameter in command.signature.parameters.values()
+    ]
+    return_datatype = command.return_datatype
+    # A void command has no value to give back, so it reports that it ran.
+    return_annotation = bool if return_datatype is None else return_datatype
+
+    reserved = [name for name in argument_names if name in _RESERVED_RESOLVER_NAMES]
+    if reserved:
+        raise FastCSError(
+            f"Command {method_name!r} has argument(s) {reserved} which the GraphQL "
+            f"transport cannot expose; rename them to avoid {_RESERVED_RESOLVER_NAMES}"
+        )
+
+    async def _dynamic_f(**kwargs):
+        result = await command.fn(*(kwargs[name] for name in argument_names))
+        return True if return_datatype is None else result
 
     _dynamic_f.__name__ = method_name
+    # Strawberry builds the mutation's arguments and result from the resolver's
+    # signature, so give it one declaring the command's arguments.
+    _dynamic_f.__signature__ = Signature(  # type: ignore[attr-defined]
+        [
+            Parameter(
+                parameter.name,
+                Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=argument_type,
+                default=parameter.default,
+            )
+            for parameter, argument_type in zip(
+                command.signature.parameters.values(),
+                command.argument_types,
+                strict=True,
+            )
+        ],
+        return_annotation=return_annotation,
+    )
 
     return _dynamic_f

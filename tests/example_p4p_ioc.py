@@ -60,6 +60,7 @@ class ChildController(Controller):
         await asyncio.sleep(0.1)
         print("D: FINISHED")
         await self.j.update(self.j.get() + 1)
+        return 1
 
     e: AttrR = AttrR(Bool(), io_ref=SimpleAttributeIORef())
 

@@ -1,15 +1,16 @@
 from collections.abc import Callable, Coroutine
+from inspect import Parameter
 from typing import Any
 
 import uvicorn
 from fastapi import FastAPI
-from pydantic import create_model
+from pydantic import BaseModel, Field, create_model
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
 from fastcs.datatypes.datatype import DType_T
 from fastcs.logging import intercept_std_logger
-from fastcs.methods import CommandCallback
+from fastcs.methods import Command
 
 from .options import RestServerOptions
 from .util import (
@@ -142,13 +143,71 @@ def _add_attribute_api_routes(app: FastAPI, root_controller_api: ControllerAPI) 
                     )
 
 
-def _wrap_command(
-    method: CommandCallback,
-) -> Callable[..., Coroutine[None, None, None]]:
-    async def command() -> None:
-        await method()
+def _argument_field(index: int) -> str:
+    """The internal pydantic field name of a command's positional argument."""
+    return f"arg{index}"
 
-    return command
+
+def _default(parameter: Parameter) -> Any:
+    """A parameter's default, or ``...`` (required) if it has none."""
+    return ... if parameter.default is Parameter.empty else parameter.default
+
+
+def _command_arguments_body(model_name: str, command: Command) -> type[BaseModel]:
+    """A pydantic model of a command's positional arguments, as a request body."""
+    parameters = list(command.signature.parameters.values())
+    # Argument names may not be valid pydantic field names (e.g. leading
+    # underscores, or `model_config`), so the fields get safe internal names and
+    # the argument names are kept as aliases, which are what the schema shows.
+    fields: dict[str, Any] = {
+        _argument_field(index): (
+            argument_type,
+            Field(_default(parameter), alias=parameter.name),
+        )
+        for index, (parameter, argument_type) in enumerate(
+            zip(parameters, command.argument_types, strict=True)
+        )
+    }
+    return create_model(f"{model_name}.Arguments", **fields)
+
+
+def _command_response_body(model_name: str, return_datatype: type) -> type[BaseModel]:
+    """A pydantic model of a command's return value, as a response body."""
+    fields: dict[str, Any] = {"value": (return_datatype, ...)}
+    return create_model(f"{model_name}.Result", **fields)
+
+
+def _wrap_command(
+    model_name: str, command: Command
+) -> Callable[..., Coroutine[None, None, dict[str, object] | None]]:
+    """Wrap a command in a route handler that carries its arguments and result."""
+    argument_names = [
+        parameter.name for parameter in command.signature.parameters.values()
+    ]
+    returns_a_value = command.return_datatype is not None
+
+    if not argument_names:
+
+        async def call() -> dict[str, object] | None:
+            result = await command.fn()
+            return {"value": result} if returns_a_value else None
+
+        return call
+
+    async def call_with_arguments(request) -> dict[str, object] | None:
+        arguments = [
+            getattr(request, _argument_field(index))
+            for index in range(len(argument_names))
+        ]
+        result = await command.fn(*arguments)
+        return {"value": result} if returns_a_value else None
+
+    # Fast api uses type annotations for validation, schema, conversions
+    call_with_arguments.__annotations__["request"] = _command_arguments_body(
+        model_name, command
+    )
+
+    return call_with_arguments
 
 
 def _add_command_api_routes(app: FastAPI, root_controller_api: ControllerAPI) -> None:
@@ -157,10 +216,21 @@ def _add_command_api_routes(app: FastAPI, root_controller_api: ControllerAPI) ->
 
         for name, method in controller_api.command_methods.items():
             cmd_name = name.replace("_", "-")
-            route = f"/{'/'.join(path)}/{cmd_name}" if path else cmd_name
+            route = f"{'/'.join(path)}/{cmd_name}" if path else cmd_name
+            # OpenAPI needs a unique name per model, and the same command name
+            # can appear on more than one controller, so include the path
+            model_name = ".".join(path + [name])
+            return_datatype = method.return_datatype
             app.add_api_route(
                 f"/{route}",
-                _wrap_command(method.fn),
+                _wrap_command(model_name, method),
                 methods=["PUT"],
-                status_code=204,
+                # A command that gives something back has a body to return, so
+                # it answers 200 rather than 204 No Content.
+                status_code=200 if return_datatype is not None else 204,
+                response_model=(
+                    _command_response_body(model_name, return_datatype)
+                    if return_datatype is not None
+                    else None
+                ),
             )
