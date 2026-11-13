@@ -1,6 +1,5 @@
-from asyncio import iscoroutinefunction
 from collections.abc import Callable, Coroutine
-from inspect import Parameter, Signature, getdoc, signature
+from inspect import Parameter, Signature, getdoc, iscoroutinefunction, signature
 from typing import Any, ClassVar, Generic
 
 from fastcs.tracer import Tracer
