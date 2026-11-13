@@ -130,12 +130,6 @@ class Connection(ABC, Generic[IntrospectionT]):
         """Close the link. Called by the framework on stop, or if build fails."""
 
 
-# What every @disconnect_on treats as the link going down, as well as its errors
-_ALWAYS_DISCONNECT_ON: tuple[type[BaseException], ...] = (
-    ConnectionError,
-    DisconnectedError,
-)
-
 _MethodT = TypeVar("_MethodT", bound=Callable[..., Coroutine[Any, Any, Any]])
 
 
@@ -166,14 +160,26 @@ def disconnect_on(*errors: Any) -> Any:
     Args:
         errors: Other exceptions that mean the link has gone
 
+    Raises:
+        TypeError: If the method isn't async, or an error isn't an exception class
+
     """
-    if len(errors) == 1 and inspect.iscoroutinefunction(errors[0]):
+    if len(errors) == 1 and not isinstance(errors[0], type):
         # Used bare, as @disconnect_on, so the only argument is the method itself
         return disconnect_on()(errors[0])
 
-    link_errors = (*_ALWAYS_DISCONNECT_ON, *errors)
+    link_errors = (ConnectionError, *errors)
 
     def decorator(method: _MethodT) -> _MethodT:
+        name = getattr(method, "__qualname__", repr(method))
+        if not inspect.iscoroutinefunction(method):
+            raise TypeError(f"@disconnect_on needs an async method, but {name} isn't")
+        for error in errors:
+            if not (isinstance(error, type) and issubclass(error, BaseException)):
+                raise TypeError(
+                    f"@disconnect_on on {name} takes exception classes, not {error!r}"
+                )
+
         @functools.wraps(method)
         async def wrapper(self: Connection, *args: Any, **kwargs: Any) -> Any:
             if not self.state.up:
