@@ -78,8 +78,11 @@ class TestTangoDevice:
             "Enum",
             "OneDWaveform",
             "TwoDWaveform",
+            "Connected",
             "SubController01_ReadInt",
+            "SubController01_Connected",
             "SubController02_ReadInt",
+            "SubController02_Connected",
             "State",
             "Status",
         ]
