@@ -4,10 +4,11 @@ from dataclasses import dataclass
 import pytest
 
 from fastcs.connections import Connection
+from fastcs.connections.connection import _structure
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.exceptions import FatalError
 from fastcs.methods import scan
-from fastcs.runner import ControllerRunner, _structure
+from fastcs.runner import ControllerRunner
 from fastcs.util import ONCE
 
 
@@ -378,6 +379,28 @@ async def test_introspection_changing_structure_on_reconnect_is_fatal():
     connection.state.mark_down()
     with pytest.raises(FatalError, match="changed structure"):
         await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
+    await runner.stop()
+
+
+class PoppingController(Controller):
+    def __init__(self, connection: IntrospectingConnection) -> None:
+        super().__init__()
+        self.connection = connection
+        connection.introspection.parameters.pop("gain")
+
+
+@pytest.mark.asyncio
+async def test_controller_mutating_introspection_still_reconnects():
+    connection = IntrospectingConnection()
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", PoppingController, connection)]
+    )
+    await runner.start()
+    controller = runner.controllers[0]
+
+    connection.state.mark_down()
+    await controller.connected.wait_for_value(False, timeout=1)
+    await controller.connected.wait_for_value(True, timeout=1)
     await runner.stop()
 
 

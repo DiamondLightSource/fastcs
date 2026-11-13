@@ -1,10 +1,7 @@
 import asyncio
-import dataclasses
 from collections import defaultdict
-from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Self
-
-from pydantic import BaseModel
+from collections.abc import Iterator, Sequence
+from typing import Self
 
 from fastcs.attributes.attr_r import AttrR
 from fastcs.connections import Connection, ConnectionState
@@ -212,7 +209,7 @@ class ControllerRunner:
                 )
                 continue
 
-            if _structure(introspection) != _structure(connection.introspection):
+            if connection.introspection_changed(introspection):
                 raise FatalError(
                     f"{type(connection).__name__} introspection changed structure on "
                     "reconnect, so the controllers built from it are out of date"
@@ -297,24 +294,6 @@ def _scans(controller: BaseController) -> Iterator[tuple[float, ScanCallback]]:
             period = attribute.io_ref.update_period
             if period is not None:
                 yield period, attribute.bind_update_callback()
-
-
-def _structure(value: Any) -> Any:
-    """The shape of a value: the fields, keys and lengths it's made of, but not its
-    leaf values or their types"""
-    if isinstance(value, BaseModel):
-        fields = type(value).model_fields
-        return {name: _structure(getattr(value, name)) for name in fields}
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return {
-            field.name: _structure(getattr(value, field.name))
-            for field in dataclasses.fields(value)
-        }
-    if isinstance(value, Mapping):
-        return {key: _structure(item) for key, item in value.items()}
-    if isinstance(value, list | tuple):
-        return [_structure(item) for item in value]
-    return None
 
 
 def _held_connections(controller: BaseController) -> list[Connection]:

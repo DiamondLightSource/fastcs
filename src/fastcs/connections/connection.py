@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import functools
 import inspect
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Coroutine, Sequence
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from typing import Any, ClassVar, Generic, cast, overload
 
+from pydantic import BaseModel
 from typing_extensions import TypeVar
 
 IntrospectionT = TypeVar("IntrospectionT", default=None)
@@ -79,6 +81,7 @@ class Connection(ABC, Generic[IntrospectionT]):
     reconnect_period: float = 5.0
 
     _introspection: IntrospectionT
+    _introspection_structure: Any
 
     @property
     def introspection(self) -> IntrospectionT:
@@ -102,6 +105,12 @@ class Connection(ABC, Generic[IntrospectionT]):
             raise RuntimeError(f"{type(self).__name__} introspection is already set")
 
         self._introspection = value
+        self._introspection_structure = _structure(value)
+
+    def introspection_changed(self, introspection: IntrospectionT) -> bool:
+        """Whether an introspection's fields, keys or list lengths differ from those
+        of the one this connection was opened with"""
+        return _structure(introspection) != self._introspection_structure
 
     @abstractmethod
     async def connect(self) -> None:
@@ -179,3 +188,21 @@ def disconnect_on(*errors: Any) -> Any:
         return cast(_MethodT, wrapper)
 
     return decorator
+
+
+def _structure(value: Any) -> Any:
+    """The shape of a value: the fields, keys and lengths it's made of, but not its
+    leaf values or their types"""
+    if isinstance(value, BaseModel):
+        fields = type(value).model_fields
+        return {name: _structure(getattr(value, name)) for name in fields}
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {
+            field.name: _structure(getattr(value, field.name))
+            for field in dataclasses.fields(value)
+        }
+    if isinstance(value, Mapping):
+        return {key: _structure(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_structure(item) for item in value]
+    return None
