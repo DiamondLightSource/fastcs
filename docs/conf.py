@@ -113,6 +113,8 @@ nitpick_ignore_regex = [
     # httpx doesn't have intersphinx mapping
     (r"py:.*", r"httpx\..*"),
     ("any", r"httpx\..*"),
+    # pyserial doesn't have intersphinx mapping
+    (r"py:.*", r"serial\..*"),
     ("py:class", r"numpy.*"),
 ]
 
