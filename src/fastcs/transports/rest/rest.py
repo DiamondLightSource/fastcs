@@ -11,7 +11,6 @@ from fastcs.controllers import ControllerAPI
 from fastcs.datatypes.datatype import DType_T
 from fastcs.logging import intercept_std_logger
 from fastcs.methods import Command
-from fastcs.util import snake_to_pascal
 
 from .options import RestServerOptions
 from .util import (
@@ -154,7 +153,7 @@ def _default(parameter: Parameter) -> Any:
     return ... if parameter.default is Parameter.empty else parameter.default
 
 
-def _command_arguments_body(name: str, command: Command) -> type[BaseModel]:
+def _command_arguments_body(model_name: str, command: Command) -> type[BaseModel]:
     """A pydantic model of a command's positional arguments, as a request body."""
     parameters = list(command.signature.parameters.values())
     # Argument names may not be valid pydantic field names (e.g. leading
@@ -169,17 +168,17 @@ def _command_arguments_body(name: str, command: Command) -> type[BaseModel]:
             zip(parameters, command.argument_types, strict=True)
         )
     }
-    return create_model(f"Call{snake_to_pascal(name)}Arguments", **fields)
+    return create_model(f"{model_name}.Arguments", **fields)
 
 
-def _command_response_body(name: str, return_datatype: type) -> type[BaseModel]:
+def _command_response_body(model_name: str, return_datatype: type) -> type[BaseModel]:
     """A pydantic model of a command's return value, as a response body."""
     fields: dict[str, Any] = {"value": (return_datatype, ...)}
-    return create_model(f"Call{snake_to_pascal(name)}Result", **fields)
+    return create_model(f"{model_name}.Result", **fields)
 
 
 def _wrap_command(
-    name: str, command: Command
+    model_name: str, command: Command
 ) -> Callable[..., Coroutine[None, None, dict[str, object] | None]]:
     """Wrap a command in a route handler that carries its arguments and result."""
     argument_names = [
@@ -205,7 +204,7 @@ def _wrap_command(
 
     # Fast api uses type annotations for validation, schema, conversions
     call_with_arguments.__annotations__["request"] = _command_arguments_body(
-        name, command
+        model_name, command
     )
 
     return call_with_arguments
@@ -218,16 +217,19 @@ def _add_command_api_routes(app: FastAPI, root_controller_api: ControllerAPI) ->
         for name, method in controller_api.command_methods.items():
             cmd_name = name.replace("_", "-")
             route = f"{'/'.join(path)}/{cmd_name}" if path else cmd_name
+            # OpenAPI needs a unique name per model, and the same command name
+            # can appear on more than one controller, so include the path
+            model_name = ".".join(path + [name])
             return_datatype = method.return_datatype
             app.add_api_route(
                 f"/{route}",
-                _wrap_command(name, method),
+                _wrap_command(model_name, method),
                 methods=["PUT"],
                 # A command that gives something back has a body to return, so
                 # it answers 200 rather than 204 No Content.
                 status_code=200 if return_datatype is not None else 204,
                 response_model=(
-                    _command_response_body(name, return_datatype)
+                    _command_response_body(model_name, return_datatype)
                     if return_datatype is not None
                     else None
                 ),

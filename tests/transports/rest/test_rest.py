@@ -10,9 +10,9 @@ from pytest_mock import MockerFixture
 from tests.assertable_controller import AssertableControllerAPI, MyTestController
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.controllers import ControllerAPI
+from fastcs.controllers import Controller, ControllerAPI
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
-from fastcs.methods import Command
+from fastcs.methods import Command, command
 from fastcs.transports.rest.rest import _wrap_command
 from fastcs.transports.rest.transport import RestTransport
 
@@ -201,4 +201,37 @@ def test_command_argument_name_not_a_valid_pydantic_field(name: str):
 
     assert client.put("/do", json={name: 5}).json() == {"value": 5}
     schema = client.get("/openapi.json").json()["components"]["schemas"]
-    assert list(schema["CallDoArguments"]["properties"]) == [name]
+    assert list(schema["do.Arguments"]["properties"]) == [name]
+
+
+def test_commands_with_the_same_name_get_their_own_models():
+    class SubControllerA(Controller):
+        @command()
+        async def move(self, position: float) -> float:
+            return position
+
+    class SubControllerB(Controller):
+        @command()
+        async def move(self, angle: float) -> float:
+            return angle
+
+    class ParentController(Controller):
+        def __init__(self):
+            super().__init__()
+            self.add_sub_controller("SubControllerA", SubControllerA())
+            self.add_sub_controller("SubControllerB", SubControllerB())
+
+    rest_transport = RestTransport()
+    rest_transport.connect(
+        [ParentController()._build_api(["ParentController"])],
+        asyncio.AbstractEventLoop(),
+    )
+    with TestClient(rest_transport._server._app) as client:
+        schemas = client.get("/openapi.json").json()["components"]["schemas"]
+
+    assert {
+        "ParentController.SubControllerA.move.Arguments",
+        "ParentController.SubControllerA.move.Result",
+        "ParentController.SubControllerB.move.Arguments",
+        "ParentController.SubControllerB.move.Result",
+    } <= schemas.keys()
