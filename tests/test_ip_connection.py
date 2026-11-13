@@ -88,3 +88,8 @@ async def test_reply_longer_than_limit_raises_and_closes_connection():
         await connection.write("R=5")
 
     server.close()
+
+
+def test_empty_terminator_raises():
+    with pytest.raises(ValueError, match="terminator must not be empty"):
+        IPConnection("127.0.0.1", 0, terminator="")

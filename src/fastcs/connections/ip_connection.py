@@ -17,6 +17,9 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         timeout: Seconds to wait for each operation before closing the link
         limit: Most bytes a reply can have, not counting its terminator
 
+    Raises:
+        ValueError: If ``terminator`` is empty
+
     """
 
     def __init__(
@@ -28,6 +31,9 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         timeout: float = 5.0,
         limit: int = 2**16,
     ):
+        if not terminator:
+            raise ValueError("terminator must not be empty")
+
         super().__init__()
         self.ip = ip
         self.port = port
