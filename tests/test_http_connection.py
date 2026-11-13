@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 import pytest_asyncio
 
+import fastcs.connections
 from fastcs.connections import DisconnectedError, HTTPConnection
 
 
@@ -150,3 +151,12 @@ async def test_missing_ca_bundle_raises():
     connection = HTTPConnection("https://127.0.0.1", verify="/no/such/bundle.pem")
     with pytest.raises(FileNotFoundError):
         await connection.connect()
+
+
+def test_missing_extra_names_it(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delattr(fastcs.connections, "HTTPConnection")
+    with pytest.raises(ImportError, match=r"fastcs\[http\]"):
+        from fastcs.connections import HTTPConnection  # noqa: F401
+
+    with pytest.raises(AttributeError):
+        fastcs.connections.NotAConnection  # noqa: B018

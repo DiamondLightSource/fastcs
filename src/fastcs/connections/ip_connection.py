@@ -49,6 +49,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
 
         Raises:
             RuntimeError: If the link is already open
+            OSError: If the device can't be reached
             TimeoutError: If opening takes longer than ``timeout``
 
         """
