@@ -69,6 +69,12 @@ async def test_put_then_get_json(connection: HTTPConnection):
 
 
 @pytest.mark.asyncio
+async def test_connect_when_connected_raises(connection: HTTPConnection):
+    with pytest.raises(RuntimeError, match="already connected"):
+        await connection.connect()
+
+
+@pytest.mark.asyncio
 async def test_link_failure_closes_connection(
     server: ThreadingHTTPServer, connection: HTTPConnection
 ):
@@ -137,3 +143,10 @@ async def test_slowly_dripped_reply_times_out():
 
     assert task.done()
     assert isinstance(task.exception(), TimeoutError)
+
+
+@pytest.mark.asyncio
+async def test_missing_ca_bundle_raises():
+    connection = HTTPConnection("https://127.0.0.1", verify="/no/such/bundle.pem")
+    with pytest.raises(FileNotFoundError):
+        await connection.connect()
