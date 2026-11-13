@@ -24,7 +24,9 @@ reply = await connection.query("R?")  # sends "R?\r\n", returns the reply withou
 
 For binary protocols, `write_bytes` and `query_bytes` send raw bytes without a
 terminator. If an exchange fails or takes longer than `timeout`, the link is closed and
-later calls raise `DisconnectedError`.
+later calls raise `DisconnectedError`. If the device closes the link, the exchange raises
+`ConnectionError`, which `DisconnectedError` subclasses, so
+`except (ConnectionError, TimeoutError)` catches any link failure.
 
 `HTTPConnection` talks to a device with a JSON API. `get`, `put`, `post` and `delete`
 take a path relative to its `url`, send JSON, and return the parsed reply. An error

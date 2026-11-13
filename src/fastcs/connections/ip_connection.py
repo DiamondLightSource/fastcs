@@ -9,12 +9,6 @@ from fastcs.tracer import Tracer
 class IPConnection(Connection[IntrospectionT], Tracer):
     """A TCP link to a device that exchanges terminated messages.
 
-    Example::
-
-        connection = IPConnection("10.0.0.5", 4000)
-        await connection.write("R=5")
-        reply = await connection.query("R?")
-
     Args:
         ip: The address to connect to
         port: The port to connect to
@@ -27,8 +21,8 @@ class IPConnection(Connection[IntrospectionT], Tracer):
 
     def __init__(
         self,
-        ip: str = "127.0.0.1",
-        port: int = 25565,
+        ip: str,
+        port: int,
         terminator: str = "\r\n",
         encoding: str = "utf-8",
         timeout: float = 5.0,
@@ -45,16 +39,28 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
-        async with asyncio.timeout(self.timeout):
-            self._streams = await asyncio.open_connection(
-                self.ip, self.port, limit=self.limit
-            )
+        """Open the link.
+
+        Raises:
+            RuntimeError: If the link is already open
+            TimeoutError: If opening takes longer than ``timeout``
+
+        """
+        async with self._lock:
+            if self._streams is not None:
+                raise RuntimeError(f"{self.ip}:{self.port} is already connected")
+
+            async with asyncio.timeout(self.timeout):
+                self._streams = await asyncio.open_connection(
+                    self.ip, self.port, limit=self.limit
+                )
 
     async def write(self, message: str) -> None:
         """Send a message, adding the terminator.
 
         Raises:
             DisconnectedError: If the link isn't open
+            ConnectionError: If the device closes the link
             TimeoutError: If sending takes longer than ``timeout``
 
         """
@@ -62,6 +68,8 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         async with self._exchange() as (_, writer):
             writer.write(data)
             await writer.drain()
+
+        self.log_event("Sent message", message=message)
 
     async def query(self, message: str) -> str:
         """Send a message and read the reply.
@@ -71,8 +79,9 @@ class IPConnection(Connection[IntrospectionT], Tracer):
 
         Raises:
             DisconnectedError: If the link isn't open
+            ConnectionError: If the device closes the link
             TimeoutError: If the reply takes longer than ``timeout``
-            ValueError: If the reply is longer than ``limit``
+            ValueError: If the reply is longer than ``limit`` or can't be decoded
 
         """
         data = f"{message}{self.terminator}".encode(self.encoding)
@@ -96,12 +105,15 @@ class IPConnection(Connection[IntrospectionT], Tracer):
 
         Raises:
             DisconnectedError: If the link isn't open
+            ConnectionError: If the device closes the link
             TimeoutError: If sending takes longer than ``timeout``
 
         """
         async with self._exchange() as (_, writer):
             writer.write(data)
             await writer.drain()
+
+        self.log_event("Sent bytes", data=data)
 
     async def query_bytes(self, data: bytes, size: int) -> bytes:
         """Send raw bytes and read a reply of a fixed size.
@@ -111,13 +123,17 @@ class IPConnection(Connection[IntrospectionT], Tracer):
 
         Raises:
             DisconnectedError: If the link isn't open
+            ConnectionError: If the device closes the link
             TimeoutError: If the reply takes longer than ``timeout``
 
         """
         async with self._exchange() as (reader, writer):
             writer.write(data)
             await writer.drain()
-            return await reader.readexactly(size)
+            reply = await reader.readexactly(size)
+
+        self.log_event("Received query bytes response", query=data, response=reply)
+        return reply
 
     async def close(self) -> None:
         async with self._lock:
@@ -129,7 +145,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
             writer.close()
             try:
                 await writer.wait_closed()
-            except ConnectionResetError:
+            except ConnectionError:
                 pass
 
     @asynccontextmanager
@@ -145,8 +161,12 @@ class IPConnection(Connection[IntrospectionT], Tracer):
             try:
                 async with asyncio.timeout(self.timeout):
                     yield reader, writer
-            except BaseException:
+            except BaseException as e:
                 # A late reply could be left in the stream and read by the next query
                 self._streams = None
                 writer.close()
+                if isinstance(e, asyncio.IncompleteReadError):
+                    raise ConnectionError(
+                        f"{self.ip}:{self.port} closed the link"
+                    ) from e
                 raise
