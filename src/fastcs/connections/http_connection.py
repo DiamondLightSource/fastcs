@@ -174,7 +174,7 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             self._client = None
             await client.aclose()
 
-    @disconnect_on(TimeoutError)
+    @disconnect_on
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         client = self._client
         if client is None:
