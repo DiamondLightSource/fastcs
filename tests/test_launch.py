@@ -381,6 +381,7 @@ def test_reconnect_setting_defaults_come_from_the_connection_class():
     fields = _connection_settings_model(IPConnection).model_fields
     assert fields["reconnect_attempts"].default == IPConnection.reconnect_attempts
     assert fields["reconnect_period"].default == IPConnection.reconnect_period
+    assert fields["disconnect_after_timeouts"].default == 1
 
 
 def test_reconnect_attempts_without_period_rejected_by_settings_and_schema():

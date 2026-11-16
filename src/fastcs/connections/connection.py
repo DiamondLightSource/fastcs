@@ -16,8 +16,8 @@ IntrospectionT = TypeVar("IntrospectionT", default=None)
 """What a `Connection`'s ``introspect`` returns, or ``None`` if it doesn't introspect"""
 
 
-class DisconnectedError(ConnectionError):
-    """Raised when using a connection whose link isn't open"""
+class DisconnectedError(Exception):
+    """Raised when using a connection whose link is down or closed"""
 
 
 class ConnectionState:
@@ -30,6 +30,7 @@ class ConnectionState:
         self._up = asyncio.Event()
         self._up.set()
         self._down = asyncio.Event()
+        self._timeouts = 0
 
     @property
     def up(self) -> bool:
@@ -43,8 +44,23 @@ class ConnectionState:
 
     def mark_up(self) -> None:
         """Mark the link up, waking anything waiting for that"""
+        self._timeouts = 0
         self._down.clear()
         self._up.set()
+
+    def count_timeout(self) -> int:
+        """Count a timeout from a ``@disconnect_on`` method.
+
+        Returns:
+            How many timeouts there have been in a row
+
+        """
+        self._timeouts += 1
+        return self._timeouts
+
+    def reset_timeouts(self) -> None:
+        """Start counting timeouts again, after a ``@disconnect_on`` method works"""
+        self._timeouts = 0
 
     async def wait_down(self) -> None:
         """Wait until the link is marked down"""
@@ -60,6 +76,10 @@ class _InertConnectionState(ConnectionState):
 
     def mark_down(self) -> None:
         pass
+
+    def count_timeout(self) -> int:
+        # Shared by every unopened connection, so it doesn't count
+        return 0
 
 
 class Connection(ABC, Generic[IntrospectionT]):
@@ -82,6 +102,10 @@ class Connection(ABC, Generic[IntrospectionT]):
     reconnect_attempts: int | None = None
     reconnect_period: float | None = None
 
+    # How many timeouts in a row mean the link has gone, from @disconnect_on methods
+    # that list TimeoutError. At least 1
+    disconnect_after_timeouts: int = 1
+
     _introspection: IntrospectionT
     _introspection_structure: Any
 
@@ -89,13 +113,20 @@ class Connection(ABC, Generic[IntrospectionT]):
         """Check the reconnect settings of a connection class.
 
         Raises:
-            TypeError: If ``reconnect_attempts`` is set without ``reconnect_period``
+            TypeError: If ``reconnect_attempts`` is set without ``reconnect_period``,
+                or ``disconnect_after_timeouts`` isn't an integer of at least 1
 
         """
         super().__init_subclass__(**kwargs)
         if cls.reconnect_attempts and cls.reconnect_period is None:
             raise TypeError(
                 f"{cls.__name__} sets reconnect_attempts but not reconnect_period"
+            )
+        timeouts = cls.disconnect_after_timeouts
+        if not isinstance(timeouts, int) or timeouts < 1:
+            raise TypeError(
+                f"{cls.__name__} sets disconnect_after_timeouts to {timeouts!r}, but "
+                "it must be an integer of at least 1"
             )
 
     @property
@@ -164,19 +195,26 @@ def disconnect_on(
 def disconnect_on(*errors: Any) -> Any:
     """Mark a connection IO method whose failure means the link has gone.
 
-    If the method raises one of ``errors``, a `ConnectionError` or a
-    `DisconnectedError`, the connection's ``state`` is marked down and the exception
-    is re-raised. If it is called while the state is down, it raises
-    `DisconnectedError` without calling the method.
+    If the method raises a `DisconnectedError` or one of ``errors``, the
+    connection's ``state`` is marked down and the exception is re-raised. If it is
+    called while the state is down, it raises `DisconnectedError` without calling the
+    method. Used bare, as ``@disconnect_on``, only `DisconnectedError` marks it down.
+
+    If ``errors`` includes `TimeoutError`, directly or through a base class like
+    `OSError`, a timeout only marks it down once there have been the connection's
+    ``disconnect_after_timeouts`` in a row. A call that returns starts the count again.
 
     Example::
 
         class EigerConnection(Connection):
-            @disconnect_on(TimeoutError)
+            disconnect_after_timeouts = 3
+
+            @disconnect_on(ConnectionError, TimeoutError)
             async def get(self, key: str) -> Any: ...
 
     Args:
-        errors: Other exceptions that mean the link has gone
+        errors: The exceptions, besides `DisconnectedError`, that mean the link has
+            gone
 
     Raises:
         TypeError: If the method isn't async, or an error isn't an exception class
@@ -186,7 +224,8 @@ def disconnect_on(*errors: Any) -> Any:
         # Used bare, as @disconnect_on, so the only argument is the method itself
         return disconnect_on()(errors[0])
 
-    link_errors = (ConnectionError, *errors)
+    link_errors = (DisconnectedError, *errors)
+    counts_timeouts = issubclass(TimeoutError, link_errors)
 
     def decorator(method: _MethodT) -> _MethodT:
         name = getattr(method, "__qualname__", repr(method))
@@ -204,10 +243,20 @@ def disconnect_on(*errors: Any) -> Any:
                 raise DisconnectedError(f"{type(self).__name__} is disconnected")
 
             try:
-                return await method(self, *args, **kwargs)
+                result = await method(self, *args, **kwargs)
+            except TimeoutError:
+                # Before link_errors, which may include it through a base class
+                if counts_timeouts:
+                    limit = self.disconnect_after_timeouts
+                    if self.state.count_timeout() >= limit:
+                        self.state.mark_down()
+                raise
             except link_errors:
                 self.state.mark_down()
                 raise
+
+            self.state.reset_timeouts()
+            return result
 
         return cast(_MethodT, wrapper)
 

@@ -14,6 +14,12 @@ from fastcs.tracer import Tracer
 class IPConnection(Connection[IntrospectionT], Tracer):
     """A TCP link to a device that exchanges terminated messages.
 
+    If an exchange raises an `OSError`, such as a `ConnectionError`, the link is
+    closed and the connection marked down, so later calls raise `DisconnectedError`.
+    A `TimeoutError` closes the link too, as a late reply would be read as the reply
+    to the next exchange, so a ``disconnect_after_timeouts`` above 1 only delays
+    marking the connection down until the next call.
+
     Args:
         ip: The address to connect to
         port: The port to connect to
@@ -76,7 +82,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         """Send a message, adding the terminator.
 
         Raises:
-            DisconnectedError: If the link isn't open
+            DisconnectedError: If the link is down or closed
             ConnectionError: If the device closes the link
             TimeoutError: If sending takes longer than ``timeout``
 
@@ -96,7 +102,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
             The reply, without its terminator
 
         Raises:
-            DisconnectedError: If the link isn't open
+            DisconnectedError: If the link is down or closed
             ConnectionError: If the device closes the link
             TimeoutError: If the reply takes longer than ``timeout``
             ValueError: If the reply is longer than ``limit`` or can't be decoded
@@ -123,7 +129,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         """Send raw bytes, without a terminator.
 
         Raises:
-            DisconnectedError: If the link isn't open
+            DisconnectedError: If the link is down or closed
             ConnectionError: If the device closes the link
             TimeoutError: If sending takes longer than ``timeout``
 
@@ -142,7 +148,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
             The reply, exactly ``size`` bytes long
 
         Raises:
-            DisconnectedError: If the link isn't open
+            DisconnectedError: If the link is down or closed
             ConnectionError: If the device closes the link
             TimeoutError: If the reply takes longer than ``timeout``
 
@@ -156,6 +162,7 @@ class IPConnection(Connection[IntrospectionT], Tracer):
         return reply
 
     async def close(self) -> None:
+        """Close the link, if it's open"""
         async with self._lock:
             if self._streams is None:
                 return

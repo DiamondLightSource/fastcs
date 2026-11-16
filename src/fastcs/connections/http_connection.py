@@ -18,6 +18,11 @@ from fastcs.tracer import Tracer
 class HTTPConnection(Connection[IntrospectionT], Tracer):
     """An HTTP link to a device with a JSON API.
 
+    If a request raises a `ConnectionError`, the link is closed and the connection
+    marked down, so later calls raise `DisconnectedError`. A `TimeoutError` leaves
+    the link open and doesn't mark it down, as one slow request doesn't mean the
+    server has gone.
+
     Args:
         url: The base URL that request paths are relative to
         timeout: Seconds to wait to connect, or for each response
@@ -89,8 +94,9 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             The parsed JSON reply, or ``None`` if the reply is empty
 
         Raises:
-            DisconnectedError: If the link isn't open
-            ConnectionError: If the server can't be reached
+            DisconnectedError: If the link is down or closed
+            ConnectionError: If the request fails on the link, such as the server
+                being unreachable
             TimeoutError: If the reply takes longer than ``timeout``
             httpx.HTTPStatusError: If the reply has an error status
             ValueError: If the reply isn't valid JSON
@@ -105,8 +111,9 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             The parsed JSON reply, or ``None`` if the reply is empty
 
         Raises:
-            DisconnectedError: If the link isn't open
-            ConnectionError: If the server can't be reached
+            DisconnectedError: If the link is down or closed
+            ConnectionError: If the request fails on the link, such as the server
+                being unreachable
             TimeoutError: If the reply takes longer than ``timeout``
             httpx.HTTPStatusError: If the reply has an error status
             ValueError: If the reply isn't valid JSON
@@ -121,8 +128,9 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             The parsed JSON reply, or ``None`` if the reply is empty
 
         Raises:
-            DisconnectedError: If the link isn't open
-            ConnectionError: If the server can't be reached
+            DisconnectedError: If the link is down or closed
+            ConnectionError: If the request fails on the link, such as the server
+                being unreachable
             TimeoutError: If the reply takes longer than ``timeout``
             httpx.HTTPStatusError: If the reply has an error status
             ValueError: If the reply isn't valid JSON
@@ -137,8 +145,9 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             The parsed JSON reply, or ``None`` if the reply is empty
 
         Raises:
-            DisconnectedError: If the link isn't open
-            ConnectionError: If the server can't be reached
+            DisconnectedError: If the link is down or closed
+            ConnectionError: If the request fails on the link, such as the server
+                being unreachable
             TimeoutError: If the reply takes longer than ``timeout``
             httpx.HTTPStatusError: If the reply has an error status
             ValueError: If the reply isn't valid JSON
@@ -158,14 +167,16 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             The response, whatever its status
 
         Raises:
-            DisconnectedError: If the link isn't open
-            ConnectionError: If the server can't be reached
+            DisconnectedError: If the link is down or closed
+            ConnectionError: If the request fails on the link, such as the server
+                being unreachable
             TimeoutError: If the reply takes longer than ``timeout``
 
         """
         return await self._send(method, path, **kwargs)
 
     async def close(self) -> None:
+        """Close the link, if it's open"""
         async with self._lock:
             if self._client is None:
                 return
@@ -174,7 +185,7 @@ class HTTPConnection(Connection[IntrospectionT], Tracer):
             self._client = None
             await client.aclose()
 
-    @disconnect_on
+    @disconnect_on(ConnectionError)
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         client = self._client
         if client is None:

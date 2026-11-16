@@ -226,9 +226,11 @@ def _controller_specs(
             values = {k: getattr(settings, k) for k in type(settings).model_fields}
             attempts = values.pop("reconnect_attempts")
             period = values.pop("reconnect_period")
+            timeouts = values.pop("disconnect_after_timeouts")
             connection = connection_type(**values)
             connection.reconnect_attempts = attempts
             connection.reconnect_period = period
+            connection.disconnect_after_timeouts = timeouts
             kwargs[name] = connection
 
         if registered.options_name is not None:
@@ -252,6 +254,7 @@ class _ConnectionSettings(BaseModel):
         # Fields added by _connection_settings_model, declared for type checkers
         reconnect_attempts: int | None
         reconnect_period: float | None
+        disconnect_after_timeouts: int
 
     @model_validator(mode="after")
     def _check_reconnect_period(self) -> Self:
@@ -285,12 +288,20 @@ def _drop_default(schema: dict[str, Any]) -> None:
     schema.pop("default", None)
 
 
+_FRAMEWORK_SETTINGS = (
+    "reconnect_attempts",
+    "reconnect_period",
+    "disconnect_after_timeouts",
+)
+"""Settings in each connection's block that are for the framework, not ``__init__``"""
+
+
 @functools.cache
 def _connection_settings_model(connection_type: type[Connection]) -> type[BaseModel]:
     """Build the Pydantic model for one connection's block under `connections:`.
 
     The block has the constructor's arguments, and the framework's
-    ``reconnect_attempts`` and ``reconnect_period``.
+    ``reconnect_attempts``, ``reconnect_period`` and ``disconnect_after_timeouts``.
 
     Raises:
         LaunchError: If a constructor argument has no type hint, or has the name of a
@@ -308,7 +319,7 @@ def _connection_settings_model(connection_type: type[Connection]) -> type[BaseMo
                 f"Expected typehinting in '{connection_type.__name__}.__init__' "
                 f"but received {sig}. Add a typehint for `{name}`."
             )
-        if name in ("reconnect_attempts", "reconnect_period"):
+        if name in _FRAMEWORK_SETTINGS:
             raise LaunchError(
                 f"'{connection_type.__name__}.__init__' can't take `{name}`, which is "
                 "a framework setting."
@@ -329,6 +340,10 @@ def _connection_settings_model(connection_type: type[Connection]) -> type[BaseMo
     else:
         period = Field(default=connection_type.reconnect_period, ge=0)
     fields["reconnect_period"] = (float, period)
+    fields["disconnect_after_timeouts"] = (
+        int,
+        Field(default=connection_type.disconnect_after_timeouts, ge=1),
+    )
 
     return create_model(f"{connection_type.__name__}Settings", __base__=base, **fields)
 

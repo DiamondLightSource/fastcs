@@ -25,9 +25,7 @@ reply = await connection.query("R?")  # sends "R?\r\n", returns the reply withou
 For binary protocols, `write_bytes` and `query_bytes` send raw bytes without a
 terminator. If an exchange fails or takes longer than `timeout`, the link is closed and
 later calls raise `DisconnectedError`. If the link fails, such as the device closing the
-socket or a serial adapter being unplugged, the exchange raises `ConnectionError`, which
-`DisconnectedError` subclasses, so
-`except (ConnectionError, TimeoutError)` catches any link failure.
+socket or a serial adapter being unplugged, the exchange raises `ConnectionError`.
 
 `HTTPConnection` talks to a device with a JSON API. `get`, `put`, `post` and `delete`
 take a path relative to its `url`, send JSON, and return the parsed reply. An error
@@ -56,15 +54,23 @@ from fastcs.connections import Connection, disconnect_on
 
 
 class EigerConnection(Connection):
+    disconnect_after_timeouts = 3
     ...
 
-    @disconnect_on(TimeoutError)
+    @disconnect_on(ConnectionError, TimeoutError)
     async def get(self, key: str) -> Any:
         return await self.client.get(f"/detector/{key}")
 ```
 
-If the method raises a `ConnectionError`, a `DisconnectedError` or one of the listed
-exceptions, the connection is marked down and the exception carries on to the caller.
+If the method raises a `DisconnectedError` or one of the listed exceptions, the
+connection is marked down and the exception carries on to the caller. Bare
+`@disconnect_on` only lists `DisconnectedError`, so list `ConnectionError` too if it
+means the link has gone.
+
+If `TimeoutError` is listed, directly or through a base class like `OSError`, timeouts
+are counted: the connection is marked down after `disconnect_after_timeouts` in a row,
+1 by default, and any call that works starts the count again.
+
 While it's down, decorated methods raise `DisconnectedError` without touching the
 device, except when called from the connection's own `connect()` or `introspect()` while
 FastCS reconnects it. Other exceptions, like an error reply from the device, leave the
@@ -89,7 +95,8 @@ controllers again.
 
 ### Reconnect settings
 
-Each connection's block in `fastcs.yaml` can set how it reconnects:
+Each connection's block in `fastcs.yaml` can set how it reconnects, and how many
+timeouts mean it has gone:
 
 ```yaml
 connections:
@@ -98,6 +105,7 @@ connections:
     port: 4000
     reconnect_attempts: 5
     reconnect_period: 2.0
+    disconnect_after_timeouts: 1
 ```
 
 `reconnect_attempts: 0` or `null` means stop as soon as the connection goes down. That
@@ -118,6 +126,12 @@ raises a `TypeError`.
 | `IPConnection` | 30 | 2.0 |
 | `HTTPConnection` | 60 | 5.0 |
 | `SerialConnection` | 10 | 1.0 |
+
+`disconnect_after_timeouts` is 1 unless a class sets it, and must be at least 1. It only
+applies to methods whose `@disconnect_on` lists `TimeoutError`, so `HTTPConnection`'s
+timeouts never mark it down. `IPConnection` and `SerialConnection` close the link on a
+timeout, so a late reply isn't read as the reply to the next exchange, and a higher
+value only delays marking them down until the next call.
 
 ### Which controllers a connection belongs to
 
