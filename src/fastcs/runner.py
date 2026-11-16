@@ -98,8 +98,11 @@ class ControllerRunner:
         """
         names = _connection_names(spec)
         self._names.update(names)
-        given = set(names.values())
-        parameters = inspect.signature(spec.controller_class).parameters
+        # Every argument the spec passes, even None, so it isn't passed again
+        signature = inspect.signature(spec.controller_class)
+        supplied = signature.bind_partial(*spec.args).arguments
+        given = {*names.values(), *supplied, *spec.kwargs}
+        parameters = signature.parameters
         takes = set(parameters) - given
         discovered: dict[str, Connection] = {}
 

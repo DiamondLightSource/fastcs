@@ -352,6 +352,22 @@ async def test_discovered_connection_is_opened_and_passed_by_name():
 
 
 @pytest.mark.asyncio
+async def test_connection_given_as_none_is_not_discovered():
+    runner = await ControllerRunner.build(
+        [
+            ControllerSpec(
+                "A", DetectorController, DetectorConnection(), detector_meta=None
+            )
+        ]
+    )
+    controller = runner.controllers[0]
+    assert isinstance(controller, DetectorController)
+
+    assert controller.meta is None
+    assert len(runner._connections) == 1
+
+
+@pytest.mark.asyncio
 async def test_given_connection_is_used_instead_of_discovered():
     given = MetaConnection()
     runner = await ControllerRunner.build(
