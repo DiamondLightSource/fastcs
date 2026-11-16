@@ -178,12 +178,10 @@
       "additionalProperties": false,
       "properties": {
         "ip": {
-          "default": "127.0.0.1",
           "title": "Ip",
           "type": "string"
         },
         "port": {
-          "default": 25565,
           "title": "Port",
           "type": "integer"
         },
@@ -208,10 +206,17 @@
           "type": "integer"
         },
         "reconnect_attempts": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 30,
-          "minimum": 0,
-          "title": "Reconnect Attempts",
-          "type": "integer"
+          "title": "Reconnect Attempts"
         },
         "reconnect_period": {
           "default": 2.0,
@@ -220,6 +225,10 @@
           "type": "number"
         }
       },
+      "required": [
+        "ip",
+        "port"
+      ],
       "title": "IPConnectionSettings",
       "type": "object"
     },

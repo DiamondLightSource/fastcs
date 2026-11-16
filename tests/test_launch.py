@@ -383,6 +383,15 @@ def test_reconnect_setting_defaults_come_from_the_connection_class():
     assert fields["reconnect_period"].default == IPConnection.reconnect_period
 
 
+def test_reconnect_attempts_without_period_rejected_by_settings_and_schema():
+    model = _connection_settings_model(NoSettingsConnection)
+    with pytest.raises(ValidationError, match="reconnect_period is needed"):
+        model.model_validate({"reconnect_attempts": 3})
+
+    assert model.model_json_schema()["then"] == {"required": ["reconnect_period"]}
+    assert "then" not in _connection_settings_model(IPConnection).model_json_schema()
+
+
 def test_parametrised_and_no_settings_connections():
     options_model = _build_options_model([WithGenericConnections])
     options_model.model_validate(

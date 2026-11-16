@@ -5,17 +5,26 @@ import inspect
 import json
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     Literal,
     Optional,
+    Self,
     Union,
     get_origin,
     get_type_hints,
 )
 
 import typer
-from pydantic import BaseModel, Field, ValidationError, create_model
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    create_model,
+    model_validator,
+)
 from ruamel.yaml import YAML
 
 from fastcs import __version__
@@ -234,6 +243,48 @@ def _controller_specs(
     return specs
 
 
+class _ConnectionSettings(BaseModel):
+    """Base for each connection's block under `connections:`"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    if TYPE_CHECKING:
+        # Fields added by _connection_settings_model, declared for type checkers
+        reconnect_attempts: int | None
+        reconnect_period: float | None
+
+    @model_validator(mode="after")
+    def _check_reconnect_period(self) -> Self:
+        """Check there is a period to reconnect with.
+
+        Raises:
+            ValueError: If ``reconnect_attempts`` is set without ``reconnect_period``
+
+        """
+        if self.reconnect_attempts and self.reconnect_period is None:
+            raise ValueError("reconnect_attempts is set, so reconnect_period is needed")
+        return self
+
+
+class _ConnectionSettingsWithoutPeriod(_ConnectionSettings):
+    """Base for the block of a connection class with no ``reconnect_period``, whose
+    schema asks for one in the editor once ``reconnect_attempts`` is set"""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "if": {
+                "properties": {"reconnect_attempts": {"type": "integer", "minimum": 1}},
+                "required": ["reconnect_attempts"],
+            },
+            "then": {"required": ["reconnect_period"]},
+        }
+    )
+
+
+def _drop_default(schema: dict[str, Any]) -> None:
+    schema.pop("default", None)
+
+
 @functools.cache
 def _connection_settings_model(connection_type: type[Connection]) -> type[BaseModel]:
     """Build the Pydantic model for one connection's block under `connections:`.
@@ -269,14 +320,17 @@ def _connection_settings_model(connection_type: type[Connection]) -> type[BaseMo
         int | None,
         Field(default=connection_type.reconnect_attempts, ge=0),
     )
-    fields["reconnect_period"] = (
-        float | None,
-        Field(default=connection_type.reconnect_period, ge=0),
-    )
 
-    return create_model(
-        f"{connection_type.__name__}Settings", __config__={"extra": "forbid"}, **fields
-    )
+    # A period can't be set to null in the block, as there's no use for that
+    base = _ConnectionSettings
+    if connection_type.reconnect_period is None:
+        base = _ConnectionSettingsWithoutPeriod
+        period = Field(default=None, ge=0, json_schema_extra=_drop_default)
+    else:
+        period = Field(default=connection_type.reconnect_period, ge=0)
+    fields["reconnect_period"] = (float, period)
+
+    return create_model(f"{connection_type.__name__}Settings", __base__=base, **fields)
 
 
 def _options_field_definitions(options_type: type) -> dict[str, tuple[Any, Any]]:
