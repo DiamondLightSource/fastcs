@@ -29,7 +29,7 @@ def optional_dependency(*names: str) -> Generator[None, None, None]:
     Example::
 
         with optional_dependency("httpx"):
-            from .http_connection import HTTPConnection as HTTPConnection
+            from .builtin.http_connection import HTTPConnection as HTTPConnection
 
     Args:
         names: The packages that the block may be missing
