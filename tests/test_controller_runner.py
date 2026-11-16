@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from fastcs.connections import Connection, Introspection
+from fastcs.connections import Connection, ConnectionSpec, Introspection
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.methods import scan
 from fastcs.runner import ControllerRunner
@@ -10,6 +10,7 @@ from fastcs.util import ONCE
 from tests.example_connections import (
     DeviceIntrospection,
     EigerConnection,
+    HoldingController,
     IntrospectedController,
     IntrospectingConnection,
     OdinConnection,
@@ -307,3 +308,60 @@ def test_seal_twice_raises():
     controller.seal()
     with pytest.raises(RuntimeError, match="already sealed"):
         controller.seal()
+
+
+class MetaConnection(Connection):
+    async def connect(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        pass
+
+
+class DetectorConnection(MetaConnection):
+    async def introspect(self) -> Introspection:
+        subconnections = [
+            ConnectionSpec("meta", MetaConnection),
+            ConnectionSpec("unused", MetaConnection),
+        ]
+        return Introspection(None, subconnections=subconnections)
+
+
+class DetectorController(Controller):
+    def __init__(
+        self, detector: DetectorConnection, detector_meta: MetaConnection | None = None
+    ) -> None:
+        super().__init__()
+        self.detector = detector
+        self.meta = HoldingController(detector_meta) if detector_meta else None
+
+
+@pytest.mark.asyncio
+async def test_discovered_connection_is_opened_and_passed_by_name():
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", DetectorController, DetectorConnection())]
+    )
+    controller = runner.controllers[0]
+    assert isinstance(controller, DetectorController) and controller.meta
+
+    meta = controller.meta.connection
+    assert type(meta) is MetaConnection
+    assert runner._names[id(meta)] == "detector_meta"
+    assert len(runner._connections) == 2
+
+
+@pytest.mark.asyncio
+async def test_given_connection_is_used_instead_of_discovered():
+    given = MetaConnection()
+    runner = await ControllerRunner.build(
+        [
+            ControllerSpec(
+                "A", DetectorController, DetectorConnection(), detector_meta=given
+            )
+        ]
+    )
+    controller = runner.controllers[0]
+    assert isinstance(controller, DetectorController) and controller.meta
+
+    assert controller.meta.connection is given
+    assert len(runner._connections) == 2

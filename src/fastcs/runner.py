@@ -52,25 +52,19 @@ class ControllerRunner:
             ``controller_apis``, in the order the specs were given
 
         Raises:
-            ValueError: If a connection is shared between specs
+            ValueError: If a connection is shared between specs, or two discovered
+                connections have the same name
 
         """
         _check_connections_not_shared(specs)
         runner = cls()
 
         try:
-            for spec in specs:
-                runner._names.update(_connection_names(spec))
-                for connection in _dependency_order(spec.connections):
-                    connection.state = ConnectionState()
-                    await connection.connect()
-                    runner._connections.append(connection)
-                    connection.introspection = await _introspect(connection)
-                    runner._dependencies[id(connection)] = _dependencies(
-                        connection, spec.connections
-                    )
-
-            runner._controllers = [spec.construct() for spec in specs]
+            discovered = [await runner._open_connections(spec) for spec in specs]
+            runner._controllers = [
+                spec.construct(connections)
+                for spec, connections in zip(specs, discovered, strict=True)
+            ]
             runner._seal()
             runner._map_connection_holders()
 
@@ -82,6 +76,64 @@ class ControllerRunner:
             raise
 
         return runner
+
+    async def _open_connections(self, spec: ControllerSpec) -> dict[str, Connection]:
+        """Open a spec's connections, then any they discover that the controller takes
+        and isn't given, and so on for those.
+
+        Returns:
+            The discovered connections that were opened, by name
+
+        Raises:
+            ValueError: If two discovered connections have the same name
+
+        """
+        names = _connection_names(spec)
+        self._names.update(names)
+        given = set(names.values())
+        parameters = inspect.signature(spec.controller_class).parameters
+        discovered: dict[str, Connection] = {}
+
+        pending = spec.connections
+        while pending:
+            found: list[Connection] = []
+            for connection in _dependency_order(pending):
+                introspection = await self._open(connection)
+                for subconnection in introspection.subconnections:
+                    subconnection.add_parent(self._names[id(connection)])
+                    name = subconnection.name
+                    if name in given:
+                        logger.info("Using given connection, not discovered", name=name)
+                    elif name not in parameters:
+                        logger.info("Controller doesn't take discovered", name=name)
+                    elif name in discovered:
+                        raise ValueError(f"More than one connection discovered {name}")
+                    else:
+                        discovered[name] = subconnection.construct()
+                        self._names[id(discovered[name])] = name
+                        found.append(discovered[name])
+            pending = found
+
+        connections = [*spec.connections, *discovered.values()]
+        for connection in connections:
+            self._dependencies[id(connection)] = _dependencies(connection, connections)
+
+        return discovered
+
+    async def _open(self, connection: Connection) -> Introspection:
+        """Connect and introspect a connection, storing its introspection's value.
+
+        Returns:
+            The introspection
+
+        """
+        connection.state = ConnectionState()
+        await connection.connect()
+        self._connections.append(connection)
+        introspection = await _introspect(connection)
+        connection.introspection = introspection.value
+
+        return introspection
 
     @property
     def controllers(self) -> list[Controller]:
@@ -220,7 +272,7 @@ class ControllerRunner:
             try:
                 await connection.close()
                 await connection.connect()
-                introspection = await _introspect(connection)
+                introspection = (await _introspect(connection)).value
             except Exception:
                 logger.exception(
                     "Reconnect failed", connection=name, attempt=attempt + 1
@@ -325,8 +377,8 @@ def _held_connections(controller: BaseController) -> list[Connection]:
     return list({id(v): v for v in values if isinstance(v, Connection)}.values())
 
 
-async def _introspect(connection: Connection[T]) -> T:
-    """Introspect a connection, returning the value of its `Introspection`.
+async def _introspect(connection: Connection[T]) -> Introspection[T]:
+    """Introspect a connection, checking it returns an `Introspection`.
 
     Raises:
         TypeError: If ``introspect`` doesn't return an `Introspection`
@@ -339,7 +391,7 @@ async def _introspect(connection: Connection[T]) -> T:
             f"{type(introspection).__name__}, not an Introspection"
         )
 
-    return introspection.value
+    return introspection
 
 
 def _connection_names(spec: ControllerSpec) -> dict[int, str]:

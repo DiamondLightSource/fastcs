@@ -64,6 +64,19 @@ class ConnectionSpec(Generic[P, ConnectionT]):
         self._reconnect = (attempts, period)
         return self
 
+    def add_parent(self, parent_name: str) -> None:
+        """Prefix the name with that of the connection that discovered it.
+
+        Example::
+
+            spec.add_parent("odin")  # "meta" -> "odin_meta"
+
+        Args:
+            parent_name: The name of the connection whose introspection returned this
+
+        """
+        self.name = f"{parent_name}_{self.name}"
+
     def construct(self) -> ConnectionT:
         """Construct the connection, with any reconnect settings from `reconnect`"""
         connection = self.connection_class(*self.args, **self.kwargs)

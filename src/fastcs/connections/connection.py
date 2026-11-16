@@ -7,10 +7,13 @@ import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextvars import ContextVar
-from typing import Any, ClassVar, Generic, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, cast, overload
 
 from pydantic import BaseModel
 from typing_extensions import TypeVar
+
+if TYPE_CHECKING:
+    from fastcs.connections.connection_spec import ConnectionSpec
 
 IntrospectionT = TypeVar("IntrospectionT", default=None)
 """What a `Connection`'s ``introspect`` returns, or ``None`` if it doesn't introspect"""
@@ -22,16 +25,22 @@ class Introspection(Generic[IntrospectionT]):
 
     Example::
 
-        async def introspect(self) -> Introspection[EigerIntrospection]:
-            return Introspection(EigerIntrospection(...))
+        async def introspect(self) -> Introspection[OdinIntrospection]:
+            info = OdinIntrospection(...)
+            meta = ConnectionSpec("meta", MetaConnection, port=info.meta_port)
+            return Introspection(info, subconnections=[meta])
 
     Args:
         value: The description of the device, available as
             ``connection.introspection``
+        subconnections: Other connections found on the device. Each is renamed
+            ``<parent_name>_<_name>``, and opened if the controller takes an argument of
+            that name that isn't given another way.
 
     """
 
     value: IntrospectionT
+    subconnections: list[ConnectionSpec] = dataclasses.field(default_factory=list)
 
 
 class DisconnectedError(Exception):

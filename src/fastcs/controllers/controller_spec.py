@@ -1,5 +1,5 @@
-from collections.abc import Callable
-from typing import Generic, ParamSpec
+from collections.abc import Callable, Mapping
+from typing import Generic, ParamSpec, cast
 
 from fastcs.connections import Connection
 from fastcs.controllers.controller import Controller
@@ -42,9 +42,18 @@ class ControllerSpec(Generic[P]):
         values = [*self.args, *self.kwargs.values()]
         return [value for value in values if isinstance(value, Connection)]
 
-    def construct(self) -> Controller:
-        """Construct the controller and set its path"""
-        controller = self.controller_class(*self.args, **self.kwargs)
+    def construct(
+        self, discovered: Mapping[str, Connection] | None = None
+    ) -> Controller:
+        """Construct the controller and set its path.
+
+        Args:
+            discovered: Connections found by introspecting, each passed as the keyword
+                argument of the same name
+
+        """
+        controller_class = cast(Callable[..., Controller], self.controller_class)
+        controller = controller_class(*self.args, **self.kwargs, **(discovered or {}))
         controller.set_path([self.id])
 
         return controller
