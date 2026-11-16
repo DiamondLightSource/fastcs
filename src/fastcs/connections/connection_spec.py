@@ -7,6 +7,7 @@ from fastcs.connections.connection import Connection
 
 P = ParamSpec("P")
 ConnectionT = TypeVar("ConnectionT", bound=Connection)
+"""The `Connection` that a `ConnectionSpec` constructs"""
 
 
 class ConnectionSpec(Generic[P, ConnectionT]):
