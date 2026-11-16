@@ -266,11 +266,11 @@ def _connection_settings_model(connection_type: type[Connection]) -> type[BaseMo
         fields[name] = (hints[name], default)
 
     fields["reconnect_attempts"] = (
-        int,
+        int | None,
         Field(default=connection_type.reconnect_attempts, ge=0),
     )
     fields["reconnect_period"] = (
-        float,
+        float | None,
         Field(default=connection_type.reconnect_period, ge=0),
     )
 

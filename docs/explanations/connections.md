@@ -100,8 +100,8 @@ connections:
     reconnect_period: 2.0
 ```
 
-`reconnect_attempts: 0` means stop as soon as the connection goes down. A connection class can set its own
-defaults:
+`reconnect_attempts: 0` or `null` means stop as soon as the connection goes down. That
+is the default for a connection class that doesn't set its own, which it does with:
 
 ```python
 class EigerConnection(Connection):
@@ -109,9 +109,12 @@ class EigerConnection(Connection):
     reconnect_period = 3.0
 ```
 
+A class that sets `reconnect_attempts` must set `reconnect_period` too, or defining it
+raises a `TypeError`.
+
 | Connection | `reconnect_attempts` | `reconnect_period` |
 |---|---|---|
-| `Connection` | 10 | 5.0 |
+| `Connection` | `None` | `None` |
 | `IPConnection` | 30 | 2.0 |
 | `HTTPConnection` | 60 | 5.0 |
 | `SerialConnection` | 10 | 1.0 |

@@ -184,14 +184,29 @@ class ControllerRunner:
         connection up if the introspection's structure is unchanged.
 
         Raises:
-            ReconnectFailedError: If it doesn't reconnect within ``reconnect_attempts``
+            ReconnectFailedError: If reconnecting is disabled, it has no
+                ``reconnect_period``, or it doesn't reconnect within
+                ``reconnect_attempts``
             IntrospectionMismatchError: If the new introspection's structure is
                 different
 
         """
-        for attempt in range(connection.reconnect_attempts):
+        name = type(connection).__name__
+        attempts = connection.reconnect_attempts
+        period = connection.reconnect_period
+        if not attempts:
+            raise ReconnectFailedError(
+                f"{name} went down, and reconnecting is disabled"
+            )
+        if period is None:
+            raise ReconnectFailedError(
+                f"{name} can't reconnect, as it has reconnect_attempts but no "
+                "reconnect_period"
+            )
+
+        for attempt in range(attempts):
             if attempt:
-                await asyncio.sleep(connection.reconnect_period)
+                await asyncio.sleep(period)
 
             for dependency in self._dependencies[id(connection)]:
                 await dependency.state.wait_up()
@@ -211,16 +226,15 @@ class ControllerRunner:
 
             if connection.introspection_changed(introspection):
                 raise IntrospectionMismatchError(
-                    f"{type(connection).__name__} introspection changed structure on "
-                    "reconnect, so the controllers built from it are out of date"
+                    f"{name} introspection changed structure on reconnect, so the "
+                    "controllers built from it are out of date"
                 )
 
             connection.state.mark_up()
             return
 
         raise ReconnectFailedError(
-            f"{type(connection).__name__} went down and didn't reconnect within "
-            f"{connection.reconnect_attempts} attempts"
+            f"{name} went down and didn't reconnect within {attempts} attempts"
         )
 
     async def _mark_up(self, connection: Connection) -> None:

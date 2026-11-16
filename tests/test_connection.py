@@ -62,3 +62,10 @@ async def test_bare_decorator_and_inert_state():
     with pytest.raises(ConnectionResetError):
         await connection.send()
     assert connection.state.up
+
+
+def test_reconnect_attempts_without_period_raises():
+    with pytest.raises(TypeError, match="sets reconnect_attempts but not"):
+
+        class _NoPeriodConnection(_FlakyConnection):
+            reconnect_attempts = 3

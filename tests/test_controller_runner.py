@@ -102,6 +102,9 @@ async def test_clearing_a_scan_gate_pauses_only_that_controllers_scans():
 
 
 class RecordingConnection(Connection):
+    reconnect_attempts = 10
+    reconnect_period = 0
+
     def __init__(self, events: list[str], name: str = "") -> None:
         self.events = events
         self.suffix = f" {name}" if name else ""
@@ -318,6 +321,9 @@ class DeviceIntrospection:
 
 
 class IntrospectingConnection(Connection[DeviceIntrospection]):
+    reconnect_attempts = 10
+    reconnect_period = 0
+
     async def connect(self) -> None:
         pass
 
@@ -458,6 +464,7 @@ def test_seal_twice_raises():
 
 
 class FlakyConnection(Connection):
+    reconnect_attempts = 10
     reconnect_period = 0
 
     def __init__(self, failures: int) -> None:
@@ -499,9 +506,9 @@ async def test_watcher_reconnects_then_marks_controllers_up():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("attempts", [0, 2])
-async def test_watcher_raises_when_reconnect_attempts_run_out(attempts: int):
-    connection = FlakyConnection(failures=attempts)
+@pytest.mark.parametrize("attempts", [None, 0, 2])
+async def test_watcher_raises_when_reconnect_attempts_run_out(attempts: int | None):
+    connection = FlakyConnection(failures=attempts or 0)
     connection.reconnect_attempts = attempts
     runner = await ControllerRunner.build(
         [ControllerSpec("A", HoldingController, connection)]
@@ -513,9 +520,24 @@ async def test_watcher_raises_when_reconnect_attempts_run_out(attempts: int):
     with pytest.raises(ReconnectFailedError):
         await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
 
-    assert connection.connects == 1 + attempts
+    assert connection.connects == 1 + (attempts or 0)
     assert controller.connected.get() is False
     assert not runner._scan_gates[id(controller)].is_set()
+    await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_watcher_raises_when_instance_has_attempts_but_no_period():
+    connection = FlakyConnection(failures=0)
+    connection.reconnect_period = None
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", HoldingController, connection)]
+    )
+    await runner.start()
+
+    connection.state.mark_down()
+    with pytest.raises(ReconnectFailedError, match="no reconnect_period"):
+        await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
     await runner.stop()
 
 
@@ -557,6 +579,7 @@ async def test_reconnect_waits_for_dependencies_to_be_up():
 
 
 class HandshakeConnection(Connection):
+    reconnect_attempts = 10
     reconnect_period = 0
 
     def __init__(self) -> None:

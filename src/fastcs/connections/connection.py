@@ -77,12 +77,26 @@ class Connection(ABC, Generic[IntrospectionT]):
     # Replaced with a live state by the framework when it opens this connection
     state: ConnectionState = _InertConnectionState()
 
-    # How many times, and how many seconds apart, the framework tries to reconnect
-    reconnect_attempts: int = 10
-    reconnect_period: float = 5.0
+    # How many times, and how many seconds apart, the framework tries to reconnect.
+    # None or 0 means don't reconnect and stop FastCS when the link goes down
+    reconnect_attempts: int | None = None
+    reconnect_period: float | None = None
 
     _introspection: IntrospectionT
     _introspection_structure: Any
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Check the reconnect settings of a connection class.
+
+        Raises:
+            TypeError: If ``reconnect_attempts`` is set without ``reconnect_period``
+
+        """
+        super().__init_subclass__(**kwargs)
+        if cls.reconnect_attempts and cls.reconnect_period is None:
+            raise TypeError(
+                f"{cls.__name__} sets reconnect_attempts but not reconnect_period"
+            )
 
     @property
     def introspection(self) -> IntrospectionT:

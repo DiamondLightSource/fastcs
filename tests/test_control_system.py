@@ -133,6 +133,9 @@ async def test_connections_closed_if_startup_fails():
 
 
 class ChangingConnection(Connection[dict[str, int]]):
+    reconnect_attempts = 10
+    reconnect_period = 0
+
     def __init__(self) -> None:
         self.introspections = 0
         self.closes = 0
