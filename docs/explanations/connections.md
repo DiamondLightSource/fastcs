@@ -190,8 +190,9 @@ class EigerController(Controller):
   `ControllerSpec`, is used instead of the discovered one.
 - It's independent of the connection that discovered it, so it only goes down when its
   own IO fails. Set `depends_on` on its class if it needs its parent to be up first.
-- It's opened after the connection that discovered it, so no connection opened before
-  it can depend on it. FastCS raises a `ValueError` at startup if one does.
+- It's opened after the connections that are given, so none of those can depend on
+  it. If a given connection's `depends_on` matches the type of a controller argument
+  that isn't given, FastCS raises a `ValueError` before opening anything.
 - It uses its class's reconnect settings. To set others, give it a block in
   `fastcs.yaml` instead.
 - If a reconnect discovers a different spec for a connection the controller takes,

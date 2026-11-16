@@ -455,6 +455,12 @@ class LateDiscoveringConnection(MetaConnection):
 class NeedsLateConnection(MetaConnection):
     depends_on = LateConnection
 
+    def __init__(self) -> None:
+        self.opened = False
+
+    async def connect(self) -> None:
+        self.opened = True
+
 
 class LateController(Controller):
     def __init__(
@@ -467,15 +473,41 @@ class LateController(Controller):
 
 
 @pytest.mark.asyncio
-async def test_depending_on_a_connection_discovered_later_raises():
-    with pytest.raises(ValueError, match="needs depends on parent_late, but"):
+async def test_depending_on_a_connection_only_discovered_raises_before_opening():
+    needs = NeedsLateConnection()
+    message = "needs depends on LateConnection, but parent_late can only be discovered"
+    with pytest.raises(ValueError, match=message):
         await ControllerRunner.build(
-            [
-                ControllerSpec(
-                    "A",
-                    LateController,
-                    LateDiscoveringConnection(),
-                    NeedsLateConnection(),
-                )
-            ]
+            [ControllerSpec("A", LateController, LateDiscoveringConnection(), needs)]
+        )
+
+    assert not needs.opened
+
+
+class NestedLateConnection(LateDiscoveringConnection):
+    depends_on = LateConnection
+
+
+class NestingConnection(MetaConnection):
+    async def introspect(self) -> Introspection:
+        nested = ConnectionSpec("nested", NestedLateConnection)
+        return Introspection(None, subconnections=[nested])
+
+
+class NestingController(Controller):
+    def __init__(
+        self,
+        parent: NestingConnection,
+        parent_nested: NestedLateConnection | None = None,
+        parent_nested_late: LateConnection | None = None,
+    ) -> None:
+        super().__init__()
+
+
+@pytest.mark.asyncio
+async def test_discovered_connection_depending_on_one_discovered_later_raises():
+    message = "parent_nested depends on parent_nested_late, but"
+    with pytest.raises(ValueError, match=message):
+        await ControllerRunner.build(
+            [ControllerSpec("A", NestingController, NestingConnection())]
         )

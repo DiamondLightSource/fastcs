@@ -2,7 +2,7 @@ import asyncio
 import inspect
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
-from typing import Self, TypeVar
+from typing import Self, TypeVar, get_type_hints
 
 from fastcs.attributes.attr_r import AttrR
 from fastcs.connections import (
@@ -11,7 +11,7 @@ from fastcs.connections import (
     ConnectionState,
     Introspection,
 )
-from fastcs.connections.connection import _reconnecting
+from fastcs.connections.connection import _connection_hint, _reconnecting
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
@@ -62,10 +62,13 @@ class ControllerRunner:
         Raises:
             ValueError: If a connection is shared between specs, two discovered
                 connections have the same name, or a connection depends on one that
-                is discovered after it's opened
+                can only be discovered after it's opened
 
         """
         _check_connections_not_shared(specs)
+        for spec in specs:
+            _check_dependencies_not_discovered(spec)
+
         runner = cls()
 
         try:
@@ -98,13 +101,9 @@ class ControllerRunner:
                 connection depends on one that is discovered after it's opened
 
         """
-        names = _connection_names(spec)
-        self._names.update(names)
-        # Every argument the spec passes, even None, so it isn't passed again
-        signature = inspect.signature(spec.controller_class)
-        supplied = signature.bind_partial(*spec.args).arguments
-        given = {*names.values(), *supplied, *spec.kwargs}
-        parameters = signature.parameters
+        self._names.update(_connection_names(spec))
+        given = _given(spec)
+        parameters = inspect.signature(spec.controller_class).parameters
         takes = set(parameters) - given
         discovered: dict[str, Connection] = {}
 
@@ -457,6 +456,50 @@ def _connection_names(spec: ControllerSpec) -> dict[int, str]:
             names[id(value)] = name
 
     return names
+
+
+def _given(spec: ControllerSpec) -> set[str]:
+    """The controller arguments a spec passes, even as None, so that a connection
+    isn't discovered for them"""
+    signature = inspect.signature(spec.controller_class)
+    supplied = signature.bind_partial(*spec.args).arguments
+    return {*_connection_names(spec).values(), *supplied, *spec.kwargs}
+
+
+def _check_dependencies_not_discovered(spec: ControllerSpec) -> None:
+    """Check that no connection a spec gives depends on one that could only be
+    discovered, which would be opened after it.
+
+    Raises:
+        ValueError: If a given connection's ``depends_on`` matches the type of a
+            controller argument that isn't given
+
+    """
+    controller_class = spec.controller_class
+    try:
+        init = controller_class.__init__ if isinstance(controller_class, type) else None
+        hints = get_type_hints(init or controller_class)
+    except NameError:
+        # Hints that can't be resolved are left to the check after opening
+        return
+
+    given = _given(spec)
+    discoverable: dict[str, type[Connection]] = {}
+    for name in inspect.signature(controller_class).parameters:
+        connection_type, _ = _connection_hint(hints.get(name))
+        if name not in given and connection_type is not None:
+            discoverable[name] = connection_type
+
+    names = _connection_names(spec)
+    for connection in {id(c): c for c in spec.connections}.values():
+        for dependency in _dependency_types(connection):
+            for name, connection_type in discoverable.items():
+                if issubclass(connection_type, dependency):
+                    raise ValueError(
+                        f"{names[id(connection)]} depends on {dependency.__name__}, "
+                        f"but {name} can only be discovered after "
+                        f"{names[id(connection)]} has been opened"
+                    )
 
 
 def _check_connections_not_shared(specs: list[ControllerSpec]) -> None:

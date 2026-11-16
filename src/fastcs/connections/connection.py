@@ -7,7 +7,19 @@ import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, cast, overload
+from types import UnionType
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Generic,
+    Self,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    overload,
+)
 
 from pydantic import BaseModel
 from typing_extensions import TypeVar
@@ -354,3 +366,22 @@ def _structure(value: Any) -> Any:
     if isinstance(value, list | tuple):
         return [_structure(item) for item in value]
     return None
+
+
+def _connection_hint(hint: Any) -> tuple[type[Connection] | None, bool]:
+    """The connection class a controller argument's hint names, if any, and whether
+    it's optional, as in ``MetaConnection | None``"""
+    optional = False
+    if get_origin(hint) in (Union, UnionType):
+        members = [member for member in get_args(hint) if member is not type(None)]
+        if len(members) != 1:
+            return None, False
+
+        hint, optional = members[0], True
+
+    # A parametrised hint like IPConnection[Introspection] is checked by its class
+    hint = get_origin(hint) or hint
+    if isinstance(hint, type) and issubclass(hint, Connection):
+        return hint, optional
+
+    return None, False

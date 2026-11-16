@@ -4,7 +4,6 @@ import functools
 import inspect
 import json
 from pathlib import Path
-from types import UnionType
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -13,8 +12,6 @@ from typing import (
     Optional,
     Self,
     Union,
-    get_args,
-    get_origin,
     get_type_hints,
 )
 
@@ -31,6 +28,7 @@ from ruamel.yaml import YAML
 
 from fastcs import __version__
 from fastcs.connections import Connection, ConnectionSpec
+from fastcs.connections.connection import _connection_hint
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.exceptions import LaunchError
@@ -302,25 +300,6 @@ _FRAMEWORK_SETTINGS = (
 
 
 @functools.cache
-def _connection_hint(hint: Any) -> tuple[type[Connection] | None, bool]:
-    """The connection class a controller argument's hint names, if any, and whether
-    it's optional, as in ``MetaConnection | None``"""
-    optional = False
-    if get_origin(hint) in (Union, UnionType):
-        members = [member for member in get_args(hint) if member is not type(None)]
-        if len(members) != 1:
-            return None, False
-
-        hint, optional = members[0], True
-
-    # A parametrised hint like IPConnection[Introspection] is checked by its class
-    hint = get_origin(hint) or hint
-    if isinstance(hint, type) and issubclass(hint, Connection):
-        return hint, optional
-
-    return None, False
-
-
 def _connection_settings_model(connection_type: type[Connection]) -> type[BaseModel]:
     """Build the Pydantic model for one connection's block under `connections:`.
 
