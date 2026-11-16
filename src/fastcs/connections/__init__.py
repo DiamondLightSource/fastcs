@@ -5,6 +5,7 @@ from fastcs.util import optional_dependency
 from .connection import Connection as Connection
 from .connection import ConnectionState as ConnectionState
 from .connection import DisconnectedError as DisconnectedError
+from .connection import Introspection as Introspection
 from .connection import disconnect_on as disconnect_on
 from .ip_connection import IPConnection as IPConnection
 

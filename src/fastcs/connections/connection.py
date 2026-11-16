@@ -16,6 +16,24 @@ IntrospectionT = TypeVar("IntrospectionT", default=None)
 """What a `Connection`'s ``introspect`` returns, or ``None`` if it doesn't introspect"""
 
 
+@dataclasses.dataclass
+class Introspection(Generic[IntrospectionT]):
+    """What a `Connection`'s ``introspect`` returns.
+
+    Example::
+
+        async def introspect(self) -> Introspection[EigerIntrospection]:
+            return Introspection(EigerIntrospection(...))
+
+    Args:
+        value: The description of the device, available as
+            ``connection.introspection``
+
+    """
+
+    value: IntrospectionT
+
+
 class DisconnectedError(Exception):
     """Raised when using a connection whose link is down or closed"""
 
@@ -86,7 +104,7 @@ class Connection(ABC, Generic[IntrospectionT]):
     Example::
 
         class EigerConnection(Connection[EigerIntrospection]):
-            async def introspect(self) -> EigerIntrospection: ...
+            async def introspect(self) -> Introspection[EigerIntrospection]: ...
     """
 
     # Connection type(s) in the same ControllerSpec to open before this one
@@ -129,7 +147,8 @@ class Connection(ABC, Generic[IntrospectionT]):
 
     @property
     def introspection(self) -> IntrospectionT:
-        """What ``introspect`` returned when the framework opened this connection.
+        """The value of the `Introspection` that ``introspect`` returned when the
+        framework opened this connection.
 
         Raises:
             RuntimeError: If the framework hasn't opened this connection yet
@@ -160,14 +179,15 @@ class Connection(ABC, Generic[IntrospectionT]):
     async def connect(self) -> None:
         """Open the link, or raise. Called by the framework before construction."""
 
-    async def introspect(self) -> IntrospectionT:
+    async def introspect(self) -> Introspection[IntrospectionT]:
         """Describe the device. Called by the framework after ``connect``.
 
         Returns:
-            The introspection, or ``None`` if this connection doesn't introspect
+            The introspection, whose value is ``None`` if this connection doesn't
+            introspect
 
         """
-        return cast(IntrospectionT, None)
+        return Introspection(cast(IntrospectionT, None))
 
     @abstractmethod
     async def close(self) -> None:

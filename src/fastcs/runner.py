@@ -1,10 +1,10 @@
 import asyncio
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
-from typing import Self
+from typing import Self, TypeVar
 
 from fastcs.attributes.attr_r import AttrR
-from fastcs.connections import Connection, ConnectionState
+from fastcs.connections import Connection, ConnectionState, Introspection
 from fastcs.connections.connection import _reconnecting
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
@@ -14,6 +14,8 @@ from fastcs.exceptions import IntrospectionMismatchError, ReconnectFailedError
 from fastcs.logging import logger
 from fastcs.methods import ScanCallback
 from fastcs.util import ONCE
+
+T = TypeVar("T")
 
 
 class ControllerRunner:
@@ -60,7 +62,7 @@ class ControllerRunner:
                     connection.state = ConnectionState()
                     await connection.connect()
                     runner._connections.append(connection)
-                    connection.introspection = await connection.introspect()
+                    connection.introspection = await _introspect(connection)
                     runner._dependencies[id(connection)] = _dependencies(
                         connection, spec.connections
                     )
@@ -215,7 +217,7 @@ class ControllerRunner:
             try:
                 await connection.close()
                 await connection.connect()
-                introspection = await connection.introspect()
+                introspection = await _introspect(connection)
             except Exception:
                 logger.exception(
                     "Reconnect failed", connection=connection, attempt=attempt + 1
@@ -318,6 +320,23 @@ def _held_connections(controller: BaseController) -> list[Connection]:
     """The connections stored as attributes of a controller, once each"""
     values = vars(controller).values()
     return list({id(v): v for v in values if isinstance(v, Connection)}.values())
+
+
+async def _introspect(connection: Connection[T]) -> T:
+    """Introspect a connection, returning the value of its `Introspection`.
+
+    Raises:
+        TypeError: If ``introspect`` doesn't return an `Introspection`
+
+    """
+    introspection = await connection.introspect()
+    if not isinstance(introspection, Introspection):
+        raise TypeError(
+            f"{type(connection).__name__}.introspect returned "
+            f"{type(introspection).__name__}, not an Introspection"
+        )
+
+    return introspection.value
 
 
 def _check_connections_not_shared(specs: list[ControllerSpec]) -> None:

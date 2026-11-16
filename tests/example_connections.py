@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from fastcs.connections import Connection
+from fastcs.connections import Connection, Introspection
 from fastcs.controllers import Controller
 from fastcs.methods import scan
 from fastcs.util import ONCE
@@ -61,8 +61,8 @@ class IntrospectingConnection(Connection[DeviceIntrospection]):
     async def connect(self) -> None:
         pass
 
-    async def introspect(self) -> DeviceIntrospection:
-        return DeviceIntrospection({"gain": 2})
+    async def introspect(self) -> Introspection[DeviceIntrospection]:
+        return Introspection(DeviceIntrospection({"gain": 2}))
 
     async def close(self) -> None:
         pass

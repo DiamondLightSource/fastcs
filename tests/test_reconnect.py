@@ -6,6 +6,7 @@ import pytest
 from fastcs.connections import (
     Connection,
     DisconnectedError,
+    Introspection,
     IPConnection,
     disconnect_on,
 )
@@ -47,11 +48,11 @@ class ChangingConnection(IntrospectingConnection):
     def __init__(self) -> None:
         self.introspections = 0
 
-    async def introspect(self) -> DeviceIntrospection:
+    async def introspect(self) -> Introspection[DeviceIntrospection]:
         self.introspections += 1
         if self.introspections == 1:
-            return DeviceIntrospection({"gain": 2})
-        return DeviceIntrospection({"offset": 2})
+            return Introspection(DeviceIntrospection({"gain": 2}))
+        return Introspection(DeviceIntrospection({"offset": 2}))
 
 
 @pytest.mark.asyncio
@@ -307,10 +308,12 @@ class HandshakeConnection(Connection):
     async def handshake(self) -> None:
         self.handshakes += 1
 
-    async def introspect(self) -> None:
+    async def introspect(self) -> Introspection:
         if self.handshakes > 1:
             self.introspecting.set()
             await self.release.wait()
+
+        return Introspection(None)
 
     async def close(self) -> None:
         pass

@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from fastcs.connections import Connection
+from fastcs.connections import Connection, Introspection
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.methods import scan
 from fastcs.runner import ControllerRunner
@@ -163,7 +163,7 @@ async def test_connections_closed_if_build_fails():
 
 
 class FailingIntrospectConnection(RecordingConnection):
-    async def introspect(self) -> None:
+    async def introspect(self) -> Introspection:
         raise RuntimeError("introspect failed")
 
 
@@ -180,6 +180,19 @@ async def test_connection_closed_if_introspect_fails():
         )
 
     assert events == ["connect", "close"]
+
+
+class BareIntrospectConnection(RecordingConnection):
+    async def introspect(self) -> Introspection:
+        return {"gain": 2}  # type: ignore[return-value]
+
+
+@pytest.mark.asyncio
+async def test_introspect_not_returning_introspection_raises():
+    with pytest.raises(TypeError, match="returned dict, not an Introspection"):
+        await ControllerRunner.build(
+            [ControllerSpec("A", ConnectedController, BareIntrospectConnection([]))]
+        )
 
 
 @pytest.mark.asyncio
