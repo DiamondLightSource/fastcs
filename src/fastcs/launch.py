@@ -4,6 +4,7 @@ import functools
 import inspect
 import json
 from pathlib import Path
+from types import UnionType
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -12,6 +13,7 @@ from typing import (
     Optional,
     Self,
     Union,
+    get_args,
     get_origin,
     get_type_hints,
 )
@@ -223,6 +225,10 @@ def _controller_specs(
         kwargs: dict[str, Any] = {}
         for name, connection_type in registered.connection_types.items():
             settings = getattr(entry.connections, name)
+            if settings is None:
+                # An optional connection left out, which may be discovered instead
+                continue
+
             values = {k: getattr(settings, k) for k in type(settings).model_fields}
             attempts = values.pop("reconnect_attempts")
             period = values.pop("reconnect_period")
@@ -297,6 +303,25 @@ _FRAMEWORK_SETTINGS = (
 
 
 @functools.cache
+def _connection_hint(hint: Any) -> tuple[type[Connection] | None, bool]:
+    """The connection class a controller argument's hint names, if any, and whether
+    it's optional, as in ``MetaConnection | None``"""
+    optional = False
+    if get_origin(hint) in (Union, UnionType):
+        members = [member for member in get_args(hint) if member is not type(None)]
+        if len(members) != 1:
+            return None, False
+
+        hint, optional = members[0], True
+
+    # A parametrised hint like IPConnection[Introspection] is checked by its class
+    hint = get_origin(hint) or hint
+    if isinstance(hint, type) and issubclass(hint, Connection):
+        return hint, optional
+
+    return None, False
+
+
 def _connection_settings_model(connection_type: type[Connection]) -> type[BaseModel]:
     """Build the Pydantic model for one connection's block under `connections:`.
 
@@ -402,17 +427,17 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     }
 
     connection_types: dict[str, type[Connection]] = {}
+    connection_fields: dict[str, Any] = {}
     for name in args:
-        # A parametrised hint like IPConnection[Introspection] is checked by its class
-        hint = get_origin(hints.get(name)) or hints.get(name)
-        if isinstance(hint, type) and issubclass(hint, Connection):
-            connection_types[name] = hint
+        connection_type, optional = _connection_hint(hints.get(name))
+        if connection_type is not None:
+            connection_types[name] = connection_type
+            settings_model = _connection_settings_model(connection_type)
+            connection_fields[name] = (
+                (settings_model | None, None) if optional else (settings_model, ...)
+            )
 
     if connection_types:
-        connection_fields: dict[str, Any] = {
-            name: (_connection_settings_model(connection_type), ...)
-            for name, connection_type in connection_types.items()
-        }
         connections_model = create_model(
             f"{controller_class.__name__}Connections",
             __config__={"extra": "forbid"},
