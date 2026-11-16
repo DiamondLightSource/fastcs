@@ -2,7 +2,6 @@ import pytest
 
 from fastcs.connections import (
     Connection,
-    ConnectionSpec,
     ConnectionState,
     DisconnectedError,
     disconnect_on,
@@ -110,11 +109,9 @@ def test_disconnect_after_timeouts_must_be_at_least_one():
             disconnect_after_timeouts = 0
 
 
-def test_connection_spec_constructs_with_reconnect_settings():
-    spec = ConnectionSpec("flaky", _FlakyConnection).reconnect(attempts=5, period=1.0)
-    connection = spec.construct()
+def test_set_reconnect_on_connection():
+    connection = _FlakyConnection().set_reconnect(attempts=5, period=1.0)
 
-    assert isinstance(connection, _FlakyConnection)
     assert (connection.reconnect_attempts, connection.reconnect_period) == (5, 1.0)
-    with pytest.raises(ValueError, match="flaky sets reconnect attempts but not"):
-        spec.reconnect(attempts=5, period=None)
+    with pytest.raises(ValueError, match="_FlakyConnection sets reconnect attempts"):
+        connection.set_reconnect(attempts=5, period=None)

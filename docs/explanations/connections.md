@@ -118,7 +118,12 @@ class EigerConnection(Connection):
 ```
 
 A class that sets `reconnect_attempts` must set `reconnect_period` too, or defining it
-raises a `TypeError`.
+raises a `TypeError`. In Python, set them on one connection with `set_reconnect`, which
+returns the connection:
+
+```python
+connection = IPConnection("10.0.0.5", 4000).set_reconnect(attempts=5, period=2.0)
+```
 
 | Connection | `reconnect_attempts` | `reconnect_period` |
 |---|---|---|
@@ -182,7 +187,7 @@ class EigerController(Controller):
   `ControllerSpec`, is used instead of the discovered one.
 - It's independent of the connection that discovered it, so it only goes down when its
   own IO fails. Set `depends_on` on its class if it needs its parent to be up first.
-- It uses its class's reconnect settings, unless the spec sets them with
-  `ConnectionSpec(...).reconnect(attempts=5, period=1.0)`.
+- It uses its class's reconnect settings. To set others, give it a block in
+  `fastcs.yaml` instead.
 - If a reconnect discovers a different spec for a connection the controller takes,
   such as a new port, FastCS stops with an `IntrospectionMismatchError`.

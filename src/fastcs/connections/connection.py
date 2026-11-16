@@ -7,7 +7,7 @@ import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, cast, overload
 
 from pydantic import BaseModel
 from typing_extensions import TypeVar
@@ -153,6 +153,35 @@ class Connection(ABC, Generic[IntrospectionT]):
                 f"{cls.__name__} sets disconnect_after_timeouts to {timeouts!r}, but "
                 "it must be an integer of at least 1"
             )
+
+    def set_reconnect(self, *, attempts: int | None, period: float | None) -> Self:
+        """Set this connection's ``reconnect_attempts`` and ``reconnect_period``,
+        instead of using its class's.
+
+        Example::
+
+            odin = OdinConnection(url).set_reconnect(attempts=10, period=2.0)
+
+        Args:
+            attempts: How many times to try to reconnect. None or 0 means don't
+            period: How many seconds apart to try
+
+        Returns:
+            This connection
+
+        Raises:
+            ValueError: If ``attempts`` is set without ``period``
+
+        """
+        if attempts and period is None:
+            raise ValueError(
+                f"{type(self).__name__} sets reconnect attempts but not reconnect "
+                "period"
+            )
+
+        self.reconnect_attempts = attempts
+        self.reconnect_period = period
+        return self
 
     @property
     def introspection(self) -> IntrospectionT:
