@@ -221,9 +221,7 @@ class BaseController(Tracer):
         for name in self.__hinted_methods:
             self._validate_hinted_method(name)
 
-    def _validate_hinted_member(
-        self, name: str, kind: str, expected_type: type[T]
-    ) -> T:
+    def _validate_hinted_member(self, name: str, expected_type: type[T]) -> T:
         """Validate that a hinted member exists on the controller
 
         Raises:
@@ -234,13 +232,13 @@ class BaseController(Tracer):
         if member is None or not isinstance(member, expected_type):
             raise RuntimeError(
                 f"Controller `{self.__class__.__name__}` failed to introspect "
-                f"hinted {kind} `{name}` during initialisation"
+                f"hinted {expected_type.__name__} `{name}` during initialisation"
             )
         return member
 
     def _validate_hinted_method(self, name: str):
         """Check that a `Method` with the given name exists on the controller"""
-        method = self._validate_hinted_member(name, "method", Method)
+        method = self._validate_hinted_member(name, self.__hinted_methods[name])
 
         logger.debug(
             "Validated hinted method", name=name, controller=self, method=method
@@ -248,7 +246,9 @@ class BaseController(Tracer):
 
     def _validate_hinted_attribute(self, name: str):
         """Check that an `Attribute` with the given name exists on the controller"""
-        attr = self._validate_hinted_member(name, "attribute", Attribute)
+        attr = self._validate_hinted_member(
+            name, self.__hinted_attributes[name].attr_type
+        )
 
         logger.debug(
             "Validated hinted attribute", name=name, controller=self, attribute=attr
@@ -256,7 +256,9 @@ class BaseController(Tracer):
 
     def _validate_hinted_controller(self, name: str):
         """Check that a sub controller with the given name exists on the controller"""
-        controller = self._validate_hinted_member(name, "controller", BaseController)
+        controller = self._validate_hinted_member(
+            name, self.__hinted_sub_controllers[name]
+        )
 
         logger.debug(
             "Validated hinted sub controller",
@@ -308,7 +310,7 @@ class BaseController(Tracer):
         for name, sub_controller in self.__sub_controllers.items():
             sub_controller.set_path(path + [name])
 
-    def _check_can_add(self, name: str, kind: str, member: object):
+    def _check_can_add(self, name: str, member: Attribute | BaseController | Method):
         """Check that a member can be added to this controller under ``name``.
 
         Raises:
@@ -316,18 +318,22 @@ class BaseController(Tracer):
             ValueError: If ``name`` is already used by another member
 
         """
+        namespaces = {
+            Attribute: ("attribute", self.__attributes),
+            BaseController: ("sub controller", self.__sub_controllers),
+            Scan: ("scan method", self.__scan_methods),
+            Command: ("command method", self.__command_methods),
+        }
+        kind = next(
+            kind for cls, (kind, _) in namespaces.items() if isinstance(member, cls)
+        )
+
         if self._sealed:
             raise RuntimeError(
                 f"Cannot add {kind} {name} to {self} after it has been sealed"
             )
 
-        namespaces = {
-            "attribute": self.__attributes,
-            "sub controller": self.__sub_controllers,
-            "scan method": self.__scan_methods,
-            "command method": self.__command_methods,
-        }
-        for existing_kind, namespace in namespaces.items():
+        for existing_kind, namespace in namespaces.values():
             if name in namespace:
                 raise ValueError(
                     f"Cannot add {kind} {member}. Controller {self} has existing "
@@ -335,7 +341,7 @@ class BaseController(Tracer):
                 )
 
     def add_attribute(self, name, attr: Attribute):
-        self._check_can_add(name, "attribute", attr)
+        self._check_can_add(name, attr)
 
         if name in self.__hinted_attributes:
             hint = self.__hinted_attributes[name]
@@ -363,7 +369,7 @@ class BaseController(Tracer):
         return self.__attributes
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
-        self._check_can_add(name, "sub controller", sub_controller)
+        self._check_can_add(name, sub_controller)
 
         if name in self.__hinted_sub_controllers:
             hint = self.__hinted_sub_controllers[name]
@@ -391,12 +397,12 @@ class BaseController(Tracer):
     def sub_controllers(self) -> dict[str, BaseController]:
         return self.__sub_controllers
 
-    def _validate_method(self, name: str, kind: str, method: Method):
+    def _validate_method(self, name: str, method: Method):
         if name in self.__hinted_methods:
             hint = self.__hinted_methods[name]
             if not isinstance(method, hint):
                 raise RuntimeError(
-                    f"Cannot add {kind} {method}. "
+                    f"Cannot add {method}. "
                     f"Controller '{self.__class__.__name__}' introspection of "
                     f"hinted method '{name}' does not match defined type. "
                     f"Expected '{hint.__name__}' got "
@@ -404,8 +410,8 @@ class BaseController(Tracer):
                 )
 
     def add_command(self, name: str, command: Command):
-        self._check_can_add(name, "command method", command)
-        self._validate_method(name, "command method", command)
+        self._check_can_add(name, command)
+        self._validate_method(name, command)
 
         self.__command_methods[name] = command
         super().__setattr__(name, command)
@@ -415,8 +421,8 @@ class BaseController(Tracer):
         return self.__command_methods
 
     def add_scan(self, name: str, scan: Scan):
-        self._check_can_add(name, "scan method", scan)
-        self._validate_method(name, "scan method", scan)
+        self._check_can_add(name, scan)
+        self._validate_method(name, scan)
 
         self.__scan_methods[name] = scan
         super().__setattr__(name, scan)

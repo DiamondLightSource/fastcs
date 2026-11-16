@@ -189,11 +189,11 @@ def test_attribute_hint_validation():
     with pytest.raises(RuntimeError, match="does not match defined access mode"):
         controller.add_attribute("read_write_int", AttrR(Int()))
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted attribute"):
+    with pytest.raises(RuntimeError, match="failed to introspect hinted AttrRW"):
         controller.read_write_int = 5  # type: ignore
         controller._validate_type_hints()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted attribute"):
+    with pytest.raises(RuntimeError, match="failed to introspect hinted AttrRW"):
         controller._validate_type_hints()
 
     controller.add_attribute("read_write_int", AttrRW(Int()))
@@ -224,7 +224,7 @@ async def test_sub_controller_hint_validation():
 
     controller = HintedController()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted controller"):
+    with pytest.raises(RuntimeError, match="introspect hinted SomeSubController"):
         controller._validate_type_hints()
 
     with pytest.raises(RuntimeError, match="does not match defined type"):
@@ -241,10 +241,10 @@ async def test_method_hint_validation():
 
     controller = HintedController()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted method"):
+    with pytest.raises(RuntimeError, match="failed to introspect hinted Scan"):
         controller._validate_type_hints()
 
-    with pytest.raises(RuntimeError, match="Cannot add command method"):
+    with pytest.raises(RuntimeError, match="does not match defined type"):
         controller.add_command("method", Command(noop))
 
     controller.add_scan("method", Scan(fn=noop, period=0.1))
