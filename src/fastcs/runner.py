@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from typing import Self, TypeVar
@@ -29,6 +30,7 @@ class ControllerRunner:
         )
 
         self._dependencies: dict[int, list[Connection]] = {}
+        self._names: dict[int, str] = {}
 
         self._controller_apis: list[ControllerAPI] = []
         self._initial_coros: dict[int, list[ScanCallback]] = defaultdict(list)
@@ -58,6 +60,7 @@ class ControllerRunner:
 
         try:
             for spec in specs:
+                runner._names.update(_connection_names(spec))
                 for connection in _dependency_order(spec.connections):
                     connection.state = ConnectionState()
                     await connection.connect()
@@ -193,7 +196,7 @@ class ControllerRunner:
                 different
 
         """
-        name = type(connection).__name__
+        name = self._names[id(connection)]
         attempts = connection.reconnect_attempts
         period = connection.reconnect_period
         if not attempts:
@@ -220,7 +223,7 @@ class ControllerRunner:
                 introspection = await _introspect(connection)
             except Exception:
                 logger.exception(
-                    "Reconnect failed", connection=connection, attempt=attempt + 1
+                    "Reconnect failed", connection=name, attempt=attempt + 1
                 )
                 continue
             finally:
@@ -337,6 +340,19 @@ async def _introspect(connection: Connection[T]) -> T:
         )
 
     return introspection.value
+
+
+def _connection_names(spec: ControllerSpec) -> dict[int, str]:
+    """Name each connection in a spec after the controller argument it's passed as,
+    or after its class if it's passed into ``*args``"""
+    names = {id(c): type(c).__name__ for c in spec.connections}
+    positional = inspect.signature(spec.controller_class).bind_partial(*spec.args)
+    arguments = {**positional.arguments, **spec.kwargs}
+    for name, value in arguments.items():
+        if isinstance(value, Connection):
+            names[id(value)] = name
+
+    return names
 
 
 def _check_connections_not_shared(specs: list[ControllerSpec]) -> None:

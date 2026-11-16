@@ -7,6 +7,7 @@ from .connection import ConnectionState as ConnectionState
 from .connection import DisconnectedError as DisconnectedError
 from .connection import Introspection as Introspection
 from .connection import disconnect_on as disconnect_on
+from .connection_spec import ConnectionSpec as ConnectionSpec
 from .ip_connection import IPConnection as IPConnection
 
 with optional_dependency("httpx"):

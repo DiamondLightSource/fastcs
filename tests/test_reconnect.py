@@ -250,7 +250,9 @@ async def test_watcher_raises_when_instance_has_attempts_but_no_period():
     await runner.start()
 
     connection.state.mark_down()
-    with pytest.raises(ReconnectFailedError, match="no reconnect_period"):
+    with pytest.raises(
+        ReconnectFailedError, match="^connection can't.*no reconnect_period"
+    ):
         await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
     await runner.stop()
 

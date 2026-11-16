@@ -28,7 +28,7 @@ from pydantic import (
 from ruamel.yaml import YAML
 
 from fastcs import __version__
-from fastcs.connections import Connection
+from fastcs.connections import Connection, ConnectionSpec
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.exceptions import LaunchError
@@ -227,9 +227,9 @@ def _controller_specs(
             attempts = values.pop("reconnect_attempts")
             period = values.pop("reconnect_period")
             timeouts = values.pop("disconnect_after_timeouts")
-            connection = connection_type(**values)
-            connection.reconnect_attempts = attempts
-            connection.reconnect_period = period
+            connection_spec = ConnectionSpec(name, connection_type, **values)
+            connection_spec.reconnect(attempts=attempts, period=period)
+            connection = connection_spec.construct()
             connection.disconnect_after_timeouts = timeouts
             kwargs[name] = connection
 
