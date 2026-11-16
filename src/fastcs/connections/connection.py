@@ -154,23 +154,34 @@ class Connection(ABC, Generic[IntrospectionT]):
                 "it must be an integer of at least 1"
             )
 
-    def set_reconnect(self, *, attempts: int | None, period: float | None) -> Self:
-        """Set this connection's ``reconnect_attempts`` and ``reconnect_period``,
-        instead of using its class's.
+    def set_reconnect(
+        self,
+        *,
+        attempts: int | None,
+        period: float | None,
+        disconnect_after_timeouts: int | None = None,
+    ) -> Self:
+        """Set this connection's ``reconnect_attempts`` and ``reconnect_period``, and
+        optionally its ``disconnect_after_timeouts``, instead of using its class's.
 
         Example::
 
-            odin = OdinConnection(url).set_reconnect(attempts=10, period=2.0)
+            odin = OdinConnection(url).set_reconnect(
+                attempts=10, period=2.0, disconnect_after_timeouts=3
+            )
 
         Args:
             attempts: How many times to try to reconnect. None or 0 means don't
             period: How many seconds apart to try
+            disconnect_after_timeouts: How many timeouts in a row mean the link has
+                gone, or None to keep the class's
 
         Returns:
             This connection
 
         Raises:
-            ValueError: If ``attempts`` is set without ``period``
+            ValueError: If ``attempts`` is set without ``period``, or
+                ``disconnect_after_timeouts`` is less than 1
 
         """
         if attempts and period is None:
@@ -178,9 +189,17 @@ class Connection(ABC, Generic[IntrospectionT]):
                 f"{type(self).__name__} sets reconnect attempts but not reconnect "
                 "period"
             )
+        if disconnect_after_timeouts is not None and disconnect_after_timeouts < 1:
+            raise ValueError(
+                f"{type(self).__name__} sets disconnect_after_timeouts to "
+                f"{disconnect_after_timeouts}, but it must be at least 1"
+            )
 
         self.reconnect_attempts = attempts
         self.reconnect_period = period
+        if disconnect_after_timeouts is not None:
+            self.disconnect_after_timeouts = disconnect_after_timeouts
+
         return self
 
     @property

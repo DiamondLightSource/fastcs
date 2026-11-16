@@ -119,10 +119,13 @@ class EigerConnection(Connection):
 
 A class that sets `reconnect_attempts` must set `reconnect_period` too, or defining it
 raises a `TypeError`. In Python, set them on one connection with `set_reconnect`, which
-returns the connection:
+returns the connection. `disconnect_after_timeouts` is optional, and keeps the class's
+value if it's left out:
 
 ```python
-connection = IPConnection("10.0.0.5", 4000).set_reconnect(attempts=5, period=2.0)
+connection = IPConnection("10.0.0.5", 4000).set_reconnect(
+    attempts=5, period=2.0, disconnect_after_timeouts=3
+)
 ```
 
 | Connection | `reconnect_attempts` | `reconnect_period` |

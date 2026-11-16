@@ -234,9 +234,9 @@ def _controller_specs(
             period = values.pop("reconnect_period")
             timeouts = values.pop("disconnect_after_timeouts")
             connection = ConnectionSpec(name, connection_type, **values).construct()
-            connection.set_reconnect(attempts=attempts, period=period)
-            connection.disconnect_after_timeouts = timeouts
-            kwargs[name] = connection
+            kwargs[name] = connection.set_reconnect(
+                attempts=attempts, period=period, disconnect_after_timeouts=timeouts
+            )
 
         if registered.options_name is not None:
             field_values = {
