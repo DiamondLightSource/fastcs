@@ -141,6 +141,48 @@ FastCS finds the controllers to mark down by looking for the connection on them,
   and passes it to any sub controllers that need it, which store it too.
 - Each controller stores at most one connection.
 - Every connection a controller stores was opened by FastCS, from the top-level
-  controller's arguments.
+  controller's arguments or discovered for them.
 
 FastCS raises a `ValueError` at startup if any of these is broken.
+
+## Discovered connections
+
+Some devices report where other links are, like Odin reporting the port of its meta
+writer. `introspect()` can return a `ConnectionSpec` for each of these alongside the
+description:
+
+```python
+from fastcs.connections import Connection, ConnectionSpec, Introspection
+
+
+class OdinConnection(Connection[OdinIntrospection]):
+    async def introspect(self) -> Introspection[OdinIntrospection]:
+        info = OdinIntrospection(await self.get("/api/tree"))
+        meta = ConnectionSpec("meta", MetaWriterConnection, port=info.meta_port)
+        return Introspection(info, subconnections=[meta])
+```
+
+FastCS renames each one after the connection that discovered it, here `odin_meta`, and
+passes it to the top-level controller's argument of that name, which is hinted
+`X | None`:
+
+```python
+class EigerController(Controller):
+    def __init__(
+        self,
+        eiger: EigerConnection,
+        odin: OdinConnection,
+        odin_meta: MetaWriterConnection | None = None,
+    ) -> None: ...
+```
+
+- It's opened after the connections that are given, and only if the controller takes
+  it. It can discover connections of its own, named the same way, e.g. `odin_meta_x`.
+- An `odin_meta` block in `fastcs.yaml`, or an `odin_meta` argument in the
+  `ControllerSpec`, is used instead of the discovered one.
+- It's independent of the connection that discovered it, so it only goes down when its
+  own IO fails. Set `depends_on` on its class if it needs its parent to be up first.
+- It uses its class's reconnect settings, unless the spec sets them with
+  `ConnectionSpec(...).reconnect(attempts=5, period=1.0)`.
+- If a reconnect discovers a different spec for a connection the controller takes,
+  such as a new port, FastCS stops with an `IntrospectionMismatchError`.
