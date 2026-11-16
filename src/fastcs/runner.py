@@ -5,7 +5,12 @@ from collections.abc import Iterator, Sequence
 from typing import Self, TypeVar
 
 from fastcs.attributes.attr_r import AttrR
-from fastcs.connections import Connection, ConnectionState, Introspection
+from fastcs.connections import (
+    Connection,
+    ConnectionSpec,
+    ConnectionState,
+    Introspection,
+)
 from fastcs.connections.connection import _reconnecting
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
@@ -31,6 +36,9 @@ class ControllerRunner:
 
         self._dependencies: dict[int, list[Connection]] = {}
         self._names: dict[int, str] = {}
+        # Per connection, the names of the discovered connections its controller takes
+        self._takes: dict[int, set[str]] = {}
+        self._subconnections: dict[int, dict[str, ConnectionSpec]] = {}
 
         self._controller_apis: list[ControllerAPI] = []
         self._initial_coros: dict[int, list[ScanCallback]] = defaultdict(list)
@@ -92,6 +100,7 @@ class ControllerRunner:
         self._names.update(names)
         given = set(names.values())
         parameters = inspect.signature(spec.controller_class).parameters
+        takes = set(parameters) - given
         discovered: dict[str, Connection] = {}
 
         pending = spec.connections
@@ -99,8 +108,12 @@ class ControllerRunner:
             found: list[Connection] = []
             for connection in _dependency_order(pending):
                 introspection = await self._open(connection)
+                specs = _subconnections(
+                    introspection, self._names[id(connection)], takes
+                )
+                self._takes[id(connection)] = takes
+                self._subconnections[id(connection)] = specs
                 for subconnection in introspection.subconnections:
-                    subconnection.add_parent(self._names[id(connection)])
                     name = subconnection.name
                     if name in given:
                         logger.info("Using given connection, not discovered", name=name)
@@ -245,7 +258,8 @@ class ControllerRunner:
                 ``reconnect_period``, or it doesn't reconnect within
                 ``reconnect_attempts``
             IntrospectionMismatchError: If the new introspection's structure is
-                different
+                different, or it discovers different connections that the controller
+                takes
 
         """
         name = self._names[id(connection)]
@@ -272,7 +286,7 @@ class ControllerRunner:
             try:
                 await connection.close()
                 await connection.connect()
-                introspection = (await _introspect(connection)).value
+                introspection = await _introspect(connection)
             except Exception:
                 logger.exception(
                     "Reconnect failed", connection=name, attempt=attempt + 1
@@ -281,11 +295,21 @@ class ControllerRunner:
             finally:
                 _reconnecting.reset(token)
 
-            if connection.introspection_changed(introspection):
+            if connection.introspection_changed(introspection.value):
                 raise IntrospectionMismatchError(
                     f"{name} introspection changed structure on reconnect, so the "
                     "controllers built from it are out of date"
                 )
+
+            specs = _subconnections(introspection, name, self._takes[id(connection)])
+            old_specs = self._subconnections[id(connection)]
+            for changed in sorted(old_specs.keys() | specs.keys()):
+                old, new = old_specs.get(changed), specs.get(changed)
+                if old != new:
+                    raise IntrospectionMismatchError(
+                        f"{name} discovered {new} on reconnect instead of {old}, so "
+                        "the controllers built from it are out of date"
+                    )
 
             connection.state.mark_up()
             return
@@ -375,6 +399,18 @@ def _held_connections(controller: BaseController) -> list[Connection]:
     """The connections stored as attributes of a controller, once each"""
     values = vars(controller).values()
     return list({id(v): v for v in values if isinstance(v, Connection)}.values())
+
+
+def _subconnections(
+    introspection: Introspection, parent_name: str, takes: set[str]
+) -> dict[str, ConnectionSpec]:
+    """Name an introspection's subconnections after their parent, and keep those the
+    controller takes, by name"""
+    for subconnection in introspection.subconnections:
+        subconnection.add_parent(parent_name)
+
+    specs = introspection.subconnections
+    return {spec.name: spec for spec in specs if spec.name in takes}
 
 
 async def _introspect(connection: Connection[T]) -> Introspection[T]:

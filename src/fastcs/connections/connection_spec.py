@@ -64,6 +64,36 @@ class ConnectionSpec(Generic[P, ConnectionT]):
         self._reconnect = (attempts, period)
         return self
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ConnectionSpec):
+            return NotImplemented
+
+        return self._fields() == other._fields()
+
+    def __repr__(self) -> str:
+        class_name = getattr(self.connection_class, "__name__", self.connection_class)
+        arguments = [
+            repr(self.name),
+            str(class_name),
+            *(repr(arg) for arg in self.args),
+            *(f"{key}={value!r}" for key, value in self.kwargs.items()),
+        ]
+        spec = f"ConnectionSpec({', '.join(arguments)})"
+        if self._reconnect is not None:
+            attempts, period = self._reconnect
+            spec += f".reconnect(attempts={attempts}, period={period})"
+
+        return spec
+
+    def _fields(self) -> tuple:
+        return (
+            self.name,
+            self.connection_class,
+            self.args,
+            self.kwargs,
+            self._reconnect,
+        )
+
     def add_parent(self, parent_name: str) -> None:
         """Prefix the name with that of the connection that discovered it.
 
