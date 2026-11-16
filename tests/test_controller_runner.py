@@ -440,3 +440,42 @@ async def test_introspection_returning_the_same_specs_still_reconnects():
     await asyncio.wait_for(connection.state.wait_up(), timeout=1)
     assert connection.cached.subconnections[0].name == "meta"
     await runner.stop()
+
+
+class LateConnection(MetaConnection):
+    pass
+
+
+class LateDiscoveringConnection(MetaConnection):
+    async def introspect(self) -> Introspection:
+        late = ConnectionSpec("late", LateConnection)
+        return Introspection(None, subconnections=[late])
+
+
+class NeedsLateConnection(MetaConnection):
+    depends_on = LateConnection
+
+
+class LateController(Controller):
+    def __init__(
+        self,
+        parent: LateDiscoveringConnection,
+        needs: NeedsLateConnection,
+        parent_late: LateConnection | None = None,
+    ) -> None:
+        super().__init__()
+
+
+@pytest.mark.asyncio
+async def test_depending_on_a_connection_discovered_later_raises():
+    with pytest.raises(ValueError, match="needs depends on parent_late, but"):
+        await ControllerRunner.build(
+            [
+                ControllerSpec(
+                    "A",
+                    LateController,
+                    LateDiscoveringConnection(),
+                    NeedsLateConnection(),
+                )
+            ]
+        )

@@ -60,8 +60,9 @@ class ControllerRunner:
             ``controller_apis``, in the order the specs were given
 
         Raises:
-            ValueError: If a connection is shared between specs, or two discovered
-                connections have the same name
+            ValueError: If a connection is shared between specs, two discovered
+                connections have the same name, or a connection depends on one that
+                is discovered after it's opened
 
         """
         _check_connections_not_shared(specs)
@@ -93,7 +94,8 @@ class ControllerRunner:
             The discovered connections that were opened, by name
 
         Raises:
-            ValueError: If two discovered connections have the same name
+            ValueError: If two discovered connections have the same name, or a
+                connection depends on one that is discovered after it's opened
 
         """
         names = _connection_names(spec)
@@ -131,8 +133,18 @@ class ControllerRunner:
             pending = found
 
         connections = [*spec.connections, *discovered.values()]
+        opened = {id(c): index for index, c in enumerate(self._connections)}
         for connection in connections:
-            self._dependencies[id(connection)] = _dependencies(connection, connections)
+            dependencies = _dependencies(connection, connections)
+            self._dependencies[id(connection)] = dependencies
+            for dependency in dependencies:
+                if opened[id(dependency)] > opened[id(connection)]:
+                    name = self._names[id(connection)]
+                    later = self._names[id(dependency)]
+                    raise ValueError(
+                        f"{name} depends on {later}, but {later} is only discovered "
+                        f"after {name} has been opened"
+                    )
 
         return discovered
 
