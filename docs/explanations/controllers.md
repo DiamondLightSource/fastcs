@@ -30,7 +30,7 @@ passes it on to any sub controllers that need it. See
 
 FastCS collects the `@scan` methods and readable attributes with `update_period` set
 from every controller in the tree, and runs them as background tasks. A scan that
-raises an exception is logged, and runs again on its next period.
+raises an exception is logged, and runs again a second later.
 
 Every controller has a read-only `connected` attribute. When the connection a controller
 holds goes down, FastCS sets `connected` to `False` and pauses that controller's scans.
