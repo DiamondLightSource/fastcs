@@ -2,10 +2,12 @@ class FastCSError(Exception):
     """Base class for problems in running FastCS."""
 
 
-class FatalError(FastCSError):
-    """For when something has happened that means FastCS must stop, so that it can be
-    restarted.
-    """
+class ReconnectFailedError(FastCSError):
+    """Raised when a connection doesn't reconnect within its ``reconnect_attempts``"""
+
+
+class IntrospectionMismatchError(FastCSError):
+    """Raised when a connection's introspection changes structure on reconnect"""
 
 
 class LaunchError(FastCSError):

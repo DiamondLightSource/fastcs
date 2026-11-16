@@ -10,7 +10,7 @@ from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.controllers.controller_spec import ControllerSpec
-from fastcs.exceptions import FatalError
+from fastcs.exceptions import IntrospectionMismatchError, ReconnectFailedError
 from fastcs.logging import logger
 from fastcs.methods import ScanCallback
 from fastcs.util import ONCE
@@ -105,10 +105,12 @@ class ControllerRunner:
         }
 
     async def wait_for_fatal_error(self) -> None:
-        """Wait on the connection watchers, which only stop by giving up or failing.
+        """Wait on the connection watchers, which only stop by failing.
 
         Raises:
-            FatalError: If a watcher hits one
+            ReconnectFailedError: If a connection doesn't reconnect
+            IntrospectionMismatchError: If a connection's introspection changes
+                structure on reconnect
 
         """
         await asyncio.gather(*self._watchers.values())
@@ -163,14 +165,11 @@ class ControllerRunner:
 
     async def _watch(self, connection: Connection) -> None:
         """Each time a connection is marked down, mark its controllers down, then
-        reconnect it and mark them up, or give up and leave them down."""
+        reconnect it and mark them up."""
         while True:
             await connection.state.wait_down()
             await self._mark_down(connection)
-            if not await self._reconnect(connection):
-                logger.error("Giving up reconnecting", connection=connection)
-                return
-
+            await self._reconnect(connection)
             await self._mark_up(connection)
 
     async def _mark_down(self, connection: Connection) -> None:
@@ -180,15 +179,14 @@ class ControllerRunner:
             self._scan_gates[id(controller)].clear()
             await controller.connected.update(False)
 
-    async def _reconnect(self, connection: Connection) -> bool:
+    async def _reconnect(self, connection: Connection) -> None:
         """Try to reconnect and introspect, once its dependencies are up, and mark the
         connection up if the introspection's structure is unchanged.
 
-        Returns:
-            Whether it reconnected within ``reconnect_attempts``
-
         Raises:
-            FatalError: If the new introspection's structure is different
+            ReconnectFailedError: If it doesn't reconnect within ``reconnect_attempts``
+            IntrospectionMismatchError: If the new introspection's structure is
+                different
 
         """
         for attempt in range(connection.reconnect_attempts):
@@ -212,15 +210,18 @@ class ControllerRunner:
                 _reconnecting.reset(token)
 
             if connection.introspection_changed(introspection):
-                raise FatalError(
+                raise IntrospectionMismatchError(
                     f"{type(connection).__name__} introspection changed structure on "
                     "reconnect, so the controllers built from it are out of date"
                 )
 
             connection.state.mark_up()
-            return True
+            return
 
-        return False
+        raise ReconnectFailedError(
+            f"{type(connection).__name__} went down and didn't reconnect within "
+            f"{connection.reconnect_attempts} attempts"
+        )
 
     async def _mark_up(self, connection: Connection) -> None:
         """Mark connected each controller holding a connection, re-run its read-once

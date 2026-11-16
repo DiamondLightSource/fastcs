@@ -8,7 +8,7 @@ from typing import Any
 from IPython.terminal.embed import InteractiveShellEmbed
 
 from fastcs.controllers import ControllerSpec
-from fastcs.exceptions import FatalError
+from fastcs.exceptions import FastCSError
 from fastcs.logging import logger
 from fastcs.runner import ControllerRunner
 from fastcs.tracer import Tracer
@@ -136,7 +136,7 @@ class FastCS:
                 await asyncio.gather(*tasks)
             except asyncio.CancelledError:
                 pass
-            except FatalError:
+            except FastCSError:
                 logger.exception("Stopping FastCS after a fatal error")
                 raise
             except Exception:

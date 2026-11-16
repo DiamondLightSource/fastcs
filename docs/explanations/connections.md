@@ -79,12 +79,13 @@ When a connection is marked down, FastCS:
 3. Once that works and the introspection's structure is unchanged, marks the connection
    up, sets `connected` back to `True`, re-runs the controllers' `ONCE` scans and
    resumes the others.
-4. After `reconnect_attempts` failed tries, gives up. The controllers stay disconnected
-   while the rest of the application carries on.
+4. After `reconnect_attempts` failed tries, stops with a `ReconnectFailedError`.
 
 If the new introspection has different fields or keys from the one the controllers were
-built from, FastCS stops with a `FatalError`, so that it can be restarted and build them
-again. Changed values are fine.
+built from, FastCS stops with an `IntrospectionMismatchError`. Changed values are fine.
+
+Both are a `FastCSError`: FastCS shuts down, so that it can be restarted and build its
+controllers again.
 
 ### Reconnect settings
 
@@ -99,7 +100,7 @@ connections:
     reconnect_period: 2.0
 ```
 
-`reconnect_attempts: 0` means never reconnect. A connection class can set its own
+`reconnect_attempts: 0` means stop as soon as the connection goes down. A connection class can set its own
 defaults:
 
 ```python

@@ -8,7 +8,7 @@ from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
-from fastcs.exceptions import FatalError
+from fastcs.exceptions import IntrospectionMismatchError
 from fastcs.methods import Command, command
 from fastcs.transports import Transport
 from fastcs.util import ONCE
@@ -182,7 +182,7 @@ async def test_serve_raises_fatal_error_and_closes_connections():
     transport = ForeverTransport()
     fastcs = FastCS([ControllerSpec("A", DroppingController, connection)], [transport])
 
-    with pytest.raises(FatalError, match="changed structure"):
+    with pytest.raises(IntrospectionMismatchError):
         await asyncio.wait_for(fastcs.serve(interactive=False), timeout=1)
 
     # Once on reconnect, once on shutdown

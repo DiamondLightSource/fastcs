@@ -6,7 +6,7 @@ import pytest
 from fastcs.connections import Connection, DisconnectedError, disconnect_on
 from fastcs.connections.connection import _structure
 from fastcs.controllers import Controller, ControllerSpec
-from fastcs.exceptions import FatalError
+from fastcs.exceptions import IntrospectionMismatchError, ReconnectFailedError
 from fastcs.methods import scan
 from fastcs.runner import ControllerRunner
 from fastcs.util import ONCE
@@ -377,7 +377,7 @@ async def test_introspection_changing_structure_on_reconnect_is_fatal():
     await runner.start()
 
     connection.state.mark_down()
-    with pytest.raises(FatalError, match="changed structure"):
+    with pytest.raises(IntrospectionMismatchError):
         await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
     await runner.stop()
 
@@ -499,9 +499,10 @@ async def test_watcher_reconnects_then_marks_controllers_up():
 
 
 @pytest.mark.asyncio
-async def test_watcher_gives_up_and_leaves_controllers_down():
-    connection = FlakyConnection(failures=0)
-    connection.reconnect_attempts = 0
+@pytest.mark.parametrize("attempts", [0, 2])
+async def test_watcher_raises_when_reconnect_attempts_run_out(attempts: int):
+    connection = FlakyConnection(failures=attempts)
+    connection.reconnect_attempts = attempts
     runner = await ControllerRunner.build(
         [ControllerSpec("A", HoldingController, connection)]
     )
@@ -509,9 +510,10 @@ async def test_watcher_gives_up_and_leaves_controllers_down():
     controller = runner.controllers[0]
 
     connection.state.mark_down()
-    await asyncio.wait_for(runner._watchers[id(connection)], timeout=1)
+    with pytest.raises(ReconnectFailedError):
+        await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
 
-    assert connection.connects == 1
+    assert connection.connects == 1 + attempts
     assert controller.connected.get() is False
     assert not runner._scan_gates[id(controller)].is_set()
     await runner.stop()
