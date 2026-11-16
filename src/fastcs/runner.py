@@ -111,12 +111,12 @@ class ControllerRunner:
             found: list[Connection] = []
             for connection in _dependency_order(pending):
                 introspection = await self._open(connection)
-                specs = _subconnections(
-                    introspection, self._names[id(connection)], takes
+                named = _named_subconnections(
+                    introspection, self._names[id(connection)]
                 )
                 self._takes[id(connection)] = takes
-                self._subconnections[id(connection)] = specs
-                for subconnection in introspection.subconnections:
+                self._subconnections[id(connection)] = _taken(named, takes)
+                for subconnection in named:
                     name = subconnection.name
                     if name in given:
                         logger.info("Using given connection, not discovered", name=name)
@@ -304,7 +304,8 @@ class ControllerRunner:
                     "controllers built from it are out of date"
                 )
 
-            specs = _subconnections(introspection, name, self._takes[id(connection)])
+            named = _named_subconnections(introspection, name)
+            specs = _taken(named, self._takes[id(connection)])
             old_specs = self._subconnections[id(connection)]
             for changed in sorted(old_specs.keys() | specs.keys()):
                 old, new = old_specs.get(changed), specs.get(changed)
@@ -404,15 +405,15 @@ def _held_connections(controller: BaseController) -> list[Connection]:
     return list({id(v): v for v in values if isinstance(v, Connection)}.values())
 
 
-def _subconnections(
-    introspection: Introspection, parent_name: str, takes: set[str]
-) -> dict[str, ConnectionSpec]:
-    """Name an introspection's subconnections after their parent, and keep those the
-    controller takes, by name"""
-    for subconnection in introspection.subconnections:
-        subconnection.add_parent(parent_name)
+def _named_subconnections(
+    introspection: Introspection, parent_name: str
+) -> list[ConnectionSpec]:
+    """Copies of an introspection's subconnections, named after their parent"""
+    return [spec.with_parent(parent_name) for spec in introspection.subconnections]
 
-    specs = introspection.subconnections
+
+def _taken(specs: list[ConnectionSpec], takes: set[str]) -> dict[str, ConnectionSpec]:
+    """The specs the controller takes, by name"""
     return {spec.name: spec for spec in specs if spec.name in takes}
 
 
