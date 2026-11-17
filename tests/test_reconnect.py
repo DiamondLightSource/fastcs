@@ -5,6 +5,7 @@ import pytest
 
 from fastcs.connections import (
     Connection,
+    ConnectionSpec,
     DisconnectedError,
     Introspection,
     IPConnection,
@@ -17,11 +18,14 @@ from fastcs.methods import scan
 from fastcs.runner import ControllerRunner
 from fastcs.util import ONCE
 from tests.example_connections import (
+    DetectorConnection,
+    DetectorController,
     DeviceIntrospection,
     EigerConnection,
     HoldingController,
     IntrospectedController,
     IntrospectingConnection,
+    MetaConnection,
     OdinConnection,
     RecordingConnection,
     TwoConnectionController,
@@ -88,6 +92,64 @@ async def test_controller_mutating_introspection_still_reconnects():
     connection.state.mark_down()
     await controller.connected.wait_for_value(False, timeout=1)
     await controller.connected.wait_for_value(True, timeout=1)
+    await runner.stop()
+
+
+class PortConnection(MetaConnection):
+    def __init__(self, port: int) -> None:
+        self.port = port
+
+
+class MovingDetectorConnection(DetectorConnection):
+    reconnect_attempts = 10
+    reconnect_period = 0
+
+    def __init__(self) -> None:
+        self.introspections = 0
+
+    async def introspect(self) -> Introspection:
+        self.introspections += 1
+        meta = ConnectionSpec("meta", PortConnection, port=5000 + self.introspections)
+        return Introspection(None, subconnections=[meta])
+
+
+@pytest.mark.asyncio
+async def test_discovered_connection_changing_on_reconnect_is_fatal():
+    connection = MovingDetectorConnection()
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", DetectorController, connection)]
+    )
+    await runner.start()
+
+    connection.state.mark_down()
+    with pytest.raises(IntrospectionMismatchError, match="port=5002.*port=5001"):
+        await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
+    await runner.stop()
+
+
+class CachedDetectorConnection(DetectorConnection):
+    reconnect_attempts = 10
+    reconnect_period = 0
+
+    def __init__(self) -> None:
+        meta = ConnectionSpec("meta", MetaConnection)
+        self.cached = Introspection(None, subconnections=[meta])
+
+    async def introspect(self) -> Introspection:
+        return self.cached
+
+
+@pytest.mark.asyncio
+async def test_introspection_returning_the_same_specs_still_reconnects():
+    connection = CachedDetectorConnection()
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", DetectorController, connection)]
+    )
+    await runner.start()
+
+    connection.state.mark_down()
+    await asyncio.wait_for(connection.state.wait_up(), timeout=1)
+    assert connection.cached.subconnections[0].name == "meta"
     await runner.stop()
 
 

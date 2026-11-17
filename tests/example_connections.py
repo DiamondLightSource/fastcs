@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from fastcs.connections import Connection, Introspection
+from fastcs.connections import Connection, ConnectionSpec, Introspection
 from fastcs.controllers import Controller
 from fastcs.methods import scan
 from fastcs.util import ONCE
@@ -73,3 +73,29 @@ class IntrospectedController(Controller):
         super().__init__()
         self.connection = connection
         self.parameters = connection.introspection.parameters
+
+
+class MetaConnection(Connection):
+    async def connect(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        pass
+
+
+class DetectorConnection(MetaConnection):
+    async def introspect(self) -> Introspection:
+        subconnections = [
+            ConnectionSpec("meta", MetaConnection),
+            ConnectionSpec("unused", MetaConnection),
+        ]
+        return Introspection(None, subconnections=subconnections)
+
+
+class DetectorController(Controller):
+    def __init__(
+        self, detector: DetectorConnection, detector_meta: MetaConnection | None = None
+    ) -> None:
+        super().__init__()
+        self.detector = detector
+        self.meta = HoldingController(detector_meta) if detector_meta else None
