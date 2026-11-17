@@ -18,6 +18,7 @@ from fastcs.datatypes import Int
 from fastcs.exceptions import LaunchError
 from fastcs.launch import (
     _build_options_model,
+    _connection_settings_model,
     _launch,
     get_controller_schema,
     launch,
@@ -359,6 +360,8 @@ def test_connections_built_from_config(mocker: MockerFixture, tmp_path):
         "      connection:\n"
         "        ip: localhost\n"
         "        port: 8000\n"
+        "        reconnect_attempts: 0\n"
+        "        reconnect_period: 2.0\n"
         "    name: a\n"
         "transport:\n"
         "  - rest: {}\n"
@@ -370,7 +373,24 @@ def test_connections_built_from_config(mocker: MockerFixture, tmp_path):
     connection = spec.kwargs["connection"]
     assert isinstance(connection, IPConnection)
     assert (connection.ip, connection.port) == ("localhost", 8000)
+    assert (connection.reconnect_attempts, connection.reconnect_period) == (0, 2.0)
     assert spec.kwargs["arg"] == SomeConfig(name="a")
+
+
+def test_reconnect_setting_defaults_come_from_the_connection_class():
+    fields = _connection_settings_model(IPConnection).model_fields
+    assert fields["reconnect_attempts"].default == IPConnection.reconnect_attempts
+    assert fields["reconnect_period"].default == IPConnection.reconnect_period
+    assert fields["disconnect_after_timeouts"].default == 1
+
+
+def test_reconnect_attempts_without_period_rejected_by_settings_and_schema():
+    model = _connection_settings_model(NoSettingsConnection)
+    with pytest.raises(ValidationError, match="reconnect_period is needed"):
+        model.model_validate({"reconnect_attempts": 3})
+
+    assert model.model_json_schema()["then"] == {"required": ["reconnect_period"]}
+    assert "then" not in _connection_settings_model(IPConnection).model_json_schema()
 
 
 def test_parametrised_and_no_settings_connections():
@@ -381,7 +401,10 @@ def test_parametrised_and_no_settings_connections():
                 {
                     "id": "one",
                     "type": "tests.WithGenericConnections",
-                    "connections": {"sensor": {}, "link": {}},
+                    "connections": {
+                        "sensor": {"ip": "localhost", "port": 8000},
+                        "link": {},
+                    },
                 }
             ],
             "transport": [{"rest": {}}],

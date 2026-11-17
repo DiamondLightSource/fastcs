@@ -5,17 +5,26 @@ import inspect
 import json
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     Literal,
     Optional,
+    Self,
     Union,
     get_origin,
     get_type_hints,
 )
 
 import typer
-from pydantic import BaseModel, Field, ValidationError, create_model
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    create_model,
+    model_validator,
+)
 from ruamel.yaml import YAML
 
 from fastcs import __version__
@@ -215,7 +224,14 @@ def _controller_specs(
         for name, connection_type in registered.connection_types.items():
             settings = getattr(entry.connections, name)
             values = {k: getattr(settings, k) for k in type(settings).model_fields}
-            kwargs[name] = connection_type(**values)
+            attempts = values.pop("reconnect_attempts")
+            period = values.pop("reconnect_period")
+            timeouts = values.pop("disconnect_after_timeouts")
+            connection = connection_type(**values)
+            connection.reconnect_attempts = attempts
+            connection.reconnect_period = period
+            connection.disconnect_after_timeouts = timeouts
+            kwargs[name] = connection
 
         if registered.options_name is not None:
             field_values = {
@@ -229,12 +245,67 @@ def _controller_specs(
     return specs
 
 
+class _ConnectionSettings(BaseModel):
+    """Base for each connection's block under `connections:`"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    if TYPE_CHECKING:
+        # Fields added by _connection_settings_model, declared for type checkers
+        reconnect_attempts: int | None
+        reconnect_period: float | None
+        disconnect_after_timeouts: int
+
+    @model_validator(mode="after")
+    def _check_reconnect_period(self) -> Self:
+        """Check there is a period to reconnect with.
+
+        Raises:
+            ValueError: If ``reconnect_attempts`` is set without ``reconnect_period``
+
+        """
+        if self.reconnect_attempts and self.reconnect_period is None:
+            raise ValueError("reconnect_attempts is set, so reconnect_period is needed")
+        return self
+
+
+class _ConnectionSettingsWithoutPeriod(_ConnectionSettings):
+    """Base for the block of a connection class with no ``reconnect_period``, whose
+    schema asks for one in the editor once ``reconnect_attempts`` is set"""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "if": {
+                "properties": {"reconnect_attempts": {"type": "integer", "minimum": 1}},
+                "required": ["reconnect_attempts"],
+            },
+            "then": {"required": ["reconnect_period"]},
+        }
+    )
+
+
+def _drop_default(schema: dict[str, Any]) -> None:
+    schema.pop("default", None)
+
+
+_FRAMEWORK_SETTINGS = (
+    "reconnect_attempts",
+    "reconnect_period",
+    "disconnect_after_timeouts",
+)
+"""Settings in each connection's block that are for the framework, not ``__init__``"""
+
+
 @functools.cache
 def _connection_settings_model(connection_type: type[Connection]) -> type[BaseModel]:
     """Build the Pydantic model for one connection's block under `connections:`.
 
+    The block has the constructor's arguments, and the framework's
+    ``reconnect_attempts``, ``reconnect_period`` and ``disconnect_after_timeouts``.
+
     Raises:
-        LaunchError: If a constructor argument has no type hint
+        LaunchError: If a constructor argument has no type hint, or has the name of a
+            framework setting
 
     """
     sig = inspect.signature(connection_type.__init__)
@@ -248,12 +319,33 @@ def _connection_settings_model(connection_type: type[Connection]) -> type[BaseMo
                 f"Expected typehinting in '{connection_type.__name__}.__init__' "
                 f"but received {sig}. Add a typehint for `{name}`."
             )
+        if name in _FRAMEWORK_SETTINGS:
+            raise LaunchError(
+                f"'{connection_type.__name__}.__init__' can't take `{name}`, which is "
+                "a framework setting."
+            )
         default = ... if param.default is inspect.Parameter.empty else param.default
         fields[name] = (hints[name], default)
 
-    return create_model(
-        f"{connection_type.__name__}Settings", __config__={"extra": "forbid"}, **fields
+    fields["reconnect_attempts"] = (
+        int | None,
+        Field(default=connection_type.reconnect_attempts, ge=0),
     )
+
+    # A period can't be set to null in the block, as there's no use for that
+    base = _ConnectionSettings
+    if connection_type.reconnect_period is None:
+        base = _ConnectionSettingsWithoutPeriod
+        period = Field(default=None, ge=0, json_schema_extra=_drop_default)
+    else:
+        period = Field(default=connection_type.reconnect_period, ge=0)
+    fields["reconnect_period"] = (float, period)
+    fields["disconnect_after_timeouts"] = (
+        int,
+        Field(default=connection_type.disconnect_after_timeouts, ge=1),
+    )
+
+    return create_model(f"{connection_type.__name__}Settings", __base__=base, **fields)
 
 
 def _options_field_definitions(options_type: type) -> dict[str, tuple[Any, Any]]:

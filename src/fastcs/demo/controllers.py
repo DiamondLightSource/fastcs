@@ -10,7 +10,6 @@ from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.connections import IPConnection
 from fastcs.controllers import Controller
 from fastcs.datatypes import Enum, Float, Int, Waveform
-from fastcs.logging import logger
 from fastcs.methods import command, scan
 
 NumberT = TypeVar("NumberT", int, float)
@@ -46,15 +45,14 @@ class TemperatureControllerAttributeIO(
         self, attr: AttrW[NumberT, TemperatureControllerAttributeIORef], value: NumberT
     ) -> None:
         command = f"{attr.io_ref.name}{self.suffix}={attr.dtype(value)}"
-        await self._connection.send_command(f"{command}\r\n")
+        await self._connection.write(command)
         self.log_event("Send command for attribute", topic=attr, command=command)
 
     async def update(
         self, attr: AttrR[NumberT, TemperatureControllerAttributeIORef]
     ) -> None:
         query = f"{attr.io_ref.name}{self.suffix}?"
-        response = await self._connection.send_query(f"{query}\r\n")
-        response = response.strip("\r\n")
+        response = await self._connection.query(query)
         self.log_event(
             "Query for attribute",
             topic=attr,
@@ -92,22 +90,10 @@ class TemperatureController(Controller):
             # TODO: The requests all get concatenated and the sim doesn't handle it
             await asyncio.sleep(0.1)
 
-    async def reconnect(self):
-        try:
-            await self.sensor.close()
-            await self.sensor.connect()
-        except BaseException:
-            logger.exception("Reconnect failed")
-            return
-
-        self._connected = True
-
     @scan(0.1)
     async def update_voltages(self):
         query = "V?"
-        voltages = json.loads(
-            (await self.sensor.send_query(f"{query}\r\n")).strip("\r\n")
-        )
+        voltages = json.loads(await self.sensor.query(query))
 
         await self.voltages.update(voltages)
 
@@ -136,3 +122,4 @@ class TemperatureRampController(Controller):
         super().__init__(
             f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(sensor, suffix)]
         )
+        self.sensor = sensor

@@ -53,6 +53,9 @@ extensions = [
     "sphinx_togglebutton",
 ]
 
+# Render "Disconnects on:" docstring sections like "Raises:"
+napoleon_custom_sections = [("Disconnects on", "params_style")]
+
 # So we can use the ::: syntax
 myst_enable_extensions = ["colon_fence"]
 
@@ -107,9 +110,15 @@ nitpick_ignore = [
 nitpick_ignore_regex = [
     ("py:class", r"fastcs.*.DType_T"),
     ("py:class", r"fastcs.*.Numeric_T"),
+    ("py:class", r"fastcs.*._MethodT"),
     ("py:obj", r"fastcs.*.DType_T"),
     (r"py:.*", r"fastcs\.demo.*"),
     (r"py:.*", r"tickit.*"),
+    # httpx doesn't have intersphinx mapping
+    (r"py:.*", r"httpx\..*"),
+    ("any", r"httpx\..*"),
+    # pyserial doesn't have intersphinx mapping
+    (r"py:.*", r"serial\..*"),
     ("py:class", r"numpy.*"),
 ]
 

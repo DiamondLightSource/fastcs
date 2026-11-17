@@ -8,6 +8,7 @@ from typing import Any
 from IPython.terminal.embed import InteractiveShellEmbed
 
 from fastcs.controllers import ControllerSpec
+from fastcs.exceptions import FastCSError
 from fastcs.logging import logger
 from fastcs.runner import ControllerRunner
 from fastcs.tracer import Tracer
@@ -129,12 +130,21 @@ class FastCS:
 
                 coros.append(block_forever())
 
+            coros.append(self._runner.wait_for_fatal_error())
+            tasks = [asyncio.create_task(coro) for coro in coros]
             try:
-                await asyncio.gather(*coros)
+                await asyncio.gather(*tasks)
             except asyncio.CancelledError:
                 pass
+            except FastCSError:
+                logger.exception("Stopping FastCS after a fatal error")
+                raise
             except Exception:
                 logger.exception("Unhandled exception in serve")
+            finally:
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
         finally:
             logger.info("Shutting down FastCS")
             await self._runner.stop()

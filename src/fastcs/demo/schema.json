@@ -178,16 +178,63 @@
       "additionalProperties": false,
       "properties": {
         "ip": {
-          "default": "127.0.0.1",
           "title": "Ip",
           "type": "string"
         },
         "port": {
-          "default": 25565,
           "title": "Port",
+          "type": "integer"
+        },
+        "terminator": {
+          "default": "\r\n",
+          "title": "Terminator",
+          "type": "string"
+        },
+        "encoding": {
+          "default": "utf-8",
+          "title": "Encoding",
+          "type": "string"
+        },
+        "timeout": {
+          "default": 5.0,
+          "title": "Timeout",
+          "type": "number"
+        },
+        "limit": {
+          "default": 65536,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "reconnect_attempts": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 30,
+          "title": "Reconnect Attempts"
+        },
+        "reconnect_period": {
+          "default": 2.0,
+          "minimum": 0,
+          "title": "Reconnect Period",
+          "type": "number"
+        },
+        "disconnect_after_timeouts": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Disconnect After Timeouts",
           "type": "integer"
         }
       },
+      "required": [
+        "ip",
+        "port"
+      ],
       "title": "IPConnectionSettings",
       "type": "object"
     },

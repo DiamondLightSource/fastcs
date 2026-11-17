@@ -68,10 +68,9 @@ class TemperatureIntrospection:
 
 class TemperatureConnection(IPConnection[TemperatureIntrospection]):
     async def introspect(self) -> TemperatureIntrospection:
-        response = await self.send_query("API?\r\n")
-        parameters = json.loads(response.strip("\r\n"))
-        ramps = parameters.pop("Ramps")
-        return TemperatureIntrospection(parameters, ramps)
+        api = json.loads(await self.query("API?"))
+        ramps = api.pop("Ramps")
+        return TemperatureIntrospection(parameters=api, ramps=ramps)
 
 
 NumberT = TypeVar("NumberT", int, float)
@@ -94,8 +93,7 @@ class TemperatureControllerAttributeIO(
 
     async def update(self, attr: AttrR[NumberT, TemperatureControllerAttributeIORef]):
         query = f"{attr.io_ref.name}?"
-        response = await self._connection.send_query(f"{query}\r\n")
-        value = response.strip("\r\n")
+        value = await self._connection.query(query)
 
         await attr.update(attr.dtype(value))
 
@@ -103,7 +101,7 @@ class TemperatureControllerAttributeIO(
         self, attr: AttrW[NumberT, TemperatureControllerAttributeIORef], value: NumberT
     ) -> None:
         command = f"{attr.io_ref.name}={attr.dtype(value)}"
-        await self._connection.send_command(f"{command}\r\n")
+        await self._connection.write(command)
 
 
 class TemperatureRampController(Controller):

@@ -1,5 +1,13 @@
 class FastCSError(Exception):
-    """Base class for general problems in the running of a FastCS transport."""
+    """Base class for problems in running FastCS."""
+
+
+class ReconnectFailedError(FastCSError):
+    """Raised when a connection doesn't reconnect within its ``reconnect_attempts``"""
+
+
+class IntrospectionMismatchError(FastCSError):
+    """Raised when a connection's introspection changes structure on reconnect"""
 
 
 class LaunchError(FastCSError):

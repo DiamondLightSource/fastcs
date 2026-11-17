@@ -8,7 +8,9 @@ from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
+from fastcs.exceptions import ReconnectFailedError
 from fastcs.methods import Command, command
+from fastcs.transports import Transport
 from fastcs.util import ONCE
 from tests.assertable_controller import MyTestController
 
@@ -97,7 +99,7 @@ async def test_update_periods():
     assert controller.update_never.get() == 0
 
     assert len(fastcs._runner._tasks) == 1
-    assert len(fastcs._runner._initial_coros) == 1
+    assert sum(map(len, fastcs._runner._initial_coros.values())) == 1
 
 
 class ClosingConnection(Connection):
@@ -113,6 +115,7 @@ class ClosingConnection(Connection):
 class FailingSetupController(Controller):
     def __init__(self, connection: ClosingConnection) -> None:
         super().__init__()
+        self.connection = connection
 
     async def setup(self) -> None:
         raise RuntimeError("setup failed")
@@ -127,3 +130,45 @@ async def test_connections_closed_if_startup_fails():
         await fastcs.serve(interactive=False)
 
     assert connection.closed
+
+
+class DroppingController(Controller):
+    def __init__(self, connection: ClosingConnection) -> None:
+        super().__init__()
+        self.connection = connection
+
+    async def setup(self) -> None:
+        # Reconnecting is off, so the watcher fails as soon as it starts
+        self.connection.state.mark_down()
+
+
+class ForeverTransport(Transport):
+    cancelled = False
+
+    def connect(self, controller_apis, loop) -> None:
+        pass
+
+    async def serve(self) -> None:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+
+
+# Keep the test transport out of the launcher's transport schema
+Transport.subclasses.remove(ForeverTransport)
+
+
+@pytest.mark.asyncio
+async def test_serve_raises_fatal_error_and_closes_connections():
+    connection = ClosingConnection()
+    transport = ForeverTransport()
+    fastcs = FastCS([ControllerSpec("A", DroppingController, connection)], [transport])
+
+    with pytest.raises(ReconnectFailedError):
+        await asyncio.wait_for(fastcs.serve(interactive=False), timeout=1)
+
+    assert connection.closed
+    assert transport.cancelled
+    assert asyncio.all_tasks() == {asyncio.current_task()}

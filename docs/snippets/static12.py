@@ -34,8 +34,7 @@ class TemperatureControllerAttributeIO(
 
     async def update(self, attr: AttrR[NumberT, TemperatureControllerAttributeIORef]):
         query = f"{attr.io_ref.name}{self._suffix}?"
-        response = await self._connection.send_query(f"{query}\r\n")
-        value = response.strip("\r\n")
+        value = await self._connection.query(query)
 
         await attr.update(attr.dtype(value))
 
@@ -43,7 +42,7 @@ class TemperatureControllerAttributeIO(
         self, attr: AttrW[NumberT, TemperatureControllerAttributeIORef], value: NumberT
     ) -> None:
         command = f"{attr.io_ref.name}{self._suffix}={attr.dtype(value)}"
-        await self._connection.send_command(f"{command}\r\n")
+        await self._connection.write(command)
 
 
 class OnOffEnum(enum.StrEnum):
@@ -84,9 +83,7 @@ class TemperatureController(Controller):
 
     @scan(0.1)
     async def update_voltages(self):
-        voltages = json.loads(
-            (await self._connection.send_query("V?\r\n")).strip("\r\n")
-        )
+        voltages = json.loads(await self._connection.query("V?"))
         for index, controller in enumerate(self._ramp_controllers):
             await controller.voltage.update(float(voltages[index]))
 

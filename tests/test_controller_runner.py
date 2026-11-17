@@ -1,5 +1,4 @@
 import asyncio
-from dataclasses import dataclass
 
 import pytest
 
@@ -8,6 +7,15 @@ from fastcs.controllers import Controller, ControllerSpec
 from fastcs.methods import scan
 from fastcs.runner import ControllerRunner
 from fastcs.util import ONCE
+from tests.example_connections import (
+    DeviceIntrospection,
+    EigerConnection,
+    IntrospectedController,
+    IntrospectingConnection,
+    OdinConnection,
+    RecordingConnection,
+    TwoConnectionController,
+)
 
 
 class ScanController(Controller):
@@ -69,18 +77,6 @@ async def test_start_runs_scans_and_stop_stops_them():
     assert controller.stopped.is_set()
 
 
-class RecordingConnection(Connection):
-    def __init__(self, events: list[str], name: str = "") -> None:
-        self.events = events
-        self.suffix = f" {name}" if name else ""
-
-    async def connect(self) -> None:
-        self.events.append(f"connect{self.suffix}")
-
-    async def close(self) -> None:
-        self.events.append(f"close{self.suffix}")
-
-
 class ConnectedController(Controller):
     def __init__(self, connection: RecordingConnection) -> None:
         super().__init__()
@@ -106,6 +102,48 @@ async def test_connection_opened_before_construction_and_closed_on_stop():
     await runner.stop()
 
     assert events == ["connect", "construct", "close"]
+
+
+class UnheldController(Controller):
+    def __init__(self, connection: Connection) -> None:
+        super().__init__()
+
+
+class TwoHeldController(Controller):
+    def __init__(self, a: RecordingConnection, b: RecordingConnection) -> None:
+        super().__init__()
+        self.a = a
+        self.b = b
+
+
+class UnopenedController(Controller):
+    def __init__(self) -> None:
+        super().__init__()
+        self.connection = RecordingConnection([])
+
+
+@pytest.mark.parametrize(
+    "spec, message",
+    [
+        (
+            ControllerSpec("A", UnheldController, RecordingConnection([])),
+            "No controller holds",
+        ),
+        (
+            ControllerSpec(
+                "A", TwoHeldController, RecordingConnection([]), RecordingConnection([])
+            ),
+            "more than one connection",
+        ),
+        (ControllerSpec("A", UnopenedController), "wasn't opened by the framework"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_build_raises_if_connections_break_the_holding_rules(
+    spec: ControllerSpec, message: str
+):
+    with pytest.raises(ValueError, match=message):
+        await ControllerRunner.build([spec])
 
 
 class FailingController(Controller):
@@ -159,19 +197,6 @@ async def test_connection_shared_between_specs_raises_before_anything_opens():
     assert events == []
 
 
-class EigerConnection(RecordingConnection):
-    pass
-
-
-class OdinConnection(RecordingConnection):
-    depends_on = EigerConnection
-
-
-class TwoConnectionController(Controller):
-    def __init__(self, odin: OdinConnection, eiger: EigerConnection) -> None:
-        super().__init__()
-
-
 @pytest.mark.asyncio
 async def test_connections_opened_in_dependency_order_and_closed_in_reverse():
     events: list[str] = []
@@ -223,28 +248,6 @@ async def test_dependency_cycle_raises_before_anything_opens():
         )
 
     assert events == []
-
-
-@dataclass
-class DeviceIntrospection:
-    parameters: dict[str, int]
-
-
-class IntrospectingConnection(Connection[DeviceIntrospection]):
-    async def connect(self) -> None:
-        pass
-
-    async def introspect(self) -> DeviceIntrospection:
-        return DeviceIntrospection({"gain": 2})
-
-    async def close(self) -> None:
-        pass
-
-
-class IntrospectedController(Controller):
-    def __init__(self, connection: IntrospectingConnection) -> None:
-        super().__init__()
-        self.parameters = connection.introspection.parameters
 
 
 @pytest.mark.asyncio

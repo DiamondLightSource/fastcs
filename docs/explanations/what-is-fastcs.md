@@ -55,7 +55,7 @@ using `ControllerVector`. See [Controllers](controllers.md) for details.
 
 To create a driver, subclass `Controller`, declare attributes and commands as typed
 class members, take the `Connection`s it needs as constructor arguments, and implement
-lifecycle hooks (`setup`, `reconnect`) and periodic scan tasks. The [tutorials](../tutorials.md) walk through a complete example.
+the `setup` lifecycle hook and periodic scan tasks. The [tutorials](../tutorials.md) walk through a complete example.
 
 ## Deploying as an application
 
@@ -77,8 +77,8 @@ device logic does not require a running IOC or device server.
 **Multiple transports from a single driver** — the same controller can serve EPICS CA,
 EPICS PVA, Tango, REST, and GraphQL simultaneously or in any combination.
 
-**Automatic reconnection** — if a scan task raises an exception, FastCS pauses all
-tasks and calls `reconnect()` automatically, resuming once the connection is restored.
+**Automatic reconnection** — when a connection's link goes down, FastCS pauses the scans
+of the controllers using it and reconnects it, resuming them once the link is back.
 
 **Auto-generated OPI screens** — EPICS transports generate CSS-Phoebus screen files
 from the controller's attribute metadata, with no additional effort from the driver
