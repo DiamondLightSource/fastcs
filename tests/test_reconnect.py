@@ -14,6 +14,7 @@ from fastcs.controllers import Controller, ControllerSpec
 from fastcs.exceptions import IntrospectionMismatchError, ReconnectFailedError
 from fastcs.methods import scan
 from fastcs.runner import ControllerRunner
+from fastcs.util import ONCE
 from tests.example_connections import (
     DeviceIntrospection,
     EigerConnection,
@@ -179,6 +180,34 @@ class ScanningController(HoldingController):
     @scan(0.01)
     async def count(self) -> None:
         self.scans += 1
+
+
+class FailingReadController(ScanningController):
+    @scan(ONCE)
+    async def read_once(self) -> None:
+        self.reads += 1
+        if self.reads > 1:
+            raise RuntimeError("read failed")
+
+
+@pytest.mark.asyncio
+async def test_read_once_failing_after_reconnect_still_resumes_scans():
+    connection = RecordingConnection([])
+    runner = await ControllerRunner.build(
+        [ControllerSpec("A", FailingReadController, connection)]
+    )
+    await runner.start()
+    controller = runner.controllers[0]
+    assert isinstance(controller, FailingReadController)
+
+    connection.state.mark_down()
+    await controller.connected.wait_for_value(False, timeout=1)
+    await controller.connected.wait_for_value(True, timeout=1)
+    await _wait_until(lambda: controller.reads == 2)
+
+    scans = controller.scans
+    await _wait_until(lambda: controller.scans > scans)
+    await runner.stop()
 
 
 @pytest.mark.asyncio

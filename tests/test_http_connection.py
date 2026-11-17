@@ -2,6 +2,7 @@ import asyncio
 import json
 import socket
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -15,7 +16,9 @@ class _RateDevice(BaseHTTPRequestHandler):
     rate = 0
 
     def do_GET(self):
-        if self.path != "/rate":
+        if self.path == "/slow":
+            time.sleep(0.3)
+        elif self.path != "/rate":
             self.send_error(404)
             return
 
@@ -88,6 +91,20 @@ async def test_link_failure_marks_down_and_closes_connection(
     assert not connection.state.up
     with pytest.raises(DisconnectedError):
         await connection.get("/rate")
+
+
+@pytest.mark.asyncio
+async def test_timeout_leaves_connection_up(server: ThreadingHTTPServer):
+    connection = HTTPConnection(f"http://127.0.0.1:{server.server_port}", timeout=0.1)
+    await connection.connect()
+    connection.state = ConnectionState()
+
+    with pytest.raises(TimeoutError):
+        await connection.get("/slow")
+    assert connection.state.up
+    assert await connection.get("/rate") == 0
+
+    await connection.close()
 
 
 @pytest.mark.asyncio
