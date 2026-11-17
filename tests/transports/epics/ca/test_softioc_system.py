@@ -10,6 +10,10 @@ from softioc import alarm
 async def test_ioc(softioc_subprocess: tuple[str, Queue]):
     pv_prefix, _ = softioc_subprocess
 
+    initial_value = await caget(f"{pv_prefix}:Clamped_RBV")
+    assert initial_value  # Clamped initial value is truthy
+    assert await caget(f"{pv_prefix}:Clamped") == initial_value  # Setpoint is synced
+
     # Assert alias
     assert await caget(f"{pv_prefix}:B") == await caget(f"{pv_prefix}:AliasB") == 0
     await caput(f"{pv_prefix}:B", 10, wait=True)

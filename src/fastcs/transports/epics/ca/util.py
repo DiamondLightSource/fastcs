@@ -155,7 +155,7 @@ def _make_in_record(pv: str, attribute: AttrR) -> RecordWrapper:
     dtype = attribute.dtype
     common_fields = {
         "DESC": attribute.description,
-        "initial_value": cast_to_epics_type(attribute, attribute.get()),
+        "initial_value": cast_to_epics_type(attribute, attribute.readback),
     }
 
     if dtype is bool:
@@ -201,7 +201,7 @@ def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWr
         "DESC": attribute.description,
         "initial_value": cast_to_epics_type(
             attribute,
-            attribute.get()
+            attribute.readback
             if isinstance(attribute, AttrRW)
             else attribute.default_value(),
         ),

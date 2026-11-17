@@ -93,14 +93,13 @@ nitpick_ignore = [
     ("py:class", "p4p.nt.NTTable"),
     # Problems in FastCS itself
     ("py:class", "BaseController"),
-    ("py:class", "AttrIOUpdateCallback"),
     ("py:class", "fastcs.transports.epics.pva.pvi_tree._PviSignalInfo"),
     ("py:class", "fastcs.logging._logging.LogLevel"),
     ("py:class", "fastcs.logging._graylog.GraylogEndpoint"),
     ("py:class", "fastcs.logging._graylog.GraylogStaticFields"),
     ("py:class", "fastcs.logging._graylog.GraylogEnvFields"),
     ("py:obj", "fastcs.control_system.build_controller_api"),
-    ("docutils", "fastcs.demo.controllers.TemperatureControllerSettings"),
+    ("docutils", "fastcs.demo.temperature_attr.TemperatureControllerSettings"),
     # TypeVar without docstrings still give warnings
     ("py:class", "strawberry.schema.schema.Schema"),
 ]

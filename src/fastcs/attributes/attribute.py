@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from typing import Any, Generic, Literal, cast
 
-from fastcs.attributes.attribute_io_ref import AttributeIORefT
 from fastcs.datatypes import (
     DType_T,
     Meta,
@@ -19,7 +18,7 @@ from fastcs.tracer import Tracer
 AttributeAccessMode = Literal["r", "w", "rw"]
 
 
-class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
+class Attribute(Generic[DType_T], Tracer, ABC):
     """Base FastCS attribute.
 
     Instances of this class added to a ``Controller`` will be used by the FastCS class.
@@ -32,11 +31,19 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
 
     def __init__(
         self,
-        datatype: Any,
-        io_ref: AttributeIORefT | None = None,
+        datatype: Any = None,
         **meta: Any,
     ) -> None:
         super().__init__()
+
+        # Subclasses may infer the datatype from a getter's return annotation or a
+        # setter's value annotation and pass the result down; by the time it reaches
+        # here it must be resolved.
+        if datatype is None:
+            raise ValueError(
+                "datatype must be given explicitly, or be inferable from the "
+                "getter's return annotation or the setter's value annotation"
+            )
 
         dtype, element_type = resolve_datatype(datatype)
         self._meta: Meta = _resolve_meta(datatype, element_type, meta)
@@ -46,7 +53,6 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
 
         validate_meta(dtype, self._meta)
 
-        self._io_ref = io_ref
         self.enabled = True
 
         # A callback to use when setting the metadata to a different value, for
@@ -56,15 +62,6 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
         # Path and name to be filled in by Controller it is bound to
         self._name = ""
         self._path = []
-
-    @property
-    def io_ref(self) -> AttributeIORefT:
-        if self._io_ref is None:
-            raise RuntimeError(f"{self} has no AttributeIORef")
-        return self._io_ref
-
-    def has_io_ref(self):
-        return self._io_ref is not None
 
     @property
     def dtype(self) -> type[DType_T]:
@@ -174,7 +171,7 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
         full_name = self.full_name or None
         dtype = self._dtype.__name__
 
-        return f"{name}(name={full_name}, dtype={dtype}, io_ref={self._io_ref})"
+        return f"{name}(name={full_name}, dtype={dtype})"
 
 
 def _drop_unset(meta: Mapping[str, Any]) -> Meta:

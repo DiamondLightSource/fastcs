@@ -17,6 +17,18 @@ class ParentController(Controller):
     a: AttrR = AttrR(int)
     b: AttrRW = AttrRW(int)
 
+    def __init__(self, description: str | None = None) -> None:
+        super().__init__(description)
+        self._clamped = 5
+        self.clamped = AttrRW(int, getter=self.get_clamped, setter=self.set_clamped)
+
+    async def get_clamped(self) -> int:
+        return self._clamped
+
+    async def set_clamped(self, value: int) -> int:
+        self._clamped = min(max(value, 0), 100)
+        return self._clamped
+
 
 class ChildController(Controller):
     fail_on_next_e: bool = True

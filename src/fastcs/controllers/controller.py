@@ -2,9 +2,7 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Sequence
 
-from fastcs.attributes import AnyAttributeIO
 from fastcs.attributes.attr_r import AttrR
-from fastcs.attributes.attribute_io_ref import AttributeIORef
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller_api import ControllerAPI
 from fastcs.logging import logger
@@ -18,9 +16,8 @@ class Controller(BaseController):
     def __init__(
         self,
         description: str | None = None,
-        ios: Sequence[AnyAttributeIO] | None = None,
     ) -> None:
-        super().__init__(description=description, ios=ios)
+        super().__init__(description=description)
         self._connected = False
 
     def add_sub_controller(self, name: str, sub_controller: BaseController):
@@ -83,14 +80,18 @@ class Controller(BaseController):
                     scan_dict[method.period].append(method.fn)
 
             for attribute in api.attributes.values():
-                match attribute:
-                    case AttrR(_io_ref=AttributeIORef(update_period=update_period)):
-                        if update_period is ONCE:
-                            initial_coros.append(attribute.bind_update_callback())
-                        elif update_period is not None:
-                            scan_dict[update_period].append(
-                                attribute.bind_update_callback()
-                            )
+                if not (isinstance(attribute, AttrR) and attribute.has_getter()):
+                    continue
+
+                poll_period = attribute.poll_period
+
+                async def poll_attribute(attribute: AttrR = attribute) -> None:
+                    await attribute.poll()
+
+                if poll_period is ONCE:
+                    initial_coros.append(poll_attribute)
+                elif poll_period is not None:
+                    scan_dict[poll_period].append(poll_attribute)
 
         periodic_scan_coros: list[ScanCallback] = []
         for period, methods in scan_dict.items():

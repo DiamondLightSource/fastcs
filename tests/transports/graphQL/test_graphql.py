@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 from tests.assertable_controller import (
     AssertableControllerAPI,
-    MyTestAttributeIORef,
     MyTestController,
 )
 
@@ -17,11 +16,11 @@ from fastcs.transports.graphql.transport import GraphQLTransport
 
 
 class GraphQLController(MyTestController):
-    read_int = AttrR(int, io_ref=MyTestAttributeIORef())
-    read_write_int = AttrRW(int, io_ref=MyTestAttributeIORef())
+    read_int = AttrR(int)
+    read_write_int = AttrRW(int)
     read_write_float = AttrRW(float)
     read_bool = AttrR(bool)
-    write_bool = AttrW(bool, io_ref=MyTestAttributeIORef())
+    write_bool = AttrW(bool)
     read_string = AttrRW(str)
 
 
