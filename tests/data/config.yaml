@@ -1,13 +1,11 @@
 # yaml-language-server: $schema=schema.json
+controllers:
+  - id: device-1
+    type: tests.IsHinted
+    name: controller-name
 transport:
   - epicsca: {}
-    docs: {}
-    gui: {}
   - epicspva: {}
-    docs: {}
-    gui: {}
   - rest: {}
   - tango: {}
   - graphql: {}
-controller:
-  name: controller-name

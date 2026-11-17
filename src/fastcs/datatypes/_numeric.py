@@ -35,4 +35,8 @@ class _Numeric(DataType[Numeric_T]):
 
     @property
     def initial_value(self) -> Numeric_T:
+        if self.min is not None and self.min > self.dtype(0):
+            return self.min
+        if self.max is not None and self.max < self.dtype(0):
+            return self.min if self.min is not None else self.max
         return self.dtype(0)

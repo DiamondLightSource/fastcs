@@ -70,7 +70,7 @@ class Controller(BaseController):
             tuple[ControllerAPI, list[ScanCallback], list[ScanCallback]]
 
         """
-        controller_api = self._build_api([])
+        controller_api = self._build_api(self._path)
 
         scan_dict: dict[float, list[ScanCallback]] = defaultdict(list)
         initial_coros: list[ScanCallback] = []

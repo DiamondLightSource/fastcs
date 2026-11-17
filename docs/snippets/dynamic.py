@@ -16,7 +16,6 @@ from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.datatypes import Bool, DataType, Float, Int, String
 from fastcs.launch import FastCS
-from fastcs.transports.epics import EpicsIOCOptions
 from fastcs.transports.epics.ca import EpicsCATransport
 
 
@@ -139,9 +138,11 @@ class TemperatureController(Controller):
         await self._connection.close()
 
 
-epics_ca = EpicsCATransport(epicsca=EpicsIOCOptions(pv_prefix="DEMO"))
+epics_ca = EpicsCATransport()
 connection_settings = IPConnectionSettings("localhost", 25565)
-fastcs = FastCS(TemperatureController(connection_settings), [epics_ca])
+controller = TemperatureController(connection_settings)
+controller.set_path(["DEMO"])
+fastcs = FastCS(controller, [epics_ca])
 
 
 if __name__ == "__main__":

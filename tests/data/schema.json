@@ -1,9 +1,24 @@
 {
   "$defs": {
+    "EpicsCAOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "aliases": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "object"
+        }
+      },
+      "title": "EpicsCAOptions",
+      "type": "object"
+    },
     "EpicsCATransport": {
+      "additionalProperties": false,
       "properties": {
         "epicsca": {
-          "$ref": "#/$defs/EpicsIOCOptions"
+          "$ref": "#/$defs/EpicsCAOptions"
         },
         "docs": {
           "anyOf": [
@@ -33,10 +48,15 @@
     },
     "EpicsDocsOptions": {
       "properties": {
-        "path": {
+        "output_dir": {
           "default": ".",
           "format": "path",
-          "title": "Path",
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "title": {
+          "default": "FastCS Devices",
+          "title": "Title",
           "type": "string"
         },
         "depth": {
@@ -66,10 +86,10 @@
     },
     "EpicsGUIOptions": {
       "properties": {
-        "output_path": {
-          "default": "output.bob",
+        "output_dir": {
+          "default": ".",
           "format": "path",
-          "title": "Output Path",
+          "title": "Output Dir",
           "type": "string"
         },
         "file_format": {
@@ -77,7 +97,7 @@
           "default": ".bob"
         },
         "title": {
-          "default": "Simple Device",
+          "default": "FastCS Devices",
           "title": "Title",
           "type": "string"
         }
@@ -85,21 +105,17 @@
       "title": "EpicsGUIOptions",
       "type": "object"
     },
-    "EpicsIOCOptions": {
-      "properties": {
-        "pv_prefix": {
-          "default": "MY-DEVICE-PREFIX",
-          "title": "Pv Prefix",
-          "type": "string"
-        }
-      },
-      "title": "EpicsIOCOptions",
+    "EpicsPVAOptions": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "EpicsPVAOptions",
       "type": "object"
     },
     "EpicsPVATransport": {
+      "additionalProperties": false,
       "properties": {
         "epicspva": {
-          "$ref": "#/$defs/EpicsIOCOptions"
+          "$ref": "#/$defs/EpicsPVAOptions"
         },
         "docs": {
           "anyOf": [
@@ -149,12 +165,38 @@
       "type": "object"
     },
     "GraphQLTransport": {
+      "additionalProperties": false,
       "properties": {
         "graphql": {
           "$ref": "#/$defs/GraphQLServerOptions"
         }
       },
       "title": "GraphQLTransport",
+      "type": "object"
+    },
+    "IsHintedEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "tests.IsHinted",
+          "title": "Type",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name"
+      ],
+      "title": "IsHintedEntry",
       "type": "object"
     },
     "RestServerOptions": {
@@ -179,6 +221,7 @@
       "type": "object"
     },
     "RestTransport": {
+      "additionalProperties": false,
       "properties": {
         "rest": {
           "$ref": "#/$defs/RestServerOptions"
@@ -187,26 +230,8 @@
       "title": "RestTransport",
       "type": "object"
     },
-    "SomeConfig": {
-      "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name"
-      ],
-      "title": "SomeConfig",
-      "type": "object"
-    },
     "TangoDSROptions": {
       "properties": {
-        "dev_name": {
-          "default": "MY/DEVICE/NAME",
-          "title": "Dev Name",
-          "type": "string"
-        },
         "dsr_instance": {
           "default": "MY_SERVER_INSTANCE",
           "title": "Dsr Instance",
@@ -222,6 +247,7 @@
       "type": "object"
     },
     "TangoTransport": {
+      "additionalProperties": false,
       "properties": {
         "tango": {
           "$ref": "#/$defs/TangoDSROptions"
@@ -233,8 +259,12 @@
   },
   "additionalProperties": false,
   "properties": {
-    "controller": {
-      "$ref": "#/$defs/SomeConfig"
+    "controllers": {
+      "items": {
+        "$ref": "#/$defs/IsHintedEntry"
+      },
+      "title": "Controllers",
+      "type": "array"
     },
     "transport": {
       "items": {
@@ -261,7 +291,7 @@
     }
   },
   "required": [
-    "controller",
+    "controllers",
     "transport"
   ],
   "title": "IsHinted",

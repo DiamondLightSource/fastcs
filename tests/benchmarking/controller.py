@@ -4,11 +4,9 @@ from fastcs import FastCS
 from fastcs.attributes import AttrR, AttrW
 from fastcs.controllers import Controller
 from fastcs.datatypes import Bool, Int
-from fastcs.transports.epics import EpicsIOCOptions
 from fastcs.transports.epics.ca.transport import EpicsCATransport
 from fastcs.transports.rest.options import RestServerOptions
 from fastcs.transports.rest.transport import RestTransport
-from fastcs.transports.tango.options import TangoDSROptions
 from fastcs.transports.tango.transport import TangoTransport
 
 
@@ -20,12 +18,12 @@ class MyTestController(Controller):
 def run():
     transport_options = [
         RestTransport(rest=RestServerOptions(port=8090)),
-        EpicsCATransport(
-            epicsca=EpicsIOCOptions(pv_prefix="BENCHMARK-DEVICE"),
-        ),
-        TangoTransport(tango=TangoDSROptions(dev_name="MY/BENCHMARK/DEVICE")),
+        EpicsCATransport(),
+        TangoTransport(),
     ]
-    instance = FastCS(MyTestController(), transport_options, asyncio.get_event_loop())
+    controller = MyTestController()
+    controller.set_path(["BENCHMARK-DEVICE"])
+    instance = FastCS(controller, transport_options, asyncio.get_event_loop())
     instance.run()
 
 

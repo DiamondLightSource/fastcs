@@ -7,7 +7,7 @@ from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
 from fastcs.datatypes import Float, String
 from fastcs.launch import FastCS
-from fastcs.transports.epics import EpicsGUIOptions, EpicsIOCOptions
+from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
 
 NumberT = TypeVar("NumberT", int, float)
@@ -50,12 +50,12 @@ class TemperatureController(Controller):
         await self._connection.connect(self._ip_settings)
 
 
-gui_options = EpicsGUIOptions(
-    output_path=Path(".") / "demo.bob", title="Demo Temperature Controller"
-)
-epics_ca = EpicsCATransport(gui=gui_options, epicsca=EpicsIOCOptions(pv_prefix="DEMO"))
+gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
+epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
-fastcs = FastCS(TemperatureController(connection_settings), [epics_ca])
+controller = TemperatureController(connection_settings)
+controller.set_path(["DEMO"])
+fastcs = FastCS(controller, [epics_ca])
 
 if __name__ == "__main__":
     fastcs.run()

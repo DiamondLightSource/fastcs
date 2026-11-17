@@ -1,10 +1,14 @@
+# EPICS option classes are pure-Python and have no runtime EPICS dependency, so
+# they're always importable. Keep them in their own block so a missing CA or
+# PVA runtime doesn't hide them from config-schema consumers.
+from .epics.options import EpicsCAOptions as EpicsCAOptions
+from .epics.options import EpicsDocsOptions as EpicsDocsOptions
+from .epics.options import EpicsGUIOptions as EpicsGUIOptions
+from .epics.options import EpicsPVAOptions as EpicsPVAOptions
 from .transport import Transport as Transport
 
 try:
     from .epics.ca.transport import EpicsCATransport as EpicsCATransport
-    from .epics.options import EpicsDocsOptions as EpicsDocsOptions
-    from .epics.options import EpicsGUIOptions as EpicsGUIOptions
-    from .epics.options import EpicsIOCOptions as EpicsIOCOptions
 except ImportError:
     pass
 

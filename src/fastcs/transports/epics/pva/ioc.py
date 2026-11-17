@@ -4,21 +4,19 @@ from p4p.server import Server, StaticProvider
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
-from fastcs.transports.epics.util import controller_pv_prefix
+from fastcs.transports.epics.util import pv_prefix_from_path
 from fastcs.util import snake_to_pascal
 
 from ._pv_handlers import make_command_pv, make_shared_read_pv, make_shared_write_pv
 from .pvi import add_pvi_info
 
 
-async def parse_attributes(
-    root_pv_prefix: str, root_controller_api: ControllerAPI
-) -> StaticProvider:
+async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
     """Parses `Attribute` s into p4p signals in handlers."""
-    provider = StaticProvider(root_pv_prefix)
+    provider = StaticProvider(pv_prefix_from_path(root_controller_api.path))
 
     for controller_api in root_controller_api.walk_api():
-        pv_prefix = controller_pv_prefix(root_pv_prefix, controller_api)
+        pv_prefix = pv_prefix_from_path(controller_api.path)
         add_pvi_info(
             provider=provider,
             pv_prefix=pv_prefix,
@@ -50,15 +48,21 @@ async def parse_attributes(
 
 
 class P4PIOC:
-    """A P4P IOC which handles a controller"""
+    """A P4P IOC which handles one or more controllers.
 
-    def __init__(self, pv_prefix: str, controller_api: ControllerAPI):
-        self.pv_prefix = pv_prefix
-        self.controller_api = controller_api
+    Each controller gets its own ``StaticProvider`` so it exposes an independent
+    ``:PVI`` root with no super-parent.
+    """
+
+    def __init__(self, controller_apis: list[ControllerAPI]):
+        self._controller_apis = controller_apis
+
+    async def _build_providers(self) -> list[StaticProvider]:
+        return [await parse_attributes(api) for api in self._controller_apis]
 
     async def run(self):
-        provider = await parse_attributes(self.pv_prefix, self.controller_api)
+        providers = await self._build_providers()
 
         endless_event = asyncio.Event()
-        with Server([provider]):
+        with Server(providers):
             await endless_event.wait()

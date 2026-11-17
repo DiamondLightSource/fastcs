@@ -69,15 +69,21 @@ class MyTestController(Controller):
 
 
 class AssertableControllerAPI(ControllerAPI):
-    def __init__(self, controller: Controller, mocker: MockerFixture) -> None:
+    def __init__(
+        self,
+        controller: Controller,
+        mocker: MockerFixture,
+        path: list[str] | None = None,
+    ) -> None:
         super().__init__()
 
         self.mocker = mocker
         self.command_method_spys: dict[str, MockType] = {}
 
         # Build a ControllerAPI from the given Controller
-        controller_api = controller._build_api([])
+        controller_api = controller._build_api(path or [])
         # Copy its fields
+        self.path = controller_api.path
         self.attributes = controller_api.attributes
         self.command_methods = controller_api.command_methods
         self.scan_methods = controller_api.scan_methods

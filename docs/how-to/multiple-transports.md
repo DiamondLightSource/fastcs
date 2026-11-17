@@ -10,17 +10,17 @@ Pass a list of transports to `FastCS`:
 from fastcs.control_system import FastCS
 from fastcs.transports import (
     EpicsCATransport,
-    EpicsIOCOptions,
     GraphQLTransport,
     RestTransport,
 )
 
 controller = MyController()
+controller.set_path(["DEVICE"])  # PV prefix for EPICS / route prefix for REST
 
 fastcs = FastCS(
     controller,
     [
-        EpicsCATransport(epicsca=EpicsIOCOptions(pv_prefix="DEVICE")),
+        EpicsCATransport(),
         RestTransport(),
         GraphQLTransport(),
     ]
@@ -29,6 +29,26 @@ fastcs.run()
 ```
 
 All transports run concurrently, exposing the same controller API.
+
+## Choosing controller ids across transports
+
+Each transport derives its addressing from the controller's id (the PV prefix
+for EPICS, the URL prefix for REST, the top-level Query field for GraphQL),
+and each enforces its own charset at startup.
+
+| Transport | Allowed id charset |
+|-----------|--------------------|
+| EPICS CA  | `[A-Za-z0-9_-]+`, plus the 60-char PV name limit |
+| EPICS PVA | `[A-Za-z0-9_-]+`, plus the 60-char PV name limit |
+| REST      | `[A-Za-z0-9_-]+` |
+| Tango     | `[A-Za-z0-9_-]+` |
+| GraphQL   | `[A-Za-z_][A-Za-z0-9_]*` (GraphQL `Name`: no hyphens, no leading digit) |
+
+If you serve the same controller through multiple transports, use the
+intersection — a leading letter or underscore followed by letters, digits and
+underscores. GraphQL is the lowest common denominator: an id like `dev-01`
+will start an EPICS or REST transport happily but fail fast when GraphQL is
+added.
 
 ## Available Transports
 
@@ -52,23 +72,25 @@ Each transport has its own options:
 
 ### EPICS Channel Access
 
+The PV prefix is the first segment of the controller's path (set via
+`controller.set_path([...])` or auto-seeded by `launch()` from the YAML
+entry's `id:`).
+
 ```python
 from pathlib import Path
 from fastcs.transports import (
     EpicsCATransport,
     EpicsDocsOptions,
     EpicsGUIOptions,
-    EpicsIOCOptions,
 )
 
 epics_ca = EpicsCATransport(
-    epicsca=EpicsIOCOptions(pv_prefix="DEVICE"),
     gui=EpicsGUIOptions(
-        output_path=Path(".") / "device.bob",
+        output_dir=Path("./opis"),
         title="Device Control",
     ),
     docs=EpicsDocsOptions(
-        output_path=Path(".") / "device.csv",
+        output_dir=Path("./reference"),
     ),
 )
 ```
@@ -76,11 +98,9 @@ epics_ca = EpicsCATransport(
 ### EPICS PV Access
 
 ```python
-from fastcs.transports import EpicsPVATransport, EpicsIOCOptions
+from fastcs.transports import EpicsPVATransport
 
-epics_pva = EpicsPVATransport(
-    epicspva=EpicsIOCOptions(pv_prefix="DEVICE"),
-)
+epics_pva = EpicsPVATransport()
 ```
 
 ### REST
@@ -119,10 +139,14 @@ from fastcs.transports import TangoTransport, TangoDSROptions
 
 tango = TangoTransport(
     tango=TangoDSROptions(
-        device_name="test/device/1",
+        dsr_instance="MY_SERVER_INSTANCE",
     ),
 )
 ```
+
+The Tango device name for each controller is derived from its id —
+`{id}/{dev_class}/{dsr_instance}`. The id forms the leading device-name
+segment, so multiple controllers in one DSR get distinct device names.
 
 ## EPICS CA + PVA Together
 
@@ -134,25 +158,24 @@ from pathlib import Path
 from fastcs.transports import (
     EpicsCATransport,
     EpicsGUIOptions,
-    EpicsIOCOptions,
     EpicsPVATransport,
 )
+
+controller.set_path(["DEVICE"])
 
 fastcs = FastCS(
     controller,
     [
         EpicsCATransport(
-            epicsca=EpicsIOCOptions(pv_prefix="DEVICE"),
-            gui=EpicsGUIOptions(output_path=Path(".") / "device.bob"),
+            gui=EpicsGUIOptions(output_dir=Path("./opis")),
         ),
-        EpicsPVATransport(
-            epicspva=EpicsIOCOptions(pv_prefix="DEVICE"),
-        ),
+        EpicsPVATransport(),
     ]
 )
 ```
 
-Both transports share the same PV prefix and expose identical PVs.
+Both transports derive the same PV prefix from the controller's id and
+expose identical PVs.
 
 ## YAML Configuration
 

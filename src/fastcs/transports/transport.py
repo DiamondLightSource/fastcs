@@ -25,12 +25,15 @@ class Transport:
 
     @abstractmethod
     def connect(
-        self, controller_api: ControllerAPI, loop: asyncio.AbstractEventLoop
+        self,
+        controller_apis: list[ControllerAPI],
+        loop: asyncio.AbstractEventLoop,
     ) -> None:
         """Connect the ``Transport`` to the control system
 
-        The `ControllerAPI` should be exposed over the transport. The provided event
-        loop should be used where required instead of creating a new one.
+        Each `ControllerAPI` in ``controller_apis`` should be exposed over the
+        transport. The provided event loop should be used where required instead of
+        creating a new one.
 
         """
         pass
@@ -53,3 +56,18 @@ class Transport:
 
         """
         pass
+
+
+def _expect_single(
+    controller_apis: list[ControllerAPI], transport_name: str
+) -> ControllerAPI:
+    """Temporary helper for transports that only support one controller per process.
+
+    True multi-controller support will be added per transport in subsequent slices.
+    """
+    if len(controller_apis) != 1:
+        raise NotImplementedError(
+            f"{transport_name} does not yet support multiple controllers; "
+            f"got {len(controller_apis)}"
+        )
+    return controller_apis[0]

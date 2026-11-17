@@ -9,7 +9,6 @@ from fastcs.controllers import Controller, ControllerVector
 from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command, scan
-from fastcs.transports.epics import EpicsIOCOptions
 from fastcs.transports.epics.pva import EpicsPVATransport
 
 
@@ -87,10 +86,11 @@ class ChildController(Controller):
     j: AttrR = AttrR(Int())
 
 
-def run(pv_prefix="P4P_TEST_DEVICE"):
+def run(id="P4P_TEST_DEVICE"):
     simple_attribute_io = SimpleAttributeIO()
-    p4p_options = EpicsPVATransport(epicspva=EpicsIOCOptions(pv_prefix=pv_prefix))
+    p4p_options = EpicsPVATransport()
     controller = ParentController(ios=[simple_attribute_io])
+    controller.set_path([id])
 
     class ChildVector(ControllerVector):
         vector_attribute: AttrR = AttrR(Int())
