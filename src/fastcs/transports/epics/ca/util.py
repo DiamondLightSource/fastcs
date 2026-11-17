@@ -1,4 +1,3 @@
-import enum
 import re
 from collections.abc import Callable
 from dataclasses import asdict
@@ -246,10 +245,8 @@ def cast_from_epics_type(datatype: DataType[DType_T], value: object) -> DType_T:
                 return datatype.validate(datatype.members[value])
             else:  # enum backed by string record
                 assert isinstance(value, str), "Got non-string value for long Enum"
-                # python typing can't narrow the nested generic enum_cls
-                assert issubclass(datatype.enum_cls, enum.Enum), "Invalid Enum.enum_cls"
-                enum_member = datatype.enum_cls[value]
-                return datatype.validate(enum_member)
+                # Map by position, as SubsetEnum extras are raw values, not members
+                return datatype.validate(datatype.members[datatype.names.index(value)])
         case datatype if issubclass(type(datatype), EPICS_ALLOWED_DATATYPES):
             return datatype.validate(value)  # type: ignore
         case _:
@@ -263,7 +260,8 @@ def cast_to_epics_type(datatype: DataType[DType_T], value: DType_T) -> Any:
             if len(datatype.members) <= MBB_MAX_CHOICES:
                 return datatype.index_of(datatype.validate(value))
             else:  # enum backed by string record
-                return datatype.validate(value).name
+                # Map by position, as SubsetEnum extras are raw values, not members
+                return datatype.names[datatype.index_of(datatype.validate(value))]
         case String() as string:
             if string.length is not None:
                 return value[: string.length]

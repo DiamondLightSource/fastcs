@@ -46,6 +46,13 @@ class AttrR(Attribute[DType_T, AttributeIORefT]):
         """Get the cached value of the attribute."""
         return self._value
 
+    def update_datatype(self, datatype: DataType[DType_T]) -> None:
+        value = self._value
+        if not isinstance(value, datatype.dtype):  # e.g. a member of a replaced enum
+            value = datatype.validate(value)
+        super().update_datatype(datatype)
+        self._value = value
+
     @property
     def access_mode(self) -> AttributeAccessMode:
         return "r"

@@ -10,6 +10,7 @@ from fastcs.datatypes import Bool, DType_T, Enum, Float, Int, Table, Waveform
 from fastcs.launch import FastCS
 from fastcs.methods import command, scan
 from fastcs.transports.epics.pva import EpicsPVATransport
+from tests.util import DeviceGain, DeviceMode, DeviceTrigger, Gain, Mode, Trigger
 
 
 @dataclass
@@ -42,9 +43,21 @@ class ParentController(Controller):
         Table([("A", np.int32), ("B", "i"), ("C", "?"), ("D", np.float64)]),
         io_ref=SimpleAttributeIORef(),
     )
+    mode: AttrRW[Mode]
+    gain: AttrRW[Gain]
+    trigger: AttrRW[Trigger]
 
     def __init__(self, description=None, ios=None):
         super().__init__(description, ios)
+
+    async def initialise(self):
+        # Enums as introspected from a device, validated against the hints above
+        for name, device_enum in (
+            ("mode", DeviceMode),
+            ("gain", DeviceGain),
+            ("trigger", DeviceTrigger),
+        ):
+            self.add_attribute(name, AttrRW(Enum(device_enum)))
 
 
 class ChildController(Controller):

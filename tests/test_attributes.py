@@ -1,4 +1,5 @@
 import asyncio
+import enum
 from dataclasses import dataclass
 from functools import partial
 from typing import Generic, TypeVar
@@ -8,7 +9,8 @@ from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, Int, String
+from fastcs.datatypes import Enum, Float, Int, String
+from tests.util import DeviceGain, Gain
 
 
 def test_attribute_access_mode():
@@ -48,6 +50,40 @@ def test_attr_r():
         attr.set_path(["test_path"])
 
     assert attr.get() == ""
+
+
+def test_update_datatype_converts_enum_value():
+    attr: AttrR = AttrR(Enum(DeviceGain))
+    assert attr.get() is DeviceGain.LOW
+
+    attr.update_datatype(Enum(Gain, allowed=DeviceGain))
+
+    # Converted by value to the new enum class
+    assert attr.get() is Gain.LOW
+
+
+def test_update_datatype_failed_conversion_changes_nothing(mocker: MockerFixture):
+    attr: AttrR = AttrR(Enum(DeviceGain), initial_value=DeviceGain.HIGH)
+    original = attr.datatype
+    callback = mocker.Mock()
+    attr.add_update_datatype_callback(callback)
+
+    # HIGH is not one of the new datatype's choices
+    restricted = enum.Enum("Restricted", {"LOW": "Low"})
+    with pytest.raises(ValueError):
+        attr.update_datatype(Enum(Gain, allowed=restricted))
+
+    assert attr.datatype is original
+    assert attr.get() is DeviceGain.HIGH
+    callback.assert_not_called()
+
+
+def test_update_datatype_same_type_keeps_value():
+    # TODO: New metadata may result in stale _value, so possibly this should re-validate
+    # Metadata changes don't re-validate, so narrowing limits doesn't raise
+    attr = AttrR(Int(), initial_value=0)
+    attr.update_datatype(Int(min=5))
+    assert attr.get() == 0
 
 
 @pytest.mark.asyncio
