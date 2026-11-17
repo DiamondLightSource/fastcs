@@ -21,10 +21,8 @@ class DisconnectedError(Exception):
 
 
 class ConnectionState:
-    """Whether a connection's link is up, set by ``@disconnect_on`` and the framework.
-
-    The framework gives each connection it opens its own live state. It starts up.
-    """
+    """Whether a connection's link is up, changed by ``@disconnect_on`` and the
+    framework."""
 
     def __init__(self) -> None:
         self._up = asyncio.Event()
@@ -97,13 +95,13 @@ class Connection(ABC, Generic[IntrospectionT]):
     # Replaced with a live state by the framework when it opens this connection
     state: ConnectionState = _InertConnectionState()
 
-    # How many times, and how many seconds apart, the framework tries to reconnect.
+    # How many times, and how many seconds apart, the framework tries to reconnect
     # None or 0 means don't reconnect and stop FastCS when the link goes down
     reconnect_attempts: int | None = None
     reconnect_period: float | None = None
 
     # How many timeouts in a row mean the link has gone, from @disconnect_on methods
-    # that list TimeoutError. At least 1
+    # that list TimeoutError
     disconnect_after_timeouts: int = 1
 
     _introspection: IntrospectionT

@@ -53,6 +53,9 @@ extensions = [
     "sphinx_togglebutton",
 ]
 
+# Render "Disconnects on:" docstring sections like "Raises:"
+napoleon_custom_sections = [("Disconnects on", "params_style")]
+
 # So we can use the ::: syntax
 myst_enable_extensions = ["colon_fence"]
 

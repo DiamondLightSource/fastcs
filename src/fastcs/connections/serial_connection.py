@@ -18,11 +18,10 @@ from fastcs.tracer import Tracer
 class SerialConnection(Connection[IntrospectionT], Tracer):
     """A serial link to a device that exchanges terminated messages.
 
-    If an exchange raises an `OSError`, such as a `ConnectionError`, the link is
-    closed and the connection marked down, so later calls raise `DisconnectedError`.
-    A `TimeoutError` closes the link too, as a late reply would be read as the reply
-    to the next exchange, so a ``disconnect_after_timeouts`` above 1 only delays
-    marking the connection down until the next call.
+    Disconnects on:
+        OSError: If an exchange fails on the link, such as an unplugged adapter
+        TimeoutError: If an exchange takes longer than ``timeout``, as a late reply
+            would be read as the reply to the next exchange
 
     Args:
         port: The serial port to open

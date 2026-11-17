@@ -73,7 +73,7 @@ class BaseController(Tracer):
 
         self._bind_attrs()
 
-        # Added to every controller by the framework, so drivers can't use the name
+        # Added to every controller by the framework
         self.add_attribute(
             "connected",
             AttrR(

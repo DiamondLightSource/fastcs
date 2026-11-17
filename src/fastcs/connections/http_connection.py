@@ -18,10 +18,9 @@ from fastcs.tracer import Tracer
 class HTTPConnection(Connection[IntrospectionT], Tracer):
     """An HTTP link to a device with a JSON API.
 
-    If a request raises a `ConnectionError`, the link is closed and the connection
-    marked down, so later calls raise `DisconnectedError`. A `TimeoutError` leaves
-    the link open and doesn't mark it down, as one slow request doesn't mean the
-    server has gone.
+    Disconnects on:
+        ConnectionError: If a request fails on the link, such as the server being
+            unreachable
 
     Args:
         url: The base URL that request paths are relative to

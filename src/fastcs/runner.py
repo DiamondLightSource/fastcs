@@ -168,11 +168,11 @@ class ControllerRunner:
         reconnect it and mark them up."""
         while True:
             await connection.state.wait_down()
-            await self._mark_down(connection)
+            await self._mark_controllers_down(connection)
             await self._reconnect(connection)
-            await self._mark_up(connection)
+            await self._mark_controllers_up(connection)
 
-    async def _mark_down(self, connection: Connection) -> None:
+    async def _mark_controllers_down(self, connection: Connection) -> None:
         """Pause the scans of the controllers holding a connection, and mark them
         disconnected."""
         for controller in self._controllers_by_connection[id(connection)]:
@@ -237,7 +237,7 @@ class ControllerRunner:
             f"{name} went down and didn't reconnect within {attempts} attempts"
         )
 
-    async def _mark_up(self, connection: Connection) -> None:
+    async def _mark_controllers_up(self, connection: Connection) -> None:
         """Mark connected each controller holding a connection, re-run its read-once
         reads and resume its scans."""
         for controller in self._controllers_by_connection[id(connection)]:
@@ -335,7 +335,8 @@ def _check_connections_not_shared(specs: list[ControllerSpec]) -> None:
                 raise ValueError(
                     f"{type(connection).__name__} is used by controllers "
                     f"'{owner}' and '{spec.id}'; a connection can't be shared "
-                    "between controllers. Put them in one controller tree instead."
+                    "between sister controllers. Put them in one controller tree "
+                    "instead."
                 )
 
 

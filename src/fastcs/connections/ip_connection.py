@@ -14,11 +14,10 @@ from fastcs.tracer import Tracer
 class IPConnection(Connection[IntrospectionT], Tracer):
     """A TCP link to a device that exchanges terminated messages.
 
-    If an exchange raises an `OSError`, such as a `ConnectionError`, the link is
-    closed and the connection marked down, so later calls raise `DisconnectedError`.
-    A `TimeoutError` closes the link too, as a late reply would be read as the reply
-    to the next exchange, so a ``disconnect_after_timeouts`` above 1 only delays
-    marking the connection down until the next call.
+    Disconnects on:
+        OSError: If an exchange fails on the link, such as the device closing it
+        TimeoutError: If an exchange takes longer than ``timeout``, as a late reply
+            would be read as the reply to the next exchange
 
     Args:
         ip: The address to connect to
