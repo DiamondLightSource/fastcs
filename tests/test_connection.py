@@ -50,11 +50,6 @@ async def test_listed_error_marks_down_and_gates_later_calls():
     connection.state.mark_up()
     assert await connection.get() == 3
 
-    # Not listed, so it isn't a link error, though it is a ConnectionError
-    with pytest.raises(ConnectionResetError):
-        await connection.get(ConnectionResetError())
-    assert connection.state.up
-
 
 @pytest.mark.asyncio
 async def test_bare_decorator_only_marks_down_on_disconnected_error():

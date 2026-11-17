@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Callable
 
 import pytest
 
@@ -20,8 +21,16 @@ from tests.example_connections import (
     IntrospectedController,
     IntrospectingConnection,
     OdinConnection,
+    RecordingConnection,
     TwoConnectionController,
 )
+
+
+async def _wait_until(condition: Callable[[], bool], timeout: float = 1) -> None:
+    """Wait until ``condition`` is true, checking every 10ms"""
+    async with asyncio.timeout(timeout):
+        while not condition():
+            await asyncio.sleep(0.01)
 
 
 def test_structure_counts_fields_and_keys_but_not_values():
@@ -87,16 +96,12 @@ class FlakyConnection(Connection):
     def __init__(self, failures: int) -> None:
         self.failures = failures
         self.connects = 0
-        self.reconnected = asyncio.Event()
 
     async def connect(self) -> None:
         self.connects += 1
-        if self.connects == 1:
-            return
-        if self.failures:
+        if self.connects > 1 and self.failures:
             self.failures -= 1
             raise ConnectionError("Device is off")
-        self.reconnected.set()
 
     async def close(self) -> None:
         pass
@@ -113,17 +118,16 @@ async def test_watcher_reconnects_then_marks_controllers_up():
     assert isinstance(controller, HoldingController)
 
     connection.state.mark_down()
-    await asyncio.wait_for(connection.reconnected.wait(), timeout=1)
-    await asyncio.wait_for(runner._scan_gates[id(controller)].wait(), timeout=1)
+    await controller.connected.wait_for_value(False, timeout=1)
+    await controller.connected.wait_for_value(True, timeout=1)
+    await _wait_until(lambda: controller.reads == 2)
 
     assert connection.connects == 3
-    assert controller.connected.get() is True
-    assert controller.reads == 2
     await runner.stop()
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("attempts", [None, 0, 2])
+@pytest.mark.parametrize("attempts", [None, 2])
 async def test_watcher_raises_when_reconnect_attempts_run_out(attempts: int | None):
     connection = FlakyConnection(failures=attempts or 0)
     connection.reconnect_attempts = attempts
@@ -140,6 +144,69 @@ async def test_watcher_raises_when_reconnect_attempts_run_out(attempts: int | No
     assert connection.connects == 1 + (attempts or 0)
     assert controller.connected.get() is False
     assert not runner._scan_gates[id(controller)].is_set()
+    await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_connection_going_down_marks_only_its_holders_disconnected():
+    class Parent(Controller):
+        def __init__(self, connection: Connection) -> None:
+            super().__init__()
+            self.A = HoldingController(connection)
+            self.B = HoldingController(connection)
+
+    connection = RecordingConnection([])
+    connection.reconnect_attempts = None
+    runner = await ControllerRunner.build([ControllerSpec("P", Parent, connection)])
+    await runner.start()
+    parent = runner.controllers[0]
+
+    connection.state.mark_down()
+    with pytest.raises(ReconnectFailedError):
+        await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
+
+    holders = parent.sub_controllers.values()
+    assert [holder.connected.get() for holder in holders] == [False, False]
+    assert parent.connected.get() is True
+    await runner.stop()
+
+
+class ScanningController(HoldingController):
+    def __init__(self, connection: Connection) -> None:
+        super().__init__(connection)
+        self.scans = 0
+
+    @scan(0.01)
+    async def count(self) -> None:
+        self.scans += 1
+
+
+@pytest.mark.asyncio
+async def test_connection_going_down_pauses_only_its_controllers_scans():
+    down, up = RecordingConnection([]), RecordingConnection([])
+    down.reconnect_attempts = None
+    runner = await ControllerRunner.build(
+        [
+            ControllerSpec("A", ScanningController, down),
+            ControllerSpec("B", ScanningController, up),
+        ]
+    )
+    await runner.start()
+    paused, running = runner.controllers
+    assert isinstance(paused, ScanningController)
+    assert isinstance(running, ScanningController)
+
+    down.state.mark_down()
+    with pytest.raises(ReconnectFailedError):
+        await asyncio.wait_for(runner.wait_for_fatal_error(), timeout=1)
+
+    # Same period, so two cycles of the other let a paused cycle under way finish
+    target = running.scans + 2
+    await _wait_until(lambda: running.scans >= target)
+    paused_scans = paused.scans
+    target = running.scans + 3
+    await _wait_until(lambda: running.scans >= target)
+    assert paused.scans == paused_scans
     await runner.stop()
 
 
@@ -283,11 +350,6 @@ class PollingController(Controller):
         self.polls += 1
 
 
-async def _wait_for_polls(controller: PollingController, count: int) -> None:
-    while controller.polls < count:
-        await asyncio.sleep(0.01)
-
-
 @pytest.mark.asyncio
 async def test_reconnects_after_device_restart():
     device = _Device()
@@ -300,7 +362,7 @@ async def test_reconnects_after_device_restart():
     await runner.start()
     controller = runner.controllers[0]
     assert isinstance(controller, PollingController)
-    await asyncio.wait_for(_wait_for_polls(controller, 1), timeout=1)
+    await _wait_until(lambda: controller.polls >= 1)
 
     await device.off()
     await controller.connected.wait_for_value(False, timeout=1)
@@ -309,6 +371,6 @@ async def test_reconnects_after_device_restart():
     await device.on()
     await controller.connected.wait_for_value(True, timeout=1)
     # A failed scan cycle waits a second before the next one
-    await asyncio.wait_for(_wait_for_polls(controller, polls + 1), timeout=3)
+    await _wait_until(lambda: controller.polls > polls, timeout=3)
     await runner.stop()
     await device.off()

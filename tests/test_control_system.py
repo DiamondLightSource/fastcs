@@ -8,7 +8,7 @@ from fastcs.connections import Connection
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
-from fastcs.exceptions import IntrospectionMismatchError
+from fastcs.exceptions import ReconnectFailedError
 from fastcs.methods import Command, command
 from fastcs.transports import Transport
 from fastcs.util import ONCE
@@ -132,32 +132,13 @@ async def test_connections_closed_if_startup_fails():
     assert connection.closed
 
 
-class ChangingConnection(Connection[dict[str, int]]):
-    reconnect_attempts = 10
-    reconnect_period = 0
-
-    def __init__(self) -> None:
-        self.introspections = 0
-        self.closes = 0
-
-    async def connect(self) -> None:
-        pass
-
-    async def introspect(self) -> dict[str, int]:
-        self.introspections += 1
-        return {"gain": 1} if self.introspections == 1 else {"offset": 1}
-
-    async def close(self) -> None:
-        self.closes += 1
-
-
 class DroppingController(Controller):
-    def __init__(self, connection: ChangingConnection) -> None:
+    def __init__(self, connection: ClosingConnection) -> None:
         super().__init__()
         self.connection = connection
 
     async def setup(self) -> None:
-        # The watcher reconnects as soon as it starts
+        # Reconnecting is off, so the watcher fails as soon as it starts
         self.connection.state.mark_down()
 
 
@@ -181,14 +162,13 @@ Transport.subclasses.remove(ForeverTransport)
 
 @pytest.mark.asyncio
 async def test_serve_raises_fatal_error_and_closes_connections():
-    connection = ChangingConnection()
+    connection = ClosingConnection()
     transport = ForeverTransport()
     fastcs = FastCS([ControllerSpec("A", DroppingController, connection)], [transport])
 
-    with pytest.raises(IntrospectionMismatchError):
+    with pytest.raises(ReconnectFailedError):
         await asyncio.wait_for(fastcs.serve(interactive=False), timeout=1)
 
-    # Once on reconnect, once on shutdown
-    assert connection.closes == 2
+    assert connection.closed
     assert transport.cancelled
     assert asyncio.all_tasks() == {asyncio.current_task()}
