@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from fastcs.attributes import AttrR
-from fastcs.connections import IPConnection, IPConnectionSettings
-from fastcs.controllers import Controller
+from fastcs.connections import IPConnection
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import String
 from fastcs.launch import FastCS
 from fastcs.transports.epics import EpicsGUIOptions
@@ -12,22 +12,17 @@ from fastcs.transports.epics.ca import EpicsCATransport
 class TemperatureController(Controller):
     device_id = AttrR(String())
 
-    def __init__(self, settings: IPConnectionSettings):
+    def __init__(self, connection: IPConnection):
         super().__init__()
 
-        self._ip_settings = settings
-        self._connection = IPConnection()
-
-    async def connect(self):
-        await self._connection.connect(self._ip_settings)
+        self._connection = connection
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")
 epics_ca = EpicsCATransport(gui=gui_options)
-connection_settings = IPConnectionSettings("localhost", 25565)
-controller = TemperatureController(connection_settings)
-controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+connection = IPConnection("localhost", 25565)
+spec = ControllerSpec("DEMO", TemperatureController, connection=connection)
+fastcs = FastCS([spec], [epics_ca])
 
 
 if __name__ == "__main__":

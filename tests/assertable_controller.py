@@ -46,18 +46,7 @@ class MyTestController(Controller):
             self._sub_controllers.append(controller)
             self.add_sub_controller(f"SubController{index:02d}", controller)
 
-    initialised = False
     count = 0
-
-    async def initialise(self) -> None:
-        await super().initialise()
-        self.initialised = True
-
-    async def connect(self) -> None:
-        self._connected = True
-
-    async def disconnect(self) -> None:
-        self._connected = False
 
     @command()
     async def go(self):
@@ -81,7 +70,7 @@ class AssertableControllerAPI(ControllerAPI):
         self.command_method_spys: dict[str, MockType] = {}
 
         # Build a ControllerAPI from the given Controller
-        controller_api = controller._build_api(path or [])
+        controller_api = controller.build_api(path or [])
         # Copy its fields
         self.path = controller_api.path
         self.attributes = controller_api.attributes

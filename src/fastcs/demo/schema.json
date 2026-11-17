@@ -175,6 +175,7 @@
       "type": "object"
     },
     "IPConnectionSettings": {
+      "additionalProperties": false,
       "properties": {
         "ip": {
           "default": "127.0.0.1",
@@ -247,6 +248,19 @@
       "title": "TangoTransport",
       "type": "object"
     },
+    "TemperatureControllerConnections": {
+      "additionalProperties": false,
+      "properties": {
+        "sensor": {
+          "$ref": "#/$defs/IPConnectionSettings"
+        }
+      },
+      "required": [
+        "sensor"
+      ],
+      "title": "TemperatureControllerConnections",
+      "type": "object"
+    },
     "TemperatureControllerEntry": {
       "additionalProperties": false,
       "properties": {
@@ -259,19 +273,19 @@
           "title": "Type",
           "type": "string"
         },
+        "connections": {
+          "$ref": "#/$defs/TemperatureControllerConnections"
+        },
         "num_ramp_controllers": {
           "title": "Num Ramp Controllers",
           "type": "integer"
-        },
-        "ip_settings": {
-          "$ref": "#/$defs/IPConnectionSettings"
         }
       },
       "required": [
         "id",
         "type",
-        "num_ramp_controllers",
-        "ip_settings"
+        "connections",
+        "num_ramp_controllers"
       ],
       "title": "TemperatureControllerEntry",
       "type": "object"

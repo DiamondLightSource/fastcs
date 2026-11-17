@@ -4,21 +4,24 @@ from dataclasses import dataclass
 import pytest
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR
+from fastcs.connections import Connection
 from fastcs.control_system import FastCS
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
 from fastcs.methods import Command, command
 from fastcs.util import ONCE
+from tests.assertable_controller import MyTestController
 
 
 @pytest.mark.asyncio
-async def test_scan_tasks(controller):
+async def test_scan_tasks(controller_spec):
     loop = asyncio.get_event_loop()
-    transport_options = []
-    fastcs = FastCS(controller, transport_options, loop)
+    fastcs = FastCS([controller_spec], [], loop)
 
     asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
+    controller = fastcs._runner.controllers[0]
+    assert isinstance(controller, MyTestController)
 
     for _ in range(3):
         count = controller.count
@@ -32,7 +35,6 @@ async def test_controller_api_methods():
         def __init__(self):
             super().__init__()
 
-        async def initialise(self):
             async def do_nothing_dynamic() -> None:
                 pass
 
@@ -42,19 +44,19 @@ async def test_controller_api_methods():
         async def do_nothing_static(self):
             pass
 
-    controller = MyTestController()
     loop = asyncio.get_event_loop()
-    transport_options = []
-    fastcs = FastCS(controller, transport_options, loop)
+    fastcs = FastCS([ControllerSpec("A", MyTestController)], [], loop)
 
     asyncio.create_task(fastcs.serve(interactive=False))
     await asyncio.sleep(0.1)
+    controller = fastcs._runner.controllers[0]
+    assert isinstance(controller, MyTestController)
 
     await controller.do_nothing_static()
     await controller.do_nothing_dynamic()
 
-    await fastcs.controller_apis[0].command_methods["do_nothing_static"]()
-    await fastcs.controller_apis[0].command_methods["do_nothing_dynamic"]()
+    await fastcs._runner.controller_apis[0].command_methods["do_nothing_static"]()
+    await fastcs._runner.controller_apis[0].command_methods["do_nothing_dynamic"]()
 
 
 @pytest.mark.asyncio
@@ -81,7 +83,7 @@ async def test_update_periods():
     controller = MyController(ios=[AttributeIOTimesCalled()])
     loop = asyncio.get_event_loop()
 
-    fastcs = FastCS(controller, [], loop)
+    fastcs = FastCS([ControllerSpec("A", lambda: controller)], [], loop)
 
     assert controller.update_quickly.get() == 0
     assert controller.update_once.get() == 0
@@ -94,32 +96,34 @@ async def test_update_periods():
     assert controller.update_once.get() == 1
     assert controller.update_never.get() == 0
 
-    assert len(fastcs._scan_tasks) == 1
-    assert len(fastcs._initial_coros) == 1
+    assert len(fastcs._runner._tasks) == 1
+    assert len(fastcs._runner._initial_coros) == 1
+
+
+class ClosingConnection(Connection):
+    closed = False
+
+    async def connect(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class FailingSetupController(Controller):
+    def __init__(self, connection: ClosingConnection) -> None:
+        super().__init__()
+
+    async def setup(self) -> None:
+        raise RuntimeError("setup failed")
 
 
 @pytest.mark.asyncio
-async def test_controller_connect_disconnect():
-    class MyTestController(Controller):
-        async def connect(self):
-            self.connected = True
+async def test_connections_closed_if_startup_fails():
+    connection = ClosingConnection()
+    fastcs = FastCS([ControllerSpec("A", FailingSetupController, connection)], [])
 
-        async def disconnect(self):
-            self.connected = False
+    with pytest.raises(RuntimeError, match="setup failed"):
+        await fastcs.serve(interactive=False)
 
-    controller = MyTestController()
-
-    loop = asyncio.get_event_loop()
-    fastcs = FastCS(controller, [], loop)
-
-    task = asyncio.create_task(fastcs.serve(interactive=False))
-
-    # connect is called at the start of serve
-    await asyncio.sleep(0.1)
-    assert controller.connected
-
-    task.cancel()
-
-    # disconnect is called at the end of serve
-    await asyncio.sleep(0.1)
-    assert not controller.connected
+    assert connection.closed

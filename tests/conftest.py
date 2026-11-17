@@ -19,6 +19,7 @@ from aioca import purge_channel_caches
 from softioc import builder
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
+from fastcs.controllers import ControllerSpec
 from fastcs.datatypes import Bool, Float, Int, String
 from fastcs.logging import configure_logging, logger
 from fastcs.logging._logging import LogLevel
@@ -56,8 +57,13 @@ def controller():
 
 
 @pytest.fixture
+def controller_spec():
+    return ControllerSpec("A", BackendTestController)
+
+
+@pytest.fixture
 def controller_api(controller):
-    return controller._build_api([])
+    return controller.build_api([])
 
 
 DATA_PATH = Path(__file__).parent / "data"

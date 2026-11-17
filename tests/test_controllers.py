@@ -4,9 +4,10 @@ import enum
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.controllers import Controller, ControllerSpec, ControllerVector
 from fastcs.datatypes import Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
+from fastcs.runner import ControllerRunner
 
 
 def test_controller_nesting():
@@ -16,9 +17,10 @@ def test_controller_nesting():
 
     controller.a = sub_controller
     sub_controller.b = sub_sub_controller
+    controller.set_path(["root"])
 
-    assert sub_controller.path == ["a"]
-    assert sub_sub_controller.path == ["a", "b"]
+    assert sub_controller.path == ["root", "a"]
+    assert sub_sub_controller.path == ["root", "a", "b"]
     assert controller.sub_controllers == {"a": sub_controller}
     assert sub_controller.sub_controllers == {"b": sub_sub_controller}
 
@@ -27,6 +29,25 @@ def test_controller_nesting():
 
     with pytest.raises(ValueError, match=r"already registered"):
         controller.c = sub_controller
+
+
+class LeafController(Controller):
+    x = AttrR(Int())
+
+
+class TreeController(Controller):
+    def __init__(self) -> None:
+        super().__init__()
+        self.child = Controller()
+        self.child.leaf = LeafController()
+
+
+def test_spec_sets_path_of_sub_controllers_added_in_init():
+    controller = ControllerSpec("root", TreeController).construct()
+
+    leaf = controller.sub_controllers["child"].sub_controllers["leaf"]
+    assert leaf.path == ["root", "child", "leaf"]
+    assert leaf.attributes["x"].full_name == "root.child.leaf.x"
 
 
 class SomeSubController(Controller):
@@ -168,11 +189,11 @@ def test_attribute_hint_validation():
     with pytest.raises(RuntimeError, match="does not match defined access mode"):
         controller.add_attribute("read_write_int", AttrR(Int()))
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted attribute"):
+    with pytest.raises(RuntimeError, match="failed to introspect hinted AttrRW"):
         controller.read_write_int = 5  # type: ignore
         controller._validate_type_hints()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted attribute"):
+    with pytest.raises(RuntimeError, match="failed to introspect hinted AttrRW"):
         controller._validate_type_hints()
 
     controller.add_attribute("read_write_int", AttrRW(Int()))
@@ -203,7 +224,7 @@ async def test_sub_controller_hint_validation():
 
     controller = HintedController()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted controller"):
+    with pytest.raises(RuntimeError, match="introspect hinted SomeSubController"):
         controller._validate_type_hints()
 
     with pytest.raises(RuntimeError, match="does not match defined type"):
@@ -220,10 +241,10 @@ async def test_method_hint_validation():
 
     controller = HintedController()
 
-    with pytest.raises(RuntimeError, match="failed to introspect hinted method"):
+    with pytest.raises(RuntimeError, match="failed to introspect hinted Scan"):
         controller._validate_type_hints()
 
-    with pytest.raises(RuntimeError, match="Cannot add command method"):
+    with pytest.raises(RuntimeError, match="does not match defined type"):
         controller.add_command("method", Command(noop))
 
     controller.add_scan("method", Scan(fn=noop, period=0.1))
@@ -249,7 +270,7 @@ def test_controller_api():
             pass
 
     controller = MyTestController()
-    api = controller._build_api([])
+    api = controller.build_api([])
 
     assert api.description == controller.description
     assert list(api.attributes) == ["attr1", "attr2"]
@@ -264,20 +285,19 @@ async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
         async def failing_scan(self):
             raise RuntimeError("scan error")
 
-    controller = MyTestController()
-    controller.post_initialise()
-    _, scan_coros, _ = controller.create_api_and_tasks()
+    runner = await ControllerRunner.build([ControllerSpec("A", MyTestController)])
+    controller = runner.controllers[0]
 
     controller._connected = True
-    task = asyncio.create_task(scan_coros[0]())
+    task = asyncio.create_task(runner._scan_coros[0]())
 
-    # Wait long enough for the scan to run and raise, setting _connected = False
+    # Wait long enough for the scan to run and raise, marking it disconnected
     await asyncio.sleep(0.1)
-    assert not controller._connected
+    assert not controller.connected
 
-    # Trigger reconnect - _connected resumes scan tasks
+    # Trigger reconnect - connected resumes scan tasks
     await controller.reconnect()
-    assert controller._connected
+    assert controller.connected
 
     task.cancel()
     with pytest.raises(asyncio.CancelledError):

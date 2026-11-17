@@ -1,5 +1,5 @@
 from fastcs.attributes import AttrR
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import String
 from fastcs.launch import FastCS
 from fastcs.transports.epics.ca.transport import EpicsCATransport
@@ -10,9 +10,8 @@ class TemperatureController(Controller):
 
 
 epics_ca = EpicsCATransport()
-controller = TemperatureController()
-controller.set_path(["DEMO"])
-fastcs = FastCS(controller, [epics_ca])
+spec = ControllerSpec("DEMO", TemperatureController)
+fastcs = FastCS([spec], [epics_ca])
 
 if __name__ == "__main__":
     fastcs.run()
