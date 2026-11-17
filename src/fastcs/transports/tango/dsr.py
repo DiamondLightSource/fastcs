@@ -8,6 +8,8 @@ from tango.server import Device
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
+from fastcs.datatypes import is_table
+from fastcs.logging import logger
 from fastcs.methods import CommandCallback
 
 from .options import TangoDSROptions
@@ -30,7 +32,7 @@ def _wrap_updater_fget(
 ) -> Callable[[Any], Any]:
     async def fget(tango_device: Device):
         tango_device.info_stream(f"called fget method: {attr_name}")
-        return cast_to_tango_type(attribute.datatype, attribute.get())
+        return cast_to_tango_type(attribute, attribute.get())
 
     return fget
 
@@ -54,7 +56,7 @@ def _wrap_updater_fset(
 ) -> Callable[[Any, Any], Any]:
     async def fset(tango_device: Device, value):
         tango_device.info_stream(f"called fset method: {attr_name}")
-        coro = attribute.put(cast_from_tango_type(attribute.datatype, value))
+        coro = attribute.put(cast_from_tango_type(attribute, value))
         await _run_threadsafe_blocking(coro, loop)
 
     return fset
@@ -74,6 +76,13 @@ def _collect_dev_attributes(
             attr_name = attr_name.title().replace("_", "")
             d_attr_name = f"{'_'.join(path)}_{attr_name}" if path else attr_name
 
+            if is_table(attribute.meta):
+                logger.warning(
+                    "Table attributes are not supported in Tango transport",
+                    attribute=attribute,
+                )
+                continue
+
             match attribute:
                 case AttrRW():
                     collection[d_attr_name] = server.attribute(
@@ -84,7 +93,7 @@ def _collect_dev_attributes(
                         ),
                         access=AttrWriteType.READ_WRITE,
                         **get_server_metadata_from_attribute(attribute),
-                        **get_server_metadata_from_datatype(attribute.datatype),
+                        **get_server_metadata_from_datatype(attribute),
                     )
                 case AttrR():
                     collection[d_attr_name] = server.attribute(
@@ -92,7 +101,7 @@ def _collect_dev_attributes(
                         access=AttrWriteType.READ,
                         fget=_wrap_updater_fget(attr_name, attribute, controller_api),
                         **get_server_metadata_from_attribute(attribute),
-                        **get_server_metadata_from_datatype(attribute.datatype),
+                        **get_server_metadata_from_datatype(attribute),
                     )
                 case AttrW():
                     collection[d_attr_name] = server.attribute(
@@ -102,7 +111,7 @@ def _collect_dev_attributes(
                             attr_name, attribute, controller_api, loop
                         ),
                         **get_server_metadata_from_attribute(attribute),
-                        **get_server_metadata_from_datatype(attribute.datatype),
+                        **get_server_metadata_from_datatype(attribute),
                     )
 
     return collection

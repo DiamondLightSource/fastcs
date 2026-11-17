@@ -16,17 +16,16 @@ box.
 ```python
 from fastcs.attributes import AttrR, AttrRW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, Int
 from fastcs.methods import command
 
 
 class PowerSupplyController(Controller):
-    voltage = AttrRW(Float(), group="Output")
-    current = AttrRW(Float(), group="Output")
-    power = AttrR(Float(), group="Output")
+    voltage = AttrRW(float, group="Output")
+    current = AttrRW(float, group="Output")
+    power = AttrR(float, group="Output")
 
-    temperature = AttrR(Float(), group="Status")
-    fault_code = AttrR(Int(), group="Status")
+    temperature = AttrR(float, group="Status")
+    fault_code = AttrR(int, group="Status")
 
     @command(group="Actions")
     async def reset_faults(self) -> None:
@@ -51,14 +50,13 @@ sub-screens.
 ```python
 from fastcs.attributes import AttrR, AttrRW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, Int
 from fastcs.methods import command
 
 
 class ChannelController(Controller):
-    voltage = AttrRW(Float(), group="Output")
-    current = AttrRW(Float(), group="Output")
-    temperature = AttrR(Float(), group="Status")
+    voltage = AttrRW(float, group="Output")
+    current = AttrRW(float, group="Output")
+    temperature = AttrR(float, group="Status")
 
     @command(group="Actions")
     async def enable(self) -> None:
@@ -66,7 +64,7 @@ class ChannelController(Controller):
 
 
 class MultiChannelPSU(Controller):
-    total_power = AttrR(Float())
+    total_power = AttrR(float)
 
     @command()
     async def disable_all(self) -> None:

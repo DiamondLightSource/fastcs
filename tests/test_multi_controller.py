@@ -12,7 +12,6 @@ from pytest_mock import MockerFixture
 from fastcs.attributes import AttrR
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller
-from fastcs.datatypes import Int
 from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions
 from fastcs.transports.epics.ca.transport import EpicsCATransport
 from fastcs.transports.epics.emission import INDEX_STEM
@@ -26,11 +25,11 @@ class _IdController(Controller):
 
 
 class _OneAttrController(Controller):
-    foo = AttrR(Int())
+    foo = AttrR(int)
 
 
 class _OtherAttrController(Controller):
-    bar = AttrR(Int())
+    bar = AttrR(int)
 
 
 def test_controller_api_path_uses_id():
@@ -303,7 +302,7 @@ def test_tango_transport_rejects_post_sanitisation_class_name_collision():
 class _LifecycleController(Controller):
     """Records lifecycle hook calls for end-to-end assertions."""
 
-    foo = AttrR(Int())
+    foo = AttrR(int)
 
     def __init__(self):
         super().__init__()
@@ -325,7 +324,7 @@ class _LifecycleController(Controller):
 
 
 class _OtherLifecycleController(_LifecycleController):
-    bar = AttrR(Int())
+    bar = AttrR(int)
 
 
 @pytest.mark.asyncio

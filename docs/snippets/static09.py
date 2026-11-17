@@ -5,7 +5,6 @@ from typing import TypeVar
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.connections import IPConnection, IPConnectionSettings
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, String
 from fastcs.launch import FastCS
 from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
@@ -43,9 +42,9 @@ class TemperatureControllerAttributeIO(
 
 
 class TemperatureController(Controller):
-    device_id = AttrR(String(), io_ref=TemperatureControllerAttributeIORef("ID"))
-    power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("P"))
-    ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef("R"))
+    device_id = AttrR(str, io_ref=TemperatureControllerAttributeIORef("ID"))
+    power = AttrR(float, io_ref=TemperatureControllerAttributeIORef("P"))
+    ramp_rate = AttrRW(float, io_ref=TemperatureControllerAttributeIORef("R"))
 
     def __init__(self, settings: IPConnectionSettings):
         self._ip_settings = settings

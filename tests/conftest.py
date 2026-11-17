@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Generator
+from functools import partial
 from multiprocessing.context import DefaultContext
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,6 @@ from aioca import purge_channel_caches
 from softioc import builder
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.datatypes import Bool, Float, Int, String
 from fastcs.logging import configure_logging, logger
 from fastcs.logging._logging import LogLevel
 from fastcs.transports.tango.dsr import FASTCS_TANGO_SERVER_NAME, register_dev
@@ -42,12 +42,12 @@ def clear_softioc_records():
 
 
 class BackendTestController(MyTestController):
-    read_int: AttrR = AttrR(Int(), io_ref=MyTestAttributeIORef())
-    read_write_int: AttrRW = AttrRW(Int(), io_ref=MyTestAttributeIORef())
-    read_write_float: AttrRW = AttrRW(Float())
-    read_bool: AttrR = AttrR(Bool())
-    write_bool: AttrW = AttrW(Bool(), io_ref=MyTestAttributeIORef())
-    read_string: AttrRW = AttrRW(String())
+    read_int: AttrR = AttrR(int, io_ref=MyTestAttributeIORef())
+    read_write_int: AttrRW = AttrRW(int, io_ref=MyTestAttributeIORef())
+    read_write_float: AttrRW = AttrRW(float)
+    read_bool: AttrR = AttrR(bool)
+    write_bool: AttrW = AttrW(bool, io_ref=MyTestAttributeIORef())
+    read_string: AttrRW = AttrRW(str)
 
 
 @pytest.fixture
@@ -171,15 +171,17 @@ def run_ioc_as_subprocess(
 
 
 @pytest.fixture(scope="module")
-def p4p_subprocess():
+def p4p_subprocess(tmp_path_factory: pytest.TempPathFactory):
     multiprocessing.set_start_method("forkserver", force=True)
-    yield from run_ioc_as_subprocess(_run_p4p_ioc, multiprocessing.get_context())
+    run = partial(_run_p4p_ioc, gui_dir=tmp_path_factory.mktemp("p4p_opis"))
+    yield from run_ioc_as_subprocess(run, multiprocessing.get_context())
 
 
 @pytest.fixture(scope="module")
-def softioc_subprocess():
+def softioc_subprocess(tmp_path_factory: pytest.TempPathFactory):
     multiprocessing.set_start_method("spawn", force=True)
-    yield from run_ioc_as_subprocess(_run_softioc, multiprocessing.get_context())
+    run = partial(_run_softioc, gui_dir=tmp_path_factory.mktemp("softioc_opis"))
+    yield from run_ioc_as_subprocess(run, multiprocessing.get_context())
 
 
 @pytest.fixture(scope="session")

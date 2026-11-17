@@ -2,9 +2,8 @@ import re
 
 import numpy as np
 
-from fastcs.datatypes import Bool, DataType, DType_T, Enum, Float, Int, String, Waveform
-
-REST_ALLOWED_DATATYPES = (Bool, DataType, Enum, Float, Int, String)
+from fastcs.attributes import Attribute
+from fastcs.datatypes import DType, DType_T, array_dtype_of
 
 _REST_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -20,32 +19,25 @@ def validate_rest_id(id: str) -> None:
         )
 
 
-def convert_datatype(datatype: DataType[DType_T]) -> type[DType_T]:
+def convert_datatype(dtype: type[DType]) -> type:
     """Converts a datatype to a rest serialisable type."""
-    match datatype:
-        case Waveform():
-            return list
-        case _:
-            return datatype.dtype
+    if issubclass(dtype, np.ndarray):
+        return list
+
+    return dtype
 
 
-def cast_to_rest_type(datatype: DataType[DType_T], value: DType_T) -> object:
+def cast_to_rest_type(attribute: Attribute[DType_T], value: DType_T) -> object:
     """Casts from an attribute value to a rest value."""
-    match datatype:
-        case Waveform():
-            return value.tolist()
-        case datatype if issubclass(type(datatype), REST_ALLOWED_DATATYPES):
-            return datatype.validate(value)
-        case _:
-            raise ValueError(f"Unsupported datatype {datatype}")
+    if issubclass(attribute.dtype, np.ndarray):
+        return value.tolist()  # pyright: ignore[reportAttributeAccessIssue]
+
+    return attribute.validate(value)
 
 
-def cast_from_rest_type(datatype: DataType[DType_T], value: object) -> DType_T:
+def cast_from_rest_type(attribute: Attribute[DType_T], value: object) -> DType_T:
     """Casts from a rest value to an attribute datatype."""
-    match datatype:
-        case Waveform():
-            return datatype.validate(np.array(value, dtype=datatype.array_dtype))
-        case datatype if issubclass(type(datatype), REST_ALLOWED_DATATYPES):
-            return datatype.validate(value)  # type: ignore
-        case _:
-            raise ValueError(f"Unsupported datatype {datatype}")
+    if issubclass(attribute.dtype, np.ndarray):
+        return attribute.validate(np.array(value, dtype=array_dtype_of(attribute.meta)))
+
+    return attribute.validate(value)

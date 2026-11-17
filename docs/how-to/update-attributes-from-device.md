@@ -17,7 +17,6 @@ from dataclasses import KW_ONLY, dataclass
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float, String
 
 
 @dataclass
@@ -41,9 +40,9 @@ class MyDeviceIO(AttributeIO[float, MyDeviceIORef]):
 
 
 class MyController(Controller):
-    temperature = AttrR(Float(), io_ref=MyDeviceIORef("T"))
-    setpoint = AttrRW(Float(), io_ref=MyDeviceIORef("S", update_period=1.0))
-    label = AttrR(String(), io_ref=MyDeviceIORef("L", update_period=None))
+    temperature = AttrR(float, io_ref=MyDeviceIORef("T"))
+    setpoint = AttrRW(float, io_ref=MyDeviceIORef("S", update_period=1.0))
+    label = AttrR(str, io_ref=MyDeviceIORef("L", update_period=None))
 
     def __init__(self, connection):
         super().__init__(ios=[MyDeviceIO(connection)])
@@ -74,7 +73,6 @@ from dataclasses import KW_ONLY, dataclass
 from fastcs import ONCE
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR, AttrRW, AttrW
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 
 
 @dataclass
@@ -108,10 +106,10 @@ class MyDeviceIO(AttributeIO[float, MyDeviceIORef]):
 
 
 class MyController(Controller):
-    setpoint = AttrRW(Float(), io_ref=MyDeviceIORef("S"))
-    actual_temperature = AttrR(Float(), io_ref=MyDeviceIORef("T"))
-    power = AttrR(Float(), io_ref=MyDeviceIORef("P"))
-    status = AttrR(Float(), io_ref=MyDeviceIORef("X"))
+    setpoint = AttrRW(float, io_ref=MyDeviceIORef("S"))
+    actual_temperature = AttrR(float, io_ref=MyDeviceIORef("T"))
+    power = AttrR(float, io_ref=MyDeviceIORef("P"))
+    status = AttrR(float, io_ref=MyDeviceIORef("X"))
 
     def __init__(self, connection):
         super().__init__(ios=[MyDeviceIO(connection, self._handle_put_response)])
@@ -141,12 +139,11 @@ import json
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 from fastcs.methods import scan
 
 
 class ChannelController(Controller):
-    voltage = AttrR(Float())  # No io_ref — updated by parent scan method
+    voltage = AttrR(float)  # No io_ref — updated by parent scan method
 
     def __init__(self, index: int, connection):
         super().__init__(f"Ch{index:02d}")
@@ -192,7 +189,6 @@ from dataclasses import KW_ONLY, dataclass
 
 from fastcs.attributes import AttributeIO, AttributeIORef, AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 from fastcs.methods import scan
 
 
@@ -220,7 +216,7 @@ class ChannelIO(AttributeIO[float, ChannelIORef]):
 class ChannelController(Controller):
     def __init__(self, index: int, io: ChannelIO):
         super().__init__(f"Ch{index:02d}", ios=[io])
-        self.voltage = AttrR(Float(), io_ref=ChannelIORef(index))
+        self.voltage = AttrR(float, io_ref=ChannelIORef(index))
 
 
 class MultiChannelController(Controller):
@@ -251,11 +247,10 @@ import asyncio
 
 from fastcs.attributes import AttrR
 from fastcs.controllers import Controller
-from fastcs.datatypes import Float
 
 
 class SubscriptionController(Controller):
-    temperature = AttrR(Float())
+    temperature = AttrR(float)
 
     def __init__(self, subscription_client):
         super().__init__()

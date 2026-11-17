@@ -1,5 +1,6 @@
 import asyncio
 import enum
+from unittest.mock import AsyncMock
 
 import numpy as np
 import pytest
@@ -12,7 +13,9 @@ from tests.assertable_controller import (
 )
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
+from fastcs.controllers import ControllerAPI
+from fastcs.datatypes import Array1D, Table
+from fastcs.transports.tango.dsr import _collect_dev_attributes
 from fastcs.transports.tango.transport import TangoTransport
 
 
@@ -30,15 +33,15 @@ def mock_run_threadsafe_blocking(module_mocker: MockerFixture):
 
 
 class TangoController(MyTestController):
-    read_int = AttrR(Int())
-    read_write_int = AttrRW(Int())
-    read_write_float = AttrRW(Float())
-    read_bool = AttrR(Bool())
-    write_bool = AttrW(Bool())
-    read_string = AttrRW(String())
-    enum = AttrRW(Enum(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2})))
-    one_d_waveform = AttrRW(Waveform(np.int32, (10,)))
-    two_d_waveform = AttrRW(Waveform(np.int32, (10, 10)))
+    read_int = AttrR(int)
+    read_write_int = AttrRW(int)
+    read_write_float = AttrRW(float)
+    read_bool = AttrR(bool)
+    write_bool = AttrW(bool)
+    read_string = AttrRW(str)
+    enum = AttrRW(enum.IntEnum("Enum", {"RED": 0, "GREEN": 1, "BLUE": 2}))
+    one_d_waveform = AttrRW(Array1D[np.int32], shape=(10,))
+    two_d_waveform = AttrRW(Array1D[np.int32], shape=(10, 10))
 
 
 @pytest.fixture(scope="class")
@@ -148,7 +151,7 @@ class TestTangoDevice:
     def test_enum(self, tango_controller_api: AssertableControllerAPI, tango_context):
         enum_attr = tango_controller_api.attributes["enum"]
         assert isinstance(enum_attr, AttrRW)
-        enum_cls = enum_attr.datatype.dtype
+        enum_cls = enum_attr.dtype
         assert isinstance(enum_attr.get(), enum_cls)
         assert enum_attr.get() == enum_cls(0)
         expect = 0
@@ -205,3 +208,17 @@ class TestTangoDevice:
     def test_go(self, tango_controller_api: AssertableControllerAPI, tango_context):
         with tango_controller_api.assert_execute_here(["go"]):
             tango_context.command_inout("Go")
+
+
+def test_table_attribute_is_not_given_a_tango_attribute():
+    api = ControllerAPI(
+        path=["DEVICE"],
+        attributes={
+            "table": AttrRW(Table, structured_dtype=[("a", np.int32)]),
+            "number": AttrRW(int),
+        },
+    )
+
+    collection = _collect_dev_attributes(api, AsyncMock())
+
+    assert list(collection) == ["Number"]
