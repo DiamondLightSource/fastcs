@@ -35,10 +35,12 @@ Create a `TemperatureController` class that inherits from `Controller`.
 
 ## FastCS Launcher
 
-The entrypoint to a FastCS application is the `FastCS` class. This takes a `Controller`
-and a list of transports to expose the API through and provides a `run` method to launch
-the application. Create a `FastCS` instance, pass the `TemperatureController` to it
-along with an empty list of transports (for now).
+The entrypoint to a FastCS application is the `FastCS` class. This takes a
+`ControllerSpec`, which says how to construct the `Controller` and what id to give it,
+and a list of transports to expose the API through, and provides a `run` method to
+launch the application. Create a `FastCS` instance, pass it a `ControllerSpec` for the
+`TemperatureController` with the id `DEMO`, along with an empty list of transports (for
+now).
 
 ::::{admonition} Code 2
 :class: dropdown, hint
@@ -78,11 +80,11 @@ doesn't have a connection.
 :class: dropdown, hint
 
 :::
-In [1]: controller.device_id
+In [1]: controllers["DEMO"].device_id
 
 Out[1]: AttrR(String())
 
-In [2]: controller.device_id.get()
+In [2]: controllers["DEMO"].device_id.get()
 
 Out[2]: ''
 :::
@@ -129,7 +131,7 @@ options to the transport options and generate a `demo.bob` file to use with Phoe
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static05.py
-:emphasize-lines: 1,7,15-18,20
+:emphasize-lines: 1,7,15-19
 :::
 
 ::::
@@ -142,10 +144,10 @@ The `Attributes` of a FastCS `Controller` need some IO with the device in order 
 and set values. This is implemented with `AttributeIO`s and connections. Generally each
 driver implements its own IO and connection logic, but there are some built in options.
 
-Update the controller to create an `IPConnection` to communicate with the simulator over
-TCP and implement a `connect` method that establishes the connection. The `connect`
-method is called by the FastCS application at the appropriate time during start up to
-ensure the connection is established before it is used.
+Create an `IPConnection` to communicate with the simulator over TCP, pass it to the
+`ControllerSpec`, and update the controller to take it as a constructor argument. FastCS
+opens the connection before constructing the controller, so it is ready to use, and
+closes it when the application stops.
 
 :::{note}
 The simulator control connection is on port 25565.
@@ -155,7 +157,7 @@ The simulator control connection is on port 25565.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static06.py
-:emphasize-lines: 4,15-22,27-28
+:emphasize-lines: 4,15-18,23-24
 :::
 
 ::::
@@ -179,7 +181,7 @@ The `update_period` property tells the base class how often to call `update`
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static07.py
-:emphasize-lines: 1,3,5-6,15-33,37,43
+:emphasize-lines: 1,3,5-6,15-33,37
 :::
 
 ::::
@@ -288,7 +290,7 @@ are, which is used to register the correct number of ramp controllers with the p
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,35,44,48-56,64,70-74,83
+:emphasize-lines: 10,28,32,35,44,48-56,62-63,69-72,77-79
 :::
 
 ::::
@@ -366,7 +368,7 @@ gets the array of voltages and sets each ramp controller with its value. Also ad
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static12.py
-:emphasize-lines: 2,16,60-62,91-97
+:emphasize-lines: 2,16,60-62,87-93
 :::
 
 ::::
@@ -387,7 +389,7 @@ controller.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static13.py
-:emphasize-lines: 1,17,100-105
+:emphasize-lines: 1,17,96-101
 :::
 
 ::::
@@ -419,7 +421,7 @@ logger for `TemperatureControllerAttributeIO` to log the commands it sends.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 13,48,110,115
+:emphasize-lines: 13,48,106,111
 :::
 
 ::::
@@ -444,7 +446,7 @@ visible.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static15.py
-:emphasize-lines: 13,49-51,118
+:emphasize-lines: 13,49-51,114
 :::
 
 ::::
@@ -454,7 +456,7 @@ ramp so that the value updates. Check the console to see the messages.  Call
 `disable_tracing` to disable the log messages for `power`.
 
 ```
-In [1]: controller.power.enable_tracing()
+In [1]: controllers["DEMO"].power.enable_tracing()
 [2025-11-18 11:11:12.060+0000 T] Query for attribute          [TemperatureControllerAttributeIO] query=P?, response=0.0
 [2025-11-18 11:11:12.060+0000 T] Attribute set                [AttrR] attribute=AttrR(path=power, datatype=Float, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='P')), value=0.0
 [2025-11-18 11:11:12.060+0000 T] PV set from attribute        [fastcs.transports.epics.ca.ioc] pv=DEMO:Power, value=0.0
@@ -468,7 +470,7 @@ In [1]: controller.power.enable_tracing()
 [2025-11-18 11:11:12.464+0000 T] Query for attribute          [TemperatureControllerAttributeIO] query=P?, response=30.452524641833854
 [2025-11-18 11:11:12.464+0000 T] Attribute set                [AttrR] attribute=AttrR(path=power, datatype=Float, io_ref=TemperatureControllerAttributeIORef(update_period=0.2, name='P')), value=30.452524641833854
 [2025-11-18 11:11:12.465+0000 T] PV set from attribute        [fastcs.transports.epics.ca.ioc] pv=DEMO:Power, value=30.45
-In [2]: controller.power.disable_tracing()
+In [2]: controllers["DEMO"].power.disable_tracing()
 ```
 
 These log messages include other trace loggers that log messages with `power` as the

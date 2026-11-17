@@ -11,7 +11,7 @@ from pytest_mock import MockerFixture
 
 from fastcs.attributes import AttrR
 from fastcs.control_system import FastCS
-from fastcs.controllers import Controller
+from fastcs.controllers import Controller, ControllerSpec
 from fastcs.datatypes import Int
 from fastcs.transports.epics import EpicsDocsOptions, EpicsGUIOptions
 from fastcs.transports.epics.ca.transport import EpicsCATransport
@@ -307,22 +307,10 @@ class _LifecycleController(Controller):
 
     def __init__(self):
         super().__init__()
-        self.connect_called = False
-        self.disconnect_called = False
-        self.initialised = False
-        self.post_initialised = False
+        self.set_up = False
 
-    async def initialise(self):
-        self.initialised = True
-
-    def post_initialise(self):
-        self.post_initialised = True
-
-    async def connect(self):
-        self.connect_called = True
-
-    async def disconnect(self):
-        self.disconnect_called = True
+    async def setup(self):
+        self.set_up = True
 
 
 class _OtherLifecycleController(_LifecycleController):
@@ -333,25 +321,26 @@ class _OtherLifecycleController(_LifecycleController):
 async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
     """FastCS.serve drives lifecycle on every controller and routes REST traffic
     per-id; combined OpenAPI describes both prefixes."""
-    a = _LifecycleController()
-    a.set_path(["alpha"])
-    b = _OtherLifecycleController()
-    b.set_path(["beta"])
-
     transport = RestTransport()
     # Stop RestTransport from binding to a real port; we exercise the FastAPI
     # app directly through TestClient.
     mocker.patch.object(RestTransport, "serve", new=lambda self: asyncio.sleep(3600))
 
-    fastcs = FastCS([a, b], [transport], asyncio.get_event_loop())
+    fastcs = FastCS(
+        [
+            ControllerSpec("alpha", _LifecycleController),
+            ControllerSpec("beta", _OtherLifecycleController),
+        ],
+        [transport],
+        asyncio.get_event_loop(),
+    )
     task = asyncio.create_task(fastcs.serve(interactive=False))
     try:
         await asyncio.sleep(0.1)
 
-        for controller in (a, b):
-            assert controller.initialised
-            assert controller.post_initialised
-            assert controller.connect_called
+        for controller in fastcs._runner.controllers:
+            assert isinstance(controller, _LifecycleController)
+            assert controller.set_up
 
         with TestClient(transport._server._app) as client:
             assert client.get("/alpha/foo").status_code == 200
@@ -369,6 +358,3 @@ async def test_fastcs_serves_two_controllers_end_to_end(mocker: MockerFixture):
             await task
         except asyncio.CancelledError:
             pass
-
-    for controller in (a, b):
-        assert controller.disconnect_called

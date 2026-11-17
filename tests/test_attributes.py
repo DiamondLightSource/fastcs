@@ -194,7 +194,6 @@ async def test_attribute_io():
         controller = MissingIOController()
         controller._connect_attribute_ios()
 
-    await c.initialise()
     c._connect_attribute_ios()
     await c.my_attr.bind_update_callback()()
 
@@ -301,21 +300,16 @@ async def test_dynamic_attribute_io_specification():
         int_parameter: AttrRW
         float_parameter: AttrRW  # hint to satisfy pyright
 
-        async def initialise(self):
-            self._connection = DummyConnection()
-            await self._connection.connect()
+        def __init__(self, connection: DummyConnection, parameters: list[dict]):
+            super().__init__(ios=[DemoParameterAttributeIO()])
             dtype_mapping = {"int": Int, "float": Float}
-            example_introspection_response = await self._connection.get(
-                "config/introspect_api"
-            )
-            assert isinstance(example_introspection_response, list)
-            for parameter_response in example_introspection_response:
+            for parameter_response in parameters:
                 try:
                     ro = parameter_response["read_only"]
                     ref = DemoParameterAttributeIORef(
                         name=parameter_response["name"],
                         subsystem=parameter_response["subsystem"],
-                        connection=self._connection,
+                        connection=connection,
                     )
                     attr_class = AttrR if ro else AttrRW
                     attr = attr_class(
@@ -335,8 +329,12 @@ async def test_dynamic_attribute_io_specification():
                         e,
                     )
 
-    c = DemoParameterController(ios=[DemoParameterAttributeIO()])
-    await c.initialise()
+    connection = DummyConnection()
+    await connection.connect()
+    parameters = await connection.get("config/introspect_api")
+    assert isinstance(parameters, list)
+
+    c = DemoParameterController(connection, parameters)
     c._connect_attribute_ios()
     await c.ro_int_parameter.bind_update_callback()()
     assert c.ro_int_parameter.get() == 10
@@ -375,7 +373,6 @@ async def test_attribute_no_io(mocker: MockerFixture):
     assert not c.no_ref.has_io_ref()
     assert c.base_class_ref.has_io_ref()
 
-    await c.initialise()
     c._connect_attribute_ios()
 
     # There is a difference between providing an AttributeIO for the default
@@ -394,7 +391,6 @@ async def test_attribute_no_io(mocker: MockerFixture):
 
     c2 = MyController(ios=[SimpleAttributeIO()])
 
-    await c2.initialise()
     c2._connect_attribute_ios()
 
     assert c2.base_class_ref.get() == 0
