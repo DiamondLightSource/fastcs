@@ -42,6 +42,75 @@ class AttrW(Attribute[DType_T]):
     # units=...)`` resolves to the ``int`` overload rather than failing here -
     # the constructor's runtime check is what rejects it. A call whose metadata
     # is valid always picks its own datatype's overload.
+    # A setter given without a datatype or getter binds the datatype from its
+    # value parameter. A setter accepting ``float`` also fits ``Setter[int]`` and
+    # ``Setter[bool]``, so these overloads come first and run from the widest type
+    # to the narrowest, so that the setter's own type is the first to match -
+    # including arrays before ``Table``, which subclasses ``np.ndarray``.
+    @overload
+    def __init__(
+        self: AttrW[float],
+        datatype: None = None,
+        *,
+        setter: Setter[float],
+        **meta: Unpack[FloatMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[int],
+        datatype: None = None,
+        *,
+        setter: Setter[int],
+        **meta: Unpack[IntMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[bool],
+        datatype: None = None,
+        *,
+        setter: Setter[bool],
+        **meta: Unpack[BoolMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[str],
+        datatype: None = None,
+        *,
+        setter: Setter[str],
+        **meta: Unpack[StrMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Enum_T],
+        datatype: None = None,
+        *,
+        setter: Setter[Enum_T],
+        **meta: Unpack[EnumMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Array_T],
+        datatype: None = None,
+        *,
+        setter: Setter[Array_T],
+        **meta: Unpack[Array1DMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Table],
+        datatype: None = None,
+        *,
+        setter: Setter[Table],
+        **meta: Unpack[TableMeta],
+    ) -> None: ...
+
+    # Otherwise the datatype comes from ``datatype``, or a getter's annotation.
     @overload
     def __init__(
         self: AttrW[bool],

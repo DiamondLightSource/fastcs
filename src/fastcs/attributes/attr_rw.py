@@ -36,6 +36,89 @@ class AttrRW(AttrR[DType_T], AttrW[DType_T]):
     # units=...)`` resolves to the ``int`` overload rather than failing here -
     # the constructor's runtime check is what rejects it. A call whose metadata
     # is valid always picks its own datatype's overload.
+    # A setter given without a datatype or getter binds the datatype from its
+    # value parameter. A setter accepting ``float`` also fits ``Setter[int]`` and
+    # ``Setter[bool]``, so these overloads come first and run from the widest type
+    # to the narrowest, so that the setter's own type is the first to match -
+    # including arrays before ``Table``, which subclasses ``np.ndarray``.
+    @overload
+    def __init__(
+        self: AttrRW[float],
+        datatype: None = None,
+        getter: None = None,
+        *,
+        setter: Setter[float],
+        initial_value: float | None = None,
+        **meta: Unpack[FloatMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrRW[int],
+        datatype: None = None,
+        getter: None = None,
+        *,
+        setter: Setter[int],
+        initial_value: int | None = None,
+        **meta: Unpack[IntMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrRW[bool],
+        datatype: None = None,
+        getter: None = None,
+        *,
+        setter: Setter[bool],
+        initial_value: bool | None = None,
+        **meta: Unpack[BoolMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrRW[str],
+        datatype: None = None,
+        getter: None = None,
+        *,
+        setter: Setter[str],
+        initial_value: str | None = None,
+        **meta: Unpack[StrMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrRW[Enum_T],
+        datatype: None = None,
+        getter: None = None,
+        *,
+        setter: Setter[Enum_T],
+        initial_value: Enum_T | None = None,
+        **meta: Unpack[EnumMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrRW[Array_T],
+        datatype: None = None,
+        getter: None = None,
+        *,
+        setter: Setter[Array_T],
+        initial_value: Array_T | None = None,
+        **meta: Unpack[Array1DMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrRW[Table],
+        datatype: None = None,
+        getter: None = None,
+        *,
+        setter: Setter[Table],
+        initial_value: Table | None = None,
+        **meta: Unpack[TableMeta],
+    ) -> None: ...
+
+    # Otherwise the datatype comes from ``datatype``, or a getter's annotation.
     @overload
     def __init__(
         self: AttrRW[bool],

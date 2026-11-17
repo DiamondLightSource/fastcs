@@ -1,5 +1,6 @@
 import asyncio
 from functools import partial
+from typing import assert_type
 
 import numpy as np
 import numpy.typing as npt
@@ -69,7 +70,15 @@ def test_datatype_inferred_from_setter_annotation():
         pass
 
     attr = AttrW(setter=set_value)
+    assert_type(attr, AttrW[int])
     assert attr.dtype is int
+
+    async def set_float(value: float) -> None:
+        pass
+
+    attr_rw = AttrRW(setter=set_float)
+    assert_type(attr_rw, AttrRW[float])
+    assert attr_rw.dtype is float
 
 
 def test_datatype_required_when_not_inferable():
