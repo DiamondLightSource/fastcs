@@ -319,7 +319,7 @@ class TempIO(AttributeIO[float, TempIORef]):
     async def send(self, attr: AttrW[float, TempIORef], value: float) -> None:
         await self._conn.send_command(f"{attr.io_ref.name}={value}\r\n")
 
-ramp_rate = AttrRW(Float(), io_ref=TempIORef(name="R"))
+ramp_rate = AttrRW(float, io_ref=TempIORef(name="R"))
 # ... elsewhere: Controller(ios=[TempIO(conn)])
 
 # After

@@ -12,7 +12,7 @@ Proposed
 
 FastCS currently has two mechanisms for declaring the shape of a `Controller`:
 
-1. **Class-scope `Attribute` instances** (`ramp_rate = AttrRW(Float(), io_ref=...)`
+1. **Class-scope `Attribute` instances** (`ramp_rate = AttrRW(float)`
    assigned directly in the class body). `BaseController._bind_attrs`
    (`src/fastcs/controllers/base_controller.py`) walks the MRO, finds these, and
    `deepcopy`s each one onto the instance so that multiple instances of the same

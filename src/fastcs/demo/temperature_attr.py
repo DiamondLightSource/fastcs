@@ -207,8 +207,8 @@ class TemperatureRampController(Controller):
             getter=Polled(self._protocol.get_enabled, period=0.2),
             setter=self._protocol.set_enabled,
         )
-        # Stated explicitly, to carry metadata the annotation cannot: `-> float`
-        # says nothing about display precision.
+        # The datatype is still inferred, but the precision is given explicitly:
+        # `-> float` says nothing about display precision.
         self.target = AttrR(
             getter=Polled(self._protocol.get_target, period=0.2), precision=3
         )

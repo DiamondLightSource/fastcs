@@ -64,7 +64,7 @@ is a string, so `String` should be used.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static03.py
-:emphasize-lines: 1,3,8
+:emphasize-lines: 1,7
 :::
 
 ::::
@@ -108,7 +108,7 @@ passing it in.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static04.py
-:emphasize-lines: 5,6,13,14
+:emphasize-lines: 4-5,12-13
 :::
 
 ::::
@@ -129,7 +129,7 @@ options to the transport options and generate a `demo.bob` file to use with Phoe
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static05.py
-:emphasize-lines: 1,7,15-18,20
+:emphasize-lines: 1,6,14-17,19
 :::
 
 ::::
@@ -157,7 +157,7 @@ The simulator control connection is on port 25565.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static06.py
-:emphasize-lines: 4,15-22,27-28
+:emphasize-lines: 4,14-21,26-27
 :::
 
 ::::
