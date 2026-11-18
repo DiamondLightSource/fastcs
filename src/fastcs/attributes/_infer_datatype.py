@@ -32,6 +32,14 @@ def _datatype_for_annotation(annotation: Any) -> Any:
     return annotation
 
 
+def _signature(fn: Callable) -> inspect.Signature | None:
+    try:
+        return inspect.signature(fn, eval_str=True)
+    except NameError:
+        # A string annotation naming something not in the function's globals
+        return None
+
+
 def infer_datatype_from_getter(getter: Callable) -> Any:
     """Infer a datatype from a getter's return annotation.
 
@@ -39,10 +47,13 @@ def infer_datatype_from_getter(getter: Callable) -> Any:
         getter: The getter to inspect
 
     Returns:
-        The datatype spelling, or None if the annotation is missing or unsupported
+        The datatype spelling, or None if the annotation is missing, unsupported,
+        or cannot be resolved
 
     """
-    signature = inspect.signature(getter, eval_str=True)
+    signature = _signature(getter)
+    if signature is None:
+        return None
     return _datatype_for_annotation(
         _unwrap_update_annotation(signature.return_annotation)
     )
@@ -55,10 +66,13 @@ def infer_datatype_from_setter(setter: Callable) -> Any:
         setter: The setter to inspect
 
     Returns:
-        The datatype spelling, or None if the annotation is missing or unsupported
+        The datatype spelling, or None if the annotation is missing, unsupported
+        or cannot be resolved
 
     """
-    signature = inspect.signature(setter, eval_str=True)
+    signature = _signature(setter)
+    if signature is None:
+        return None
     parameters = list(signature.parameters.values())
     if not parameters:
         return None
