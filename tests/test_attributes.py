@@ -309,6 +309,19 @@ async def test_attrw_setter_return_value_updates_setpoint_cache():
 
 
 @pytest.mark.asyncio
+async def test_attrrw_set_setter_exception_is_raised():
+    async def do_set(value):
+        raise ValueError("do_set failed")
+
+    attr = AttrRW(int, setter=do_set)
+
+    with pytest.raises(ValueError, match="do_set failed"):
+        await attr.set(5)
+    assert attr.setpoint == 0
+    assert attr.readback == 0
+
+
+@pytest.mark.asyncio
 async def test_set_setter_exception_is_logged_and_raised(mocker: MockerFixture):
     async def do_set(value):
         raise ValueError("do_set failed")
@@ -316,11 +329,11 @@ async def test_set_setter_exception_is_logged_and_raised(mocker: MockerFixture):
     attr = AttrW(int, setter=do_set)
     mock_logger = mocker.patch("fastcs.attributes.attr_w.logger")
 
-    # exception is raised so transports can set alarms, and the setpoint is still
-    # cached
+    # exception is raised so transports can set alarms, and the rejected value
+    # does not become the setpoint
     with pytest.raises(ValueError, match="do_set failed"):
         await attr.set(5)
-    assert attr.setpoint == 5
+    assert attr.setpoint == 0
 
     # the setter's exception is the one logged, at error level
     logged_exception = mock_logger.opt.call_args.kwargs["exception"]

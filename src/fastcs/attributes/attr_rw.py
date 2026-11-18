@@ -235,35 +235,43 @@ class AttrRW(AttrR[DType_T], AttrW[DType_T]):
         """Request a new value for the attribute.
 
         With no setter, this is a soft attribute: the requested value is pushed
-        straight to the readback. With a setter, a returned value is treated as the
+        straight to the setpoint and readback. With a setter, the value only becomes
+        the setpoint once the setter succeeds, and a returned value is treated as the
         device's accepted/clamped value and is applied to the readback as well as
         the setpoint.
+
+        Args:
+            value: The requested value
 
         Raises:
             ValueError: If the value cannot be coerced, or is outside the control
                 limits
+            Exception: Whatever the setter raises, leaving the setpoint unchanged
 
         """
         setpoint = self.validate(value)
         check_control_limits(self._meta, setpoint)
-        await self.update_setpoint(setpoint)
 
         if self._setter is None:
-            await self.update(self._setpoint)
+            await self.update_setpoint(setpoint)
+            await self.update(setpoint)
         else:
             try:
-                result = await self._setter(self._setpoint)
+                result = await self._setter(setpoint)
             except Exception as e:
                 logger.opt(exception=e).error(
-                    "Set failed", attribute=self, setpoint=self._setpoint
+                    "Set failed", attribute=self, setpoint=setpoint
                 )
+                raise
+
+            if result is None:
+                await self.update_setpoint(setpoint)
             else:
-                if isinstance(result, Update):
-                    await self.update(result)
-                elif result is not None:
-                    # A bare value is the device's accepted/clamped value - both the
-                    # new readback and what it understood us to ask for.
-                    await self.update_setpoint(result)
-                    await self.update(result)
+                accepted = self._setter_result_setpoint(result)
+                await self.update_setpoint(setpoint if accepted is None else accepted)
+                # Pass only the readback on: ``update`` would publish an
+                # ``Update``'s setpoint a second time.
+                readback = result.readback if isinstance(result, Update) else result
+                await self.update(readback)
 
         self.log_event("Set complete", setpoint=self._setpoint, attribute=self)

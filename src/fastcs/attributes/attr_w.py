@@ -248,37 +248,41 @@ class AttrW(Attribute[DType_T]):
         """Request a new value for the attribute
 
         This should be called by clients to the attribute such as transports to apply
-        a change to the attribute. ``value`` is cached as the setpoint, then the
-        setter (if any) is called to apply it to the underlying source - the value
-        might be rejected or clamped, depending on the validity of the new value. If
-        the setter returns a value, that is treated as the source's accepted/clamped
-        value and becomes the new cached setpoint.
+        a change to the attribute. ``value`` is passed to the setter (if any) to
+        apply it to the underlying source, and only becomes the setpoint once the
+        setter succeeds. If the setter returns a value, that is treated as the
+        source's accepted/clamped value and becomes the setpoint instead.
 
         To directly change the readback of an attribute, for example from an update
         loop that has read a new value from some underlying source, call
         ``AttrR.update``.
 
+        Args:
+            value: The requested value
+
         Raises:
             ValueError: If the value cannot be coerced, or is outside the control
                 limits
+            Exception: Whatever the setter raises, leaving the setpoint unchanged
 
         """
         setpoint = self.validate(value)
         check_control_limits(self._meta, setpoint)
-        await self.update_setpoint(setpoint)
 
         if self._setter is not None:
             try:
-                result = await self._setter(self._setpoint)
+                result = await self._setter(setpoint)
             except Exception as e:
                 logger.opt(exception=e).error(
-                    "Set failed", attribute=self, setpoint=self._setpoint
+                    "Set failed", attribute=self, setpoint=setpoint
                 )
                 raise
-            else:
-                if result is not None:
-                    accepted = self._setter_result_setpoint(result)
-                    if accepted is not None:
-                        await self.update_setpoint(accepted)
+
+            if result is not None:
+                accepted = self._setter_result_setpoint(result)
+                if accepted is not None:
+                    setpoint = accepted
+
+        await self.update_setpoint(setpoint)
 
         self.log_event("Set complete", setpoint=self._setpoint, attribute=self)
