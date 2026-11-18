@@ -178,7 +178,9 @@ class AttrR(Attribute[DType_T]):
         super().__init__(datatype, **meta)
 
         self._value: DType_T = (
-            self.default_value() if initial_value is None else initial_value
+            self.default_value()
+            if initial_value is None
+            else self.validate(initial_value)
         )
         self._getter = resolved_getter
         self._poll_period: float | None = poll_period
