@@ -177,7 +177,7 @@ class Update(Generic[T]):
   "the device clamped what I *asked for*". A **bare** value returned from a
   setter means both — it is equivalent to `Update(readback=v, setpoint=v)`.
 - `severity` is **not** on `Update` yet; native timestamps and the severity
-  enum are [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md)'s
+  enum are ADR 16's
   scope and land with it. `timestamp` is accepted here so the field ordering is
   settled, but is not yet persisted.
 
@@ -235,8 +235,8 @@ not. `Attribute` also loses its second generic parameter —
 
 ### Datatype metadata: the `*Meta` TypedDicts
 
-`DataType` classes are gone ([ADR 15](0015-typed-commands.md) /
-[ADR 17](0017-naming-pass.md)). The metadata they carried (precision, units,
+`DataType` classes are gone (ADR 15 /
+ADR 17). The metadata they carried (precision, units,
 nested limits, …) moves to a per-datatype `TypedDict` — `FloatMeta`, `IntMeta`,
 `StrMeta`, `BoolMeta`, `EnumMeta`, `Array1DMeta`, `TableMeta` — and **the
 resolved metadata is stored on the `Attribute` itself** (`attr.meta`), not on a

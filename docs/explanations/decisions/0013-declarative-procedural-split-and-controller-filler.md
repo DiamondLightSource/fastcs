@@ -69,7 +69,7 @@ Concretely:
   `ControllerFiller`.
 - Introduce `ControllerFiller`, a direct structural port of ophyd-async's
   `DeviceFiller`. It scans class-body type hints (`AttrR/W/RW[T]`,
-  `Command[P, T]` — see [ADR 15](0015-typed-commands.md) — and nested
+  `Command[P, T]` — see ADR 15 — and nested
   `Controller` / `ControllerVector[T]`), creates children **unfilled**, and
   tracks filled/unfilled state per child. `check_filled(source)` raises,
   listing by name, anything a `Controller`'s `initialise()` promised via a hint
@@ -157,9 +157,9 @@ mirrors that `DeviceFiller` path directly.
   type a type checker sees, with no deepcopy step that could plausibly
   change it.
 - `ControllerFiller` becomes a new stable, documented surface — see
-  [ADR 16](0016-setpoint-cache-timestamps-and-controller-runner.md) for how
+  ADR 16 for how
   it interacts with the stable `ControllerAPI` surface consumed by the
-  embedded ophyd-async connector ([ADR 19](0019-embedded-ophyd-async-connector.md)).
+  embedded ophyd-async connector (ADR 19).
 
 ## Questions resolved in review (#402)
 

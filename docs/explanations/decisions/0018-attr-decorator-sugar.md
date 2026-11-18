@@ -99,7 +99,7 @@ class PowerSupply(Controller):
   is rare, so it is written longhand as `AttrW(setter=…)`.
 - The getter's docstring becomes the attribute's `description`, as
   `@command`/`@scan` already do.
-- `@attr` supports the [ADR 17](0017-naming-pass.md) `Array1D`/`Table` hint
+- `@attr` supports the ADR 17 `Array1D`/`Table` hint
   spellings as the getter's return annotation.
 - There is **no** free-function `attr()` factory: the procedural spelling is
   `AttrR(getter=…)` / `AttrRW(getter=…, setter=…)` directly. `@attr` degrades
@@ -146,7 +146,7 @@ an introspected name and a decorated name raises.
    write-only decorator — `AttrW` alone is rare, written longhand.
 2. **How is datatype/limits metadata passed?** Via decorator kwargs, typed with
    `Unpack[…Meta]` (`precision`, `units`, limits — the
-   [ADR 14](0014-attribute-io-rw-rework.md)/[ADR 17](0017-naming-pass.md)
+   [ADR 14](0014-attribute-io-rw-rework.md)/ADR 17
    `*Meta` fields), validated against the getter's return type.
 3. **Does it support the `Array1D`/`Table` hints?** Yes, as the getter's return
    annotation.

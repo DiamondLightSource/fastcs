@@ -65,6 +65,9 @@ nitpicky = True
 # domain name if present. Example entries would be ('py:func', 'int') or
 # ('envvar', 'LD_LIBRARY_PATH').
 nitpick_ignore = [
+    # Third-party types in the demo docstrings, with no intersphinx inventory
+    ("py:class", "httpx.AsyncBaseTransport"),
+    ("py:class", "fastapi.applications.FastAPI"),
     ("py:class", "NoneType"),
     ("py:class", "'str'"),
     ("py:class", "'float'"),
