@@ -8,7 +8,7 @@ import numpy as np
 from softioc import builder
 from softioc.pythonSoftIoc import RecordWrapper
 
-from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
+from fastcs.attributes import Attribute, AttrR, AttrW
 from fastcs.controllers import ControllerAPI
 from fastcs.datatypes import (
     DEFAULT_ARRAY_SHAPE,
@@ -199,12 +199,7 @@ def _make_out_record(pv: str, attribute: AttrW, on_update: Callable) -> RecordWr
     dtype = attribute.dtype
     common_fields = {
         "DESC": attribute.description,
-        "initial_value": cast_to_epics_type(
-            attribute,
-            attribute.readback
-            if isinstance(attribute, AttrRW)
-            else attribute.default_value(),
-        ),
+        "initial_value": cast_to_epics_type(attribute, attribute.setpoint),
         "on_update": on_update,
         "always_update": True,
         "blocking": True,

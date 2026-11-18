@@ -211,6 +211,11 @@ class AttrRW(AttrR[DType_T], AttrW[DType_T]):
             **meta,
         )
 
+        if initial_value is not None:
+            # Start the setpoint where the readback starts. It is left unknown, so
+            # a getter's first readback still replaces it.
+            self._setpoint = self._value
+
     @property
     def access_mode(self) -> AttributeAccessMode:
         return "rw"
