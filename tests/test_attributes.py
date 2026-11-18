@@ -620,6 +620,19 @@ async def test_setpoint_outside_control_limits_is_rejected():
 
 
 @pytest.mark.asyncio
+async def test_setpoint_outside_control_limits_never_reaches_the_setter(
+    mocker: MockerFixture,
+):
+    setter = mocker.AsyncMock()
+    attr = AttrW(int, setter=setter, limits=NumericLimits(control=Limits(0, 10)))
+
+    with pytest.raises(ValueError, match="greater than maximum 10"):
+        await attr.set(15)
+    setter.assert_not_called()
+    assert attr.setpoint == 0
+
+
+@pytest.mark.asyncio
 async def test_readback_outside_control_limits_is_accepted():
     attr = AttrR(int, limits=NumericLimits(control=Limits(0, 10)))
 
