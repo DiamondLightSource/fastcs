@@ -1,5 +1,3 @@
-from typing import cast
-
 from pvi.device import (
     LED,
     ArrayTrace,
@@ -218,4 +216,4 @@ class EpicsGUI:
         for name, children in groups.items():
             components.append(Group(name=name, layout=Grid(), children=children))
 
-        return cast(ResolvedTree, components)
+        return components
