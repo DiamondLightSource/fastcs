@@ -96,7 +96,8 @@ def _is_shared_command_alias(group: list[Alias]) -> bool:
         tuple(alias.triggers) if isinstance(alias, CommandAlias) else None
         for alias in group
     }
-    # Only return true if we all shared command aliases agree on label ordering.
+    # Only return true if all shared command aliases agree on label ordering,
+    # as each label's index on the shared PV must be the same for every command
     return None not in labels and len(labels) == 1
 
 
@@ -369,6 +370,7 @@ def _get_enum_from_alias(
     alias: EnumMapping | CommandAlias,
 ):
     labels = alias.mapping if isinstance(alias, EnumMapping) else alias.triggers
+    # Labels become the PV states by position, so clients can put/get label or index
     members = {name: i for i, name in enumerate(labels)}
     return IntEnum("enum", members)
 

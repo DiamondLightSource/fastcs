@@ -38,6 +38,7 @@ class EnumMapping:
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     pv: str
+    # Labels and order must match the aliased PV, as clients may put/get label or index
     mapping: dict[str, EnumMappingValue]
 
 
@@ -51,6 +52,7 @@ class CommandAlias:
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     pv: str
+    # Labels and order must match the aliased PV, as clients may put/get label or index
     triggers: dict[str, bool]
 
 
