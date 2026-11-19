@@ -1,12 +1,12 @@
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from enum import StrEnum, auto
+from enum import Enum, auto
 
 from fastcs.attributes import Attribute
 from fastcs.methods import Command, Scan
 
 
-class GroupLayout(StrEnum):
+class GroupLayout(Enum):
     """How a sub-controller's children are displayed in the generated GUI.
 
     ``SUBSCREEN`` (default) — children appear on a separate screen opened by a

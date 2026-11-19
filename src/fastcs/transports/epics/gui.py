@@ -160,7 +160,13 @@ class EpicsGUI:
                 continue
             if name.isdigit():
                 name = f"{controller_api.path[-1]}{name}"
-            layout = Grid() if api.group_layout is GroupLayout.INLINE else SubScreen()
+            match api.group_layout:
+                case GroupLayout.INLINE:
+                    layout = Grid()
+                case GroupLayout.SUBSCREEN:
+                    layout = SubScreen()
+                case unsupported:
+                    raise ValueError(f"Unsupported group layout: {unsupported}")
             components.append(
                 Group(
                     name=snake_to_pascal(name),

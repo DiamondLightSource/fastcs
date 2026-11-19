@@ -188,6 +188,15 @@ def test_get_components_none(mocker):
     assert components == []
 
 
+def test_get_components_unsupported_group_layout():
+    sub_api = ControllerAPI(path=["DEVICE", "Sub"], group_layout="unknown")  # type: ignore
+    controller_api = ControllerAPI(path=["DEVICE"], sub_apis={"Sub": sub_api})
+    gui = EpicsGUI(controller_api)
+
+    with pytest.raises(ValueError, match="Unsupported group layout"):
+        gui.extract_api_components(controller_api)
+
+
 def test_get_command_component():
     gui = EpicsGUI(ControllerAPI())
 
