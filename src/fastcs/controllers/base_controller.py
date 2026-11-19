@@ -56,7 +56,11 @@ class BaseController(Tracer):
         if group_layout is not None:
             self.group_layout = group_layout
 
-        self._path: list[str] = list(path) if path else []
+        # An explicit path is pinned and never overridden when this controller is
+        # added as a sub controller. Otherwise the path is derived from the parent.
+        self._path: list[str] = list(path) if path is not None else []
+        self._path_pinned = path is not None
+        self._attached = False
 
         # Internal state that should not be accessed directly by base classes
         self.__attributes: dict[str, Attribute] = {}
@@ -294,6 +298,22 @@ class BaseController(Tracer):
         """Path prefix of attributes, recursively including parent Controllers."""
         return self._path
 
+    def _derive_path(self, path: list[str]) -> None:
+        """Derive the path of this controller and its descendants from its parent.
+
+        A controller constructed with an explicit ``path`` keeps it, but its
+        descendants are still derived from it.
+        """
+        if not self._path_pinned:
+            self._path = path
+            for name, attribute in self.__attributes.items():
+                # Sub controller root attributes belong to the sub controller
+                if name not in self.__sub_controllers:
+                    attribute.set_path(path, override=True)
+
+        for name, sub_controller in self.__sub_controllers.items():
+            sub_controller._derive_path(self._path + [name])  # noqa: SLF001
+
     def _check_for_name_clash(self, name: str):
         namespaces = {
             "attribute": self.__attributes,
@@ -355,6 +375,14 @@ class BaseController(Tracer):
                     f"'{sub_controller.__class__.__name__}'."
                 )
 
+        if sub_controller._attached:  # noqa: SLF001
+            raise ValueError(
+                f"Cannot add sub controller {sub_controller}. "
+                f"It is already registered under {sub_controller.path}"
+            )
+
+        sub_controller._attached = True  # noqa: SLF001
+        sub_controller._derive_path(self._path + [name])  # noqa: SLF001
         self.__sub_controllers[name] = sub_controller
         super().__setattr__(name, sub_controller)
 

@@ -88,12 +88,9 @@ class TemperatureController(Controller):
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, settings.num_ramp_controllers + 1):
-            name = f"R{index}"
-            controller = TemperatureRampController(
-                index, self.connection, path=self.path + [name]
-            )
+            controller = TemperatureRampController(index, self.connection)
             self._ramp_controllers.append(controller)
-            self.add_sub_controller(name, controller)
+            self.add_sub_controller(f"R{index}", controller)
 
     @command()
     async def cancel_all(self) -> None:
@@ -147,17 +144,9 @@ class TemperatureRampController(Controller):
     actual = AttrR(Float(prec=3), io_ref=TemperatureControllerAttributeIORef(name="A"))
     voltage = AttrR(Float(prec=3))
 
-    def __init__(
-        self,
-        index: int,
-        conn: IPConnection,
-        *,
-        path: list[str] | None = None,
-    ) -> None:
+    def __init__(self, index: int, conn: IPConnection) -> None:
         suffix = f"{index:02d}"
         super().__init__(
-            f"Ramp{suffix}",
-            ios=[TemperatureControllerAttributeIO(conn, suffix)],
-            path=path,
+            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(conn, suffix)]
         )
         self.connection = conn

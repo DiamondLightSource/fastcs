@@ -14,8 +14,7 @@ from fastcs.transports import (
     RestTransport,
 )
 
-controller = MyController()
-controller.set_path(["DEVICE"])  # PV prefix for EPICS / route prefix for REST
+controller = MyController(path=["DEVICE"])  # PV prefix for EPICS / route prefix for REST
 
 fastcs = FastCS(
     controller,
@@ -72,8 +71,8 @@ Each transport has its own options:
 
 ### EPICS Channel Access
 
-The PV prefix is the first segment of the controller's path (set via
-`controller.set_path([...])` or auto-seeded by `launch()` from the YAML
+The PV prefix is the first segment of the controller's path (set via the
+controller's `path=[...]` argument or auto-seeded by `launch()` from the YAML
 entry's `id:`).
 
 ```python
@@ -161,7 +160,7 @@ from fastcs.transports import (
     EpicsPVATransport,
 )
 
-controller.set_path(["DEVICE"])
+controller = MyController(path=["DEVICE"])
 
 fastcs = FastCS(
     controller,

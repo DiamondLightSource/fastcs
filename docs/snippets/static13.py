@@ -60,12 +60,10 @@ class TemperatureRampController(Controller):
     actual = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("A"))
     voltage = AttrR(Float())
 
-    def __init__(self, index: int, connection: IPConnection, *, path=None) -> None:
+    def __init__(self, index: int, connection: IPConnection) -> None:
         suffix = f"{index:02d}"
         super().__init__(
-            f"Ramp{suffix}",
-            ios=[TemperatureControllerAttributeIO(connection, suffix)],
-            path=path,
+            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(connection, suffix)]
         )
 
 
@@ -84,12 +82,9 @@ class TemperatureController(Controller):
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, ramp_count + 1):
-            name = f"R{index}"
-            controller = TemperatureRampController(
-                index, self._connection, path=self.path + [name]
-            )
+            controller = TemperatureRampController(index, self._connection)
             self._ramp_controllers.append(controller)
-            self.add_sub_controller(name, controller)
+            self.add_sub_controller(f"R{index}", controller)
 
     async def connect(self):
         await self._connection.connect(self._ip_settings)

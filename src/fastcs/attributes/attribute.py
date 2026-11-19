@@ -102,8 +102,8 @@ class Attribute(Generic[DType_T, AttributeIORefT], Tracer, ABC):
 
         self._name = name
 
-    def set_path(self, path: list[str]):
-        if self._path:
+    def set_path(self, path: list[str], *, override: bool = False):
+        if self._path and not override:
             raise RuntimeError(
                 f"Attribute is already registered with a controller at {self._path}"
             )

@@ -35,6 +35,73 @@ class SomeSubController(Controller):
     root_attribute = AttrR(Int())
 
 
+def test_sub_controller_path_is_derived_when_not_given():
+    controller = Controller()
+    sub_controller = SomeSubController()
+
+    controller.add_sub_controller("sub", sub_controller)
+
+    assert sub_controller.path == ["sub"]
+    assert sub_controller.sub_attribute.path == ["sub"]
+    assert controller._build_api().sub_apis["sub"].path == ["sub"]
+
+
+def test_sub_controller_path_is_derived_from_root_path():
+    controller = Controller(path=["DEVICE"])
+    sub_controller = SomeSubController()
+    vector = ControllerVector({1: SomeSubController(), 2: SomeSubController()})
+
+    controller.add_sub_controller("sub", sub_controller)
+    controller.add_sub_controller("vec", vector)
+
+    assert sub_controller.path == ["DEVICE", "sub"]
+    assert vector.path == ["DEVICE", "vec"]
+    assert vector[1].path == ["DEVICE", "vec", "1"]
+    assert vector[1].sub_attribute.path == ["DEVICE", "vec", "1"]
+    assert [api.path for api in controller._build_api().walk_api()] == [
+        ["DEVICE"],
+        ["DEVICE", "sub"],
+        ["DEVICE", "vec"],
+        ["DEVICE", "vec", "1"],
+        ["DEVICE", "vec", "2"],
+    ]
+
+
+def test_sub_controller_path_is_rederived_for_descendants_of_attached_controller():
+    root = Controller(path=["DEVICE"])
+    middle = Controller()
+    leaf = SomeSubController()
+    middle.add_sub_controller("leaf", leaf)
+    assert leaf.path == ["leaf"]
+
+    root.add_sub_controller("middle", middle)
+
+    assert middle.path == ["DEVICE", "middle"]
+    assert leaf.path == ["DEVICE", "middle", "leaf"]
+    assert leaf.sub_attribute.path == ["DEVICE", "middle", "leaf"]
+
+
+def test_explicit_sub_controller_path_is_kept_and_used_for_descendants():
+    root = Controller(path=["DEVICE"])
+    pinned = Controller(path=["GROUP"])
+    leaf = SomeSubController()
+    pinned.add_sub_controller("leaf", leaf)
+
+    root.add_sub_controller("pinned", pinned)
+
+    assert pinned.path == ["GROUP"]
+    assert leaf.path == ["GROUP", "leaf"]
+    assert root._build_api().sub_apis["pinned"].path == ["GROUP"]
+
+
+def test_sub_controller_cannot_be_registered_twice():
+    sub_controller = Controller()
+    Controller().add_sub_controller("sub", sub_controller)
+
+    with pytest.raises(ValueError, match="already registered under"):
+        Controller().add_sub_controller("other", sub_controller)
+
+
 class SomeController(Controller):
     annotated_attr_not_defined_in_init: AttrR[int]
     equal_attr = AttrR(Int())

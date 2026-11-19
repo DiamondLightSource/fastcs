@@ -98,11 +98,9 @@ class TemperatureRampController(Controller):
         index: int,
         parameters: dict[str, TemperatureControllerParameter],
         io: TemperatureControllerAttributeIO,
-        *,
-        path=None,
     ):
         self._parameters = parameters
-        super().__init__(f"Ramp{index}", ios=[io], path=path)
+        super().__init__(f"Ramp{index}", ios=[io])
 
     async def initialise(self):
         for name, attribute in create_attributes(self._parameters).items():
@@ -133,7 +131,7 @@ class TemperatureController(Controller):
         for idx, ramp_parameters in enumerate(ramps_api):
             name = f"Ramp{idx + 1:02d}"
             ramp_controller = TemperatureRampController(
-                idx + 1, ramp_parameters, self._io, path=self.path + [name]
+                idx + 1, ramp_parameters, self._io
             )
             await ramp_controller.initialise()
             self.add_sub_controller(name, ramp_controller)

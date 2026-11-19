@@ -44,7 +44,7 @@ along with an empty list of transports (for now).
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static02.py
-:emphasize-lines: 2,9,11-12
+:emphasize-lines: 2,9-12
 :::
 
 ::::
@@ -108,7 +108,7 @@ passing it in.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static04.py
-:emphasize-lines: 5,6,13,14
+:emphasize-lines: 5,12-14
 :::
 
 ::::
@@ -129,7 +129,7 @@ options to the transport options and generate a `demo.bob` file to use with Phoe
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static05.py
-:emphasize-lines: 1,7,15-18,20
+:emphasize-lines: 1,7-8,15-18,21
 :::
 
 ::::
@@ -179,7 +179,7 @@ The `update_period` property tells the base class how often to call `update`
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static07.py
-:emphasize-lines: 1,3,5-6,15-33,37,43
+:emphasize-lines: 1,3-5,13-31,35,41
 :::
 
 ::::
@@ -220,7 +220,7 @@ etc.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static08.py
-:emphasize-lines: 10,19-21,33-38,42-43
+:emphasize-lines: 1,8,17-19,23-25,31-33,40-41,47-49
 :::
 
 ::::
@@ -244,7 +244,7 @@ The set commands do not return a response, so use the `send_command` method inst
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static09.py
-:emphasize-lines: 7,40-44,48-50
+:emphasize-lines: 5,38-42,48
 :::
 
 ::::
@@ -288,7 +288,7 @@ are, which is used to register the correct number of ramp controllers with the p
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,35,44,48-56,64,70-74,83
+:emphasize-lines: 8,26,30,33,42,46-54,62,70-74,83
 :::
 
 ::::
@@ -313,7 +313,7 @@ Add an `AttrRW` to the `TemperatureRampController`s with an `Enum` type, using a
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static11.py
-:emphasize-lines: 1,11,49-51,57
+:emphasize-lines: 1,9,47-49,55
 :::
 
 ::::
@@ -366,7 +366,7 @@ gets the array of voltages and sets each ramp controller with its value. Also ad
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static12.py
-:emphasize-lines: 2,16,60-62,91-97
+:emphasize-lines: 2,12,58-60,91-97
 :::
 
 ::::
@@ -387,7 +387,7 @@ controller.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static13.py
-:emphasize-lines: 1,17,100-105
+:emphasize-lines: 1,13,100-105
 :::
 
 ::::
@@ -419,7 +419,7 @@ logger for `TemperatureControllerAttributeIO` to log the commands it sends.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 13,48,110,115
+:emphasize-lines: 13,48,105,112,117
 :::
 
 ::::
@@ -444,7 +444,7 @@ visible.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static15.py
-:emphasize-lines: 13,49-51,118
+:emphasize-lines: 13,42,115
 :::
 
 ::::
