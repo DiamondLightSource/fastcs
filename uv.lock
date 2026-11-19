@@ -1005,8 +1005,8 @@ requires-dist = [
     { name = "numpy" },
     { name = "numpy", marker = "extra == 'rest'" },
     { name = "p4p", marker = "extra == 'epicspva'" },
-    { name = "pvi", marker = "extra == 'epicsca'", specifier = "==0.14.5b1" },
-    { name = "pvi", marker = "extra == 'epicspva'", specifier = "==0.14.5b1" },
+    { name = "pvi", marker = "extra == 'epicsca'", specifier = "==0.14.5" },
+    { name = "pvi", marker = "extra == 'epicspva'", specifier = "==0.14.5" },
     { name = "pydantic" },
     { name = "pygelf" },
     { name = "pytango", marker = "extra == 'tango'" },
@@ -2150,7 +2150,7 @@ wheels = [
 
 [[package]]
 name = "pvi"
-version = "0.14.5b1"
+version = "0.14.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
@@ -2160,9 +2160,9 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/3d/5ec0db2e3cf7885538ff3569ab107353c3d645fbfc066baae76b33ba19db/pvi-0.14.5b1.tar.gz", hash = "sha256:5c9018076e75585749314568769f16ffc29aade37fd34baa4f3b65cfdc2dd9b5", size = 296079, upload-time = "2026-11-03T16:54:06.467Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c4/57/ef913b4e3d0415cb278427cd0f70d7adc566d7200454b8477a3baba75863/pvi-0.14.5.tar.gz", hash = "sha256:36cecfcddf4cd1a05a1a6880e71c1fe0756888715ec6a87d4e5021359c148c13", size = 289317, upload-time = "2026-11-04T11:55:37.581Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/9c/ce1155c6d60c3f80205cb93fdfb880621a24e9f1f7622d0b575fd50b043b/pvi-0.14.5b1-py3-none-any.whl", hash = "sha256:6eed450376d797720b178b75b5b1ab7a5b10b8976aed4558580a02310648a01d", size = 60552, upload-time = "2026-11-03T16:54:05.376Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/f7/c7337eee5c0eebb18e4ab9c8c2b1d3ac6070a694275b888eef07186dcd68/pvi-0.14.5-py3-none-any.whl", hash = "sha256:a5e0d1ee7922257581b41a4bf429e3d5830b966400a877d7a17013509ab7b93b", size = 59878, upload-time = "2026-11-04T11:55:36.369Z" },
 ]
 
 [[package]]
