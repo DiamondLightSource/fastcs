@@ -359,7 +359,7 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
 
 
 def test_launch_single_arg_no_options(mocker: MockerFixture, tmp_path):
-    """Test launching a controller that takes no options (no type hints).
+    """Test launching a controller that takes no options.
 
     This exercises the code path where a controller doesn't expect options,
     ensuring registered.cls() is called with only path=[entry.id].
