@@ -292,14 +292,14 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
         pass
     elif len(args) == 2:
         expects_options = True
+        options_name = args[1]
         hints = get_type_hints(controller_class.__init__)
-        hints.pop("return", None)
-        if not hints:
+        if options_name not in hints:
             raise LaunchError(
                 f"Expected typehinting in '{controller_class.__name__}"
-                f".__init__' but received {sig}. Add a typehint for `{args[-1]}`."
+                f".__init__' but received {sig}. Add a typehint for `{options_name}`."
             )
-        options_type = list(hints.values())[-1]
+        options_type = hints[options_name]
         options_fields = _options_field_definitions(options_type)
         for reserved in ("id", "type"):
             if reserved in options_fields:

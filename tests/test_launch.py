@@ -51,6 +51,16 @@ class IsHinted(Controller):
         super().__init__(path=path)
 
 
+class HintedPath(Controller):
+    def __init__(self, arg: SomeConfig, *, path: list[str] | None = None) -> None:
+        super().__init__(path=path)
+
+
+class NotHintedWithHintedPath(Controller):
+    def __init__(self, arg, *, path: list[str] | None = None) -> None:
+        super().__init__(path=path)
+
+
 class ManyArgs(Controller):
     def __init__(self, arg: SomeConfig, too_many, *, path=None):
         super().__init__(path=path)
@@ -126,6 +136,30 @@ def test_not_hinted_schema():
 
     with pytest.raises(LaunchError) as exc_info:
         launch(NotHinted)
+    assert str(exc_info.value) == error
+
+
+def test_hinted_path_is_not_the_options_type():
+    options_model = _build_options_model([HintedPath])
+    instance = options_model.model_validate(
+        {
+            "controllers": [{"id": "my-id", "type": "tests.HintedPath", "name": "x"}],
+            "transport": [],
+        }
+    )
+
+    assert _controllers(instance)[0].name == "x"
+
+
+def test_not_hinted_with_hinted_path_schema():
+    error = (
+        "Expected typehinting in 'NotHintedWithHintedPath.__init__' but received "
+        "(self, arg, *, path: list[str] | None = None) -> None. "
+        "Add a typehint for `arg`."
+    )
+
+    with pytest.raises(LaunchError) as exc_info:
+        _build_options_model([NotHintedWithHintedPath])
     assert str(exc_info.value) == error
 
 
