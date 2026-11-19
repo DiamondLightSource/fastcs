@@ -31,8 +31,8 @@ class EpicsGUIOptions:
     title: str | None = None
     """Index screen title.
 
-    ``None`` (default): use the root controller PV prefix, or ``"FastCS Devices"``
-    if no root controller is present.  Set to ``""`` to suppress the title widget
+    ``None`` (default): use the PV prefix of the root controller if there is exactly
+    one, otherwise ``"FastCS Devices"``.  Set to ``""`` to suppress the title widget
     entirely.
 
     Note: titles longer than about 30 characters may be truncated in the

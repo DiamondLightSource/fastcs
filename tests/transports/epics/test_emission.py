@@ -11,6 +11,7 @@ from fastcs.transports.epics.emission import (
     DOCS_EXT,
     INDEX_STEM,
     _coerce_pascal_name,
+    _index_title,
     emit_docs_files,
     emit_gui_files,
 )
@@ -45,6 +46,23 @@ def two_apis():
 @pytest.fixture
 def one_api():
     return [_api_with_id(_Alpha, "alpha")]
+
+
+# --- Index title -----------------------------------------------------------
+
+
+def test_index_title_uses_explicit_title(one_api):
+    assert _index_title(one_api, "My Title") == "My Title"
+    assert _index_title(one_api, "") == ""
+
+
+def test_index_title_uses_id_of_single_controller(one_api):
+    assert _index_title(one_api, None) == "alpha"
+
+
+def test_index_title_is_generic_for_multiple_or_no_controllers(two_apis):
+    assert _index_title(two_apis, None) == "FastCS Devices"
+    assert _index_title([], None) == "FastCS Devices"
 
 
 # --- GUI emission ----------------------------------------------------------

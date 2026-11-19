@@ -31,6 +31,22 @@ GUIBuilder = Callable[[ControllerAPI], EpicsGUI]
 """Per-flavour ``EpicsGUI`` constructor (CA bare PV / PVA ``pva://`` PV)."""
 
 INDEX_STEM = "index"
+DEFAULT_INDEX_TITLE = "FastCS Devices"
+
+
+def _index_title(controller_apis: list[ControllerAPI], title: str | None) -> str:
+    """Title of the index screen or page.
+
+    An explicit ``title`` is used as-is (an empty string suppresses the title
+    widget). Otherwise a single root controller names the index after its PV prefix.
+    With several root controllers there is no single name to use, so fall back to a
+    generic title.
+    """
+    if title is not None:
+        return title
+    if len(controller_apis) == 1 and controller_apis[0].path:
+        return controller_apis[0].path[0]
+    return DEFAULT_INDEX_TITLE
 
 
 def _coerce_pascal_name(name: str) -> str:
@@ -136,13 +152,7 @@ def emit_gui_files(
         )
 
     index_path = (output_dir / f"{INDEX_STEM}{ext}").resolve()
-    if options.title is not None:
-        # Explicit title: use as-is (empty string suppresses the title widget)
-        index_title = options.title
-    elif controller_apis and controller_apis[0].path:
-        index_title = controller_apis[0].path[0]
-    else:
-        index_title = "FastCS Devices"
+    index_title = _index_title(controller_apis, options.title)
     formatter.format(Device(label=index_title, children=refs), index_path)
 
 
@@ -169,16 +179,7 @@ def emit_docs_files(
 
     index_path = output_dir / f"{INDEX_STEM}{DOCS_EXT}"
     index_path.write_text(
-        _render_index_md(
-            controller_apis,
-            options.title
-            if options.title is not None
-            else (
-                controller_apis[0].path[0]
-                if controller_apis and controller_apis[0].path
-                else "FastCS Devices"
-            ),
-        )
+        _render_index_md(controller_apis, _index_title(controller_apis, options.title))
     )
 
 
