@@ -13,8 +13,9 @@ class Update(Generic[DType_T]):
     A getter or setter may return a bare value, or wrap it in ``Update`` to say
     more about it:
 
-    - ``timestamp`` - when the value was obtained. ``None`` means the framework
-      should stamp it with the time the update was received.
+    - ``timestamp`` - when the value was obtained. Not yet used: it is accepted so
+      that the field order is settled, and is dropped until native timestamps
+      are supported.
     - ``setpoint`` - a setpoint to publish alongside the readback. ``None`` leaves
       the cached setpoint untouched.
 

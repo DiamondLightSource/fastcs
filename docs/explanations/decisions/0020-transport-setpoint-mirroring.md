@@ -58,6 +58,9 @@ The attribute owns the setpoint, and transports mirror it.
   does not silently rewrite what the user asked for.
 
 Transports must not update their own setpoint display directly in their write path.
+The one exception is a failed put: the PV that received it shows the rejected value
+in alarm until the setpoint next changes. A CA record already holds a put's value
+before FastCS sees it, and PVA does the same so that the two agree.
 
 ## Consequences
 

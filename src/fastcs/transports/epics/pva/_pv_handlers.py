@@ -52,18 +52,17 @@ class WritePvHandler:
 
         tracer.log_event("PV put", topic=self._attr_w, pv=pv, value=cast_value)
 
-        dtype = self._attr_w.dtype
-
-        _post_with_alarm_states(pv, dtype, raw_value, p4p_alarm_states())
-
+        # The value is not posted here: ``set`` publishes the setpoint, and the
+        # setpoint callback posts it with the alarm cleared. See ADR 0020.
         try:
             await self._attr_w.set(cast_value)
         except Exception as e:
             error_msg = f"Exception raised during put operation: {e!r}"
             op.done(error=error_msg)
             alarm_states = p4p_alarm_states(Severity.MAJOR, Status.RECORD, error_msg)
-            # Raise alarm on failed put
-            _post_with_alarm_states(pv, dtype, raw_value, alarm_states)
+            # Raise alarm on failed put, showing the value that was put, as a CA
+            # record does
+            _post_with_alarm_states(pv, self._attr_w.dtype, raw_value, alarm_states)
 
         else:
             op.done()

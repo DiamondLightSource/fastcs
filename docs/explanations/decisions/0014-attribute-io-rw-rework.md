@@ -133,7 +133,7 @@ and there is no argument to wrap — giving one vocabulary across both:
 | Schedule | Procedural | Declarative |
 |---|---|---|
 | Once, at connect | `AttrR(t, getter=g)` | `@attr(units="V")` |
-| Every 0.5s | `AttrR(t, getter=Polled(g, period=0.5))` | `@attr(Polled(0.5), units="V")` |
+| Every 0.5s | `AttrR(t, getter=Polled(g, period=0.5))` | `@attr(Polled(period=0.5), units="V")` |
 | Never; `poll()` only | `AttrR(t, getter=NotPolled(g))` | `@attr(NotPolled(), units="V")` |
 
 **A bare getter means "read once, at connect"**, not "never read". Three
@@ -167,7 +167,7 @@ the latter has nothing to read.
 @dataclass
 class Update(Generic[T]):
     readback: T
-    timestamp: float | None = None   # None ⇒ framework stamps receive-time
+    timestamp: float | None = None   # accepted, not yet persisted (see below)
     setpoint: T | None = None        # None ⇒ leave the cached setpoint alone
 ```
 
@@ -356,9 +356,9 @@ callables with no registry needed at all. `fastcs-secop`'s private
   hint in downstream code (`AttrR[float, MyRef]` → `AttrR[float]`).
 - Access-mode compatibility is enforced by the parameter set — an `AttrR` has
   no `setter`, so there is no `_validate_io` runtime check and no way to attach
-  a read-only IO to a write-capable attr statically. For the dynamically-built
-  `Any`-typed case (`fastcs-secop`, `fastcs-PandABlocks`) a runtime check at
-  `post_initialise` still catches a missing setter on a write-capable attr.
+  a read-only IO to a write-capable attr statically. A write-capable attr with
+  no setter is soft rather than an error, so there is no runtime check for a
+  missing setter either.
 - The IO no longer has a place to hang per-attribute metadata that
   `fastcs-catio` used to read off `attribute.io_ref`; `attr.meta` and the
   attribute's own attributes replace that access.
@@ -373,9 +373,11 @@ callables with no registry needed at all. `fastcs-secop`'s private
    hierarchy?** Plain `getter`/`setter` callables on the constructors. The IO
    class hierarchy and its abstract-method enforcement are dropped entirely;
    access mode is enforced by which parameters exist.
-2. **Do we still need a runtime access-mode check?** Yes, in addition to the
-   static shape: a runtime check (e.g. at `post_initialise`) catches a missing
-   setter on a write-capable `Attr` for the dynamically-built `Any`-typed case.
+2. **Do we still need a runtime access-mode check?** No. This was first answered
+   yes, with a check at `post_initialise` for a missing setter on a
+   write-capable `Attr` in the dynamically-built `Any`-typed case. But a missing
+   setter is how a soft attribute is spelled, so the check could not tell a
+   mistake from a soft attribute, and it was not implemented.
 3. **What is the public replacement for `fastcs-secop`'s
    `_call_sync_setpoint_callbacks`?** A `setter` returning `T | Update[T]` *is*
    the sanctioned setpoint echo — the returned value updates the readback and

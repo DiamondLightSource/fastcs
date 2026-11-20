@@ -56,7 +56,7 @@ writer.
 
 ```python
 class PowerSupply(Controller):
-    @attr(Polled(0.5), units="V")   # datatype inferred from -> float
+    @attr(Polled(period=0.5), units="V")   # datatype inferred from -> float
     async def voltage(self) -> float:
         """Output voltage."""
         return await self._conn.query("V?")
@@ -75,7 +75,7 @@ class PowerSupply(Controller):
   as *better* than PyTango's `dtype=` kwarg since it's one real annotation,
   checked statically.
 - `@attr` comes in two forms: bare `@attr` and parameterised
-  `@attr(Polled(0.5), precision=3, units="V")`. The keyword arguments map onto
+  `@attr(Polled(period=0.5), precision=3, units="V")`. The keyword arguments map onto
   the same `*Meta` fields (typed with `Unpack[…Meta]`, validated against the
   getter's return type). The optional leading positional is a **schedule** -
   the same `Polled`/`NotPolled` objects the procedural form wraps its getter in
@@ -91,7 +91,7 @@ class PowerSupply(Controller):
   | Schedule | Procedural | Declarative |
   |---|---|---|
   | Once, at connect | `AttrR(t, getter=g)` | `@attr(units="V")` |
-  | Every 0.5s | `AttrR(t, getter=Polled(g, period=0.5))` | `@attr(Polled(0.5), units="V")` |
+  | Every 0.5s | `AttrR(t, getter=Polled(g, period=0.5))` | `@attr(Polled(period=0.5), units="V")` |
   | Never; `poll()` only | `AttrR(t, getter=NotPolled(g))` | `@attr(NotPolled(), units="V")` |
 - `@attr`'s `.setter` decorator mirrors `@property`/`@x.setter`, giving the
   read+write pair a single logical name (`voltage`) with two decorated methods.
