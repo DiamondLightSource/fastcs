@@ -94,6 +94,35 @@ def test_datatype_required_when_not_inferable():
         AttrRW()
 
 
+@pytest.mark.parametrize(
+    "annotation, dtype",
+    [(Update[float], float), (float | Update[float], float), (int | str, None)],
+)
+def test_datatype_inferred_through_update_annotations(annotation, dtype):
+    async def get_value():
+        return 1.5
+
+    get_value.__annotations__["return"] = annotation
+
+    if dtype is None:
+        with pytest.raises(ValueError, match="datatype must be given explicitly"):
+            AttrR(getter=get_value)
+    else:
+        assert AttrR(getter=get_value).dtype is dtype
+
+
+@pytest.mark.asyncio
+async def test_failing_setpoint_callback_raises():
+    async def fail(value: int):
+        raise RuntimeError("callback failed")
+
+    attr = AttrRW(int)
+    attr.add_setpoint_callback(fail)
+
+    with pytest.raises(RuntimeError, match="callback failed"):
+        await attr.update(Update(1, setpoint=2))
+
+
 @pytest.mark.asyncio
 async def test_attr_update():
     attr = AttrRW(int)
