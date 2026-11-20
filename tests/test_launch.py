@@ -321,3 +321,53 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     controllers_arg = init_spy.call_args.args[1]
     assert [c.path[0] for c in controllers_arg] == ["one", "two"]
     assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]
+
+
+class RecordsName(Controller):
+    names: ClassVar[list[str]] = []
+
+    def __init__(self, arg: SomeConfig) -> None:
+        super().__init__()
+        RecordsName.names.append(arg.name)
+
+
+def test_config_rendered_as_jinja_template(
+    mocker: MockerFixture, tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    init_spy = mocker.spy(FastCS, "__init__")
+    RecordsName.names.clear()
+    mocker.patch("fastcs.launch.FastCS.run")
+    monkeypatch.setenv("DEVICE_NAME", "from-env")
+    cfg = tmp_path / "templated.yaml"
+    cfg.write_text(
+        "controllers:\n"
+        "{% for id in ['one', 'two'] %}\n"
+        "  - id: {{ id }}\n"
+        "    type: tests.RecordsName\n"
+        "    name: {{ env.DEVICE_NAME }}\n"
+        "{% endfor %}\n"
+        "transport:\n"
+        "  - rest: {}\n"
+    )
+    app = _launch(RecordsName)
+    result = runner.invoke(app, ["run", str(cfg)])
+    assert result.exit_code == 0, result.output
+    controllers_arg = init_spy.call_args.args[1]
+    assert [c.path[0] for c in controllers_arg] == ["one", "two"]
+    assert RecordsName.names == ["from-env", "from-env"]
+
+
+@pytest.mark.parametrize(
+    "template, message",
+    [
+        ("name: {{ env.NOT_A_FASTCS_TEST_VARIABLE }}\n", "NOT_A_FASTCS_TEST_VARIABLE"),
+        ("controllers:\n  - id: {{ id\n", "line 2 as a Jinja template"),
+    ],
+)
+def test_config_that_fails_to_render_raises(tmp_path, template: str, message: str):
+    cfg = tmp_path / "bad.yaml"
+    cfg.write_text(template)
+    app = _launch(IsHinted)
+    result = runner.invoke(app, ["run", str(cfg)])
+    assert isinstance(result.exception, LaunchError)
+    assert message in str(result.exception)
