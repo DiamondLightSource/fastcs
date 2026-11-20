@@ -31,7 +31,7 @@ _GQL_ID = "device"
 
 @pytest.fixture(scope="class")
 def gql_controller_api(class_mocker: MockerFixture):
-    return AssertableControllerAPI(GraphQLController(), class_mocker, path=[_GQL_ID])
+    return AssertableControllerAPI(GraphQLController(path=[_GQL_ID]), class_mocker)
 
 
 def nest_query(path: list[str]) -> str:

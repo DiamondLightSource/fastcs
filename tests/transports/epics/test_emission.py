@@ -11,6 +11,7 @@ from fastcs.transports.epics.emission import (
     DOCS_EXT,
     INDEX_STEM,
     _coerce_pascal_name,
+    _index_title,
     emit_docs_files,
     emit_gui_files,
 )
@@ -32,8 +33,7 @@ class _Beta(Controller):
 
 
 def _api_with_id(controller_class: type[Controller], name: str):
-    controller = controller_class()
-    controller.set_path([name])
+    controller = controller_class(path=[name])
     api, _, _ = controller.create_api_and_tasks()
     return api
 
@@ -46,6 +46,23 @@ def two_apis():
 @pytest.fixture
 def one_api():
     return [_api_with_id(_Alpha, "alpha")]
+
+
+# --- Index title -----------------------------------------------------------
+
+
+def test_index_title_uses_explicit_title(one_api):
+    assert _index_title(one_api, "My Title") == "My Title"
+    assert _index_title(one_api, "") == ""
+
+
+def test_index_title_uses_id_of_single_controller(one_api):
+    assert _index_title(one_api, None) == "alpha"
+
+
+def test_index_title_is_generic_for_multiple_or_no_controllers(two_apis):
+    assert _index_title(two_apis, None) == "FastCS Devices"
+    assert _index_title([], None) == "FastCS Devices"
 
 
 # --- GUI emission ----------------------------------------------------------
@@ -178,6 +195,45 @@ def test_docs_creates_missing_output_dir(two_apis, tmp_path: Path):
 
 
 # --- _coerce_pascal_name fail-fast (#369) ----------------------------------
+
+
+def test_gui_emits_hoisted_single_segment_sub_controllers(tmp_path: Path):
+    """Sub-controllers with a single-segment path get their own top-level
+    screen file and a separate index entry, in addition to the root controller.
+    """
+
+    class _Root(Controller):
+        pass
+
+    class _Hoisted(Controller):
+        baz = AttrR(Int())
+
+    # Build a root controller at path ["root"] with a sub-controller at
+    # path ["hoisted"] — a single-segment path giving it a root-level PV prefix.
+    root = _Root(path=["root"])
+    hoisted = _Hoisted(path=["hoisted"])
+    root.add_sub_controller("hoisted", hoisted)
+
+    root_api, _, _ = root.create_api_and_tasks()
+
+    emit_gui_files([root_api], EpicsGUIOptions(output_dir=tmp_path), EpicsGUI)
+
+    # Both screens should be emitted
+    assert (tmp_path / "root.bob").is_file()
+    assert (tmp_path / "hoisted.bob").is_file()
+
+    # Index should have a button for each
+    index_text = (tmp_path / f"{INDEX_STEM}.bob").read_text()
+    assert "root.bob" in index_text
+    assert "hoisted.bob" in index_text
+
+    # Root appears before hoisted in the index (depth-first, root first)
+    assert index_text.index("root.bob") < index_text.index("hoisted.bob")
+
+    # The hoisted sub-controller must NOT appear embedded inside the root screen,
+    # since it has its own top-level entry.
+    root_text = (tmp_path / "root.bob").read_text()
+    assert "hoisted.bob" not in root_text
 
 
 @pytest.mark.parametrize("bad_id", ["___", "-", "_-_", "----"])

@@ -47,6 +47,9 @@ def test_attr_r():
     with pytest.raises(RuntimeError):
         attr.set_path(["test_path"])
 
+    attr.set_path(["other_path"], override=True)
+    assert attr.path == ["other_path"]
+
     assert attr.get() == ""
 
 

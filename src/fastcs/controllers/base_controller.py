@@ -12,7 +12,7 @@ from typing import (
 )
 
 from fastcs.attributes import AnyAttributeIO, Attribute, AttrR, AttrW, HintedAttribute
-from fastcs.controllers.controller_api import ControllerAPI
+from fastcs.controllers.controller_api import ControllerAPI, GroupLayout
 from fastcs.logging import logger
 from fastcs.methods import Command, Method, Scan, UnboundCommand, UnboundScan
 from fastcs.tracer import Tracer
@@ -36,12 +36,16 @@ class BaseController(Tracer):
     # behaviour of instantiated controllers
     root_attribute: Attribute | None = None
     description: str | None = None
+    group_layout: GroupLayout = GroupLayout.SUBSCREEN
+    """How this controller's children are laid out on a parent screen."""
 
     def __init__(
         self,
-        path: list[str] | None = None,
         description: str | None = None,
         ios: Sequence[AnyAttributeIO] | None = None,
+        *,
+        path: list[str] | None = None,
+        group_layout: GroupLayout | None = None,
     ) -> None:
         super().__init__()
 
@@ -49,7 +53,14 @@ class BaseController(Tracer):
             # Use the argument over the one class defined description.
             self.description = description
 
-        self._path: list[str] = path or []
+        if group_layout is not None:
+            self.group_layout = group_layout
+
+        # An explicit path is pinned and never overridden when this controller is
+        # added as a sub controller. Otherwise the path is derived from the parent.
+        self._path: list[str] = list(path) if path is not None else []
+        self._path_pinned = path is not None
+        self._attached = False
 
         # Internal state that should not be accessed directly by base classes
         self.__attributes: dict[str, Attribute] = {}
@@ -287,13 +298,21 @@ class BaseController(Tracer):
         """Path prefix of attributes, recursively including parent Controllers."""
         return self._path
 
-    def set_path(self, path: list[str]):
-        if self._path:
-            raise ValueError(f"sub controller is already registered under {self.path}")
+    def _derive_path(self, path: list[str]) -> None:
+        """Derive the path of this controller and its descendants from its parent.
 
-        self._path = path
-        for attribute in self.__attributes.values():
-            attribute.set_path(path)
+        A controller constructed with an explicit ``path`` keeps it, but its
+        descendants are still derived from it.
+        """
+        if not self._path_pinned:
+            self._path = path
+            for name, attribute in self.__attributes.items():
+                # Sub controller root attributes belong to the sub controller
+                if name not in self.__sub_controllers:
+                    attribute.set_path(path, override=True)
+
+        for name, sub_controller in self.__sub_controllers.items():
+            sub_controller._derive_path(self._path + [name])  # noqa: SLF001
 
     def _check_for_name_clash(self, name: str):
         namespaces = {
@@ -356,7 +375,14 @@ class BaseController(Tracer):
                     f"'{sub_controller.__class__.__name__}'."
                 )
 
-        sub_controller.set_path(self.path + [name])
+        if sub_controller._attached:  # noqa: SLF001
+            raise ValueError(
+                f"Cannot add sub controller {sub_controller}. "
+                f"It is already registered under {sub_controller.path}"
+            )
+
+        sub_controller._attached = True  # noqa: SLF001
+        sub_controller._derive_path(self._path + [name])  # noqa: SLF001
         self.__sub_controllers[name] = sub_controller
         super().__setattr__(name, sub_controller)
 
@@ -406,15 +432,16 @@ class BaseController(Tracer):
     def scan_methods(self) -> dict[str, Scan]:
         return self.__scan_methods
 
-    def _build_api(self, path: list[str]) -> ControllerAPI:
+    def _build_api(self) -> ControllerAPI:
         return ControllerAPI(
-            path=path,
+            path=self._path,
             attributes=self.attributes,
             command_methods=self.command_methods,
             scan_methods=self.scan_methods,
             sub_apis={
-                name: sub_controller._build_api(path + [name])  # noqa: SLF001
+                name: sub_controller._build_api()  # noqa: SLF001
                 for name, sub_controller in self.sub_controllers.items()
             },
             description=self.description,
+            group_layout=self.group_layout,
         )

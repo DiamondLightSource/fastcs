@@ -51,8 +51,7 @@ async def test_initial_values_set_in_ca(mocker):
     pv_prefix = "SOFTIOC_INITIAL_DEVICE"
 
     loop = asyncio.get_event_loop()
-    controller = InitialValuesController()
-    controller.set_path([pv_prefix])
+    controller = InitialValuesController(path=[pv_prefix])
     fastcs = FastCS(
         controller,
         [EpicsCATransport()],

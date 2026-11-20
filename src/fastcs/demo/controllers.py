@@ -71,11 +71,17 @@ class TemperatureController(Controller):
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef(name="P"))
     voltages = AttrR(Waveform(np.int32, shape=(4,)))
 
-    def __init__(self, settings: TemperatureControllerSettings) -> None:
+    def __init__(
+        self,
+        settings: TemperatureControllerSettings,
+        *,
+        path: list[str] | None = None,
+    ) -> None:
         self.connection = IPConnection()
         self.suffix = ""
         super().__init__(
-            ios=[TemperatureControllerAttributeIO(self.connection, self.suffix)]
+            ios=[TemperatureControllerAttributeIO(self.connection, self.suffix)],
+            path=path,
         )
 
         self._settings = settings

@@ -30,7 +30,15 @@ class EpicsGUIOptions:
 
     output_dir: Path = Path(".")
     file_format: EpicsGUIFormat = EpicsGUIFormat.bob
-    title: str = "FastCS Devices"
+    title: str | None = None
+    """Index screen title.
+
+    ``None`` (default): use the PV prefix of the root controller if there is exactly
+    one, otherwise ``"FastCS Devices"``.  Set to ``""`` to suppress the title widget
+    entirely.
+
+    Note: titles longer than about 30 characters may be truncated in the
+    generated ``.bob`` screen."""
 
 
 @dataclass

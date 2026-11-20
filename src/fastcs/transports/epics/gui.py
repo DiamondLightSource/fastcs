@@ -24,6 +24,7 @@ from pydantic import ValidationError
 
 from fastcs.attributes import Attribute, AttrR, AttrRW, AttrW
 from fastcs.controllers import ControllerAPI
+from fastcs.controllers.controller_api import GroupLayout
 from fastcs.datatypes import (
     Bool,
     Enum,
@@ -151,12 +152,24 @@ class EpicsGUI:
         components: ResolvedTree = []
 
         for name, api in controller_api.sub_apis.items():
+            # Sub-controllers with a single-segment path have their own top-level
+            # screen file, so they are omitted from the parent screen entirely.
+            if len(api.path) == 1:
+                continue
             if name.isdigit():
                 name = f"{controller_api.path[-1]}{name}"
+            match api.group_layout:
+                case GroupLayout.INLINE:
+                    layout = Grid()
+                case GroupLayout.SUBSCREEN:
+                    layout = SubScreen()
+                case unsupported:
+                    raise ValueError(f"Unsupported group layout: {unsupported}")
             components.append(
                 Group(
                     name=snake_to_pascal(name),
-                    layout=SubScreen(),
+                    label=api.path[-1] if api.path else None,
+                    layout=layout,
                     children=self.extract_api_components(api),
                 )
             )
