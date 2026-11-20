@@ -5,6 +5,8 @@
         
         
         
+        
+        
 
 .. automodule:: fastcs.transports.epics.options
     :members:
@@ -20,6 +22,8 @@
     .. autosummary::
         :nosignatures:
     
+        CommandAlias
+        EnumMapping
         EpicsCAOptions
         EpicsDocsOptions
         EpicsGUIFormat

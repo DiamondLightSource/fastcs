@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.ca.ioc &#8212; fastcs 0.14.5.dev4+g6afffeca6 documentation</title>
+    <title>fastcs.transports.epics.ca.ioc &#8212; fastcs 0.14.5.dev5+g936ceac42 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../../_static/documentation_options.js?v=e90f448d"></script>
+    <script src="../../../../../_static/documentation_options.js?v=8b23b3f4"></script>
     <script src="../../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -450,9 +450,10 @@
                   
   <h1>Source code for fastcs.transports.epics.ca.ioc</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntEnum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">TypeVar</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">softioc</span><span class="w"> </span><span class="kn">import</span> <span class="n">alarm</span><span class="p">,</span> <span class="n">builder</span><span class="p">,</span> <span class="n">softioc</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">softioc.asyncio_dispatcher</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncioDispatcher</span>
@@ -460,7 +461,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.attributes</span><span class="w"> </span><span class="kn">import</span> <span class="n">AttrR</span><span class="p">,</span> <span class="n">AttrRW</span><span class="p">,</span> <span class="n">AttrW</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.controllers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ControllerAPI</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">DType_T</span><span class="p">,</span> <span class="n">Waveform</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">DType_T</span><span class="p">,</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">Waveform</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.methods</span><span class="w"> </span><span class="kn">import</span> <span class="n">Command</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.tracer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tracer</span>
@@ -470,12 +471,17 @@
     <span class="n">cast_from_epics_type</span><span class="p">,</span>
     <span class="n">cast_to_epics_type</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.options</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommandAlias</span><span class="p">,</span> <span class="n">EnumMapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.transports.epics.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">EPICS_MAX_NAME_LENGTH</span><span class="p">,</span> <span class="n">pv_prefix_from_path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastcs.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">snake_to_pascal</span>
 
 <span class="n">tracer</span> <span class="o">=</span> <span class="n">Tracer</span><span class="p">()</span>
-
+<span class="n">EnumT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;EnumT&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">IntEnum</span><span class="p">)</span>
 <span class="n">RBV_SUFFIX</span> <span class="o">=</span> <span class="s2">&quot;_RBV&quot;</span>
+<span class="n">Alias</span> <span class="o">=</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">EnumMapping</span> <span class="o">|</span> <span class="n">CommandAlias</span>
+<span class="c1"># Callbacks to trigger commands from an enum label, keyed by command alias PV name</span>
+<span class="n">CommandTriggers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]]</span>
+<span class="n">CommandAliases</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CommandTriggers</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="EpicsCAIOC">
@@ -483,19 +489,41 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">EpicsCAIOC</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A softioc which handles one or more controllers.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">],</span> <span class="n">aliases</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">controller_apis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ControllerAPI</span><span class="p">],</span>
+        <span class="n">aliases</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Alias</span><span class="p">],</span>
+    <span class="p">):</span>
+        <span class="c1"># This creates a mapping of alias PV -&gt; list of aliases</span>
+        <span class="c1"># A str, list[str], or EnumMapping alias should not share an alias PV,</span>
+        <span class="c1"># but a CommandAlias may</span>
+        <span class="n">alias_groups</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Alias</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">aliases</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">listed_alias</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+                    <span class="n">alias_groups</span><span class="p">[</span><span class="n">listed_alias</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">listed_alias</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">alias_groups</span><span class="p">[</span><span class="n">value</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">value</span><span class="o">.</span><span class="n">pv</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">value</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Only allow duplicates of CommandAlias</span>
         <span class="k">if</span> <span class="n">duplicate_aliases</span> <span class="o">:=</span> <span class="p">[</span>
-            <span class="n">alias</span> <span class="k">for</span> <span class="n">alias</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">Counter</span><span class="p">(</span><span class="n">aliases</span><span class="o">.</span><span class="n">values</span><span class="p">())</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span>
+            <span class="n">alias</span>
+            <span class="k">for</span> <span class="n">alias</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">alias_groups</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_is_shared_command_alias</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
         <span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="s2">&quot;Failed to create EPICS CA IOC, as duplicate aliases were provided:&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">duplicate_aliases</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
+        <span class="c1"># Collect command aliases as we loop</span>
+        <span class="n">command_aliases</span><span class="p">:</span> <span class="n">CommandAliases</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_controller_apis</span> <span class="o">=</span> <span class="n">controller_apis</span>
         <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">controller_apis</span><span class="p">:</span>
             <span class="n">_create_and_link_attribute_pvs</span><span class="p">(</span><span class="n">controller_api</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
-            <span class="n">_create_and_link_command_pvs</span><span class="p">(</span><span class="n">controller_api</span><span class="p">,</span> <span class="n">aliases</span><span class="p">)</span>
+            <span class="n">_create_and_link_command_pvs</span><span class="p">(</span><span class="n">controller_api</span><span class="p">,</span> <span class="n">aliases</span><span class="p">,</span> <span class="n">command_aliases</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -507,8 +535,28 @@
 
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_shared_command_alias</span><span class="p">(</span><span class="n">group</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Alias</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether the aliases can share one PV, as command aliases with equal labels.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        True if every alias in the group is a CommandAlias and they all have the</span>
+<span class="sd">        same trigger labels in the same order, as the shared enum PV has one set</span>
+<span class="sd">        of labels. False if any alias is a str or EnumMapping, or the labels or</span>
+<span class="sd">        their order differ.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Create a set of CommandAlias trigger labels</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nb">tuple</span><span class="p">(</span><span class="n">alias</span><span class="o">.</span><span class="n">triggers</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">CommandAlias</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">group</span>
+    <span class="p">}</span>
+    <span class="c1"># Only return true if all shared command aliases agree on label ordering,</span>
+    <span class="c1"># as each label&#39;s index on the shared PV must be the same for every command</span>
+    <span class="k">return</span> <span class="kc">None</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">labels</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_attribute_pvs</span><span class="p">(</span>
-    <span class="n">root_controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span> <span class="n">aliases</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+    <span class="n">root_controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span> <span class="n">aliases</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Alias</span><span class="p">]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">root_controller_api</span><span class="o">.</span><span class="n">walk_api</span><span class="p">():</span>
         <span class="n">pv_prefix</span> <span class="o">=</span> <span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
@@ -525,30 +573,18 @@
                 <span class="k">continue</span>
 
             <span class="n">pv_name</span> <span class="o">=</span> <span class="n">snake_to_pascal</span><span class="p">(</span><span class="n">attr_name</span><span class="p">)</span>
-            <span class="n">full_pv_name_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">full_pv_name_length</span> <span class="o">&gt;</span> <span class="n">EPICS_MAX_NAME_LENGTH</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_validate_pv_length</span><span class="p">(</span><span class="n">attr_name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">):</span>
                 <span class="n">attribute</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Not creating PV for </span><span class="si">{</span><span class="n">attr_name</span><span class="si">}</span><span class="s2"> for controller&quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2"> as full name would exceed&quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">EPICS_MAX_NAME_LENGTH</span><span class="si">}</span><span class="s2"> characters&quot;</span>
-                <span class="p">)</span>
                 <span class="k">continue</span>
 
             <span class="n">alias</span> <span class="o">=</span> <span class="n">aliases</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">match</span> <span class="n">attribute</span><span class="p">:</span>
                 <span class="k">case</span> <span class="n">AttrRW</span><span class="p">():</span>
-                    <span class="k">if</span> <span class="n">full_pv_name_length</span> <span class="o">&gt;</span> <span class="p">(</span><span class="n">EPICS_MAX_NAME_LENGTH</span> <span class="o">-</span> <span class="mi">4</span><span class="p">):</span>
-                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;Not creating PVs for </span><span class="si">{</span><span class="n">attr_name</span><span class="si">}</span><span class="s2"> as _RBV PV&quot;</span>
-                            <span class="sa">f</span><span class="s2">&quot; name would exceed </span><span class="si">{</span><span class="n">EPICS_MAX_NAME_LENGTH</span><span class="si">}</span><span class="s2">&quot;</span>
-                            <span class="s2">&quot; characters&quot;</span>
-                        <span class="p">)</span>
+                    <span class="n">rbv_pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}{</span><span class="n">RBV_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">_validate_pv_length</span><span class="p">(</span><span class="n">attr_name</span><span class="p">,</span> <span class="n">rbv_pv</span><span class="p">):</span>
                         <span class="n">attribute</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span>
                     <span class="k">else</span><span class="p">:</span>
-                        <span class="n">alias_rbv</span> <span class="o">=</span> <span class="n">aliases</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}{</span><span class="n">RBV_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="kc">None</span>
-                        <span class="p">)</span>
+                        <span class="n">alias_rbv</span> <span class="o">=</span> <span class="n">aliases</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rbv_pv</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
                         <span class="n">_create_and_link_read_pv</span><span class="p">(</span>
                             <span class="n">pv_prefix</span><span class="p">,</span>
                             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}{</span><span class="n">RBV_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
@@ -580,7 +616,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_read_pv</span><span class="p">(</span>
     <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">alias</span><span class="p">:</span> <span class="n">Alias</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrR</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="n">pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -594,25 +630,21 @@
 
     <span class="n">record</span> <span class="o">=</span> <span class="n">_make_in_record</span><span class="p">(</span><span class="n">pv</span><span class="p">,</span> <span class="n">attribute</span><span class="p">)</span>
 
-    <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">listed_alias</span> <span class="ow">in</span> <span class="n">alias</span><span class="p">:</span>
+            <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">listed_alias</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">EnumMapping</span><span class="p">):</span>
+        <span class="n">enum_attr</span> <span class="o">=</span> <span class="n">_get_read_enum_attr_from_type</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
+        <span class="n">_add_read_enum_alias</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">enum_attr</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">CommandAlias</span><span class="p">):</span>
+        <span class="n">_warn_command_alias_on_attribute</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">attribute</span><span class="p">)</span>
 
     <span class="n">attribute</span><span class="o">.</span><span class="n">add_on_update_callback</span><span class="p">(</span><span class="n">async_record_set</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_write_pv</span><span class="p">(</span>
-    <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrW</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span>
-<span class="p">):</span>
-    <span class="n">pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_update</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;PV put: </span><span class="si">{pv}</span><span class="s2"> = </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pv</span><span class="o">=</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
-        <span class="k">await</span> <span class="n">_run_and_set_alarm</span><span class="p">(</span>
-            <span class="n">record</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">cast_from_epics_type</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
-        <span class="p">)</span>
-
+<span class="k">def</span><span class="w"> </span><span class="nf">_sync_setpoint</span><span class="p">(</span><span class="n">pv</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrW</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span> <span class="n">record</span><span class="p">:</span> <span class="n">RecordWrapper</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">set_setpoint_without_process</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">DType_T</span><span class="p">):</span>
         <span class="n">tracer</span><span class="o">.</span><span class="n">log_event</span><span class="p">(</span>
             <span class="s2">&quot;PV setpoint set from attribute&quot;</span><span class="p">,</span> <span class="n">topic</span><span class="o">=</span><span class="n">attribute</span><span class="p">,</span> <span class="n">pv</span><span class="o">=</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
@@ -620,15 +652,44 @@
 
         <span class="n">record</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cast_to_epics_type</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">value</span><span class="p">),</span> <span class="n">process</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-    <span class="n">record</span> <span class="o">=</span> <span class="n">_make_out_record</span><span class="p">(</span><span class="n">pv</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">on_update</span><span class="o">=</span><span class="n">on_update</span><span class="p">)</span>
-
-    <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
-
     <span class="n">attribute</span><span class="o">.</span><span class="n">add_sync_setpoint_callback</span><span class="p">(</span><span class="n">set_setpoint_without_process</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_write_pv</span><span class="p">(</span>
+    <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">alias</span><span class="p">:</span> <span class="n">Alias</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrW</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span>
+<span class="p">):</span>
+    <span class="n">pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_update</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;PV put: </span><span class="si">{pv}</span><span class="s2"> = </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pv</span><span class="o">=</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+        <span class="n">cast_value</span> <span class="o">=</span> <span class="n">_cast_put</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cast_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">await</span> <span class="n">_run_and_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">cast_value</span><span class="p">))</span>
+
+    <span class="n">record</span> <span class="o">=</span> <span class="n">_make_out_record</span><span class="p">(</span><span class="n">pv</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">on_update</span><span class="o">=</span><span class="n">on_update</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">listed_alias</span> <span class="ow">in</span> <span class="n">alias</span><span class="p">:</span>
+            <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">listed_alias</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">EnumMapping</span><span class="p">):</span>
+        <span class="n">enum_attr</span> <span class="o">=</span> <span class="n">_get_write_enum_attr_from_type</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
+        <span class="n">_add_write_enum_alias</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">enum_attr</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">CommandAlias</span><span class="p">):</span>
+        <span class="n">_warn_command_alias_on_attribute</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">attribute</span><span class="p">)</span>
+
+    <span class="n">_sync_setpoint</span><span class="p">(</span><span class="n">pv</span><span class="p">,</span> <span class="n">attribute</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_command_pvs</span><span class="p">(</span>
-    <span class="n">root_controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span> <span class="n">aliases</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+    <span class="n">root_controller_api</span><span class="p">:</span> <span class="n">ControllerAPI</span><span class="p">,</span>
+    <span class="n">aliases</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Alias</span><span class="p">],</span>
+    <span class="n">command_aliases</span><span class="p">:</span> <span class="n">CommandAliases</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">for</span> <span class="n">controller_api</span> <span class="ow">in</span> <span class="n">root_controller_api</span><span class="o">.</span><span class="n">walk_api</span><span class="p">():</span>
         <span class="n">pv_prefix</span> <span class="o">=</span> <span class="n">pv_prefix_from_path</span><span class="p">(</span><span class="n">controller_api</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
@@ -637,11 +698,7 @@
             <span class="n">pv_name</span> <span class="o">=</span> <span class="n">snake_to_pascal</span><span class="p">(</span><span class="n">attr_name</span><span class="p">)</span>
             <span class="n">alias</span> <span class="o">=</span> <span class="n">aliases</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">EPICS_MAX_NAME_LENGTH</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Not creating PV for </span><span class="si">{</span><span class="n">attr_name</span><span class="si">}</span><span class="s2"> as full name would exceed&quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">EPICS_MAX_NAME_LENGTH</span><span class="si">}</span><span class="s2"> characters&quot;</span>
-                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_validate_pv_length</span><span class="p">(</span><span class="n">attr_name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">):</span>
                 <span class="n">method</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">_create_and_link_command_pv</span><span class="p">(</span>
@@ -649,11 +706,16 @@
                     <span class="n">pv_name</span><span class="p">,</span>
                     <span class="n">alias</span><span class="p">,</span>
                     <span class="n">method</span><span class="p">,</span>
+                    <span class="n">command_aliases</span><span class="p">,</span>
                 <span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_and_link_command_pv</span><span class="p">(</span>
-    <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="n">Command</span>
+    <span class="n">pv_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">pv_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">alias</span><span class="p">:</span> <span class="n">Alias</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">Command</span><span class="p">,</span>
+    <span class="n">command_aliases</span><span class="p">:</span> <span class="n">CommandAliases</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="n">pv</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pv_prefix</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pv_name</span><span class="si">}</span><span class="s2">&quot;</span>
 
@@ -670,7 +732,39 @@
         <span class="n">ONAM</span><span class="o">=</span><span class="s2">&quot;Active&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alias</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">listed_alias</span> <span class="ow">in</span> <span class="n">alias</span><span class="p">:</span>
+            <span class="n">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">listed_alias</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">CommandAlias</span><span class="p">):</span>
+        <span class="n">_add_command_enum_alias</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">command_aliases</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">EnumMapping</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Not creating enum alias PV </span><span class="si">{pv}</span><span class="s2"> for command </span><span class="si">{command}</span><span class="s2">, use CommandAlias &quot;</span>
+            <span class="s2">&quot;for command aliases&quot;</span><span class="p">,</span>
+            <span class="n">pv</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span>
+            <span class="n">command</span><span class="o">=</span><span class="n">pv</span><span class="p">,</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_warn_command_alias_on_attribute</span><span class="p">(</span><span class="n">alias</span><span class="p">:</span> <span class="n">CommandAlias</span><span class="p">,</span> <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrR</span> <span class="o">|</span> <span class="n">AttrW</span><span class="p">):</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+        <span class="s2">&quot;Not creating command alias PV </span><span class="si">{pv}</span><span class="s2"> for attribute </span><span class="si">{attribute}</span><span class="s2">, use EnumMapping &quot;</span>
+        <span class="s2">&quot;for attribute aliases&quot;</span><span class="p">,</span>
+        <span class="n">pv</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span>
+        <span class="n">attribute</span><span class="o">=</span><span class="n">attribute</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_validate_pv_length</span><span class="p">(</span><span class="n">attribute_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pv</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">EPICS_MAX_NAME_LENGTH</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Not creating PV &#39;</span><span class="si">{</span><span class="n">pv</span><span class="si">}</span><span class="s2">&#39; for </span><span class="si">{</span><span class="n">attribute_name</span><span class="si">}</span><span class="s2">, as full name would exceed&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">EPICS_MAX_NAME_LENGTH</span><span class="si">}</span><span class="s2"> characters&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_add_alias</span><span class="p">(</span><span class="n">record</span><span class="p">:</span> <span class="n">RecordWrapper</span><span class="p">,</span> <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
@@ -684,6 +778,24 @@
             <span class="n">record</span><span class="o">.</span><span class="n">add_alias</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_cast_put</span><span class="p">(</span>
+    <span class="n">record</span><span class="p">:</span> <span class="n">RecordWrapper</span><span class="p">,</span> <span class="n">datatype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span> <span class="n">pv</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DType_T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cast an EPICS put value, or log and raise a MAJOR_ALARM if it is invalid.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cast_from_epics_type</span><span class="p">(</span><span class="n">datatype</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Ignoring put </span><span class="si">{value}</span><span class="s2"> to </span><span class="si">{pv}</span><span class="s2"> as it is invalid for </span><span class="si">{datatype}</span><span class="s2">: </span><span class="si">{error}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">pv</span><span class="o">=</span><span class="n">pv</span><span class="p">,</span>
+            <span class="n">datatype</span><span class="o">=</span><span class="n">datatype</span><span class="p">,</span>
+            <span class="n">error</span><span class="o">=</span><span class="n">e</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alarm</span><span class="o">.</span><span class="n">MAJOR_ALARM</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">:</span> <span class="n">RecordWrapper</span><span class="p">,</span> <span class="n">alarm_state</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
     <span class="n">record</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
         <span class="n">record</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span>
@@ -693,7 +805,7 @@
     <span class="p">)</span>
 
 
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run_and_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">):</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run_and_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">:</span> <span class="n">RecordWrapper</span><span class="p">,</span> <span class="n">coro</span><span class="p">:</span> <span class="n">Awaitable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Await `coro` and update `record`&#39;s alarm state based on the outcome.</span>
 
 <span class="sd">    On success, clears the alarm (NO_ALARM). On any exception, raises the</span>
@@ -706,6 +818,209 @@
         <span class="n">_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alarm</span><span class="o">.</span><span class="n">NO_ALARM</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
         <span class="n">_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">alarm</span><span class="o">.</span><span class="n">MAJOR_ALARM</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_enum_from_alias</span><span class="p">(</span>
+    <span class="n">alias</span><span class="p">:</span> <span class="n">EnumMapping</span> <span class="o">|</span> <span class="n">CommandAlias</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">alias</span><span class="o">.</span><span class="n">mapping</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">EnumMapping</span><span class="p">)</span> <span class="k">else</span> <span class="n">alias</span><span class="o">.</span><span class="n">triggers</span>
+    <span class="c1"># Labels become the PV states by position, so clients can put/get label or index</span>
+    <span class="n">members</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">labels</span><span class="p">)}</span>
+    <span class="k">return</span> <span class="n">IntEnum</span><span class="p">(</span><span class="s2">&quot;enum&quot;</span><span class="p">,</span> <span class="n">members</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_read_enum_attr_from_type</span><span class="p">(</span><span class="n">alias</span><span class="p">:</span> <span class="n">EnumMapping</span><span class="p">):</span>
+    <span class="n">enum</span> <span class="o">=</span> <span class="n">_get_enum_from_alias</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">AttrR</span><span class="p">(</span><span class="n">datatype</span><span class="o">=</span><span class="n">Enum</span><span class="p">(</span><span class="n">enum</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_write_enum_attr_from_type</span><span class="p">(</span><span class="n">alias</span><span class="p">:</span> <span class="n">EnumMapping</span> <span class="o">|</span> <span class="n">CommandAlias</span><span class="p">):</span>
+    <span class="n">enum</span> <span class="o">=</span> <span class="n">_get_enum_from_alias</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">AttrW</span><span class="p">(</span><span class="n">datatype</span><span class="o">=</span><span class="n">Enum</span><span class="p">(</span><span class="n">enum</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_mapping</span><span class="p">(</span>
+    <span class="n">alias</span><span class="p">:</span> <span class="n">EnumMapping</span><span class="p">,</span> <span class="n">datatype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">[</span><span class="n">DType_T</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DType_T</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert the mapping values into values of the attribute&#39;s datatype.</span>
+
+<span class="sd">    Logs a warning and returns None if the mapping is invalid for the datatype.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Resolved once at creation, so datatype updates on aliased attributes are</span>
+    <span class="c1"># not supported</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># validate casts loosely (e.g. bool(&quot;false&quot;) is True), this is accepted</span>
+        <span class="n">resolved</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">datatype</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">alias</span><span class="o">.</span><span class="n">mapping</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="n">_reverse_mapping</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Not creating enum alias PV </span><span class="si">{pv}</span><span class="s2">, as mapping is invalid for </span><span class="si">{datatype}</span><span class="s2">: &quot;</span>
+            <span class="s2">&quot;</span><span class="si">{error}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">pv</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span>
+            <span class="n">datatype</span><span class="o">=</span><span class="n">datatype</span><span class="p">,</span>
+            <span class="n">error</span><span class="o">=</span><span class="n">e</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">resolved</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Not creating enum alias PV </span><span class="si">{pv}</span><span class="s2">, as mapping maps multiple names to the &quot;</span>
+            <span class="s2">&quot;same value&quot;</span><span class="p">,</span>
+            <span class="n">pv</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span>
+            <span class="n">mapping</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">mapping</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">resolved</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_reverse_mapping</span><span class="p">(</span><span class="n">resolved</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DType_T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">DType_T</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">value</span><span class="p">:</span> <span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">resolved</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_add_command_enum_alias</span><span class="p">(</span>
+    <span class="n">alias</span><span class="p">:</span> <span class="n">CommandAlias</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">Command</span><span class="p">,</span>
+    <span class="n">command_aliases</span><span class="p">:</span> <span class="n">CommandAliases</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_validate_pv_length</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">method</span><span class="p">),</span> <span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">):</span>
+        <span class="k">return</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">trigger_command</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Check if this trigger maps to True</span>
+        <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">triggers</span><span class="p">[</span><span class="n">name</span><span class="p">]:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Calling aliased command&quot;</span><span class="p">)</span>
+            <span class="k">await</span> <span class="n">method</span><span class="o">.</span><span class="n">fn</span><span class="p">()</span>
+
+    <span class="c1"># Commands sharing an alias PV are all triggered from one record</span>
+    <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">pv</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">command_aliases</span><span class="p">:</span>
+        <span class="c1"># First time seeing this command alias, so make an entry</span>
+        <span class="c1"># with value being an empty list</span>
+        <span class="n">command_aliases</span><span class="p">[</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">]</span> <span class="o">=</span> <span class="n">_make_command_alias_pv</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
+    <span class="n">command_aliases</span><span class="p">[</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">trigger_command</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_make_command_alias_pv</span><span class="p">(</span><span class="n">alias</span><span class="p">:</span> <span class="n">CommandAlias</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CommandTriggers</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create the alias PV, returning the list of triggers it calls on a put.&quot;&quot;&quot;</span>
+    <span class="n">enum_attr</span> <span class="o">=</span> <span class="n">_get_write_enum_attr_from_type</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
+    <span class="n">triggers</span><span class="p">:</span> <span class="n">CommandTriggers</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">trigger_commands</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;PV put: </span><span class="si">{pv}</span><span class="s2"> = </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pv</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+        <span class="n">cast_value</span> <span class="o">=</span> <span class="n">_cast_put</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cast_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">await</span> <span class="n">enum_attr</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">cast_value</span><span class="p">)</span>
+        <span class="c1"># At this point, `triggers` is populated with all shared CommandAlias&#39;s</span>
+        <span class="k">await</span> <span class="n">_run_and_set_alarm</span><span class="p">(</span>
+            <span class="n">record</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">trigger</span><span class="p">(</span><span class="n">cast_value</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">trigger</span> <span class="ow">in</span> <span class="n">triggers</span><span class="p">))</span>
+        <span class="p">)</span>
+
+    <span class="n">record</span> <span class="o">=</span> <span class="n">_make_out_record</span><span class="p">(</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">enum_attr</span><span class="p">,</span> <span class="n">on_update</span><span class="o">=</span><span class="n">trigger_commands</span><span class="p">)</span>
+    <span class="n">_sync_setpoint</span><span class="p">(</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">enum_attr</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
+    <span class="c1"># Return empty list to be filled later</span>
+    <span class="k">return</span> <span class="n">triggers</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_add_read_enum_alias</span><span class="p">(</span>
+    <span class="n">alias</span><span class="p">:</span> <span class="n">EnumMapping</span><span class="p">,</span> <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrR</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span> <span class="n">enum_attr</span><span class="p">:</span> <span class="n">AttrR</span><span class="p">[</span><span class="n">EnumT</span><span class="p">]</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_validate_pv_length</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">):</span>
+        <span class="k">return</span>
+
+    <span class="n">enum</span> <span class="o">=</span> <span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_mapping</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">resolved</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="n">_reverse_mapping</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">convert_from_value</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">converted_value</span> <span class="o">=</span> <span class="n">names</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">converted_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">validated_value</span> <span class="o">=</span> <span class="n">enum</span><span class="p">[</span><span class="n">converted_value</span><span class="p">]</span>
+            <span class="n">tracer</span><span class="o">.</span><span class="n">log_event</span><span class="p">(</span>
+                <span class="s2">&quot;PV set from attribute&quot;</span><span class="p">,</span> <span class="n">topic</span><span class="o">=</span><span class="n">attribute</span><span class="p">,</span> <span class="n">pv</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cast_to_epics_type</span><span class="p">(</span><span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">validated_value</span><span class="p">))</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Converting to enum value </span><span class="si">{enum_value}</span><span class="s2"> from fastcs value </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">enum_value</span><span class="o">=</span><span class="n">validated_value</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">await</span> <span class="n">enum_attr</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">validated_value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Ignoring enum update as fastcs value </span><span class="si">{value}</span><span class="s2"> has no &quot;</span>
+                <span class="s2">&quot;corresponding value in enum mapping&quot;</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+                <span class="n">mapping</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">mapping</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="n">record</span> <span class="o">=</span> <span class="n">_make_in_record</span><span class="p">(</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">enum_attr</span><span class="p">)</span>
+    <span class="n">initial_name</span> <span class="o">=</span> <span class="n">names</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">initial_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cast_to_epics_type</span><span class="p">(</span><span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">enum</span><span class="p">[</span><span class="n">initial_name</span><span class="p">]))</span>
+    <span class="n">attribute</span><span class="o">.</span><span class="n">add_on_update_callback</span><span class="p">(</span><span class="n">convert_from_value</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_add_write_enum_alias</span><span class="p">(</span>
+    <span class="n">alias</span><span class="p">:</span> <span class="n">EnumMapping</span><span class="p">,</span>
+    <span class="n">attribute</span><span class="p">:</span> <span class="n">AttrW</span><span class="p">[</span><span class="n">DType_T</span><span class="p">],</span>
+    <span class="n">enum_attr</span><span class="p">:</span> <span class="n">AttrW</span><span class="p">[</span><span class="n">EnumT</span><span class="p">],</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_validate_pv_length</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">):</span>
+        <span class="k">return</span>
+
+    <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_mapping</span><span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">datatype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">resolved</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="n">_reverse_mapping</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">convert_to_value</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;PV put: </span><span class="si">{pv}</span><span class="s2"> = </span><span class="si">{value}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pv</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+        <span class="n">cast_value</span> <span class="o">=</span> <span class="n">_cast_put</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cast_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">await</span> <span class="n">enum_attr</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">cast_value</span><span class="p">)</span>
+        <span class="n">converted_value</span> <span class="o">=</span> <span class="n">resolved</span><span class="p">[</span><span class="n">cast_value</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Converting enum value </span><span class="si">{enum_value}</span><span class="s2"> to fastcs value </span><span class="si">{converted_value}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">enum_value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="n">converted_value</span><span class="o">=</span><span class="n">converted_value</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">await</span> <span class="n">_run_and_set_alarm</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">attribute</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">converted_value</span><span class="p">))</span>
+
+    <span class="n">record</span> <span class="o">=</span> <span class="n">_make_out_record</span><span class="p">(</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">enum_attr</span><span class="p">,</span> <span class="n">on_update</span><span class="o">=</span><span class="n">convert_to_value</span><span class="p">)</span>
+    <span class="n">_sync_setpoint</span><span class="p">(</span><span class="n">alias</span><span class="o">.</span><span class="n">pv</span><span class="p">,</span> <span class="n">enum_attr</span><span class="p">,</span> <span class="n">record</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">update_enum_alias</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">DType_T</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">converted_value</span> <span class="o">=</span> <span class="n">names</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">converted_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">enum_value</span> <span class="o">=</span> <span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">converted_value</span><span class="p">]</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+                <span class="n">cast_to_epics_type</span><span class="p">(</span><span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">enum_value</span><span class="p">),</span>
+                <span class="n">process</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Ignoring enum setpoint sync as fastcs value </span><span class="si">{value}</span><span class="s2"> has no &quot;</span>
+                <span class="s2">&quot;corresponding value in enum mapping&quot;</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+                <span class="n">mapping</span><span class="o">=</span><span class="n">alias</span><span class="o">.</span><span class="n">mapping</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attribute</span><span class="p">,</span> <span class="n">AttrR</span><span class="p">):</span>
+        <span class="n">initial_name</span> <span class="o">=</span> <span class="n">names</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">attribute</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">initial_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+                <span class="n">cast_to_epics_type</span><span class="p">(</span>
+                    <span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="p">,</span> <span class="n">enum_attr</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">initial_name</span><span class="p">]</span>
+                <span class="p">),</span>
+                <span class="n">process</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">attribute</span><span class="o">.</span><span class="n">add_on_update_callback</span><span class="p">(</span><span class="n">update_enum_alias</span><span class="p">)</span>
 </pre></div>
 
                 </article>

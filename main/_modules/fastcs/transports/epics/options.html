@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fastcs.transports.epics.options &#8212; fastcs 0.14.5.dev4+g6afffeca6 documentation</title>
+    <title>fastcs.transports.epics.options &#8212; fastcs 0.14.5.dev5+g936ceac42 documentation</title>
   
   
   
@@ -42,7 +42,7 @@
   <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../../../_static/documentation_options.js?v=e90f448d"></script>
+    <script src="../../../../_static/documentation_options.js?v=8b23b3f4"></script>
     <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -452,9 +452,11 @@
 <span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">TypeAlias</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigDict</span>
+
+<span class="n">EnumMappingValue</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">str</span>
 
 
 <div class="viewcode-block" id="EpicsDocsOptions">
@@ -491,6 +493,35 @@
 
 
 
+<div class="viewcode-block" id="EnumMapping">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EnumMapping">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">EnumMapping</span><span class="p">:</span>
+    <span class="n">__pydantic_config__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">ConfigDict</span><span class="p">]</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span>
+
+    <span class="n">pv</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="c1"># Labels and order must match the aliased PV, as clients may put/get label or index</span>
+    <span class="n">mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">EnumMappingValue</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="CommandAlias">
+<a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.CommandAlias">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CommandAlias</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Enum alias PV for a command, which is called on labels mapped to True.</span>
+
+<span class="sd">    Multiple commands can share an alias PV if their labels match.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__pydantic_config__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">ConfigDict</span><span class="p">]</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span>
+
+    <span class="n">pv</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="c1"># Labels and order must match the aliased PV, as clients may put/get label or index</span>
+    <span class="n">triggers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span></div>
+
+
+
 <div class="viewcode-block" id="EpicsCAOptions">
 <a class="viewcode-back" href="../../../../_api/fastcs.transports.epics.options.html#fastcs.transports.epics.options.EpicsCAOptions">[docs]</a>
 <span class="nd">@dataclass</span>
@@ -503,7 +534,9 @@
 
     <span class="n">__pydantic_config__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">ConfigDict</span><span class="p">]</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span>
 
-    <span class="n">aliases</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">aliases</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">EnumMapping</span> <span class="o">|</span> <span class="n">CommandAlias</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span>
+    <span class="p">)</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mapping of fastcs PV names to their aliases.</span>
 
 <span class="sd">    Setpoint and readback PVs must be aliased separately.</span>
