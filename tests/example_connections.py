@@ -23,10 +23,9 @@ class RecordingConnection(Connection):
         self.events.append(f"close{self.suffix}")
 
 
-class HoldingController(Controller):
+class HoldingController(Controller[Connection]):
     def __init__(self, connection: Connection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
         self.reads = 0
 
     @scan(ONCE)
@@ -68,10 +67,9 @@ class IntrospectingConnection(Connection[DeviceIntrospection]):
         pass
 
 
-class IntrospectedController(Controller):
+class IntrospectedController(Controller[IntrospectingConnection]):
     def __init__(self, connection: IntrospectingConnection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
         self.parameters = connection.introspection.parameters
 
 
@@ -92,10 +90,9 @@ class DetectorConnection(MetaConnection):
         return Introspection(None, subconnections=subconnections)
 
 
-class DetectorController(Controller):
+class DetectorController(Controller[DetectorConnection]):
     def __init__(
         self, detector: DetectorConnection, detector_meta: MetaConnection | None = None
     ) -> None:
-        super().__init__()
-        self.detector = detector
+        super().__init__(connection=detector)
         self.meta = HoldingController(detector_meta) if detector_meta else None

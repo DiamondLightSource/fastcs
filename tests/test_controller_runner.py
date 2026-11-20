@@ -80,10 +80,9 @@ async def test_start_runs_scans_and_stop_stops_them():
     assert controller.stopped.is_set()
 
 
-class ConnectedController(Controller):
+class ConnectedController(Controller[RecordingConnection]):
     def __init__(self, connection: RecordingConnection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
         connection.events.append("construct")
 
 
@@ -112,17 +111,23 @@ class UnheldController(Controller):
         super().__init__()
 
 
-class TwoHeldController(Controller):
-    def __init__(self, a: RecordingConnection, b: RecordingConnection) -> None:
+class StoredController(Controller):
+    """Stores its connection as an attribute rather than passing it to __init__"""
+
+    def __init__(self, connection: RecordingConnection) -> None:
         super().__init__()
-        self.a = a
+        self._connection = connection
+
+
+class TwoHeldController(Controller[RecordingConnection]):
+    def __init__(self, a: RecordingConnection, b: RecordingConnection) -> None:
+        super().__init__(connection=a)
         self.b = b
 
 
-class UnopenedController(Controller):
+class UnopenedController(Controller[RecordingConnection]):
     def __init__(self) -> None:
-        super().__init__()
-        self.connection = RecordingConnection([])
+        super().__init__(connection=RecordingConnection([]))
 
 
 @pytest.mark.parametrize(
@@ -133,10 +138,14 @@ class UnopenedController(Controller):
             "No controller holds",
         ),
         (
+            ControllerSpec("A", StoredController, RecordingConnection([])),
+            "stores a RecordingConnection as _connection",
+        ),
+        (
             ControllerSpec(
                 "A", TwoHeldController, RecordingConnection([]), RecordingConnection([])
             ),
-            "more than one connection",
+            "stores a RecordingConnection as b",
         ),
         (ControllerSpec("A", UnopenedController), "wasn't opened by the framework"),
     ],
@@ -147,6 +156,16 @@ async def test_build_raises_if_connections_break_the_holding_rules(
 ):
     with pytest.raises(ValueError, match=message):
         await ControllerRunner.build([spec])
+
+
+def test_connection_is_given_to_init_not_assigned():
+    connection = RecordingConnection([])
+    controller = Controller(connection=connection)
+    assert controller.connection is connection
+    assert Controller().connection is None
+
+    with pytest.raises(AttributeError, match="Pass the connection to super"):
+        controller.connection = connection  # type: ignore[misc]
 
 
 class FailingController(Controller):

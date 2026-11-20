@@ -216,35 +216,38 @@ class ControllerRunner:
         """Record which controllers hold each connection.
 
         Raises:
-            ValueError: If a controller holds a connection the runner didn't open, or
-                more than one connection, or if no controller holds a connection
+            ValueError: If a controller stores a connection it wasn't given that way,
+                or holds one the runner didn't open, or if no controller holds a
+                connection
 
         """
         opened = {id(connection) for connection in self._connections}
         for controller in self._controllers:
             for sub_controller in _walk(controller):
-                held = _held_connections(sub_controller)
-                for connection in held:
-                    if id(connection) not in opened:
-                        raise ValueError(
-                            f"{sub_controller} holds a {type(connection).__name__} "
-                            "that wasn't opened by the framework. Declare it as an "
-                            "argument of the top-level controller instead."
-                        )
-                if len(held) > 1:
-                    names = ", ".join(type(c).__name__ for c in held)
+                held = _held_connection(sub_controller)
+                if strays := _stray_connections(sub_controller, held):
+                    name, stray = strays[0]
                     raise ValueError(
-                        f"{sub_controller} holds more than one connection ({names}). "
-                        "Give each connection its own sub controller instead."
+                        f"{sub_controller} stores a {type(stray).__name__} as {name}. "
+                        "Pass the connection a controller uses to "
+                        "super().__init__(connection=...) instead, and give each "
+                        "other connection its own sub controller."
                     )
-                if held:
-                    self._controllers_by_connection[id(held[0])].append(sub_controller)
+                if held is None:
+                    continue
+                if id(held) not in opened:
+                    raise ValueError(
+                        f"{sub_controller} holds a {type(held).__name__} that wasn't "
+                        "opened by the framework. Declare it as an argument of the "
+                        "top-level controller instead."
+                    )
+                self._controllers_by_connection[id(held)].append(sub_controller)
 
         for connection in self._connections:
             if id(connection) not in self._controllers_by_connection:
                 raise ValueError(
-                    f"No controller holds {type(connection).__name__}. Store it on "
-                    "the controller that uses it, e.g. self.connection = connection."
+                    f"No controller holds {type(connection).__name__}. Pass it to the "
+                    "controller that uses it, as super().__init__(connection=...)."
                 )
 
     async def _watch(self, connection: Connection) -> None:
@@ -410,10 +413,21 @@ def _scans(controller: BaseController) -> Iterator[tuple[float, ScanCallback]]:
                 yield period, attribute.bind_update_callback()
 
 
-def _held_connections(controller: BaseController) -> list[Connection]:
-    """The connections stored as attributes of a controller, once each"""
-    values = vars(controller).values()
-    return list({id(v): v for v in values if isinstance(v, Connection)}.values())
+def _held_connection(controller: BaseController) -> Connection | None:
+    """The connection a controller was given, if any"""
+    return controller.connection if isinstance(controller, Controller) else None
+
+
+def _stray_connections(
+    controller: BaseController, held: Connection | None
+) -> list[tuple[str, Connection]]:
+    """The connections a controller stores as attributes, other than the one it holds,
+    with the names they're stored as"""
+    return [
+        (name, value)
+        for name, value in vars(controller).items()
+        if isinstance(value, Connection) and value is not held
+    ]
 
 
 def _named_subconnections(

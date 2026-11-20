@@ -143,12 +143,13 @@ value only delays marking them down until the next call.
 
 ### Which controllers a connection belongs to
 
-FastCS finds the controllers to mark down by looking for the connection on them, so:
+FastCS finds the controllers to mark down by the connection each one is given, so:
 
-- The controller that uses a connection stores it, e.g. `self.connection = connection`,
-  and passes it to any sub controllers that need it, which store it too.
-- Each controller stores at most one connection.
-- Every connection a controller stores was opened by FastCS, from the top-level
+- The controller that uses a connection is given it, as
+  `super().__init__(connection=connection)`, and passes it to any sub controllers that
+  need it, which are given it too.
+- Each controller holds at most one connection.
+- Every connection a controller holds was opened by FastCS, from the top-level
   controller's arguments or discovered for them.
 
 FastCS raises a `ValueError` at startup if any of these is broken.

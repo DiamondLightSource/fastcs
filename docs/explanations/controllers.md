@@ -45,17 +45,16 @@ from fastcs.datatypes import Float, String
 from fastcs.methods import scan
 
 
-class TemperatureController(Controller):
+class TemperatureController(Controller[DeviceConnection]):
     temperature = AttrR(Float(units="degC"))
     setpoint = AttrRW(Float(units="degC"))
 
     def __init__(self, connection: DeviceConnection):
-        super().__init__()
-        self._connection = connection
+        super().__init__(connection=connection)
 
     @scan(period=1.0)
     async def update_temperature(self):
-        value = await self._connection.get_temperature()
+        value = await self.connection.get_temperature()
         await self.temperature.update(value)
 ```
 
@@ -66,19 +65,18 @@ sections and its attributes are exposed under a prefixed path. If the sub
 controller needs the connection, the parent passes it down:
 
 ```python
-class ChannelController(Controller):
+class ChannelController(Controller[DeviceConnection]):
     value = AttrR(Float())
 
     def __init__(self, connection: DeviceConnection):
-        super().__init__()
-        self._connection = connection
+        super().__init__(connection=connection)
 
 
-class RootController(Controller):
+class RootController(Controller[DeviceConnection]):
     channel: ChannelController
 
     def __init__(self, connection: DeviceConnection):
-        super().__init__()
+        super().__init__(connection=connection)
         self.channel = ChannelController(connection)
 ```
 

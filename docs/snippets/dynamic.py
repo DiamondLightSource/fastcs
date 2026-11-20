@@ -117,10 +117,10 @@ class TemperatureRampController(Controller):
             self.add_attribute(name, attribute)
 
 
-class TemperatureController(Controller):
+class TemperatureController(Controller[TemperatureConnection]):
     def __init__(self, connection: TemperatureConnection):
         io = TemperatureControllerAttributeIO(connection)
-        super().__init__(ios=[io])
+        super().__init__(ios=[io], connection=connection)
 
         introspection = connection.introspection
         for name, attribute in create_attributes(introspection.parameters).items():

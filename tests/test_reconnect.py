@@ -73,10 +73,9 @@ async def test_introspection_changing_structure_on_reconnect_is_fatal():
     await runner.stop()
 
 
-class PoppingController(Controller):
+class PoppingController(Controller[IntrospectingConnection]):
     def __init__(self, connection: IntrospectingConnection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
         connection.introspection.parameters.pop("gain")
 
 
@@ -434,10 +433,9 @@ class _Device:
             self._writers.discard(writer)
 
 
-class PollingController(Controller):
+class PollingController(Controller[IPConnection]):
     def __init__(self, connection: IPConnection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
         self.polls = 0
 
     @scan(0.01)

@@ -72,10 +72,9 @@ from fastcs.controllers import Controller
 class DeviceSettings:
     timeout: float = 5.0
 
-class DeviceController(Controller):
+class DeviceController(Controller[IPConnection]):
     def __init__(self, connection: IPConnection, settings: DeviceSettings):
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
         self.settings = settings
 ```
 
