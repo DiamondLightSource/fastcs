@@ -11,6 +11,13 @@ A transport connects a `ControllerAPI` to an external protocol. The `ControllerA
 - Scan methods (`@scan`)
 - Sub-controller APIs (hierarchical structure)
 
+A command may take arguments and return a value, and not every protocol can
+carry such a call. A transport reads `command.signature` (or the
+`argument_types`/`return_datatype`/`is_void` shortcuts) and decides for itself:
+serve it, or set `command.enabled = False` and log a warning saying why, so the
+rest of the controller is still served. See
+[](../how-to/typed-commands.md) for what each transport does.
+
 ## Implementing a Transport
 
 Subclass `Transport` and implement `connect()` and `serve()`:
@@ -190,6 +197,14 @@ Transports can trigger commands, which connect directly to method calls rather t
 
 ```python
 def create_command(name, command):
+    if not command.is_void:
+        command.enabled = False
+        logging.warning(
+            "Cannot serve command %s: arguments and return values are not supported",
+            name,
+        )
+        return
+
     protocol_command = Protocol(name)
 
     async def handle_command():
