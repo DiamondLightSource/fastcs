@@ -45,6 +45,12 @@ class Polled(Generic[DType_T]):
     _: KW_ONLY
     period: float
 
+    def __post_init__(self) -> None:
+        # Written so that NaN is rejected too. A zero period would poll in a tight
+        # loop, as the scan only sleeps for the period between polls.
+        if not self.period > 0:
+            raise ValueError(f"Polled period must be positive, got {self.period}")
+
     def __call__(self, getter: Getter[DType_T]) -> Polled[DType_T]:
         """Bind a getter, so a schedule can also be applied as a decorator."""
         return replace(self, getter=getter)

@@ -94,13 +94,16 @@ class MyController(Controller):
     async def _get_setpoint(self) -> float:
         return float((await self._connection.send_query("S?\r\n")).strip())
 
-    async def _set_setpoint(self, value: float) -> None:
+    async def _set_setpoint(self, value: float) -> float:
         # Device responds with a snapshot of all current values after a set
         response = await self._connection.send_query(f"S={value}\r\n")
         actual, power, status = response.strip().split(",")
         await self.actual_temperature.update(float(actual))
         await self.power.update(float(power))
         await self.status.update(float(status))
+        # The getter only runs at connect, so return the accepted value to update
+        # this attribute's own readback as well as its setpoint
+        return value
 
     async def _get_actual_temperature(self) -> float:
         return float((await self._connection.send_query("T?\r\n")).strip())
@@ -178,7 +181,7 @@ cache rather than querying the device - the device is still only queried once pe
 ```python
 import json
 
-from fastcs.attributes import AttrR
+from fastcs.attributes import AttrR, Polled
 from fastcs.controllers import Controller
 from fastcs.methods import scan
 

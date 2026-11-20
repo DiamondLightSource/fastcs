@@ -176,6 +176,38 @@ def test_poll_period_comes_from_the_getter():
     assert attr_no_getter.poll_period is None
 
 
+@pytest.mark.parametrize("period", [0, -1, float("nan")])
+def test_polled_period_must_be_positive(period: float):
+    async def do_update():
+        return 1
+
+    # rejected whether the getter is given directly or bound by decoration
+    with pytest.raises(ValueError, match="Polled period must be positive"):
+        Polled(do_update, period=period)
+    with pytest.raises(ValueError, match="Polled period must be positive"):
+        Polled(period=period)
+
+
+def test_datatype_inferred_from_only_the_annotation_it_needs():
+    # String annotations, as under ``from __future__ import annotations``. Neither
+    # unresolvable name is the one the datatype comes from, so inference succeeds.
+    async def set_value(value: "int") -> "OnlyImportedForTypeChecking":  # noqa: F821  # pyright: ignore[reportUndefinedVariable]
+        pass
+
+    async def get_value(extra: "AlsoUnresolvable" = None) -> "float":  # noqa: F821  # pyright: ignore[reportUndefinedVariable]
+        return 1.5
+
+    assert AttrW(setter=set_value).dtype is int
+    assert AttrR(getter=get_value).dtype is float
+
+    # the datatype's own annotation failing to resolve still needs a datatype
+    async def set_unresolvable(value: "Unresolvable") -> None:  # noqa: F821  # pyright: ignore[reportUndefinedVariable]
+        pass
+
+    with pytest.raises(ValueError, match="datatype must be given explicitly"):
+        AttrW(setter=set_unresolvable)
+
+
 @pytest.mark.asyncio
 async def test_wait_for_predicate(mocker: MockerFixture):
     attr = AttrR(int, initial_value=0)

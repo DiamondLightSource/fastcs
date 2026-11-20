@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import inspect
 import types
 from collections.abc import Callable
@@ -32,12 +33,23 @@ def _datatype_for_annotation(annotation: Any) -> Any:
     return annotation
 
 
-def _signature(fn: Callable) -> inspect.Signature | None:
+def _resolve_annotation(fn: Callable, annotation: Any) -> Any:
+    """Evaluate a string annotation in the namespace ``fn`` was defined in.
+
+    Only the one annotation the datatype comes from is evaluated, so an unrelated
+    annotation that cannot be resolved - such as a return type imported only under
+    ``TYPE_CHECKING`` - does not stop the datatype being inferred.
+    """
+    if not isinstance(annotation, str):
+        return annotation
+    while isinstance(fn, functools.partial):
+        fn = fn.func
+    fn = inspect.unwrap(fn)
     try:
-        return inspect.signature(fn, eval_str=True)
+        return eval(annotation, getattr(fn, "__globals__", {}))
     except NameError:
         # A string annotation naming something not in the function's globals
-        return None
+        return inspect.Signature.empty
 
 
 def infer_datatype_from_getter(getter: Callable) -> Any:
@@ -51,12 +63,10 @@ def infer_datatype_from_getter(getter: Callable) -> Any:
         or cannot be resolved
 
     """
-    signature = _signature(getter)
-    if signature is None:
-        return None
-    return _datatype_for_annotation(
-        _unwrap_update_annotation(signature.return_annotation)
+    annotation = _resolve_annotation(
+        getter, inspect.signature(getter).return_annotation
     )
+    return _datatype_for_annotation(_unwrap_update_annotation(annotation))
 
 
 def infer_datatype_from_setter(setter: Callable) -> Any:
@@ -70,10 +80,9 @@ def infer_datatype_from_setter(setter: Callable) -> Any:
         or cannot be resolved
 
     """
-    signature = _signature(setter)
-    if signature is None:
-        return None
-    parameters = list(signature.parameters.values())
+    parameters = list(inspect.signature(setter).parameters.values())
     if not parameters:
         return None
-    return _datatype_for_annotation(parameters[0].annotation)
+    return _datatype_for_annotation(
+        _resolve_annotation(setter, parameters[0].annotation)
+    )
