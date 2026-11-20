@@ -52,18 +52,17 @@ class WritePvHandler:
 
         tracer.log_event("PV put", topic=self._attr_w, pv=pv, value=cast_value)
 
-        dtype = self._attr_w.dtype
-
-        _post_with_alarm_states(pv, dtype, raw_value, p4p_alarm_states())
-
+        # The value is not posted here: ``set`` publishes the setpoint, and the
+        # setpoint callback posts it with the alarm cleared. See ADR 0020.
         try:
-            await self._attr_w.put(cast_value)
+            await self._attr_w.set(cast_value)
         except Exception as e:
             error_msg = f"Exception raised during put operation: {e!r}"
             op.done(error=error_msg)
             alarm_states = p4p_alarm_states(Severity.MAJOR, Status.RECORD, error_msg)
-            # Raise alarm on failed put
-            _post_with_alarm_states(pv, dtype, raw_value, alarm_states)
+            # Raise alarm on failed put, showing the value that was put, as a CA
+            # record does
+            _post_with_alarm_states(pv, self._attr_w.dtype, raw_value, alarm_states)
 
         else:
             op.done()
@@ -144,7 +143,7 @@ def _make_shared_pv_arguments(attribute: Attribute) -> dict[str, object]:
 
 def make_shared_read_pv(attribute: AttrR) -> SharedPV:
     shared_pv = SharedPV(
-        initial=cast_to_p4p_value(attribute, attribute.get()),
+        initial=cast_to_p4p_value(attribute, attribute.readback),
         **_make_shared_pv_arguments(attribute),
     )
 
@@ -152,7 +151,7 @@ def make_shared_read_pv(attribute: AttrR) -> SharedPV:
         tracer.log_event("PV set readback", topic=attribute, value=value)
         shared_pv.post(cast_to_p4p_value(attribute, value))
 
-    attribute.add_on_update_callback(set_readback)
+    attribute.add_readback_callback(set_readback)
 
     return shared_pv
 
@@ -160,7 +159,7 @@ def make_shared_read_pv(attribute: AttrR) -> SharedPV:
 def make_shared_write_pv(attribute: AttrW) -> SharedPV:
     shared_pv = SharedPV(
         handler=WritePvHandler(attribute),
-        initial=cast_to_p4p_value(attribute, attribute.default_value()),
+        initial=cast_to_p4p_value(attribute, attribute.setpoint),
         **_make_shared_pv_arguments(attribute),
     )
 
@@ -168,7 +167,10 @@ def make_shared_write_pv(attribute: AttrW) -> SharedPV:
         tracer.log_event("PV set setpoint", topic=attribute, value=value)
         shared_pv.post(cast_to_p4p_value(attribute, value))
 
-    attribute.add_sync_setpoint_callback(set_setpoint)
+    # Mirror the attribute's setpoint whenever it changes, however it changed - a
+    # put on this PV, a put on another transport, or the device reporting its own
+    # setpoint. See ADR 0020.
+    attribute.add_setpoint_callback(set_setpoint)
 
     return shared_pv
 

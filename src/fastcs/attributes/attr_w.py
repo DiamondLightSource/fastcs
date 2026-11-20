@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any, Unpack, overload
 
+from fastcs.attributes._infer_datatype import infer_datatype_from_setter
 from fastcs.attributes.attribute import Attribute, AttributeAccessMode
-from fastcs.attributes.attribute_io_ref import AttributeIORefT, IORef_T
+from fastcs.attributes.update import Update
 from fastcs.datatypes import (
     Array1DMeta,
     Array_T,
@@ -22,153 +23,269 @@ from fastcs.datatypes import (
 )
 from fastcs.logging import logger
 
-AttrOnPutCallback = Callable[["AttrW[DType_T, Any]", DType_T], Awaitable[None]]
-"""Callbacks to be called when the setpoint of an attribute is changed"""
-AttrSyncSetpointCallback = Callable[[DType_T], Awaitable[None]]
-"""Callbacks to be called when the setpoint of an attribute is changed"""
+Setter = Callable[[DType_T], Awaitable[None | DType_T | Update[DType_T]]]
+"""A callable that applies a new setpoint to an attribute's source"""
+AttrSetpointCallback = Callable[[DType_T], Coroutine[None, None, None]]
+"""A callback to be called when the setpoint of the attribute updates"""
 
 
-class AttrW(Attribute[DType_T, AttributeIORefT]):
+class AttrW(Attribute[DType_T]):
     """A write-only ``Attribute``."""
 
     # One overload per datatype, so that metadata a datatype has no use for is
     # a type error rather than a field silently ignored: ``AttrW(str,
-    # precision=3)`` does not type check.
+    # precision=3)`` does not type check. The datatype may be left out when the
+    # setter's value annotation gives it.
     #
     # Overload resolution takes the first datatype a call matches, and ``bool``
     # matches ``int`` while ``int`` matches ``float``. So ``AttrW(bool,
     # units=...)`` resolves to the ``int`` overload rather than failing here -
     # the constructor's runtime check is what rejects it. A call whose metadata
     # is valid always picks its own datatype's overload.
+    # A setter given without a datatype or getter binds the datatype from its
+    # value parameter. A setter accepting ``float`` also fits ``Setter[int]`` and
+    # ``Setter[bool]``, so these overloads come first and run from the widest type
+    # to the narrowest, so that the setter's own type is the first to match -
+    # including arrays before ``Table``, which subclasses ``np.ndarray``.
     @overload
     def __init__(
-        self: AttrW[bool, IORef_T],
-        datatype: type[bool],
-        io_ref: IORef_T | None = None,
-        **meta: Unpack[BoolMeta],
-    ) -> None: ...
-
-    @overload
-    def __init__(
-        self: AttrW[int, IORef_T],
-        datatype: type[int],
-        io_ref: IORef_T | None = None,
-        **meta: Unpack[IntMeta],
-    ) -> None: ...
-
-    @overload
-    def __init__(
-        self: AttrW[float, IORef_T],
-        datatype: type[float],
-        io_ref: IORef_T | None = None,
+        self: AttrW[float],
+        datatype: None = None,
+        *,
+        setter: Setter[float],
         **meta: Unpack[FloatMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[str, IORef_T],
-        datatype: type[str],
-        io_ref: IORef_T | None = None,
+        self: AttrW[int],
+        datatype: None = None,
+        *,
+        setter: Setter[int],
+        **meta: Unpack[IntMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[bool],
+        datatype: None = None,
+        *,
+        setter: Setter[bool],
+        **meta: Unpack[BoolMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[str],
+        datatype: None = None,
+        *,
+        setter: Setter[str],
         **meta: Unpack[StrMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[Enum_T, IORef_T],
-        datatype: type[Enum_T],
-        io_ref: IORef_T | None = None,
+        self: AttrW[Enum_T],
+        datatype: None = None,
+        *,
+        setter: Setter[Enum_T],
         **meta: Unpack[EnumMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[Table, IORef_T],
-        datatype: type[Table],
-        io_ref: IORef_T | None = None,
+        self: AttrW[Array_T],
+        datatype: None = None,
+        *,
+        setter: Setter[Array_T],
+        **meta: Unpack[Array1DMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Table],
+        datatype: None = None,
+        *,
+        setter: Setter[Table],
+        **meta: Unpack[TableMeta],
+    ) -> None: ...
+
+    # Otherwise the datatype comes from ``datatype``, or a getter's annotation.
+    @overload
+    def __init__(
+        self: AttrW[bool],
+        datatype: type[bool] | None = None,
+        setter: Setter[bool] | None = None,
+        **meta: Unpack[BoolMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[int],
+        datatype: type[int] | None = None,
+        setter: Setter[int] | None = None,
+        **meta: Unpack[IntMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[float],
+        datatype: type[float] | None = None,
+        setter: Setter[float] | None = None,
+        **meta: Unpack[FloatMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[str],
+        datatype: type[str] | None = None,
+        setter: Setter[str] | None = None,
+        **meta: Unpack[StrMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Enum_T],
+        datatype: type[Enum_T] | None = None,
+        setter: Setter[Enum_T] | None = None,
+        **meta: Unpack[EnumMeta],
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: AttrW[Table],
+        datatype: type[Table] | None = None,
+        setter: Setter[Table] | None = None,
         **meta: Unpack[TableMeta],
     ) -> None: ...
 
     @overload
     def __init__(
-        self: AttrW[Array_T, IORef_T],
-        datatype: type[Array_T],
-        io_ref: IORef_T | None = None,
+        self: AttrW[Array_T],
+        datatype: type[Array_T] | None = None,
+        setter: Setter[Array_T] | None = None,
         **meta: Unpack[Array1DMeta],
     ) -> None: ...
 
     def __init__(
         self,
-        datatype: Any,
-        io_ref: AttributeIORefT | None = None,
+        datatype: Any = None,
+        setter: Any = None,
         **meta: Any,
     ) -> None:
-        super().__init__(datatype, io_ref, **meta)
-        self._on_put_callback: AttrOnPutCallback[DType_T] | None = None
-        """Callback to action a change to the setpoint of the attribute"""
-        self._sync_setpoint_callbacks: list[AttrSyncSetpointCallback[DType_T]] = []
+        if datatype is None and setter is not None:
+            datatype = infer_datatype_from_setter(setter)
+
+        super().__init__(datatype, **meta)
+
+        self._setter = setter
+        self._setpoint: DType_T = self.default_value()
+        self._setpoint_known = False
+        """Whether the setpoint reflects a real value rather than the datatype default
+
+        Until something establishes it - a write, or (for an ``AttrRW``) the first
+        readback - the setpoint is just the datatype's default and means nothing.
+        """
+        self._setpoint_callbacks: list[AttrSetpointCallback[DType_T]] = []
         """Callbacks to publish changes to the setpoint of the attribute"""
+
+    @property
+    def setpoint(self) -> DType_T:
+        """The last-requested value of the attribute."""
+        return self._setpoint
+
+    def has_setter(self) -> bool:
+        return self._setter is not None
 
     @property
     def access_mode(self) -> AttributeAccessMode:
         return "w"
 
-    async def put(self, setpoint: DType_T, sync_setpoint: bool = False) -> None:
-        """Set the setpoint of the attribute
+    def add_setpoint_callback(self, callback: AttrSetpointCallback[DType_T]) -> None:
+        """Add a callback to be called when the setpoint of the attribute updates
 
-        This should be called by clients to the attribute such as transports to apply a
-        change to the attribute. The ``_on_put_callback`` will be called with this new
-        setpoint, which may or may not take effect depending on the validity of the new
-        value. For example, if the attribute has an IO to some device, the value might
-        be rejected.
-
-        To directly change the value of the attribute, for example from an update loop
-        that has read a new value from some underlying source, call `AttrR.update`.
+        The callback will be called with the updated setpoint. Transports should
+        use this to publish the attribute's setpoint rather than tracking their own,
+        so that every transport agrees on it however the change was made.
 
         """
-        setpoint = self.validate(setpoint)
-        check_control_limits(self._meta, setpoint)
-        if self._on_put_callback is not None:
+        self._setpoint_callbacks.append(callback)
+
+    async def update_setpoint(self, value: DType_T) -> None:
+        """Cache a new setpoint and publish it to the setpoint callbacks.
+
+        This does no IO - it is the setpoint-side counterpart of ``AttrR.update``.
+
+        """
+        self._setpoint = self.validate(value)
+        self._setpoint_known = True
+
+        if self._setpoint_callbacks:
             try:
-                await self._on_put_callback(self, setpoint)
+                await asyncio.gather(
+                    *[cb(self._setpoint) for cb in self._setpoint_callbacks]
+                )
             except Exception as e:
                 logger.opt(exception=e).error(
-                    "Put failed", attribute=self, setpoint=setpoint
+                    "Setpoint callbacks failed",
+                    attribute=self,
+                    setpoint=repr(self._setpoint),
                 )
                 raise
 
-        if sync_setpoint:
+    def _setter_result_setpoint(
+        self, result: DType_T | Update[DType_T]
+    ) -> DType_T | None:
+        """The setpoint a setter's return value asks for, if any."""
+        if isinstance(result, Update):
+            # No setpoint leaves the cached setpoint alone - which ``set`` has
+            # already made the requested value.
+            return result.setpoint
+        # A bare value is the device's accepted/clamped value - both what it will
+        # report and what it understood us to ask for.
+        return result
+
+    async def set(self, value: DType_T) -> None:
+        """Request a new value for the attribute
+
+        This should be called by clients to the attribute such as transports to apply
+        a change to the attribute. ``value`` is cached as the setpoint and published
+        to the setpoint callbacks, so it is visible immediately, then passed to the
+        setter (if any) to apply it to the underlying source. If the setter returns a
+        value, that is treated as the source's accepted/clamped value and replaces
+        the setpoint. See ADR 20.
+
+        To directly change the readback of an attribute, for example from an update
+        loop that has read a new value from some underlying source, call
+        ``AttrR.update``.
+
+        Args:
+            value: The requested value
+
+        Raises:
+            ValueError: If the value cannot be coerced, or is outside the control
+                limits - the setpoint is not changed
+            Exception: Whatever the setter raises. The setpoint keeps the requested
+                value, as an EPICS record does after a failed write; the exception
+                propagates so that the transport can raise an alarm
+
+        """
+        setpoint = self.validate(value)
+        check_control_limits(self._meta, setpoint)
+        await self.update_setpoint(setpoint)
+
+        if self._setter is not None:
             try:
-                await self._call_sync_setpoint_callbacks(setpoint)
+                result = await self._setter(setpoint)
             except Exception as e:
                 logger.opt(exception=e).error(
-                    "Sync setpoint failed", attribute=self, setpoint=setpoint
+                    "Set failed", attribute=self, setpoint=setpoint
                 )
+                raise
 
-        self.log_event("Put complete", setpoint=setpoint, attribute=self)
+            if result is not None:
+                accepted = self._setter_result_setpoint(result)
+                if accepted is not None:
+                    await self.update_setpoint(accepted)
 
-    async def _call_sync_setpoint_callbacks(self, setpoint: DType_T) -> None:
-        if self._sync_setpoint_callbacks:
-            await asyncio.gather(
-                *[cb(setpoint) for cb in self._sync_setpoint_callbacks]
-            )
-
-    def set_on_put_callback(self, callback: AttrOnPutCallback[DType_T]) -> None:
-        """Set the callback to call when the setpoint is changed
-
-        The callback will be called with the attribute and the new setpoint.
-
-        """
-        if self._on_put_callback is not None:
-            raise RuntimeError("Attribute already has an on put callback")
-
-        self._on_put_callback = callback
-
-    def add_sync_setpoint_callback(
-        self, callback: AttrSyncSetpointCallback[DType_T]
-    ) -> None:
-        """Add a callback to publish changes to the setpoint of the attribute
-
-        The callback will be called with the new setpoint.
-
-        """
-        self._sync_setpoint_callbacks.append(callback)
+        self.log_event("Set complete", setpoint=self._setpoint, attribute=self)

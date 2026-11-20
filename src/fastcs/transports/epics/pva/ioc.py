@@ -11,7 +11,7 @@ from ._pv_handlers import make_command_pv, make_shared_read_pv, make_shared_writ
 from .pvi import add_pvi_info
 
 
-async def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
+def parse_attributes(root_controller_api: ControllerAPI) -> StaticProvider:
     """Parses `Attribute` s into p4p signals in handlers."""
     provider = StaticProvider(pv_prefix_from_path(root_controller_api.path))
 
@@ -56,13 +56,16 @@ class P4PIOC:
 
     def __init__(self, controller_apis: list[ControllerAPI]):
         self._controller_apis = controller_apis
-
-    async def _build_providers(self) -> list[StaticProvider]:
-        return [await parse_attributes(api) for api in self._controller_apis]
+        # Build the PVs up front rather than in ``run``. Creating a PV is what
+        # registers its readback/setpoint callbacks on the attribute, and ``run``
+        # is awaited after the initial polls have already fired - so a PV built
+        # there would miss the first readback, and the setpoint an ``AttrRW``
+        # seeds from it (ADR 0020), leaving the served value at the datatype
+        # default. ``EpicsCAIOC`` builds its records in ``__init__`` for the
+        # same reason.
+        self._providers = [parse_attributes(api) for api in self._controller_apis]
 
     async def run(self):
-        providers = await self._build_providers()
-
         endless_event = asyncio.Event()
-        with Server(providers):
+        with Server(self._providers):
             await endless_event.wait()
