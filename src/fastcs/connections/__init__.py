@@ -2,17 +2,19 @@ from typing import NoReturn
 
 from fastcs.util import optional_dependency
 
+from .builtin.ip_connection import IPConnection as IPConnection
 from .connection import Connection as Connection
 from .connection import ConnectionState as ConnectionState
 from .connection import DisconnectedError as DisconnectedError
+from .connection import Introspection as Introspection
 from .connection import disconnect_on as disconnect_on
-from .ip_connection import IPConnection as IPConnection
+from .connection_spec import ConnectionSpec as ConnectionSpec
 
 with optional_dependency("httpx"):
-    from .http_connection import HTTPConnection as HTTPConnection
+    from .builtin.http_connection import HTTPConnection as HTTPConnection
 
 with optional_dependency("aioserial"):
-    from .serial_connection import SerialConnection as SerialConnection
+    from .builtin.serial_connection import SerialConnection as SerialConnection
 
 # The extra that installs each optional connection
 _EXTRAS = {"HTTPConnection": "http", "SerialConnection": "serial"}

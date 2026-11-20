@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from fastcs.connections import Connection
+from fastcs.connections import Connection, ConnectionSpec, Introspection
 from fastcs.controllers import Controller
 from fastcs.methods import scan
 from fastcs.util import ONCE
@@ -23,10 +23,9 @@ class RecordingConnection(Connection):
         self.events.append(f"close{self.suffix}")
 
 
-class HoldingController(Controller):
+class HoldingController(Controller[Connection]):
     def __init__(self, connection: Connection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
         self.reads = 0
 
     @scan(ONCE)
@@ -61,15 +60,37 @@ class IntrospectingConnection(Connection[DeviceIntrospection]):
     async def connect(self) -> None:
         pass
 
-    async def introspect(self) -> DeviceIntrospection:
-        return DeviceIntrospection({"gain": 2})
+    async def introspect(self) -> Introspection[DeviceIntrospection]:
+        return Introspection(DeviceIntrospection({"gain": 2}))
 
     async def close(self) -> None:
         pass
 
 
-class IntrospectedController(Controller):
+class IntrospectedController(Controller[IntrospectingConnection]):
     def __init__(self, connection: IntrospectingConnection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
         self.parameters = connection.introspection.parameters
+
+
+class MetaConnection(Connection):
+    async def connect(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        pass
+
+
+class DetectorConnection(MetaConnection):
+    meta: MetaConnection
+
+    async def introspect(self) -> Introspection:
+        return Introspection(
+            None, subconnections=[ConnectionSpec("meta", MetaConnection)]
+        )
+
+
+class DetectorController(Controller[DetectorConnection]):
+    def __init__(self, detector: DetectorConnection) -> None:
+        super().__init__(connection=detector)
+        self.META = HoldingController(detector.meta)

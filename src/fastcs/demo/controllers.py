@@ -63,7 +63,7 @@ class TemperatureControllerAttributeIO(
         await attr.update(attr.dtype(response))
 
 
-class TemperatureController(Controller):
+class TemperatureController(Controller[IPConnection]):
     ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef(name="R"))
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef(name="P"))
     voltages = AttrR(Waveform(np.int32, shape=(4,)))
@@ -71,15 +71,15 @@ class TemperatureController(Controller):
     def __init__(
         self, sensor: IPConnection, settings: TemperatureControllerSettings
     ) -> None:
-        self.sensor = sensor
         self.suffix = ""
         super().__init__(
-            ios=[TemperatureControllerAttributeIO(self.sensor, self.suffix)]
+            ios=[TemperatureControllerAttributeIO(sensor, self.suffix)],
+            connection=sensor,
         )
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, settings.num_ramp_controllers + 1):
-            controller = TemperatureRampController(index, self.sensor)
+            controller = TemperatureRampController(index, sensor)
             self._ramp_controllers.append(controller)
             self.add_sub_controller(f"R{index}", controller)
 
@@ -93,7 +93,7 @@ class TemperatureController(Controller):
     @scan(0.1)
     async def update_voltages(self):
         query = "V?"
-        voltages = json.loads(await self.sensor.query(query))
+        voltages = json.loads(await self.connection.query(query))
 
         await self.voltages.update(voltages)
 
@@ -107,7 +107,7 @@ class TemperatureController(Controller):
             await controller.voltage.update(float(voltages[index]))
 
 
-class TemperatureRampController(Controller):
+class TemperatureRampController(Controller[IPConnection]):
     start = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="S"))
     end = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="E"))
     enabled = AttrRW(
@@ -120,6 +120,7 @@ class TemperatureRampController(Controller):
     def __init__(self, index: int, sensor: IPConnection) -> None:
         suffix = f"{index:02d}"
         super().__init__(
-            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(sensor, suffix)]
+            f"Ramp{suffix}",
+            ios=[TemperatureControllerAttributeIO(sensor, suffix)],
+            connection=sensor,
         )
-        self.sensor = sensor

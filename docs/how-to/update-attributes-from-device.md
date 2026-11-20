@@ -46,7 +46,7 @@ class MyController(Controller):
     label = AttrR(String(), io_ref=MyDeviceIORef("L", update_period=None))
 
     def __init__(self, connection):
-        super().__init__(ios=[MyDeviceIO(connection)])
+        super().__init__(ios=[MyDeviceIO(connection)], connection=connection)
 ```
 
 Setting `update_period` to:
@@ -114,7 +114,10 @@ class MyController(Controller):
     status = AttrR(Float(), io_ref=MyDeviceIORef("X"))
 
     def __init__(self, connection):
-        super().__init__(ios=[MyDeviceIO(connection, self._handle_put_response)])
+        super().__init__(
+            ios=[MyDeviceIO(connection, self._handle_put_response)],
+            connection=connection,
+        )
 
     async def _handle_put_response(self, response: str) -> None:
         actual, power, status = response.split(",")
@@ -149,15 +152,13 @@ class ChannelController(Controller):
     voltage = AttrR(Float())  # No io_ref — updated by parent scan method
 
     def __init__(self, index: int, connection):
-        super().__init__(f"Ch{index:02d}")
+        super().__init__(f"Ch{index:02d}", connection=connection)
         self._index = index
-        self._connection = connection
 
 
 class MultiChannelController(Controller):
     def __init__(self, channel_count: int, connection):
-        self._connection = connection
-        super().__init__()
+        super().__init__(connection=connection)
 
         self._channels: list[ChannelController] = []
         for i in range(channel_count):
@@ -169,7 +170,7 @@ class MultiChannelController(Controller):
     async def update_voltages(self):
         # One request returns all channel voltages
         voltages = json.loads(
-            await self._connection.query("V?")
+            await self.connection.query("V?")
         )
         for channel, voltage in zip(self._channels, voltages):
             await channel.voltage.update(float(voltage))
@@ -225,9 +226,8 @@ class ChannelController(Controller):
 
 class MultiChannelController(Controller):
     def __init__(self, channel_count: int, connection):
-        self._connection = connection
         self._channel_io = ChannelIO()
-        super().__init__()
+        super().__init__(connection=connection)
 
         for i in range(channel_count):
             self.add_sub_controller(f"Ch{i:02d}", ChannelController(i, self._channel_io))
@@ -235,7 +235,7 @@ class MultiChannelController(Controller):
     @scan(0.1)
     async def fetch_voltages(self):
         voltages = json.loads(
-            await self._connection.query("V?")
+            await self.connection.query("V?")
         )
         self._channel_io.update_cache(dict(enumerate(map(float, voltages))))
 ```

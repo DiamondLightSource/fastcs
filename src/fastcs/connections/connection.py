@@ -4,16 +4,56 @@ import asyncio
 import dataclasses
 import functools
 import inspect
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextvars import ContextVar
-from typing import Any, ClassVar, Generic, cast, overload
+from types import UnionType
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Generic,
+    Self,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    overload,
+)
 
 from pydantic import BaseModel
 from typing_extensions import TypeVar
 
+if TYPE_CHECKING:
+    from fastcs.connections.connection_spec import ConnectionSpec
+
 IntrospectionT = TypeVar("IntrospectionT", default=None)
 """What a `Connection`'s ``introspect`` returns, or ``None`` if it doesn't introspect"""
+
+
+@dataclasses.dataclass
+class Introspection(Generic[IntrospectionT]):
+    """What a `Connection`'s ``introspect`` returns.
+
+    Example::
+
+        async def introspect(self) -> Introspection[OdinIntrospection]:
+            info = OdinIntrospection(...)
+            meta = ConnectionSpec("meta", MetaConnection, port=info.meta_port)
+            return Introspection(info, subconnections=[meta])
+
+    Args:
+        value: The description of the device, available as
+            ``connection.introspection``
+        subconnections: Other connections found on the device. Each is opened and set
+            as the attribute of the connection that discovered it of the same name,
+            which its class declares.
+
+    """
+
+    value: IntrospectionT
+    subconnections: list[ConnectionSpec] = dataclasses.field(default_factory=list)
 
 
 class DisconnectedError(Exception):
@@ -86,7 +126,7 @@ class Connection(ABC, Generic[IntrospectionT]):
     Example::
 
         class EigerConnection(Connection[EigerIntrospection]):
-            async def introspect(self) -> EigerIntrospection: ...
+            async def introspect(self) -> Introspection[EigerIntrospection]: ...
     """
 
     # Connection type(s) in the same ControllerSpec to open before this one
@@ -127,9 +167,58 @@ class Connection(ABC, Generic[IntrospectionT]):
                 "it must be an integer of at least 1"
             )
 
+    def set_reconnect(
+        self,
+        *,
+        attempts: int | None,
+        period: float | None,
+        disconnect_after_timeouts: int | None = None,
+    ) -> Self:
+        """Set this connection's ``reconnect_attempts`` and ``reconnect_period``, and
+        optionally its ``disconnect_after_timeouts``, instead of using its class's.
+
+        Example::
+
+            odin = OdinConnection(url).set_reconnect(
+                attempts=10, period=2.0, disconnect_after_timeouts=3
+            )
+
+        Args:
+            attempts: How many times to try to reconnect. None or 0 means don't
+            period: How many seconds apart to try
+            disconnect_after_timeouts: How many timeouts in a row mean the link has
+                gone, or None to keep the class's
+
+        Returns:
+            This connection
+
+        Raises:
+            ValueError: If ``attempts`` is set without ``period``, or
+                ``disconnect_after_timeouts`` is less than 1
+
+        """
+        if attempts and period is None:
+            raise ValueError(
+                f"{type(self).__name__} sets reconnect attempts but not reconnect "
+                "period"
+            )
+        if disconnect_after_timeouts is not None and disconnect_after_timeouts < 1:
+            raise ValueError(
+                f"{type(self).__name__} sets disconnect_after_timeouts to "
+                f"{disconnect_after_timeouts}, but it must be at least 1"
+            )
+
+        self.reconnect_attempts = attempts
+        self.reconnect_period = period
+        if disconnect_after_timeouts is not None:
+            self.disconnect_after_timeouts = disconnect_after_timeouts
+
+        return self
+
     @property
     def introspection(self) -> IntrospectionT:
-        """What ``introspect`` returned when the framework opened this connection.
+        """The value of the `Introspection` that ``introspect`` returned when the
+        framework opened this connection.
 
         Raises:
             RuntimeError: If the framework hasn't opened this connection yet
@@ -160,14 +249,15 @@ class Connection(ABC, Generic[IntrospectionT]):
     async def connect(self) -> None:
         """Open the link, or raise. Called by the framework before construction."""
 
-    async def introspect(self) -> IntrospectionT:
+    async def introspect(self) -> Introspection[IntrospectionT]:
         """Describe the device. Called by the framework after ``connect``.
 
         Returns:
-            The introspection, or ``None`` if this connection doesn't introspect
+            The introspection, whose value is ``None`` if this connection doesn't
+            introspect
 
         """
-        return cast(IntrospectionT, None)
+        return Introspection(cast(IntrospectionT, None))
 
     @abstractmethod
     async def close(self) -> None:
@@ -277,3 +367,46 @@ def _structure(value: Any) -> Any:
     if isinstance(value, list | tuple):
         return [_structure(item) for item in value]
     return None
+
+
+def _connection_hint(hint: Any) -> tuple[type[Connection] | None, bool]:
+    """The connection class a controller argument's hint names, if any, and whether
+    it's optional, as in ``MetaConnection | None``"""
+    optional = False
+    if get_origin(hint) in (Union, UnionType):
+        members = [member for member in get_args(hint) if member is not type(None)]
+        if len(members) != 1:
+            return None, False
+
+        hint, optional = members[0], True
+
+    # A parametrised hint like IPConnection[Introspection] is checked by its class
+    hint = get_origin(hint) or hint
+    if isinstance(hint, type) and issubclass(hint, Connection):
+        return hint, optional
+
+    return None, False
+
+
+def _declared_subconnections(
+    connection_class: type[Connection],
+) -> dict[str, tuple[type[Connection], bool]]:
+    """The subconnections a connection class declares, as annotations hinted with a
+    connection class, by name, with that class and whether it's optional"""
+    declared: dict[str, tuple[type[Connection], bool]] = {}
+    for klass in reversed(connection_class.__mro__):
+        module = vars(sys.modules[klass.__module__])
+        for name, annotation in inspect.get_annotations(klass).items():
+            if isinstance(annotation, str):
+                try:
+                    annotation = eval(annotation, module, dict(vars(klass)))
+                except NameError:
+                    # Only imported for type checking, so not a subconnection
+                    continue
+            hinted, optional = _connection_hint(annotation)
+            if hinted is not None:
+                declared[name] = (hinted, optional)
+            else:
+                declared.pop(name, None)
+
+    return declared

@@ -112,10 +112,9 @@ class ClosingConnection(Connection):
         self.closed = True
 
 
-class FailingSetupController(Controller):
+class FailingSetupController(Controller[ClosingConnection]):
     def __init__(self, connection: ClosingConnection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
 
     async def setup(self) -> None:
         raise RuntimeError("setup failed")
@@ -132,10 +131,9 @@ async def test_connections_closed_if_startup_fails():
     assert connection.closed
 
 
-class DroppingController(Controller):
+class DroppingController(Controller[ClosingConnection]):
     def __init__(self, connection: ClosingConnection) -> None:
-        super().__init__()
-        self.connection = connection
+        super().__init__(connection=connection)
 
     async def setup(self) -> None:
         # Reconnecting is off, so the watcher fails as soon as it starts

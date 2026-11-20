@@ -9,13 +9,11 @@ from fastcs.transports.epics import EpicsGUIOptions
 from fastcs.transports.epics.ca import EpicsCATransport
 
 
-class TemperatureController(Controller):
+class TemperatureController(Controller[IPConnection]):
     device_id = AttrR(String())
 
     def __init__(self, connection: IPConnection):
-        super().__init__()
-
-        self._connection = connection
+        super().__init__(connection=connection)
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")

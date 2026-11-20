@@ -111,6 +111,8 @@ nitpick_ignore_regex = [
     ("py:class", r"fastcs.*.DType_T"),
     ("py:class", r"fastcs.*.Numeric_T"),
     ("py:class", r"fastcs.*._MethodT"),
+    ("py:class", r"fastcs.*.ConnectionT"),
+    ("py:obj", r"fastcs.*.ConnectionT"),
     ("py:obj", r"fastcs.*.DType_T"),
     (r"py:.*", r"fastcs\.demo.*"),
     (r"py:.*", r"tickit.*"),

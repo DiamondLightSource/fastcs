@@ -30,13 +30,11 @@ class IDAttributeIO(AttributeIO[NumberT, IDAttributeIORef]):
         await attr.update(attr.dtype(value))
 
 
-class TemperatureController(Controller):
+class TemperatureController(Controller[IPConnection]):
     device_id = AttrR(String(), io_ref=IDAttributeIORef())
 
     def __init__(self, connection: IPConnection):
-        self._connection = connection
-
-        super().__init__(ios=[IDAttributeIO(self._connection)])
+        super().__init__(ios=[IDAttributeIO(connection)], connection=connection)
 
 
 gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Controller")

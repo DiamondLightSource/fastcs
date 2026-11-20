@@ -1,11 +1,20 @@
 import asyncio
+import inspect
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
-from typing import Self
+from typing import Self, TypeVar
 
 from fastcs.attributes.attr_r import AttrR
-from fastcs.connections import Connection, ConnectionState
-from fastcs.connections.connection import _reconnecting
+from fastcs.connections import (
+    Connection,
+    ConnectionSpec,
+    ConnectionState,
+    Introspection,
+)
+from fastcs.connections.connection import (
+    _declared_subconnections,
+    _reconnecting,
+)
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
@@ -14,6 +23,8 @@ from fastcs.exceptions import IntrospectionMismatchError, ReconnectFailedError
 from fastcs.logging import logger
 from fastcs.methods import ScanCallback
 from fastcs.util import ONCE
+
+T = TypeVar("T")
 
 
 class ControllerRunner:
@@ -27,6 +38,8 @@ class ControllerRunner:
         )
 
         self._dependencies: dict[int, list[Connection]] = {}
+        self._names: dict[int, str] = {}
+        self._subconnections: dict[int, dict[str, ConnectionSpec]] = {}
 
         self._controller_apis: list[ControllerAPI] = []
         self._initial_coros: dict[int, list[ScanCallback]] = defaultdict(list)
@@ -48,23 +61,20 @@ class ControllerRunner:
             ``controller_apis``, in the order the specs were given
 
         Raises:
-            ValueError: If a connection is shared between specs
+            ValueError: If a connection is shared between specs, its introspection
+                returns subconnections its class doesn't declare, or a connection
+                depends on one that can only be discovered after it's opened
 
         """
         _check_connections_not_shared(specs)
+        for spec in specs:
+            _check_dependencies_not_discovered(spec)
+
         runner = cls()
 
         try:
             for spec in specs:
-                for connection in _dependency_order(spec.connections):
-                    connection.state = ConnectionState()
-                    await connection.connect()
-                    runner._connections.append(connection)
-                    connection.introspection = await connection.introspect()
-                    runner._dependencies[id(connection)] = _dependencies(
-                        connection, spec.connections
-                    )
-
+                await runner._open_connections(spec)
             runner._controllers = [spec.construct() for spec in specs]
             runner._seal()
             runner._map_connection_holders()
@@ -77,6 +87,79 @@ class ControllerRunner:
             raise
 
         return runner
+
+    async def _open_connections(self, spec: ControllerSpec) -> None:
+        """Open a spec's connections, then the subconnections they discover, set as
+        attributes of the connection that discovered them, and so on for those.
+
+        Raises:
+            ValueError: If an introspection returns subconnections its connection's
+                class doesn't declare, or leaves out one it declares that isn't
+                optional, or a connection depends on one that is discovered after
+                it's opened
+
+        """
+        self._names.update(_connection_names(spec))
+        discovered: list[Connection] = []
+
+        pending = spec.connections
+        while pending:
+            found: list[Connection] = []
+            for connection in _dependency_order(pending):
+                introspection = await self._open(connection)
+                name = self._names[id(connection)]
+                specs = _subconnection_specs(connection, introspection, name)
+                self._subconnections[id(connection)] = specs
+                for attribute, (connection_type, _) in _declared_subconnections(
+                    type(connection)
+                ).items():
+                    subspec = specs.get(attribute)
+                    if subspec is None:
+                        # Optional, as _subconnection_specs checked
+                        setattr(connection, attribute, None)
+                        continue
+
+                    subconnection = subspec.construct()
+                    if not isinstance(subconnection, connection_type):
+                        raise ValueError(
+                            f"{name}.{attribute} is a {type(subconnection).__name__}, "
+                            f"but {type(connection).__name__} declares it as "
+                            f"{connection_type.__name__}"
+                        )
+                    setattr(connection, attribute, subconnection)
+                    self._names[id(subconnection)] = f"{name}.{attribute}"
+                    found.append(subconnection)
+            discovered.extend(found)
+            pending = found
+
+        connections = [*spec.connections, *discovered]
+        opened = {id(c): index for index, c in enumerate(self._connections)}
+        for connection in connections:
+            dependencies = _dependencies(connection, connections)
+            self._dependencies[id(connection)] = dependencies
+            for dependency in dependencies:
+                if opened[id(dependency)] > opened[id(connection)]:
+                    name = self._names[id(connection)]
+                    later = self._names[id(dependency)]
+                    raise ValueError(
+                        f"{name} depends on {later}, but {later} is only discovered "
+                        f"after {name} has been opened"
+                    )
+
+    async def _open(self, connection: Connection) -> Introspection:
+        """Connect and introspect a connection, storing its introspection's value.
+
+        Returns:
+            The introspection
+
+        """
+        connection.state = ConnectionState()
+        await connection.connect()
+        self._connections.append(connection)
+        introspection = await _introspect(connection)
+        connection.introspection = introspection.value
+
+        return introspection
 
     @property
     def controllers(self) -> list[Controller]:
@@ -132,35 +215,38 @@ class ControllerRunner:
         """Record which controllers hold each connection.
 
         Raises:
-            ValueError: If a controller holds a connection the runner didn't open, or
-                more than one connection, or if no controller holds a connection
+            ValueError: If a controller stores a connection it wasn't given that way,
+                or holds one the runner didn't open, or if no controller holds a
+                connection
 
         """
         opened = {id(connection) for connection in self._connections}
         for controller in self._controllers:
             for sub_controller in _walk(controller):
-                held = _held_connections(sub_controller)
-                for connection in held:
-                    if id(connection) not in opened:
-                        raise ValueError(
-                            f"{sub_controller} holds a {type(connection).__name__} "
-                            "that wasn't opened by the framework. Declare it as an "
-                            "argument of the top-level controller instead."
-                        )
-                if len(held) > 1:
-                    names = ", ".join(type(c).__name__ for c in held)
+                held = _held_connection(sub_controller)
+                if strays := _stray_connections(sub_controller, held):
+                    name, stray = strays[0]
                     raise ValueError(
-                        f"{sub_controller} holds more than one connection ({names}). "
-                        "Give each connection its own sub controller instead."
+                        f"{sub_controller} stores a {type(stray).__name__} as {name}. "
+                        "Pass the connection a controller uses to "
+                        "super().__init__(connection=...) instead, and give each "
+                        "other connection its own sub controller."
                     )
-                if held:
-                    self._controllers_by_connection[id(held[0])].append(sub_controller)
+                if held is None:
+                    continue
+                if id(held) not in opened:
+                    raise ValueError(
+                        f"{sub_controller} holds a {type(held).__name__} that wasn't "
+                        "opened by the framework. Declare it as an argument of the "
+                        "top-level controller instead."
+                    )
+                self._controllers_by_connection[id(held)].append(sub_controller)
 
         for connection in self._connections:
             if id(connection) not in self._controllers_by_connection:
                 raise ValueError(
-                    f"No controller holds {type(connection).__name__}. Store it on "
-                    "the controller that uses it, e.g. self.connection = connection."
+                    f"No controller holds {type(connection).__name__}. Pass it to the "
+                    "controller that uses it, as super().__init__(connection=...)."
                 )
 
     async def _watch(self, connection: Connection) -> None:
@@ -188,10 +274,11 @@ class ControllerRunner:
                 ``reconnect_period``, or it doesn't reconnect within
                 ``reconnect_attempts``
             IntrospectionMismatchError: If the new introspection's structure is
-                different
+                different, or it discovers different connections that the controller
+                takes
 
         """
-        name = type(connection).__name__
+        name = self._names[id(connection)]
         attempts = connection.reconnect_attempts
         period = connection.reconnect_period
         if not attempts:
@@ -215,20 +302,30 @@ class ControllerRunner:
             try:
                 await connection.close()
                 await connection.connect()
-                introspection = await connection.introspect()
+                introspection = await _introspect(connection)
             except Exception:
                 logger.exception(
-                    "Reconnect failed", connection=connection, attempt=attempt + 1
+                    "Reconnect failed", connection=name, attempt=attempt + 1
                 )
                 continue
             finally:
                 _reconnecting.reset(token)
 
-            if connection.introspection_changed(introspection):
+            if connection.introspection_changed(introspection.value):
                 raise IntrospectionMismatchError(
                     f"{name} introspection changed structure on reconnect, so the "
                     "controllers built from it are out of date"
                 )
+
+            specs = {spec.name: spec for spec in introspection.subconnections}
+            old_specs = self._subconnections[id(connection)]
+            for changed in sorted(old_specs.keys() | specs.keys()):
+                old, new = old_specs.get(changed), specs.get(changed)
+                if old != new:
+                    raise IntrospectionMismatchError(
+                        f"{name} discovered {new} on reconnect instead of {old}, so "
+                        "the controllers built from it are out of date"
+                    )
 
             connection.state.mark_up()
             return
@@ -314,10 +411,121 @@ def _scans(controller: BaseController) -> Iterator[tuple[float, ScanCallback]]:
                 yield period, attribute.bind_update_callback()
 
 
-def _held_connections(controller: BaseController) -> list[Connection]:
-    """The connections stored as attributes of a controller, once each"""
-    values = vars(controller).values()
-    return list({id(v): v for v in values if isinstance(v, Connection)}.values())
+def _held_connection(controller: BaseController) -> Connection | None:
+    """The connection a controller was given, if any"""
+    return controller.connection if isinstance(controller, Controller) else None
+
+
+def _stray_connections(
+    controller: BaseController, held: Connection | None
+) -> list[tuple[str, Connection]]:
+    """The connections a controller stores as attributes, other than the one it holds,
+    with the names they're stored as"""
+    return [
+        (name, value)
+        for name, value in vars(controller).items()
+        if isinstance(value, Connection) and value is not held
+    ]
+
+
+def _subconnection_specs(
+    connection: Connection, introspection: Introspection, name: str
+) -> dict[str, ConnectionSpec]:
+    """The subconnections an introspection returns, by name, checked against those
+    the connection's class declares.
+
+    Raises:
+        ValueError: If two have the same name, one isn't declared, or one that's
+            declared and not optional is left out
+
+    """
+    declared = _declared_subconnections(type(connection))
+    specs: dict[str, ConnectionSpec] = {}
+    for spec in introspection.subconnections:
+        if spec.name in specs:
+            raise ValueError(f"{name} discovered more than one {spec.name}")
+        if spec.name not in declared:
+            raise ValueError(
+                f"{name} discovered {spec.name}, but {type(connection).__name__} "
+                f"doesn't declare it, e.g. {spec.name}: SomeConnection"
+            )
+        specs[spec.name] = spec
+
+    for attribute, (_, optional) in declared.items():
+        if attribute not in specs and not optional:
+            raise ValueError(
+                f"{name} didn't discover {attribute}, which "
+                f"{type(connection).__name__} declares and isn't optional"
+            )
+
+    return specs
+
+
+async def _introspect(connection: Connection[T]) -> Introspection[T]:
+    """Introspect a connection, checking it returns an `Introspection`.
+
+    Raises:
+        TypeError: If ``introspect`` doesn't return an `Introspection`
+
+    """
+    introspection = await connection.introspect()
+    if not isinstance(introspection, Introspection):
+        raise TypeError(
+            f"{type(connection).__name__}.introspect returned "
+            f"{type(introspection).__name__}, not an Introspection"
+        )
+
+    return introspection
+
+
+def _connection_names(spec: ControllerSpec) -> dict[int, str]:
+    """Name each connection in a spec after the controller argument it's passed as,
+    or after its class if it's passed into ``*args``"""
+    names = {id(c): type(c).__name__ for c in spec.connections}
+    positional = inspect.signature(spec.controller_class).bind_partial(*spec.args)
+    arguments = {**positional.arguments, **spec.kwargs}
+    for name, value in arguments.items():
+        if isinstance(value, Connection):
+            names[id(value)] = name
+
+    return names
+
+
+def _check_dependencies_not_discovered(spec: ControllerSpec) -> None:
+    """Check that no connection a spec gives depends on one that could only be
+    discovered, which would be opened after it.
+
+    Raises:
+        ValueError: If a given connection's ``depends_on`` matches the type of a
+            subconnection declared by a given connection, or by those, and so on
+
+    """
+    names = _connection_names(spec)
+    given = list({id(c): c for c in spec.connections}.values())
+
+    discoverable: dict[str, type[Connection]] = {}
+
+    def collect(connection_class: type[Connection], path: str, seen: tuple) -> None:
+        for attribute, (subclass, _) in _declared_subconnections(
+            connection_class
+        ).items():
+            subpath = f"{path}.{attribute}"
+            discoverable[subpath] = subclass
+            if subclass not in seen:
+                collect(subclass, subpath, (*seen, subclass))
+
+    for connection in given:
+        collect(type(connection), names[id(connection)], (type(connection),))
+
+    for connection in given:
+        name = names[id(connection)]
+        for dependency in _dependency_types(connection):
+            for path, connection_type in discoverable.items():
+                if issubclass(connection_type, dependency):
+                    raise ValueError(
+                        f"{name} depends on {dependency.__name__}, but {path} can "
+                        f"only be discovered after {name} has been opened"
+                    )
 
 
 def _check_connections_not_shared(specs: list[ControllerSpec]) -> None:

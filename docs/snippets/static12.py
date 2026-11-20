@@ -50,7 +50,7 @@ class OnOffEnum(enum.StrEnum):
     On = "1"
 
 
-class TemperatureRampController(Controller):
+class TemperatureRampController(Controller[IPConnection]):
     start = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="S"))
     end = AttrRW(Int(), io_ref=TemperatureControllerAttributeIORef(name="E"))
     enabled = AttrRW(Enum(OnOffEnum), io_ref=TemperatureControllerAttributeIORef("N"))
@@ -61,29 +61,31 @@ class TemperatureRampController(Controller):
     def __init__(self, index: int, connection: IPConnection) -> None:
         suffix = f"{index:02d}"
         super().__init__(
-            f"Ramp{suffix}", ios=[TemperatureControllerAttributeIO(connection, suffix)]
+            f"Ramp{suffix}",
+            ios=[TemperatureControllerAttributeIO(connection, suffix)],
+            connection=connection,
         )
 
 
-class TemperatureController(Controller):
+class TemperatureController(Controller[IPConnection]):
     device_id = AttrR(String(), io_ref=TemperatureControllerAttributeIORef("ID"))
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("P"))
     ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef("R"))
 
     def __init__(self, ramp_count: int, connection: IPConnection):
-        self._connection = connection
-
-        super().__init__(ios=[TemperatureControllerAttributeIO(self._connection)])
+        super().__init__(
+            ios=[TemperatureControllerAttributeIO(connection)], connection=connection
+        )
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, ramp_count + 1):
-            controller = TemperatureRampController(index, self._connection)
+            controller = TemperatureRampController(index, connection)
             self._ramp_controllers.append(controller)
             self.add_sub_controller(f"R{index}", controller)
 
     @scan(0.1)
     async def update_voltages(self):
-        voltages = json.loads(await self._connection.query("V?"))
+        voltages = json.loads(await self.connection.query("V?"))
         for index, controller in enumerate(self._ramp_controllers):
             await controller.voltage.update(float(voltages[index]))
 

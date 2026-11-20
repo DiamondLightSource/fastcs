@@ -19,6 +19,7 @@ from fastcs.exceptions import LaunchError
 from fastcs.launch import (
     _build_options_model,
     _connection_settings_model,
+    _controller_specs,
     _launch,
     get_controller_schema,
     launch,
@@ -78,6 +79,11 @@ class WithGenericConnections(Controller):
     def __init__(
         self, sensor: IPConnection[SomeConfig], link: NoSettingsConnection
     ) -> None:
+        super().__init__()
+
+
+class WithOptionalConnection(Controller):
+    def __init__(self, odin: IPConnection, aux: IPConnection | None = None) -> None:
         super().__init__()
 
 
@@ -426,3 +432,25 @@ def test_keyword_only_connection_in_schema():
             "transport": [{"rest": {}}],
         }
     )
+
+
+@pytest.mark.parametrize("given", [False, True])
+def test_optional_connection_block_can_be_left_out(given: bool):
+    connections = {"odin": {"ip": "localhost", "port": 8000}}
+    if given:
+        connections["aux"] = {"ip": "localhost", "port": 8001}
+    options = _build_options_model([WithOptionalConnection]).model_validate(
+        {
+            "controllers": [
+                {
+                    "id": "one",
+                    "type": "tests.WithOptionalConnection",
+                    "connections": connections,
+                }
+            ],
+            "transport": [{"rest": {}}],
+        }
+    )
+
+    [spec] = _controller_specs(options.controllers)  # type: ignore[attr-defined]
+    assert ("aux" in spec.kwargs) is given

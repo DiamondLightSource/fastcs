@@ -118,7 +118,15 @@ class EigerConnection(Connection):
 ```
 
 A class that sets `reconnect_attempts` must set `reconnect_period` too, or defining it
-raises a `TypeError`.
+raises a `TypeError`. In Python, set them on one connection with `set_reconnect`, which
+returns the connection. `disconnect_after_timeouts` is optional, and keeps the class's
+value if it's left out:
+
+```python
+connection = IPConnection("10.0.0.5", 4000).set_reconnect(
+    attempts=5, period=2.0, disconnect_after_timeouts=3
+)
+```
 
 | Connection | `reconnect_attempts` | `reconnect_period` |
 |---|---|---|
@@ -135,12 +143,57 @@ value only delays marking them down until the next call.
 
 ### Which controllers a connection belongs to
 
-FastCS finds the controllers to mark down by looking for the connection on them, so:
+FastCS finds the controllers to mark down by the connection each one is given, so:
 
-- The controller that uses a connection stores it, e.g. `self.connection = connection`,
-  and passes it to any sub controllers that need it, which store it too.
-- Each controller stores at most one connection.
-- Every connection a controller stores was opened by FastCS, from the top-level
-  controller's arguments.
+- The controller that uses a connection is given it, as
+  `super().__init__(connection=connection)`, and passes it to any sub controllers that
+  need it, which are given it too.
+- Each controller holds at most one connection.
+- Every connection a controller holds was opened by FastCS, from the top-level
+  controller's arguments or discovered for them.
 
 FastCS raises a `ValueError` at startup if any of these is broken.
+
+## Discovered connections
+
+Some devices report where other links are, like Odin reporting the port of its meta
+writer. `introspect()` can return a `ConnectionSpec` for each of these alongside the
+description, and the connection's class declares each one by name:
+
+```python
+from fastcs.connections import Connection, ConnectionSpec, Introspection
+
+
+class OdinConnection(Connection[OdinIntrospection]):
+    meta: MetaWriterConnection
+
+    async def introspect(self) -> Introspection[OdinIntrospection]:
+        info = OdinIntrospection(await self.get("/api/tree"))
+        meta = ConnectionSpec("meta", MetaWriterConnection, port=info.meta_port)
+        return Introspection(info, subconnections=[meta])
+```
+
+FastCS opens each one and sets it as the attribute of that name on the connection that
+discovered it, here `odin.meta`, which a controller passes on to the sub controller
+that uses it:
+
+```python
+class OdinController(Controller[OdinConnection]):
+    def __init__(self, connection: OdinConnection) -> None:
+        super().__init__(connection=connection)
+        self.META = MetaWriterController(connection=connection.meta)
+```
+
+- It's opened after the connections that are given. It can discover connections of
+  its own, set on it the same way, e.g. `odin.meta.x`.
+- FastCS raises a `ValueError` if `introspect()` returns one its class doesn't declare,
+  or leaves out one it declares, unless that is hinted `X | None`, which is set to
+  `None`.
+- It's independent of the connection that discovered it, so it only goes down when its
+  own IO fails. Set `depends_on` on its class if it needs its parent to be up first.
+- It's opened after the connections that are given, so none of those can depend on
+  it. If a given connection's `depends_on` matches the type of a subconnection that is
+  declared, FastCS raises a `ValueError` before opening anything.
+- It uses its class's reconnect settings.
+- If a reconnect discovers a different spec, such as a new port, FastCS stops with an
+  `IntrospectionMismatchError`.

@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Generic, ParamSpec
+from typing import Generic, ParamSpec, cast
 
 from fastcs.connections import Connection
 from fastcs.controllers.controller import Controller
@@ -43,8 +43,9 @@ class ControllerSpec(Generic[P]):
         return [value for value in values if isinstance(value, Connection)]
 
     def construct(self) -> Controller:
-        """Construct the controller and set its path"""
-        controller = self.controller_class(*self.args, **self.kwargs)
+        """Construct the controller and set its path."""
+        controller_class = cast(Callable[..., Controller], self.controller_class)
+        controller = controller_class(*self.args, **self.kwargs)
         controller.set_path([self.id])
 
         return controller

@@ -107,3 +107,16 @@ def test_disconnect_after_timeouts_must_be_at_least_one():
 
         class _NeverConnection(_FlakyConnection):
             disconnect_after_timeouts = 0
+
+
+def test_set_reconnect_on_connection():
+    connection = _FlakyConnection().set_reconnect(attempts=5, period=1.0)
+
+    assert (connection.reconnect_attempts, connection.reconnect_period) == (5, 1.0)
+    with pytest.raises(ValueError, match="_FlakyConnection sets reconnect attempts"):
+        connection.set_reconnect(attempts=5, period=None)
+
+    connection.set_reconnect(attempts=5, period=1.0, disconnect_after_timeouts=3)
+    assert connection.disconnect_after_timeouts == 3
+    with pytest.raises(ValueError, match="must be at least 1"):
+        connection.set_reconnect(attempts=5, period=1.0, disconnect_after_timeouts=0)

@@ -12,7 +12,6 @@ from typing import (
     Optional,
     Self,
     Union,
-    get_origin,
     get_type_hints,
 )
 
@@ -28,7 +27,8 @@ from pydantic import (
 from ruamel.yaml import YAML
 
 from fastcs import __version__
-from fastcs.connections import Connection
+from fastcs.connections import Connection, ConnectionSpec
+from fastcs.connections.connection import _connection_hint
 from fastcs.control_system import FastCS
 from fastcs.controllers import Controller, ControllerSpec
 from fastcs.exceptions import LaunchError
@@ -223,15 +223,18 @@ def _controller_specs(
         kwargs: dict[str, Any] = {}
         for name, connection_type in registered.connection_types.items():
             settings = getattr(entry.connections, name)
+            if settings is None:
+                # An optional connection left out
+                continue
+
             values = {k: getattr(settings, k) for k in type(settings).model_fields}
             attempts = values.pop("reconnect_attempts")
             period = values.pop("reconnect_period")
             timeouts = values.pop("disconnect_after_timeouts")
-            connection = connection_type(**values)
-            connection.reconnect_attempts = attempts
-            connection.reconnect_period = period
-            connection.disconnect_after_timeouts = timeouts
-            kwargs[name] = connection
+            connection = ConnectionSpec(name, connection_type, **values).construct()
+            kwargs[name] = connection.set_reconnect(
+                attempts=attempts, period=period, disconnect_after_timeouts=timeouts
+            )
 
         if registered.options_name is not None:
             field_values = {
@@ -402,17 +405,17 @@ def _build_entry_model(controller_class: type[Controller]) -> type[BaseModel]:
     }
 
     connection_types: dict[str, type[Connection]] = {}
+    connection_fields: dict[str, Any] = {}
     for name in args:
-        # A parametrised hint like IPConnection[Introspection] is checked by its class
-        hint = get_origin(hints.get(name)) or hints.get(name)
-        if isinstance(hint, type) and issubclass(hint, Connection):
-            connection_types[name] = hint
+        connection_type, optional = _connection_hint(hints.get(name))
+        if connection_type is not None:
+            connection_types[name] = connection_type
+            settings_model = _connection_settings_model(connection_type)
+            connection_fields[name] = (
+                (settings_model | None, None) if optional else (settings_model, ...)
+            )
 
     if connection_types:
-        connection_fields: dict[str, Any] = {
-            name: (_connection_settings_model(connection_type), ...)
-            for name, connection_type in connection_types.items()
-        }
         connections_model = create_model(
             f"{controller_class.__name__}Connections",
             __config__={"extra": "forbid"},

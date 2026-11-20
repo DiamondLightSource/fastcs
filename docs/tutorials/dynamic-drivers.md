@@ -31,10 +31,11 @@ or a description for the parameter.
 
 ## Introspection
 
-A `Connection` can describe the device it connects to by implementing `introspect`.
-FastCS opens every connection and calls `introspect` before constructing any
-controller, and stores what it returned as `connection.introspection`, so a controller
-can use it in its `__init__`.
+A `Connection` can describe the device it connects to by implementing `introspect`,
+which returns the description wrapped in an `Introspection`. FastCS opens every
+connection and calls `introspect` before constructing any controller, and stores the
+description as `connection.introspection`, so a controller can use it in its
+`__init__`.
 
 Take the driver implementation from the previous tutorial and remove the statically
 defined `Attributes` and creation of sub controllers in `__init__`. Then create them

@@ -145,9 +145,10 @@ and set values. This is implemented with `AttributeIO`s and connections. General
 driver implements its own IO and connection logic, but there are some built in options.
 
 Create an `IPConnection` to communicate with the simulator over TCP, pass it to the
-`ControllerSpec`, and update the controller to take it as a constructor argument. FastCS
-opens the connection before constructing the controller, so it is ready to use, and
-closes it when the application stops.
+`ControllerSpec`, and update the controller to take it as a constructor argument and
+pass it to `super().__init__(connection=connection)`. FastCS opens the connection before
+constructing the controller, so it is ready to use, and closes it when the application
+stops.
 
 :::{note}
 The simulator control connection is on port 25565.
@@ -157,7 +158,7 @@ The simulator control connection is on port 25565.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static06.py
-:emphasize-lines: 4,15-18,23-24
+:emphasize-lines: 4,12,15-16,21-22
 :::
 
 ::::
@@ -290,7 +291,7 @@ are, which is used to register the correct number of ramp controllers with the p
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static10.py
-:emphasize-lines: 10,28,32,34,43,47-55,61-62,68-71,76-78
+:emphasize-lines: 10,28,32,34,43,47-57,63-66,70-73,78-80
 :::
 
 ::::
@@ -368,7 +369,7 @@ gets the array of voltages and sets each ramp controller with its value. Also ad
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static12.py
-:emphasize-lines: 2,16,59-61,86-90
+:emphasize-lines: 2,16,59-61,88-92
 :::
 
 ::::
@@ -389,7 +390,7 @@ controller.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static13.py
-:emphasize-lines: 1,17,93-98
+:emphasize-lines: 1,17,95-100
 :::
 
 ::::
@@ -421,7 +422,7 @@ logger for `TemperatureControllerAttributeIO` to log the commands it sends.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static14.py
-:emphasize-lines: 13,47,103,108
+:emphasize-lines: 13,47,105,110
 :::
 
 ::::
@@ -446,7 +447,7 @@ visible.
 :class: dropdown, hint
 
 :::{literalinclude} /snippets/static15.py
-:emphasize-lines: 13,48-50,111
+:emphasize-lines: 13,48-50,113
 :::
 
 ::::
