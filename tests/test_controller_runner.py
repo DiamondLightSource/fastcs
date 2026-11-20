@@ -12,6 +12,7 @@ from tests.example_connections import (
     DetectorController,
     DeviceIntrospection,
     EigerConnection,
+    HoldingController,
     IntrospectedController,
     IntrospectingConnection,
     MetaConnection,
@@ -332,50 +333,84 @@ def test_seal_twice_raises():
 
 
 @pytest.mark.asyncio
-async def test_discovered_connection_is_opened_and_passed_by_name():
+async def test_discovered_connection_is_opened_and_set_on_its_parent():
+    detector = DetectorConnection()
     runner = await ControllerRunner.build(
-        [ControllerSpec("A", DetectorController, DetectorConnection())]
-    )
-    controller = runner.controllers[0]
-    assert isinstance(controller, DetectorController) and controller.meta
-
-    meta = controller.meta.connection
-    assert type(meta) is MetaConnection
-    assert runner._names[id(meta)] == "detector_meta"
-    assert len(runner._connections) == 2
-
-
-@pytest.mark.asyncio
-async def test_connection_given_as_none_is_not_discovered():
-    runner = await ControllerRunner.build(
-        [
-            ControllerSpec(
-                "A", DetectorController, DetectorConnection(), detector_meta=None
-            )
-        ]
+        [ControllerSpec("A", DetectorController, detector)]
     )
     controller = runner.controllers[0]
     assert isinstance(controller, DetectorController)
 
-    assert controller.meta is None
-    assert len(runner._connections) == 1
+    assert type(detector.meta) is MetaConnection
+    assert controller.META.connection is detector.meta
+    assert runner._names[id(detector.meta)] == "detector.meta"
+    assert len(runner._connections) == 2
+
+
+class OptionalMetaConnection(MetaConnection):
+    meta: MetaConnection | None
+
+    async def introspect(self) -> Introspection:
+        return Introspection(None)
+
+
+class OptionalMetaController(Controller[OptionalMetaConnection]):
+    def __init__(self, connection: OptionalMetaConnection) -> None:
+        super().__init__(connection=connection)
 
 
 @pytest.mark.asyncio
-async def test_given_connection_is_used_instead_of_discovered():
-    given = MetaConnection()
+async def test_optional_subconnection_not_discovered_is_none():
+    connection = OptionalMetaConnection()
     runner = await ControllerRunner.build(
-        [
-            ControllerSpec(
-                "A", DetectorController, DetectorConnection(), detector_meta=given
-            )
-        ]
+        [ControllerSpec("A", OptionalMetaController, connection)]
     )
-    controller = runner.controllers[0]
-    assert isinstance(controller, DetectorController) and controller.meta
 
-    assert controller.meta.connection is given
-    assert len(runner._connections) == 2
+    assert connection.meta is None
+    assert len(runner._connections) == 1
+
+
+class UndeclaredConnection(MetaConnection):
+    async def introspect(self) -> Introspection:
+        return Introspection(
+            None, subconnections=[ConnectionSpec("meta", MetaConnection)]
+        )
+
+
+class MissingMetaConnection(DetectorConnection):
+    async def introspect(self) -> Introspection:
+        return Introspection(None)
+
+
+class WrongTypeConnection(DetectorConnection):
+    async def introspect(self) -> Introspection:
+        meta = ConnectionSpec("meta", RecordingConnection, [])
+        return Introspection(None, subconnections=[meta])
+
+
+class TwiceConnection(DetectorConnection):
+    async def introspect(self) -> Introspection:
+        meta = ConnectionSpec("meta", MetaConnection)
+        return Introspection(None, subconnections=[meta, meta])
+
+
+@pytest.mark.parametrize(
+    "connection, message",
+    [
+        (UndeclaredConnection(), "connection discovered meta, but .* doesn't declare"),
+        (MissingMetaConnection(), "didn't discover meta, which .* isn't optional"),
+        (WrongTypeConnection(), "connection.meta is a RecordingConnection, but"),
+        (TwiceConnection(), "discovered more than one meta"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_subconnections_must_match_those_declared(
+    connection: Connection, message: str
+):
+    with pytest.raises(ValueError, match=message):
+        await ControllerRunner.build(
+            [ControllerSpec("A", HoldingController, connection)]
+        )
 
 
 class LateConnection(MetaConnection):
@@ -383,6 +418,8 @@ class LateConnection(MetaConnection):
 
 
 class LateDiscoveringConnection(MetaConnection):
+    late: LateConnection
+
     async def introspect(self) -> Introspection:
         late = ConnectionSpec("late", LateConnection)
         return Introspection(None, subconnections=[late])
@@ -400,10 +437,7 @@ class NeedsLateConnection(MetaConnection):
 
 class LateController(Controller):
     def __init__(
-        self,
-        parent: LateDiscoveringConnection,
-        needs: NeedsLateConnection,
-        parent_late: LateConnection | None = None,
+        self, parent: LateDiscoveringConnection, needs: NeedsLateConnection
     ) -> None:
         super().__init__()
 
@@ -411,7 +445,7 @@ class LateController(Controller):
 @pytest.mark.asyncio
 async def test_depending_on_a_connection_only_discovered_raises_before_opening():
     needs = NeedsLateConnection()
-    message = "needs depends on LateConnection, but parent_late can only be discovered"
+    message = "needs depends on LateConnection, but parent.late can only be discovered"
     with pytest.raises(ValueError, match=message):
         await ControllerRunner.build(
             [ControllerSpec("A", LateController, LateDiscoveringConnection(), needs)]
@@ -425,24 +459,21 @@ class NestedLateConnection(LateDiscoveringConnection):
 
 
 class NestingConnection(MetaConnection):
+    nested: NestedLateConnection
+
     async def introspect(self) -> Introspection:
         nested = ConnectionSpec("nested", NestedLateConnection)
         return Introspection(None, subconnections=[nested])
 
 
 class NestingController(Controller):
-    def __init__(
-        self,
-        parent: NestingConnection,
-        parent_nested: NestedLateConnection | None = None,
-        parent_nested_late: LateConnection | None = None,
-    ) -> None:
+    def __init__(self, parent: NestingConnection) -> None:
         super().__init__()
 
 
 @pytest.mark.asyncio
 async def test_discovered_connection_depending_on_one_discovered_later_raises():
-    message = "parent_nested depends on parent_nested_late, but"
+    message = "parent.nested depends on parent.nested.late, but"
     with pytest.raises(ValueError, match=message):
         await ControllerRunner.build(
             [ControllerSpec("A", NestingController, NestingConnection())]

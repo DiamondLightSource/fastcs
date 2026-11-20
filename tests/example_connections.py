@@ -82,17 +82,15 @@ class MetaConnection(Connection):
 
 
 class DetectorConnection(MetaConnection):
+    meta: MetaConnection
+
     async def introspect(self) -> Introspection:
-        subconnections = [
-            ConnectionSpec("meta", MetaConnection),
-            ConnectionSpec("unused", MetaConnection),
-        ]
-        return Introspection(None, subconnections=subconnections)
+        return Introspection(
+            None, subconnections=[ConnectionSpec("meta", MetaConnection)]
+        )
 
 
 class DetectorController(Controller[DetectorConnection]):
-    def __init__(
-        self, detector: DetectorConnection, detector_meta: MetaConnection | None = None
-    ) -> None:
+    def __init__(self, detector: DetectorConnection) -> None:
         super().__init__(connection=detector)
-        self.meta = HoldingController(detector_meta) if detector_meta else None
+        self.META = HoldingController(detector.meta)

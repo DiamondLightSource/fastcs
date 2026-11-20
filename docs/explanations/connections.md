@@ -158,43 +158,42 @@ FastCS raises a `ValueError` at startup if any of these is broken.
 
 Some devices report where other links are, like Odin reporting the port of its meta
 writer. `introspect()` can return a `ConnectionSpec` for each of these alongside the
-description:
+description, and the connection's class declares each one by name:
 
 ```python
 from fastcs.connections import Connection, ConnectionSpec, Introspection
 
 
 class OdinConnection(Connection[OdinIntrospection]):
+    meta: MetaWriterConnection
+
     async def introspect(self) -> Introspection[OdinIntrospection]:
         info = OdinIntrospection(await self.get("/api/tree"))
         meta = ConnectionSpec("meta", MetaWriterConnection, port=info.meta_port)
         return Introspection(info, subconnections=[meta])
 ```
 
-FastCS renames each one after the connection that discovered it, here `odin_meta`, and
-passes it to the top-level controller's argument of that name, which is hinted
-`X | None`:
+FastCS opens each one and sets it as the attribute of that name on the connection that
+discovered it, here `odin.meta`, which a controller passes on to the sub controller
+that uses it:
 
 ```python
-class EigerController(Controller):
-    def __init__(
-        self,
-        eiger: EigerConnection,
-        odin: OdinConnection,
-        odin_meta: MetaWriterConnection | None = None,
-    ) -> None: ...
+class OdinController(Controller[OdinConnection]):
+    def __init__(self, connection: OdinConnection) -> None:
+        super().__init__(connection=connection)
+        self.META = MetaWriterController(connection=connection.meta)
 ```
 
-- It's opened after the connections that are given, and only if the controller takes
-  it. It can discover connections of its own, named the same way, e.g. `odin_meta_x`.
-- An `odin_meta` block in `fastcs.yaml`, or an `odin_meta` argument in the
-  `ControllerSpec`, is used instead of the discovered one.
+- It's opened after the connections that are given. It can discover connections of
+  its own, set on it the same way, e.g. `odin.meta.x`.
+- FastCS raises a `ValueError` if `introspect()` returns one its class doesn't declare,
+  or leaves out one it declares, unless that is hinted `X | None`, which is set to
+  `None`.
 - It's independent of the connection that discovered it, so it only goes down when its
   own IO fails. Set `depends_on` on its class if it needs its parent to be up first.
 - It's opened after the connections that are given, so none of those can depend on
-  it. If a given connection's `depends_on` matches the type of a controller argument
-  that isn't given, FastCS raises a `ValueError` before opening anything.
-- It uses its class's reconnect settings. To set others, give it a block in
-  `fastcs.yaml` instead.
-- If a reconnect discovers a different spec for a connection the controller takes,
-  such as a new port, FastCS stops with an `IntrospectionMismatchError`.
+  it. If a given connection's `depends_on` matches the type of a subconnection that is
+  declared, FastCS raises a `ValueError` before opening anything.
+- It uses its class's reconnect settings.
+- If a reconnect discovers a different spec, such as a new port, FastCS stops with an
+  `IntrospectionMismatchError`.

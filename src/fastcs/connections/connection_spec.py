@@ -1,6 +1,5 @@
-import copy
 from collections.abc import Callable
-from typing import Generic, ParamSpec, Self
+from typing import Generic, ParamSpec
 
 from typing_extensions import TypeVar
 
@@ -16,11 +15,12 @@ class ConnectionSpec(Generic[P, ConnectionT]):
 
     Example::
 
-        # MetaConnection(port=5000), to fill the controller argument "meta"
+        # MetaConnection(port=5000), set as the "meta" attribute of its parent
         ConnectionSpec("meta", MetaConnection, port=5000)
 
     Args:
-        name: The name of the connection, which is the controller argument it fills
+        name: The name of the connection, which is the attribute of its parent
+            connection it's set as
         connection_class: The connection class, or any callable returning one
         args: Positional arguments for ``connection_class``
         kwargs: Keyword arguments for ``connection_class``
@@ -58,25 +58,6 @@ class ConnectionSpec(Generic[P, ConnectionT]):
 
     def _fields(self) -> tuple:
         return (self.name, self.connection_class, self.args, self.kwargs)
-
-    def with_parent(self, parent_name: str) -> Self:
-        """A copy of this spec, with its name prefixed by that of the connection that
-        discovered it.
-
-        Example::
-
-            spec.with_parent("odin").name  # "meta" -> "odin_meta"
-
-        Args:
-            parent_name: The name of the connection whose introspection returned this
-
-        Returns:
-            The renamed copy
-
-        """
-        spec = copy.copy(self)
-        spec.name = f"{parent_name}_{self.name}"
-        return spec
 
     def construct(self) -> ConnectionT:
         """Construct the connection"""

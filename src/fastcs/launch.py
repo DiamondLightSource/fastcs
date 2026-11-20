@@ -224,7 +224,7 @@ def _controller_specs(
         for name, connection_type in registered.connection_types.items():
             settings = getattr(entry.connections, name)
             if settings is None:
-                # An optional connection left out, which may be discovered instead
+                # An optional connection left out
                 continue
 
             values = {k: getattr(settings, k) for k in type(settings).model_fields}

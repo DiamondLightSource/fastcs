@@ -2,7 +2,7 @@ import asyncio
 import inspect
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
-from typing import Self, TypeVar, get_type_hints
+from typing import Self, TypeVar
 
 from fastcs.attributes.attr_r import AttrR
 from fastcs.connections import (
@@ -11,7 +11,10 @@ from fastcs.connections import (
     ConnectionState,
     Introspection,
 )
-from fastcs.connections.connection import _connection_hint, _reconnecting
+from fastcs.connections.connection import (
+    _declared_subconnections,
+    _reconnecting,
+)
 from fastcs.controllers.base_controller import BaseController
 from fastcs.controllers.controller import Controller
 from fastcs.controllers.controller_api import ControllerAPI
@@ -36,8 +39,6 @@ class ControllerRunner:
 
         self._dependencies: dict[int, list[Connection]] = {}
         self._names: dict[int, str] = {}
-        # Per connection, the names of the discovered connections its controller takes
-        self._takes: dict[int, set[str]] = {}
         self._subconnections: dict[int, dict[str, ConnectionSpec]] = {}
 
         self._controller_apis: list[ControllerAPI] = []
@@ -60,9 +61,9 @@ class ControllerRunner:
             ``controller_apis``, in the order the specs were given
 
         Raises:
-            ValueError: If a connection is shared between specs, two discovered
-                connections have the same name, or a connection depends on one that
-                can only be discovered after it's opened
+            ValueError: If a connection is shared between specs, its introspection
+                returns subconnections its class doesn't declare, or a connection
+                depends on one that can only be discovered after it's opened
 
         """
         _check_connections_not_shared(specs)
@@ -72,11 +73,9 @@ class ControllerRunner:
         runner = cls()
 
         try:
-            discovered = [await runner._open_connections(spec) for spec in specs]
-            runner._controllers = [
-                spec.construct(connections)
-                for spec, connections in zip(specs, discovered, strict=True)
-            ]
+            for spec in specs:
+                await runner._open_connections(spec)
+            runner._controllers = [spec.construct() for spec in specs]
             runner._seal()
             runner._map_connection_holders()
 
@@ -89,49 +88,51 @@ class ControllerRunner:
 
         return runner
 
-    async def _open_connections(self, spec: ControllerSpec) -> dict[str, Connection]:
-        """Open a spec's connections, then any they discover that the controller takes
-        and isn't given, and so on for those.
-
-        Returns:
-            The discovered connections that were opened, by name
+    async def _open_connections(self, spec: ControllerSpec) -> None:
+        """Open a spec's connections, then the subconnections they discover, set as
+        attributes of the connection that discovered them, and so on for those.
 
         Raises:
-            ValueError: If two discovered connections have the same name, or a
-                connection depends on one that is discovered after it's opened
+            ValueError: If an introspection returns subconnections its connection's
+                class doesn't declare, or leaves out one it declares that isn't
+                optional, or a connection depends on one that is discovered after
+                it's opened
 
         """
         self._names.update(_connection_names(spec))
-        given = _given(spec)
-        parameters = inspect.signature(spec.controller_class).parameters
-        takes = set(parameters) - given
-        discovered: dict[str, Connection] = {}
+        discovered: list[Connection] = []
 
         pending = spec.connections
         while pending:
             found: list[Connection] = []
             for connection in _dependency_order(pending):
                 introspection = await self._open(connection)
-                named = _named_subconnections(
-                    introspection, self._names[id(connection)]
-                )
-                self._takes[id(connection)] = takes
-                self._subconnections[id(connection)] = _taken(named, takes)
-                for subconnection in named:
-                    name = subconnection.name
-                    if name in given:
-                        logger.info("Using given connection, not discovered", name=name)
-                    elif name not in parameters:
-                        logger.info("Controller doesn't take discovered", name=name)
-                    elif name in discovered:
-                        raise ValueError(f"More than one connection discovered {name}")
-                    else:
-                        discovered[name] = subconnection.construct()
-                        self._names[id(discovered[name])] = name
-                        found.append(discovered[name])
+                name = self._names[id(connection)]
+                specs = _subconnection_specs(connection, introspection, name)
+                self._subconnections[id(connection)] = specs
+                for attribute, (connection_type, _) in _declared_subconnections(
+                    type(connection)
+                ).items():
+                    subspec = specs.get(attribute)
+                    if subspec is None:
+                        # Optional, as _subconnection_specs checked
+                        setattr(connection, attribute, None)
+                        continue
+
+                    subconnection = subspec.construct()
+                    if not isinstance(subconnection, connection_type):
+                        raise ValueError(
+                            f"{name}.{attribute} is a {type(subconnection).__name__}, "
+                            f"but {type(connection).__name__} declares it as "
+                            f"{connection_type.__name__}"
+                        )
+                    setattr(connection, attribute, subconnection)
+                    self._names[id(subconnection)] = f"{name}.{attribute}"
+                    found.append(subconnection)
+            discovered.extend(found)
             pending = found
 
-        connections = [*spec.connections, *discovered.values()]
+        connections = [*spec.connections, *discovered]
         opened = {id(c): index for index, c in enumerate(self._connections)}
         for connection in connections:
             dependencies = _dependencies(connection, connections)
@@ -144,8 +145,6 @@ class ControllerRunner:
                         f"{name} depends on {later}, but {later} is only discovered "
                         f"after {name} has been opened"
                     )
-
-        return discovered
 
     async def _open(self, connection: Connection) -> Introspection:
         """Connect and introspect a connection, storing its introspection's value.
@@ -318,8 +317,7 @@ class ControllerRunner:
                     "controllers built from it are out of date"
                 )
 
-            named = _named_subconnections(introspection, name)
-            specs = _taken(named, self._takes[id(connection)])
+            specs = {spec.name: spec for spec in introspection.subconnections}
             old_specs = self._subconnections[id(connection)]
             for changed in sorted(old_specs.keys() | specs.keys()):
                 old, new = old_specs.get(changed), specs.get(changed)
@@ -430,16 +428,37 @@ def _stray_connections(
     ]
 
 
-def _named_subconnections(
-    introspection: Introspection, parent_name: str
-) -> list[ConnectionSpec]:
-    """Copies of an introspection's subconnections, named after their parent"""
-    return [spec.with_parent(parent_name) for spec in introspection.subconnections]
+def _subconnection_specs(
+    connection: Connection, introspection: Introspection, name: str
+) -> dict[str, ConnectionSpec]:
+    """The subconnections an introspection returns, by name, checked against those
+    the connection's class declares.
 
+    Raises:
+        ValueError: If two have the same name, one isn't declared, or one that's
+            declared and not optional is left out
 
-def _taken(specs: list[ConnectionSpec], takes: set[str]) -> dict[str, ConnectionSpec]:
-    """The specs the controller takes, by name"""
-    return {spec.name: spec for spec in specs if spec.name in takes}
+    """
+    declared = _declared_subconnections(type(connection))
+    specs: dict[str, ConnectionSpec] = {}
+    for spec in introspection.subconnections:
+        if spec.name in specs:
+            raise ValueError(f"{name} discovered more than one {spec.name}")
+        if spec.name not in declared:
+            raise ValueError(
+                f"{name} discovered {spec.name}, but {type(connection).__name__} "
+                f"doesn't declare it, e.g. {spec.name}: SomeConnection"
+            )
+        specs[spec.name] = spec
+
+    for attribute, (_, optional) in declared.items():
+        if attribute not in specs and not optional:
+            raise ValueError(
+                f"{name} didn't discover {attribute}, which "
+                f"{type(connection).__name__} declares and isn't optional"
+            )
+
+    return specs
 
 
 async def _introspect(connection: Connection[T]) -> Introspection[T]:
@@ -472,47 +491,40 @@ def _connection_names(spec: ControllerSpec) -> dict[int, str]:
     return names
 
 
-def _given(spec: ControllerSpec) -> set[str]:
-    """The controller arguments a spec passes, even as None, so that a connection
-    isn't discovered for them"""
-    signature = inspect.signature(spec.controller_class)
-    supplied = signature.bind_partial(*spec.args).arguments
-    return {*_connection_names(spec).values(), *supplied, *spec.kwargs}
-
-
 def _check_dependencies_not_discovered(spec: ControllerSpec) -> None:
     """Check that no connection a spec gives depends on one that could only be
     discovered, which would be opened after it.
 
     Raises:
         ValueError: If a given connection's ``depends_on`` matches the type of a
-            controller argument that isn't given
+            subconnection declared by a given connection, or by those, and so on
 
     """
-    controller_class = spec.controller_class
-    try:
-        init = controller_class.__init__ if isinstance(controller_class, type) else None
-        hints = get_type_hints(init or controller_class)
-    except NameError:
-        # Hints that can't be resolved are left to the check after opening
-        return
-
-    given = _given(spec)
-    discoverable: dict[str, type[Connection]] = {}
-    for name in inspect.signature(controller_class).parameters:
-        connection_type, _ = _connection_hint(hints.get(name))
-        if name not in given and connection_type is not None:
-            discoverable[name] = connection_type
-
     names = _connection_names(spec)
-    for connection in {id(c): c for c in spec.connections}.values():
+    given = list({id(c): c for c in spec.connections}.values())
+
+    discoverable: dict[str, type[Connection]] = {}
+
+    def collect(connection_class: type[Connection], path: str, seen: tuple) -> None:
+        for attribute, (subclass, _) in _declared_subconnections(
+            connection_class
+        ).items():
+            subpath = f"{path}.{attribute}"
+            discoverable[subpath] = subclass
+            if subclass not in seen:
+                collect(subclass, subpath, (*seen, subclass))
+
+    for connection in given:
+        collect(type(connection), names[id(connection)], (type(connection),))
+
+    for connection in given:
+        name = names[id(connection)]
         for dependency in _dependency_types(connection):
-            for name, connection_type in discoverable.items():
+            for path, connection_type in discoverable.items():
                 if issubclass(connection_type, dependency):
                     raise ValueError(
-                        f"{names[id(connection)]} depends on {dependency.__name__}, "
-                        f"but {name} can only be discovered after "
-                        f"{names[id(connection)]} has been opened"
+                        f"{name} depends on {dependency.__name__}, but {path} can "
+                        f"only be discovered after {name} has been opened"
                     )
 
 

@@ -83,9 +83,7 @@ class WithGenericConnections(Controller):
 
 
 class WithOptionalConnection(Controller):
-    def __init__(
-        self, odin: IPConnection, odin_meta: IPConnection | None = None
-    ) -> None:
+    def __init__(self, odin: IPConnection, aux: IPConnection | None = None) -> None:
         super().__init__()
 
 
@@ -440,7 +438,7 @@ def test_keyword_only_connection_in_schema():
 def test_optional_connection_block_can_be_left_out(given: bool):
     connections = {"odin": {"ip": "localhost", "port": 8000}}
     if given:
-        connections["odin_meta"] = {"ip": "localhost", "port": 8001}
+        connections["aux"] = {"ip": "localhost", "port": 8001}
     options = _build_options_model([WithOptionalConnection]).model_validate(
         {
             "controllers": [
@@ -455,4 +453,4 @@ def test_optional_connection_block_can_be_left_out(given: bool):
     )
 
     [spec] = _controller_specs(options.controllers)  # type: ignore[attr-defined]
-    assert ("odin_meta" in spec.kwargs) is given
+    assert ("aux" in spec.kwargs) is given

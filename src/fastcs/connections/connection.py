@@ -4,6 +4,7 @@ import asyncio
 import dataclasses
 import functools
 import inspect
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextvars import ContextVar
@@ -45,9 +46,9 @@ class Introspection(Generic[IntrospectionT]):
     Args:
         value: The description of the device, available as
             ``connection.introspection``
-        subconnections: Other connections found on the device. Each is renamed
-            ``<parent_name>_<_name>``, and opened if the controller takes an argument of
-            that name that isn't given another way.
+        subconnections: Other connections found on the device. Each is opened and set
+            as the attribute of the connection that discovered it of the same name,
+            which its class declares.
 
     """
 
@@ -385,3 +386,27 @@ def _connection_hint(hint: Any) -> tuple[type[Connection] | None, bool]:
         return hint, optional
 
     return None, False
+
+
+def _declared_subconnections(
+    connection_class: type[Connection],
+) -> dict[str, tuple[type[Connection], bool]]:
+    """The subconnections a connection class declares, as annotations hinted with a
+    connection class, by name, with that class and whether it's optional"""
+    declared: dict[str, tuple[type[Connection], bool]] = {}
+    for klass in reversed(connection_class.__mro__):
+        module = vars(sys.modules[klass.__module__])
+        for name, annotation in inspect.get_annotations(klass).items():
+            if isinstance(annotation, str):
+                try:
+                    annotation = eval(annotation, module, dict(vars(klass)))
+                except NameError:
+                    # Only imported for type checking, so not a subconnection
+                    continue
+            hinted, optional = _connection_hint(annotation)
+            if hinted is not None:
+                declared[name] = (hinted, optional)
+            else:
+                declared.pop(name, None)
+
+    return declared
