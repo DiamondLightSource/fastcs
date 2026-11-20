@@ -42,6 +42,13 @@ The attribute owns the setpoint, and transports mirror it.
   calls it before running the setter, so the requested value is visible immediately;
   a value returned by the setter goes through it again, so a clamped or rejected
   value replaces it.
+- If the setter raises, the setpoint keeps the requested value and is not rolled
+  back. The setpoint means "what was last asked for", which is what an EPICS record
+  shows after a failed write; the exception propagates so the transport puts the
+  PV in alarm, and that alarm is what tells a client the write failed. Rolling back
+  was rejected because two overlapping writes could each restore a stale value over
+  the other. A value rejected by validation or the control limits never reaches
+  the setpoint, since it is checked before anything is published.
 - A getter or setter can also drive the setpoint by returning
   `Update(readback=..., setpoint=...)` - the mechanism for a device that reports its
   own setpoint. `setpoint=None` (the default) leaves the cached setpoint alone.

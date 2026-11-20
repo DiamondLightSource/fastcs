@@ -309,15 +309,41 @@ async def test_attrw_setter_return_value_updates_setpoint_cache():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("attr_cls", [AttrW, AttrRW])
+async def test_setpoint_is_published_before_the_setter_runs(attr_cls):
+    published: list[int] = []
+    seen_by_setter: list[int] = []
+
+    async def on_setpoint(value: int):
+        published.append(value)
+
+    async def setter(value: int):
+        seen_by_setter.append(attr.setpoint)
+        return value + 1  # device clamps the request
+
+    attr = attr_cls(int, setter=setter)
+    attr.add_setpoint_callback(on_setpoint)
+
+    await attr.set(5)
+
+    # the request is visible while the setter runs, then the clamp replaces it
+    assert seen_by_setter == [5]
+    assert published == [5, 6]
+    assert attr.setpoint == 6
+
+
+@pytest.mark.asyncio
 async def test_attrrw_set_setter_exception_is_raised():
     async def do_set(value):
         raise ValueError("do_set failed")
 
     attr = AttrRW(int, setter=do_set)
 
+    # the setpoint keeps the requested value, as an EPICS record does after a
+    # failed write; the readback is untouched
     with pytest.raises(ValueError, match="do_set failed"):
         await attr.set(5)
-    assert attr.setpoint == 0
+    assert attr.setpoint == 5
     assert attr.readback == 0
 
 
@@ -329,11 +355,11 @@ async def test_set_setter_exception_is_logged_and_raised(mocker: MockerFixture):
     attr = AttrW(int, setter=do_set)
     mock_logger = mocker.patch("fastcs.attributes.attr_w.logger")
 
-    # exception is raised so transports can set alarms, and the rejected value
-    # does not become the setpoint
+    # exception is raised so transports can set alarms, and the setpoint keeps
+    # the requested value
     with pytest.raises(ValueError, match="do_set failed"):
         await attr.set(5)
-    assert attr.setpoint == 0
+    assert attr.setpoint == 5
 
     # the setter's exception is the one logged, at error level
     logged_exception = mock_logger.opt.call_args.kwargs["exception"]

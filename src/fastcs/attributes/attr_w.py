@@ -238,7 +238,8 @@ class AttrW(Attribute[DType_T]):
     ) -> DType_T | None:
         """The setpoint a setter's return value asks for, if any."""
         if isinstance(result, Update):
-            # A bare readback with no setpoint leaves the cached setpoint alone.
+            # No setpoint leaves the cached setpoint alone - which ``set`` has
+            # already made the requested value.
             return result.setpoint
         # A bare value is the device's accepted/clamped value - both what it will
         # report and what it understood us to ask for.
@@ -248,10 +249,11 @@ class AttrW(Attribute[DType_T]):
         """Request a new value for the attribute
 
         This should be called by clients to the attribute such as transports to apply
-        a change to the attribute. ``value`` is passed to the setter (if any) to
-        apply it to the underlying source, and only becomes the setpoint once the
-        setter succeeds. If the setter returns a value, that is treated as the
-        source's accepted/clamped value and becomes the setpoint instead.
+        a change to the attribute. ``value`` is cached as the setpoint and published
+        to the setpoint callbacks, so it is visible immediately, then passed to the
+        setter (if any) to apply it to the underlying source. If the setter returns a
+        value, that is treated as the source's accepted/clamped value and replaces
+        the setpoint. See ADR 20.
 
         To directly change the readback of an attribute, for example from an update
         loop that has read a new value from some underlying source, call
@@ -262,12 +264,15 @@ class AttrW(Attribute[DType_T]):
 
         Raises:
             ValueError: If the value cannot be coerced, or is outside the control
-                limits
-            Exception: Whatever the setter raises, leaving the setpoint unchanged
+                limits - the setpoint is not changed
+            Exception: Whatever the setter raises. The setpoint keeps the requested
+                value, as an EPICS record does after a failed write; the exception
+                propagates so that the transport can raise an alarm
 
         """
         setpoint = self.validate(value)
         check_control_limits(self._meta, setpoint)
+        await self.update_setpoint(setpoint)
 
         if self._setter is not None:
             try:
@@ -281,8 +286,6 @@ class AttrW(Attribute[DType_T]):
             if result is not None:
                 accepted = self._setter_result_setpoint(result)
                 if accepted is not None:
-                    setpoint = accepted
-
-        await self.update_setpoint(setpoint)
+                    await self.update_setpoint(accepted)
 
         self.log_event("Set complete", setpoint=self._setpoint, attribute=self)
