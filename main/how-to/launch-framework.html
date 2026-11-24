@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Use the Launch Framework for CLI Applications &#8212; fastcs 0.14.5.dev5+g936ceac42 documentation</title>
+    <title>Use the Launch Framework for CLI Applications &#8212; fastcs 0.14.5.dev6+g1f0bfa8e7 documentation</title>
   
   
   
@@ -43,7 +43,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=8b23b3f4"></script>
+    <script src="../_static/documentation_options.js?v=53ac85d1"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -557,6 +557,10 @@ the REST route prefix.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>my_driver.py<span class="w"> </span>run<span class="w"> </span>fastcs.yaml
 </pre></div>
 </div>
+<p>The file is rendered as a Jinja template before it is read, with the environment
+variables available as <code class="docutils literal notranslate"><span class="pre">env</span></code>, so a value can be written as <code class="docutils literal notranslate"><span class="pre">{{</span> <span class="pre">env.DEVICE_IP</span> <span class="pre">}}</span></code>.
+A name that isn’t defined is an error rather than an empty value; use
+<code class="docutils literal notranslate"><span class="pre">{{</span> <span class="pre">env.DEVICE_IP</span> <span class="pre">|</span> <span class="pre">default(&quot;192.168.1.100&quot;)</span> <span class="pre">}}</span></code> to give a fallback.</p>
 <section id="hosting-multiple-controllers">
 <h3>Hosting multiple controllers<a class="headerlink" href="#hosting-multiple-controllers" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">controllers:</span></code> is a list, so a single application can host more than one
