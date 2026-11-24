@@ -4,7 +4,7 @@ import enum
 import pytest
 
 from fastcs.attributes import AttrR, AttrRW
-from fastcs.controllers import Controller, ControllerVector
+from fastcs.controllers import Controller, ControllerVector, GroupLayout
 from fastcs.datatypes import Enum, Float, Int
 from fastcs.methods import Command, Scan, command, scan
 
@@ -282,3 +282,52 @@ async def test_scan_exception_sets_disconnected_and_reconnect_resumes():
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+
+@pytest.mark.parametrize(
+    "class_layout, arg_layout, expected",
+    [
+        pytest.param(None, None, GroupLayout.SUBSCREEN, id="default"),
+        pytest.param(None, GroupLayout.INLINE, GroupLayout.INLINE, id="argument"),
+        pytest.param(GroupLayout.INLINE, None, GroupLayout.INLINE, id="class"),
+        pytest.param(
+            GroupLayout.INLINE,
+            GroupLayout.SUBSCREEN,
+            GroupLayout.SUBSCREEN,
+            id="argument-over-class",
+        ),
+    ],
+)
+def test_controller_group_layout(class_layout, arg_layout, expected):
+    """group_layout resolves argument > class definition > default and reaches the API,
+    both for a root controller and for one added as a sub controller."""
+
+    class LayoutController(Controller):
+        pass
+
+    if class_layout is not None:
+        LayoutController.group_layout = class_layout
+
+    child = LayoutController(group_layout=arg_layout)
+    parent = Controller()
+    parent.add_sub_controller("child", child)
+
+    assert child.group_layout == expected
+    assert child._build_api([]).group_layout == expected
+
+    parent_api = parent._build_api([])
+    assert parent_api.group_layout == GroupLayout.SUBSCREEN
+    assert parent_api.sub_apis["child"].group_layout == expected
+
+
+def test_controller_vector_group_layout_from_class():
+    class InlineVector(ControllerVector):
+        group_layout = GroupLayout.INLINE
+
+    vector = InlineVector({1: Controller()})
+    parent = Controller()
+    parent.add_sub_controller("vector", vector)
+
+    vector_api = parent._build_api([]).sub_apis["vector"]
+    assert vector_api.group_layout == GroupLayout.INLINE
+    assert vector_api.sub_apis["1"].group_layout == GroupLayout.SUBSCREEN

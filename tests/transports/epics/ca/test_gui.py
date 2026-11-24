@@ -7,6 +7,7 @@ from pvi.device import (
     ArrayTrace,
     ButtonPanel,
     ComboBox,
+    Grid,
     Group,
     SignalR,
     SignalRW,
@@ -21,7 +22,7 @@ from pvi.device import (
 from tests.util import ColourEnum
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
-from fastcs.controllers import Controller, ControllerAPI
+from fastcs.controllers import Controller, ControllerAPI, GroupLayout
 from fastcs.datatypes import Bool, Enum, Float, Int, String, Waveform
 from fastcs.transports.epics.emission import INDEX_STEM, emit_gui_files
 from fastcs.transports.epics.gui import EpicsGUI
@@ -183,6 +184,30 @@ def test_get_components_none(mocker):
     components = gui.extract_api_components(controller_api)
 
     assert components == []
+
+
+@pytest.mark.parametrize(
+    "group_layout, layout_type",
+    [(GroupLayout.SUBSCREEN, SubScreen), (GroupLayout.INLINE, Grid)],
+)
+def test_get_components_group_layout(group_layout, layout_type):
+    sub_api = ControllerAPI(path=["DEVICE", "sub"], group_layout=group_layout)
+    controller_api = ControllerAPI(path=["DEVICE"], sub_apis={"sub": sub_api})
+    gui = EpicsGUI(controller_api)
+
+    [group] = gui.extract_api_components(controller_api)
+
+    assert isinstance(group, Group)
+    assert isinstance(group.layout, layout_type)
+
+
+def test_get_components_unsupported_group_layout():
+    sub_api = ControllerAPI(path=["DEVICE", "Sub"], group_layout="unknown")  # type: ignore
+    controller_api = ControllerAPI(path=["DEVICE"], sub_apis={"Sub": sub_api})
+    gui = EpicsGUI(controller_api)
+
+    with pytest.raises(ValueError, match="Unsupported group layout"):
+        gui.extract_api_components(controller_api)
 
 
 def test_get_command_component():

@@ -12,7 +12,7 @@ from typing import (
 )
 
 from fastcs.attributes import AnyAttributeIO, Attribute, AttrR, AttrW, HintedAttribute
-from fastcs.controllers.controller_api import ControllerAPI
+from fastcs.controllers.controller_api import ControllerAPI, GroupLayout
 from fastcs.logging import logger
 from fastcs.methods import Command, Method, Scan, UnboundCommand, UnboundScan
 from fastcs.tracer import Tracer
@@ -36,18 +36,25 @@ class BaseController(Tracer):
     # behaviour of instantiated controllers
     root_attribute: Attribute | None = None
     description: str | None = None
+    group_layout: GroupLayout = GroupLayout.SUBSCREEN
+    """How this controller's children are laid out on a parent screen."""
 
     def __init__(
         self,
         path: list[str] | None = None,
         description: str | None = None,
         ios: Sequence[AnyAttributeIO] | None = None,
+        *,
+        group_layout: GroupLayout | None = None,
     ) -> None:
         super().__init__()
 
         if description is not None:
             # Use the argument over the one class defined description.
             self.description = description
+
+        if group_layout is not None:
+            self.group_layout = group_layout
 
         self._path: list[str] = path or []
 
@@ -417,4 +424,5 @@ class BaseController(Tracer):
                 for name, sub_controller in self.sub_controllers.items()
             },
             description=self.description,
+            group_layout=self.group_layout,
         )
