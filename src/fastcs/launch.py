@@ -2,10 +2,12 @@ import asyncio
 import dataclasses
 import inspect
 import json
+import os
 from pathlib import Path
 from typing import Annotated, Any, Literal, Optional, Union, get_type_hints
 
 import typer
+from jinja2 import Environment, StrictUndefined, TemplateError
 from pydantic import BaseModel, Field, ValidationError, create_model
 from ruamel.yaml import YAML
 
@@ -135,7 +137,10 @@ def _launch(
         ctx: typer.Context,
         config: Annotated[
             Path,
-            typer.Argument(help=f"A yaml file matching the {app_name} schema"),
+            typer.Argument(
+                help=f"A yaml file matching the {app_name} schema, rendered as a Jinja "
+                "template with the environment variables referenced as env"
+            ),
         ],
         log_level: Annotated[LogLevel, typer.Option()] = LogLevel.INFO,
         graylog_endpoint: Annotated[
@@ -168,7 +173,7 @@ def _launch(
         fastcs_options = ctx.obj.fastcs_options
 
         yaml = YAML(typ="safe")
-        options_yaml = yaml.load(config)
+        options_yaml = yaml.load(_render_config(config))
 
         try:
             instance_options = fastcs_options.model_validate(options_yaml)
@@ -193,6 +198,24 @@ def _launch(
         instance.run()
 
     return launch_typer
+
+
+def _render_config(config: Path) -> str:
+    """Render a config file as a Jinja template, with the environment variables as
+    ``env``.
+
+    Raises:
+        LaunchError: If the template is invalid, or uses a name that isn't defined
+
+    """
+    environment = Environment(undefined=StrictUndefined, keep_trailing_newline=True)
+    try:
+        template = environment.from_string(config.read_text(encoding="utf-8"))
+        return template.render(env=dict(os.environ))
+    except TemplateError as e:
+        lineno = getattr(e, "lineno", None)
+        linestr = f"{config}, line {lineno}" if lineno else str(config)
+        raise LaunchError(f"Failed to render {linestr} as a Jinja template: {e}") from e
 
 
 def _instantiate_controllers(

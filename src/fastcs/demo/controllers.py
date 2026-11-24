@@ -95,6 +95,7 @@ class TemperatureController(Controller):
 
     async def connect(self) -> None:
         await self.connection.connect(self._settings.ip_settings)
+        self._connected = True
 
     async def reconnect(self):
         try:
