@@ -71,7 +71,9 @@ def _make_p4p_raw_value(pv_prefix: str, controller_api: ControllerAPI) -> dict:
             case access:
                 entry = {access: pv}
         p4p_raw_value[pv_leaf].update(entry)
-    for pv_leaf, _ in controller_api.command_methods.items():
+    for pv_leaf, method in controller_api.command_methods.items():
+        if not method.is_void:
+            continue
         pv = f"{pv_prefix}:{snake_to_pascal(pv_leaf)}"
         p4p_raw_value[pv_leaf]["x"] = pv
 

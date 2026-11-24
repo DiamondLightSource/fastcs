@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import json
+from inspect import Parameter, Signature
 from typing import Any
 
 import pytest
@@ -14,6 +15,9 @@ from tests.assertable_controller import (
 
 from fastcs.attributes import AttrR, AttrRW, AttrW
 from fastcs.datatypes import Bool, Float, Int, String
+from fastcs.exceptions import FastCSError
+from fastcs.methods import Command
+from fastcs.transports.graphql.graphql import _wrap_command
 from fastcs.transports.graphql.transport import GraphQLTransport
 
 
@@ -179,3 +183,15 @@ class TestGraphQLServer:
             response = test_client.post("/graphql", json={"query": query})
         assert response.status_code == 200
         assert response.json()["data"] == nest_response(path, expect)
+
+
+@pytest.mark.parametrize("name", ["cls", "info", "root", "self"])
+def test_command_with_reserved_argument_name_raises(name: str):
+    async def fn(value: int) -> None: ...
+
+    fn.__signature__ = Signature(  # type: ignore[attr-defined]
+        [Parameter(name, Parameter.POSITIONAL_OR_KEYWORD, annotation=int)]
+    )
+
+    with pytest.raises(FastCSError, match=f"'{name}'"):
+        _wrap_command("do", Command(fn))

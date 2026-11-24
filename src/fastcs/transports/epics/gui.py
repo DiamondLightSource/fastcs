@@ -163,6 +163,9 @@ class EpicsGUI:
 
         groups: dict[str, list[ComponentUnion]] = {}
         for attr_name, attribute in controller_api.attributes.items():
+            if not attribute.enabled:
+                continue
+
             try:
                 signal = self._get_attribute_component(
                     controller_api.path,
@@ -189,6 +192,9 @@ class EpicsGUI:
                     components.append(signal)
 
         for name, command in controller_api.command_methods.items():
+            if not command.enabled:
+                continue
+
             signal = self._get_command_component(controller_api.path, name)
 
             match command:
