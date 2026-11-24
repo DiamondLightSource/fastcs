@@ -210,7 +210,7 @@ def _render_config(config: Path) -> str:
     """
     environment = Environment(undefined=StrictUndefined, keep_trailing_newline=True)
     try:
-        template = environment.from_string(config.read_text())
+        template = environment.from_string(config.read_text(encoding="utf-8"))
         return template.render(env=dict(os.environ))
     except TemplateError as e:
         lineno = getattr(e, "lineno", None)
