@@ -1,0 +1,21 @@
+``fastcs.transports.epics.gui``
+===============================
+        
+
+.. automodule:: fastcs.transports.epics.gui
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        EpicsGUI
+    
+    

@@ -1,0 +1,27 @@
+``fastcs.demo.simulation.device``
+=================================
+        
+        
+        
+        
+
+.. automodule:: fastcs.demo.simulation.device
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        TempController
+        TempControllerAdapter
+        TempControllerDevice
+        handle_exceptions
+    
+    

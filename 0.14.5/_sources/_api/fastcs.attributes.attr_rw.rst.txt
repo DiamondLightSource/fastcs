@@ -1,0 +1,21 @@
+``fastcs.attributes.attr_rw``
+=============================
+        
+
+.. automodule:: fastcs.attributes.attr_rw
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        AttrRW
+    
+    

@@ -1,0 +1,21 @@
+``fastcs.datatypes.bool``
+=========================
+        
+
+.. automodule:: fastcs.datatypes.bool
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        Bool
+    
+    

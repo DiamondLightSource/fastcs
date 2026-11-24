@@ -1,0 +1,33 @@
+``fastcs.transports.tango.util``
+================================
+        
+        
+        
+        
+        
+        
+        
+
+.. automodule:: fastcs.transports.tango.util
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        cast_from_tango_type
+        cast_to_tango_type
+        get_server_metadata_from_attribute
+        get_server_metadata_from_datatype
+        tango_dev_class_name
+        tango_dev_name
+        validate_tango_id
+    
+    

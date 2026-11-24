@@ -1,0 +1,21 @@
+``fastcs.datatypes.string``
+===========================
+        
+
+.. automodule:: fastcs.datatypes.string
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        String
+    
+    

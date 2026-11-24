@@ -1,0 +1,23 @@
+``fastcs.methods.method``
+=========================
+        
+        
+
+.. automodule:: fastcs.methods.method
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        Method
+        MethodCallback
+    
+    

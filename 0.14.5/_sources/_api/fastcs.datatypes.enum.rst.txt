@@ -1,0 +1,23 @@
+``fastcs.datatypes.enum``
+=========================
+        
+        
+
+.. automodule:: fastcs.datatypes.enum
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        Enum
+        Enum_T
+    
+    

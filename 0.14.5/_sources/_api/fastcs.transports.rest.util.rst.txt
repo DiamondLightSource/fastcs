@@ -1,0 +1,27 @@
+``fastcs.transports.rest.util``
+===============================
+        
+        
+        
+        
+
+.. automodule:: fastcs.transports.rest.util
+    :members:
+
+    
+    
+    
+
+    
+    
+    .. rubric:: Members
+
+    .. autosummary::
+        :nosignatures:
+    
+        cast_from_rest_type
+        cast_to_rest_type
+        convert_datatype
+        validate_rest_id
+    
+    
