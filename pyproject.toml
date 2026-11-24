@@ -23,6 +23,7 @@ dependencies = [
     "pydantic",
     "ruamel.yaml",
     "IPython",
+    "jinja2",
     "loguru~=0.7",
     "pygelf",
     "stdio-socket",

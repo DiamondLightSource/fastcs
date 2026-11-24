@@ -91,6 +91,11 @@ Run with:
 python my_driver.py run fastcs.yaml
 ```
 
+The file is rendered as a Jinja template before it is read, with the environment 
+variables available as `env`, so a value can be written as `{{ env.DEVICE_IP }}`. 
+A name that isn't defined is an error rather than an empty value; use 
+`{{ env.DEVICE_IP | default("192.168.1.100") }}` to give a fallback.
+
 ### Hosting multiple controllers
 
 `controllers:` is a list, so a single application can host more than one
