@@ -35,47 +35,37 @@ class OtherConfig:
 
 
 class SingleArg(Controller):
-    def __init__(self, *, path=None):
-        super().__init__(path=path)
+    def __init__(self):
+        super().__init__()
 
 
 class NotHinted(Controller):
-    def __init__(self, arg, *, path=None):
-        super().__init__(path=path)
+    def __init__(self, arg):
+        super().__init__()
 
 
 class IsHinted(Controller):
     read = AttrR(Int())
 
-    def __init__(self, arg: SomeConfig, *, path=None) -> None:
-        super().__init__(path=path)
-
-
-class HintedPath(Controller):
-    def __init__(self, arg: SomeConfig, *, path: list[str] | None = None) -> None:
-        super().__init__(path=path)
-
-
-class NotHintedWithHintedPath(Controller):
-    def __init__(self, arg, *, path: list[str] | None = None) -> None:
-        super().__init__(path=path)
+    def __init__(self, arg: SomeConfig) -> None:
+        super().__init__()
 
 
 class ManyArgs(Controller):
-    def __init__(self, arg: SomeConfig, too_many, *, path=None):
-        super().__init__(path=path)
+    def __init__(self, arg: SomeConfig, too_many):
+        super().__init__()
 
 
 class OtherHinted(Controller):
-    def __init__(self, arg: OtherConfig, *, path=None) -> None:
-        super().__init__(path=path)
+    def __init__(self, arg: OtherConfig) -> None:
+        super().__init__()
 
 
 class Aliased(Controller):
     type_name: ClassVar[str] = "aliased-controller"
 
-    def __init__(self, arg: SomeConfig, *, path=None) -> None:
-        super().__init__(path=path)
+    def __init__(self, arg: SomeConfig) -> None:
+        super().__init__()
 
 
 runner = CliRunner()
@@ -131,7 +121,7 @@ def test_is_hinted_schema(data):
 def test_not_hinted_schema():
     error = (
         "Expected typehinting in 'NotHinted.__init__' but received "
-        "(self, arg, *, path=None). Add a typehint for `arg`."
+        "(self, arg). Add a typehint for `arg`."
     )
 
     with pytest.raises(LaunchError) as exc_info:
@@ -139,36 +129,11 @@ def test_not_hinted_schema():
     assert str(exc_info.value) == error
 
 
-def test_hinted_path_is_not_the_options_type():
-    options_model = _build_options_model([HintedPath])
-    instance = options_model.model_validate(
-        {
-            "controllers": [{"id": "my-id", "type": "tests.HintedPath", "name": "x"}],
-            "transport": [],
-        }
-    )
-
-    assert _controllers(instance)[0].name == "x"
-
-
-def test_not_hinted_with_hinted_path_schema():
-    error = (
-        "Expected typehinting in 'NotHintedWithHintedPath.__init__' but received "
-        "(self, arg, *, path: list[str] | None = None) -> None. "
-        "Add a typehint for `arg`."
-    )
-
-    with pytest.raises(LaunchError) as exc_info:
-        _build_options_model([NotHintedWithHintedPath])
-    assert str(exc_info.value) == error
-
-
 def test_over_defined_schema():
     error = (
         ""
         "Expected no more than 2 arguments for 'ManyArgs.__init__' "
-        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, too_many, "
-        "*, path=None)`"
+        "but received 3 as `(self, arg: tests.test_launch.SomeConfig, too_many)`"
     )
 
     with pytest.raises(LaunchError) as exc_info:
@@ -356,31 +321,3 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     controllers_arg = init_spy.call_args.args[1]
     assert [c.path[0] for c in controllers_arg] == ["one", "two"]
     assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]
-
-
-def test_launch_single_arg_no_options(mocker: MockerFixture, tmp_path):
-    """Test launching a controller that takes no options.
-
-    This exercises the code path where a controller doesn't expect options,
-    ensuring registered.cls() is called with only path=[entry.id].
-    """
-    init_spy = mocker.spy(FastCS, "__init__")
-    mocker.patch("fastcs.launch.FastCS.run")
-
-    cfg = tmp_path / "single_arg.yaml"
-    cfg.write_text(
-        "controllers:\n"
-        "  - id: my-controller\n"
-        "    type: tests.SingleArg\n"
-        "transport:\n"
-        "  - rest: {}\n"
-    )
-    app = _launch(SingleArg)
-    result = runner.invoke(app, ["run", str(cfg)])
-    assert result.exit_code == 0, result.output
-
-    init_spy.assert_called_once()
-    controllers_arg = init_spy.call_args.args[1]
-    assert len(controllers_arg) == 1
-    assert isinstance(controllers_arg[0], SingleArg)
-    assert controllers_arg[0].path == ["my-controller"]

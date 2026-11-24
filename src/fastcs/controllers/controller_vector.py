@@ -19,10 +19,8 @@ class ControllerVector(MutableMapping[int, Controller_T], BaseController):
         children: Mapping[int, Controller_T],
         description: str | None = None,
         ios: Sequence[AnyAttributeIO] | None = None,
-        *,
-        path: list[str] | None = None,
     ) -> None:
-        super().__init__(description=description, ios=ios, path=path)
+        super().__init__(description=description, ios=ios)
         self._children: dict[int, Controller_T] = {}
         for index, child in children.items():
             self[index] = child

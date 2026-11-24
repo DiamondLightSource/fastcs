@@ -97,16 +97,9 @@
           "default": ".bob"
         },
         "title": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Title"
+          "default": "FastCS Devices",
+          "title": "Title",
+          "type": "string"
         }
       },
       "title": "EpicsGUIOptions",

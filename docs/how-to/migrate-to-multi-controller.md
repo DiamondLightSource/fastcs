@@ -75,8 +75,8 @@ transport:
 The same applies to PVA. If you construct transports in Python rather
 than via YAML, replace `EpicsCATransport(epicsca=EpicsIOCOptions(
 pv_prefix="DEVICE"))` with `EpicsCATransport()` plus
-constructing the controller with `path=["DEVICE"]` (or set the id from the YAML
-entry's `id:` field when using `launch()`).
+`controller.set_path(["DEVICE"])` (or set the id from the YAML entry's
+`id:` field when using `launch()`).
 
 ## 4. `type:` discriminator is required on every entry
 
@@ -109,9 +109,7 @@ If you instantiate `FastCS` directly rather than via `launch()`, the
 single-controller form `FastCS(controller, transports)` still works.
 For multi-controller, pass a sequence:
 `FastCS([controller_a, controller_b], transports)`. Each Controller
-must have been constructed with a unique `path=[...]` before being handed to
-`FastCS`. Sub controllers derive their paths from their parent unless they are
-given an explicit `path`.
+must have had `set_path([...])` called before being handed to `FastCS`.
 
 ## 6. GUI/docs emission output is now a directory
 

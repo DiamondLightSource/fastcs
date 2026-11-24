@@ -64,15 +64,6 @@ class TemperatureController(Controller):
         await self.temperature.update(value)
 ```
 
-### Controller paths
-
-Every controller has a `path` that transports use to name its attributes and commands
-(e.g. the PV prefix). A controller constructed without a `path` derives it from where
-it is added: `parent.path + [name]`, recursively for all of its sub controllers. A
-controller constructed with an explicit `path=[...]` keeps it when it is added as a
-sub controller, and its own sub controllers derive their paths from it. A controller
-can only be added to one parent.
-
 ### Using Controller as a sub controller
 
 When a `Controller` is nested inside another, it organises the driver into logical

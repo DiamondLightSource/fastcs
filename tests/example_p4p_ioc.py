@@ -43,16 +43,16 @@ class ParentController(Controller):
         io_ref=SimpleAttributeIORef(),
     )
 
-    def __init__(self, description=None, ios=None, *, path=None):
-        super().__init__(description, ios, path=path)
+    def __init__(self, description=None, ios=None):
+        super().__init__(description, ios)
 
 
 class ChildController(Controller):
     fail_on_next_e = True
     c: AttrW = AttrW(Int(), io_ref=SimpleAttributeIORef())
 
-    def __init__(self, description=None, ios=None, *, path=None):
-        super().__init__(description, ios, path=path)
+    def __init__(self, description=None, ios=None):
+        super().__init__(description, ios)
 
     @command()
     async def d(self):
@@ -89,30 +89,25 @@ class ChildController(Controller):
 def run(id="P4P_TEST_DEVICE"):
     simple_attribute_io = SimpleAttributeIO()
     p4p_options = EpicsPVATransport()
-    controller = ParentController(ios=[simple_attribute_io], path=[id])
+    controller = ParentController(ios=[simple_attribute_io])
+    controller.set_path([id])
 
     class ChildVector(ControllerVector):
         vector_attribute: AttrR = AttrR(Int())
 
-        def __init__(self, children, description=None, *, path=None):
-            super().__init__(children, description, path=path)
+        def __init__(self, children, description=None):
+            super().__init__(children, description)
 
-    child_path = [id, "child"]
     sub_controller = ChildVector(
         {
             1: ChildController(
-                description="some sub controller",
-                ios=[simple_attribute_io],
-                path=child_path + ["1"],
+                description="some sub controller", ios=[simple_attribute_io]
             ),
             2: ChildController(
-                description="another sub controller",
-                ios=[simple_attribute_io],
-                path=child_path + ["2"],
+                description="another sub controller", ios=[simple_attribute_io]
             ),
         },
         description="some child vector",
-        path=child_path,
     )
 
     controller.add_sub_controller("child", sub_controller)

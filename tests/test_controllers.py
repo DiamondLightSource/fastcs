@@ -11,8 +11,8 @@ from fastcs.methods import Command, Scan, command, scan
 
 def test_controller_nesting():
     controller = Controller()
-    sub_controller = Controller(path=["a"])
-    sub_sub_controller = Controller(path=["a", "b"])
+    sub_controller = Controller()
+    sub_sub_controller = Controller()
 
     controller.a = sub_controller
     sub_controller.b = sub_sub_controller
@@ -23,83 +23,19 @@ def test_controller_nesting():
     assert sub_controller.sub_controllers == {"b": sub_sub_controller}
 
     with pytest.raises(ValueError, match=r"Cannot add sub controller"):
-        controller.a = Controller(path=["a"])
+        controller.a = Controller()
+
+    with pytest.raises(ValueError, match=r"already registered"):
+        controller.c = sub_controller
 
 
 class SomeSubController(Controller):
-    def __init__(self, *, path=None):
-        super().__init__(path=path)
+    def __init__(self):
+        super().__init__()
 
     sub_attribute = AttrR(Int())
 
     root_attribute = AttrR(Int())
-
-
-def test_sub_controller_path_is_derived_when_not_given():
-    controller = Controller()
-    sub_controller = SomeSubController()
-
-    controller.add_sub_controller("sub", sub_controller)
-
-    assert sub_controller.path == ["sub"]
-    assert sub_controller.sub_attribute.path == ["sub"]
-    assert controller._build_api().sub_apis["sub"].path == ["sub"]
-
-
-def test_sub_controller_path_is_derived_from_root_path():
-    controller = Controller(path=["DEVICE"])
-    sub_controller = SomeSubController()
-    vector = ControllerVector({1: SomeSubController(), 2: SomeSubController()})
-
-    controller.add_sub_controller("sub", sub_controller)
-    controller.add_sub_controller("vec", vector)
-
-    assert sub_controller.path == ["DEVICE", "sub"]
-    assert vector.path == ["DEVICE", "vec"]
-    assert vector[1].path == ["DEVICE", "vec", "1"]
-    assert vector[1].sub_attribute.path == ["DEVICE", "vec", "1"]
-    assert [api.path for api in controller._build_api().walk_api()] == [
-        ["DEVICE"],
-        ["DEVICE", "sub"],
-        ["DEVICE", "vec"],
-        ["DEVICE", "vec", "1"],
-        ["DEVICE", "vec", "2"],
-    ]
-
-
-def test_sub_controller_path_is_rederived_for_descendants_of_attached_controller():
-    root = Controller(path=["DEVICE"])
-    middle = Controller()
-    leaf = SomeSubController()
-    middle.add_sub_controller("leaf", leaf)
-    assert leaf.path == ["leaf"]
-
-    root.add_sub_controller("middle", middle)
-
-    assert middle.path == ["DEVICE", "middle"]
-    assert leaf.path == ["DEVICE", "middle", "leaf"]
-    assert leaf.sub_attribute.path == ["DEVICE", "middle", "leaf"]
-
-
-def test_explicit_sub_controller_path_is_kept_and_used_for_descendants():
-    root = Controller(path=["DEVICE"])
-    pinned = Controller(path=["GROUP"])
-    leaf = SomeSubController()
-    pinned.add_sub_controller("leaf", leaf)
-
-    root.add_sub_controller("pinned", pinned)
-
-    assert pinned.path == ["GROUP"]
-    assert leaf.path == ["GROUP", "leaf"]
-    assert root._build_api().sub_apis["pinned"].path == ["GROUP"]
-
-
-def test_sub_controller_cannot_be_registered_twice():
-    sub_controller = Controller()
-    Controller().add_sub_controller("sub", sub_controller)
-
-    with pytest.raises(ValueError, match="already registered under"):
-        Controller().add_sub_controller("other", sub_controller)
 
 
 class SomeController(Controller):
@@ -107,8 +43,8 @@ class SomeController(Controller):
     equal_attr = AttrR(Int())
     annotated_and_equal_attr: AttrR[int] = AttrR(Int())
 
-    def __init__(self, sub_controller: Controller, *, path=None):
-        super().__init__(path=path)
+    def __init__(self, sub_controller: Controller):
+        super().__init__()
 
         self.attr_on_object = AttrR(Int())
 
@@ -119,7 +55,7 @@ class SomeController(Controller):
 
 
 def test_attribute_parsing():
-    sub_controller = SomeSubController(path=["sub_controller"])
+    sub_controller = SomeSubController()
     controller = SomeController(sub_controller)
 
     assert set(controller.attributes.keys()) == {
@@ -150,17 +86,13 @@ async def noop() -> None:
     "member_name, member_value, expected_error",
     [
         ("attr", AttrR(Float()), r"Cannot add attribute"),
-        ("attr", Controller(path=["attr"]), r"Cannot add sub controller"),
+        ("attr", Controller(), r"Cannot add sub controller"),
         ("attr", Command(noop), r"Cannot add command"),
         ("sub_controller", AttrR(Int()), r"Cannot add attribute"),
-        (
-            "sub_controller",
-            Controller(path=["sub_controller"]),
-            r"Cannot add sub controller",
-        ),
+        ("sub_controller", Controller(), r"Cannot add sub controller"),
         ("sub_controller", Command(noop), r"Cannot add command"),
         ("cmd", AttrR(Int()), r"Cannot add attribute"),
-        ("cmd", Controller(path=["cmd"]), r"Cannot add sub controller"),
+        ("cmd", Controller(), r"Cannot add sub controller"),
         ("cmd", Command(noop), r"Cannot add command"),
     ],
 )
@@ -173,7 +105,7 @@ def test_conflicting_attributes_and_controllers_and_commands(
 
         def __init__(self):
             super().__init__()
-            self.sub_controller = Controller(path=["sub_controller"])
+            self.sub_controller = Controller()
 
     controller = ConflictingController()
 
@@ -182,7 +114,7 @@ def test_conflicting_attributes_and_controllers_and_commands(
 
 
 def test_controller_raises_error_if_passed_numeric_sub_controller_name():
-    sub_controller = SomeSubController(path=["sub_controller"])
+    sub_controller = SomeSubController()
     controller = SomeController(sub_controller)
 
     with pytest.raises(ValueError, match="Numeric-only names are not allowed"):
@@ -190,19 +122,15 @@ def test_controller_raises_error_if_passed_numeric_sub_controller_name():
 
 
 def test_controller_vector_raises_error_if_add_sub_controller_called():
-    controller_vector = ControllerVector(
-        {i: SomeSubController(path=[str(i)]) for i in range(2)}
-    )
+    controller_vector = ControllerVector({i: SomeSubController() for i in range(2)})
 
     with pytest.raises(NotImplementedError, match="Use __setitem__ instead"):
-        controller_vector.add_sub_controller(
-            "subcontroller", SomeSubController(path=["subcontroller"])
-        )
+        controller_vector.add_sub_controller("subcontroller", SomeSubController())
 
 
 def test_controller_vector_indexing():
-    controller = SomeSubController(path=["10"])
-    another_controller = SomeSubController(path=["1"])
+    controller = SomeSubController()
+    another_controller = SomeSubController()
     controller_vector = ControllerVector({1: another_controller})
     controller_vector[10] = controller
     assert controller_vector.sub_controllers["10"] == controller
@@ -214,17 +142,14 @@ def test_controller_vector_indexing():
 
 
 def test_controller_vector_delitem_raises_exception():
-    controller = SomeSubController(path=["1"])
+    controller = SomeSubController()
     controller_vector = ControllerVector({1: controller})
     with pytest.raises(NotImplementedError, match="Cannot delete"):
         del controller_vector[1]
 
 
 def test_controller_vector_iter():
-    sub_controllers = {
-        1: SomeSubController(path=["1"]),
-        2: SomeSubController(path=["2"]),
-    }
+    sub_controllers = {1: SomeSubController(), 2: SomeSubController()}
     controller_vector = ControllerVector(sub_controllers)
 
     for index, child in controller_vector.items():
@@ -282,9 +207,9 @@ async def test_sub_controller_hint_validation():
         controller._validate_type_hints()
 
     with pytest.raises(RuntimeError, match="does not match defined type"):
-        controller.add_sub_controller("child", Controller(path=["child"]))
+        controller.add_sub_controller("child", Controller())
 
-    controller.add_sub_controller("child", SomeSubController(path=["child"]))
+    controller.add_sub_controller("child", SomeSubController())
     controller._validate_type_hints()
 
 
@@ -324,7 +249,7 @@ def test_controller_api():
             pass
 
     controller = MyTestController()
-    api = controller._build_api()
+    api = controller._build_api([])
 
     assert api.description == controller.description
     assert list(api.attributes) == ["attr1", "attr2"]
@@ -388,9 +313,9 @@ def test_controller_group_layout(class_layout, arg_layout, expected):
     parent.add_sub_controller("child", child)
 
     assert child.group_layout == expected
-    assert child._build_api().group_layout == expected
+    assert child._build_api([]).group_layout == expected
 
-    parent_api = parent._build_api()
+    parent_api = parent._build_api([])
     assert parent_api.group_layout == GroupLayout.SUBSCREEN
     assert parent_api.sub_apis["child"].group_layout == expected
 
@@ -403,8 +328,6 @@ def test_controller_vector_group_layout_from_class():
     parent = Controller()
     parent.add_sub_controller("vector", vector)
 
-    assert parent._build_api().sub_apis["vector"].group_layout == GroupLayout.INLINE
-    assert (
-        parent._build_api().sub_apis["vector"].sub_apis["1"].group_layout
-        == GroupLayout.SUBSCREEN
-    )
+    vector_api = parent._build_api([]).sub_apis["vector"]
+    assert vector_api.group_layout == GroupLayout.INLINE
+    assert vector_api.sub_apis["1"].group_layout == GroupLayout.SUBSCREEN

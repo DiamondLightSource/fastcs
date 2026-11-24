@@ -78,13 +78,11 @@ class TemperatureController(Controller):
     power = AttrR(Float(), io_ref=TemperatureControllerAttributeIORef("P"))
     ramp_rate = AttrRW(Float(), io_ref=TemperatureControllerAttributeIORef("R"))
 
-    def __init__(self, ramp_count: int, settings: IPConnectionSettings, *, path=None):
+    def __init__(self, ramp_count: int, settings: IPConnectionSettings):
         self._ip_settings = settings
         self._connection = IPConnection()
 
-        super().__init__(
-            ios=[TemperatureControllerAttributeIO(self._connection)], path=path
-        )
+        super().__init__(ios=[TemperatureControllerAttributeIO(self._connection)])
 
         self._ramp_controllers: list[TemperatureRampController] = []
         for index in range(1, ramp_count + 1):
@@ -118,7 +116,8 @@ gui_options = EpicsGUIOptions(output_dir=Path("."), title="Demo Temperature Cont
 epics_ca = EpicsCATransport(gui=gui_options)
 connection_settings = IPConnectionSettings("localhost", 25565)
 logger.info("Configuring connection settings", connection_settings=connection_settings)
-controller = TemperatureController(4, connection_settings, path=["DEMO"])
+controller = TemperatureController(4, connection_settings)
+controller.set_path(["DEMO"])
 fastcs = FastCS(controller, [epics_ca])
 
 if __name__ == "__main__":
