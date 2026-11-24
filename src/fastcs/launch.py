@@ -214,8 +214,8 @@ def _render_config(config: Path) -> str:
         return template.render(env=dict(os.environ))
     except TemplateError as e:
         lineno = getattr(e, "lineno", None)
-        where = f"{config}, line {lineno}" if lineno else str(config)
-        raise LaunchError(f"Failed to render {where} as a Jinja template: {e}") from e
+        linestr = f"{config}, line {lineno}" if lineno else str(config)
+        raise LaunchError(f"Failed to render {linestr} as a Jinja template: {e}") from e
 
 
 def _instantiate_controllers(
