@@ -68,6 +68,12 @@ class Aliased(Controller):
         super().__init__()
 
 
+class Jinja(Controller):
+    def __init__(self, arg: OtherConfig) -> None:
+        super().__init__()
+        self.config = arg
+
+
 runner = CliRunner()
 
 
@@ -323,51 +329,62 @@ def test_multi_controller_run_reaches_fastcs(mocker: MockerFixture, tmp_path):
     assert [type(c) for c in controllers_arg] == [IsHinted, OtherHinted]
 
 
-class RecordsName(Controller):
-    names: ClassVar[list[str]] = []
-
-    def __init__(self, arg: SomeConfig) -> None:
-        super().__init__()
-        RecordsName.names.append(arg.name)
-
-
 def test_config_rendered_as_jinja_template(
     mocker: MockerFixture, tmp_path, monkeypatch: pytest.MonkeyPatch
 ):
+    """Environment variables referenced as `{{ env.VAR }}` in the config are
+    substituted before the YAML is parsed and passed to the controller."""
     init_spy = mocker.spy(FastCS, "__init__")
-    RecordsName.names.clear()
     mocker.patch("fastcs.launch.FastCS.run")
-    monkeypatch.setenv("DEVICE_NAME", "from-env")
+    monkeypatch.setenv("IOC_NAME", "ioc-name-env")
+    monkeypatch.setenv("IP", "ip-env")
     cfg = tmp_path / "templated.yaml"
     cfg.write_text(
         "controllers:\n"
-        "{% for id in ['one', 'two'] %}\n"
-        "  - id: {{ id }}\n"
-        "    type: tests.RecordsName\n"
-        "    name: {{ env.DEVICE_NAME }}\n"
-        "{% endfor %}\n"
+        "  - id: {{ env.IOC_NAME }}\n"
+        "    type: tests.Jinja\n"
+        "    address: {{ env.IP }}\n"
         "transport:\n"
         "  - rest: {}\n"
     )
-    app = _launch(RecordsName)
+    app = _launch(Jinja)
     result = runner.invoke(app, ["run", str(cfg)])
     assert result.exit_code == 0, result.output
-    controllers_arg = init_spy.call_args.args[1]
-    assert [c.path[0] for c in controllers_arg] == ["one", "two"]
-    assert RecordsName.names == ["from-env", "from-env"]
+    (controller,) = init_spy.call_args.args[1]
+    assert controller.path == ["ioc-name-env"]
+    assert controller.config == OtherConfig(address="ip-env")
 
 
-@pytest.mark.parametrize(
-    "template, message",
-    [
-        ("name: {{ env.NOT_A_FASTCS_TEST_VARIABLE }}\n", "NOT_A_FASTCS_TEST_VARIABLE"),
-        ("controllers:\n  - id: {{ id\n", "line 2 as a Jinja template"),
-    ],
-)
-def test_config_that_fails_to_render_raises(tmp_path, template: str, message: str):
-    cfg = tmp_path / "bad.yaml"
-    cfg.write_text(template)
-    app = _launch(IsHinted)
+def test_config_with_undefined_env_var_raises(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("IOC_NAME", "ioc-name-env")
+    monkeypatch.delenv("IP", raising=False)
+    cfg = tmp_path / "templated.yaml"
+    cfg.write_text(
+        "controllers:\n"
+        "  - id: {{ env.IOC_NAME }}\n"
+        "    type: tests.Jinja\n"
+        "    address: {{ env.IP }}\n"
+        "transport:\n"
+        "  - rest: {}\n"
+    )
+    app = _launch(Jinja)
     result = runner.invoke(app, ["run", str(cfg)])
     assert isinstance(result.exception, LaunchError)
-    assert message in str(result.exception)
+    assert "'dict object' has no attribute 'IP'" in str(result.exception)
+
+
+def test_config_with_invalid_jinja_syntax_raises(tmp_path):
+    cfg = tmp_path / "templated.yaml"
+    cfg.write_text(
+        "controllers:\n"
+        "  - id: {{ env.IOC_NAME\n"
+        "    type: tests.Jinja\n"
+        "transport:\n"
+        "  - rest: {}\n"
+    )
+    app = _launch(Jinja)
+    result = runner.invoke(app, ["run", str(cfg)])
+    assert isinstance(result.exception, LaunchError)
+    assert "line 3 as a Jinja template" in str(result.exception)
